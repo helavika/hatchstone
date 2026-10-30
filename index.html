@@ -1783,18 +1783,41 @@ function makeCrack(angle, conf, forceKnot, forceDouble) {
   const a0 = angle + rand(-0.25, 0.25);
   let x = L.ecx + Math.sin(a0) * L.ew * 0.47, y = L.ecy - Math.cos(a0) * L.eh * 0.47;
   const tx = L.ecx + rand(-0.18, 0.18) * L.ew, ty = L.ecy + rand(-0.12, 0.18) * L.eh;
-  let dir = Math.atan2(ty - y, tx - x);
   const want = rand(0.42, 0.62) * L.eh;
-  const pts = [[x, y]];
-  let length = 0, turn = 0;
+  // like a real eggshell crack: straight runs that kink sharply, zigzagging toward the middle
+  const corners = [[x, y]];
+  let length = 0, side = Math.random() < 0.5 ? 1 : -1;
   while (length < want) {
-    if (pts.length % 3 === 0) turn = rand(-0.55, 0.55);
     const toward = Math.atan2(ty - y, tx - x);
-    dir += turn * 0.5 + (toward - dir) * 0.08;
-    x += Math.cos(dir) * step; y += Math.sin(dir) * step;
-    if (!inside(L.egg, [x, y])) break;
-    pts.push([x, y]);
-    length += step;
+    side = Math.random() < 0.6 ? -side : side;
+    // mostly gentle bends, now and then a sharp kink
+    const seg = rand(10, 38) * k, a = toward + side * (Math.random() < 0.25 ? rand(0.55, 0.95) : rand(0.08, 0.4));
+    const nx = x + Math.cos(a) * seg, ny = y + Math.sin(a) * seg;
+    if (!inside(L.egg, [nx, ny])) break;
+    corners.push([nx, ny]); x = nx; y = ny; length += seg;
+  }
+  // points every few pixels along the straight runs (for tracing), keeping every corner exactly
+  const pts = [corners[0]], cornerAt = [0];
+  for (let i = 1; i < corners.length; i++) {
+    const [ax, ay] = corners[i - 1], [bx, by] = corners[i], n = Math.max(1, Math.round(Math.hypot(bx - ax, by - ay) / step));
+    for (let j = 1; j <= n; j++) pts.push([lerp(ax, bx, j / n), lerp(ay, by, j / n)]);
+    cornerAt.push(pts.length - 1);
+  }
+  // thin hairline fractures split off at some corners
+  const branches = [];
+  for (let c = 1; c < cornerAt.length - 1; c++) {
+    if (Math.random() > 0.5) continue;
+    const i = cornerAt[c], [px, py] = pts[i];
+    let dir = Math.atan2(pts[i + 1][1] - py, pts[i + 1][0] - px) + (Math.random() < 0.5 ? 1 : -1) * rand(0.6, 1.3);
+    const bp = [[px, py]];
+    let bx = px, by = py;
+    for (let n = 1 + Math.floor(rand(0, 3)), j = 0; j < n; j++) {
+      dir += rand(-0.6, 0.6);
+      bx += Math.cos(dir) * rand(6, 16) * k; by += Math.sin(dir) * rand(6, 16) * k;
+      if (!inside(L.egg, [bx, by])) break;
+      bp.push([bx, by]);
+    }
+    if (bp.length > 1) branches.push({ at: i, pts: bp, drawn: false });
   }
   const knots = [];
   if (pts.length > 10 && (forceKnot || Math.random() < conf.knots)) {
@@ -1802,7 +1825,7 @@ function makeCrack(angle, conf, forceKnot, forceDouble) {
     for (const f of two ? [0.35, 0.72] : [rand(0.4, 0.65)]) knots.push({ i: Math.floor(pts.length * f), broken: false });
   }
   const passes = forceDouble || Math.random() < conf.doubles ? 2 : 1;
-  return { pts, cov: pts.map(() => false), done: false, fade: 0, knots, passes, pass: 0 };
+  return { pts, cornerAt, branches, cov: pts.map(() => false), done: false, fade: 0, knots, passes, pass: 0 };
 }
 
 function newEgg(conf, animate = true) {
@@ -1843,30 +1866,54 @@ function updateDots() {
   [...$("dots").children].forEach((d, i) => d.classList.toggle("on", i < done));
 }
 
+/** Draw newly traced bits of a crack: a crisp dark line with a lit edge beside it, like a real fracture. */
 function inkCrack(cr, from, to) {
-  const o = game.egg.shell.ctx;
-  o.save();
-  o.lineCap = "round"; o.lineJoin = "round";
-  o.strokeStyle = "rgba(35,20,45,.82)";
-  o.lineWidth = 2.2 * L.k;
-  o.beginPath();
+  const o = game.egg.shell.ctx, k = L.k;
+  const lines = [];
   for (let i = Math.max(1, from); i <= Math.min(to, cr.pts.length - 1); i++) {
-    if (!cr.cov[i] && !cr.cov[i - 1]) continue;
-    const [ax, ay] = toShell(...cr.pts[i - 1]), [bx, by] = toShell(...cr.pts[i]);
-    o.moveTo(ax, ay); o.lineTo(bx, by);
+    if (cr.cov[i] || cr.cov[i - 1]) lines.push([toShell(...cr.pts[i - 1]), toShell(...cr.pts[i])]);
   }
-  o.stroke();
+  const fresh = cr.branches.filter(b => !b.drawn && cr.cov[b.at]);
+  for (const b of fresh) b.drawn = true;
+  const stroke = (segs, width, color, off) => {
+    o.strokeStyle = color; o.lineWidth = width;
+    o.beginPath();
+    for (const [[ax, ay], [bx, by]] of segs) { o.moveTo(ax + off, ay + off); o.lineTo(bx + off, by + off); }
+    o.stroke();
+  };
+  const branchSegs = fresh.flatMap(b => b.pts.slice(1).map((p, j) => [toShell(...b.pts[j]), toShell(...p)]));
+  o.save();
+  o.lineCap = "butt"; o.lineJoin = "miter";
+  stroke(lines, 1.1 * k, "rgba(255,255,255,.4)", 0.9 * k);
+  stroke(lines, 1.7 * k, "rgba(30,18,40,.88)", 0);
+  stroke(branchSegs, 0.7 * k, "rgba(255,255,255,.3)", 0.7 * k);
+  stroke(branchSegs, 0.9 * k, "rgba(30,18,40,.7)", 0);
   o.restore();
 }
 
-function carveChip(x, y, r) {
+/** A knock leaves a little star of hairline cracks around the spot. */
+function starCrack(x, y) {
+  const o = game.egg.shell.ctx, k = L.k, [sx, sy] = toShell(x, y);
+  o.save();
+  o.lineCap = "butt";
+  for (let i = 0, n = 3 + Math.floor(rand(0, 3)); i < n; i++) {
+    let a = i / n * TAU + rand(-0.4, 0.4), px = sx, py = sy;
+    o.beginPath(); o.moveTo(px, py);
+    for (let j = 0, m = 1 + Math.floor(rand(0, 2)); j < m; j++) { a += rand(-0.4, 0.4); px += Math.cos(a) * rand(3, 8) * k; py += Math.sin(a) * rand(3, 8) * k; o.lineTo(px, py); }
+    o.strokeStyle = "rgba(30,18,40,.38)"; o.lineWidth = 0.6 * k; o.stroke();
+  }
+  o.restore();
+}
+
+function carveChip(x, y, r, sides = 0) {
   const o = game.egg.shell.ctx, [sx, sy] = toShell(x, y);
   o.save();
   o.globalCompositeOperation = "destination-out";
   o.beginPath();
-  const n = 6 + Math.floor(rand(0, 3));
+  // few sides = an angular flake of shell; more sides = a rounder hole
+  const n = sides || 6 + Math.floor(rand(0, 3)), spin = rand(0, TAU);
   for (let i = 0; i < n; i++) {
-    const a = i / n * TAU, rr = r * rand(0.55, 1.1);
+    const a = spin + i / n * TAU + rand(-0.3, 0.3), rr = r * rand(0.55, 1.1);
     const px = sx + Math.cos(a) * rr, py = sy + Math.sin(a) * rr;
     i ? o.lineTo(px, py) : o.moveTo(px, py);
   }
@@ -1908,7 +1955,7 @@ function trace(x, y) {
   if (!newly) return;
   inkCrack(cr, lo, hi + 1);
   for (let i = lo; i <= hi; i++) {
-    if (Math.random() < 0.18) { const [px, py] = cr.pts[i]; carveChip(px, py, rand(1.5, 3.2) * L.k); spawnChips(px, py, 1, 0.6); }
+    if (Math.random() < 0.14) { const [px, py] = cr.pts[i]; carveChip(px, py, rand(1.5, 3) * L.k, 3); spawnChips(px, py, 1, 0.6); }
   }
   sfx.crackle(newly);
   tryAdvance(cr);
@@ -1942,12 +1989,14 @@ function finishCrack(cr) {
   o.save();
   o.globalCompositeOperation = "destination-out";
   o.lineCap = "round"; o.lineJoin = "round";
-  o.lineWidth = 2.6 * L.k;
+  o.lineWidth = 1.6 * L.k;
+  o.lineCap = "butt"; o.lineJoin = "miter";
   o.beginPath();
   cr.pts.forEach(([x, y], i) => { const [sx, sy] = toShell(x, y); i ? o.lineTo(sx, sy) : o.moveTo(sx, sy); });
   o.stroke();
   o.restore();
-  for (let i = 0; i < cr.pts.length; i += 3) if (Math.random() < 0.5) carveChip(...cr.pts[i], rand(2, 4.5) * L.k);
+  // flakes break off where the crack kinks
+  for (const i of cr.cornerAt) if (Math.random() < 0.4) carveChip(...cr.pts[i], rand(2, 4) * L.k, 3 + Math.floor(rand(0, 2)));
   cr.done = true;
   markTip("trace");
   if (pointer) pointer.spent = true; // the next line waits for a fresh swipe
@@ -1983,7 +2032,7 @@ function tapKnot(x, y) {
   k.broken = true;
   markTip("knot");
   const [px, py] = cr.pts[k.i];
-  carveChip(px, py, 7 * L.k);
+  carveChip(px, py, 7 * L.k, 4);
   spawnChips(px, py, 12, 1.3);
   burst(px, py, 10, ["#fff", ...game.egg.crystal.c]);
   sfx.knot();
@@ -2000,7 +2049,8 @@ function chip(x, y) {
   if (!inside(L.egg, [x, y])) return;
   const dist = Math.hypot(x - e.hollow[0], y - e.hollow[1]);
   const h = e.hollowFound ? 0.2 : Math.pow(clamp(1 - dist / (L.ew * 0.7), 0, 1), 1.6);
-  carveChip(x, y, rand(2.5, 4.5) * L.k);
+  starCrack(x, y);
+  if (Math.random() < 0.5) carveChip(x, y, rand(1.2, 2.2) * L.k, 3);
   spawnChips(x, y, 4);
   e.chipsTapped++;
   e.wob = 0.02; e.wobT = 0;
@@ -3787,14 +3837,14 @@ function drawEgg() {
 
 function drawCrackLight(e) {
   const light = e.crystal.c[1];
-  const pulse = e.state === "ready" ? 0.6 + 0.4 * Math.sin(game.time * 0.006) : 0.45;
+  const pulse = e.state === "ready" ? 0.45 + 0.3 * Math.sin(game.time * 0.006) : 0.35;
   ctx.save();
-  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.lineCap = "butt"; ctx.lineJoin = "miter";
   ctx.strokeStyle = light;
   ctx.globalAlpha = pulse;
   ctx.shadowColor = light;
-  ctx.shadowBlur = quality.low ? 0 : 10 * L.k;
-  ctx.lineWidth = 1.4 * L.k;
+  ctx.shadowBlur = quality.low ? 0 : 8 * L.k;
+  ctx.lineWidth = 0.9 * L.k;
   ctx.beginPath();
   for (const cr of e.cracks) {
     if (!cr.done) continue;
