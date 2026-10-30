@@ -2960,21 +2960,21 @@ function drawEgg() {
   ctx.rotate(wob);
   ctx.translate(-L.ecx, -L.floor);
   const x = L.ex0 - PAD, y = L.ey0 - PAD, w = L.ew + PAD * 2, h = L.eh + PAD * 2;
-  if (e.state !== "entering") {
+  // the inside and its glowling stay hidden until the shell bursts
+  const opened = e.state === "opening" || e.state === "polish" || e.state === "gleam" || e.state === "open";
+  if (opened) {
     ctx.drawImage(e.interior, x, y, w, h);
-    if (e.state !== "cracking" && e.state !== "ready") drawRays(e);
+    drawRays(e);
     if (e.matte) ctx.drawImage(e.matte.canvas, x, y, w, h);
     if (e.state === "gleam" || e.state === "open") drawGleam(e, x, y, w, h);
-  }
-  if (e.state === "cracking" || e.state === "ready") {
+    // it pops up once, while the shell flies apart
+    const k = e.state === "opening" ? clamp((e.t - 0.35) / 0.5, 0, 1) : 1;
+    if (k > 0) drawCreature(ctx, L.ecx, L.ecy + L.eh * 0.04, L.ew * 0.34 * easeOutBack(k), e.species, { mood: "happy", hop: e.hop, shiny: e.shiny });
+  } else {
     ctx.drawImage(e.shell.canvas, x, y, w, h);
     drawCrackLight(e);
     drawGloss(ctx, L.ecx, L.ecy);
-    drawGuide();
-  }
-  if (e.state !== "cracking" && e.state !== "ready") {
-    const k = e.state === "open" ? 1 : clamp((e.t - 0.35) / 0.5, 0, 1);
-    if (k > 0) drawCreature(ctx, L.ecx, L.ecy + L.eh * 0.04, L.ew * 0.34 * easeOutBack(k), e.species, { mood: "happy", hop: e.hop, shiny: e.shiny });
+    if (e.state !== "entering") drawGuide();
   }
   ctx.restore();
 }
