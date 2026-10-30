@@ -18,7 +18,10 @@ what's glowing inside. 🎧 Best with headphones.
   other and come when you call; decorate it with shards (lamp, mushrooms, cloud cushion,
   starry rug, geode shelf, moon spring, moon swing, fairy lights) and each kind of
   glowling has favorites it goes to play with
-- The Glowpedia collects every glowling and geode you've found
+- Breeding: two happy glowlings at level 5+ can lay a mixed egg in the incubator; it
+  hatches in about 3 real hours (stroke it to keep it warm), and the baby mixes their
+  parts, colors and names, sometimes with a surprise trait
+- The Glowpedia collects every glowling, geode and hybrid you've found
 - No libraries and no asset files: one `index.html` with canvas and the Web Audio API;
   every sound (crackles, the stone "tok", crystal chimes, the grotto ambience) is synthesized live
 

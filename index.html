@@ -238,6 +238,15 @@
   #spImg { height: 170px; display: block; margin: 0 auto; }
   #spFacts { font-size: 13px; color: var(--soft); line-height: 1.6; margin-top: 8px; }
 
+  /* incubator */
+  .pick { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 10px 0; }
+  .pick button { width: 64px; border-radius: 16px; border: 2px solid transparent; background: rgba(255, 255, 255, .08); padding: 4px 2px 6px; cursor: pointer; color: var(--ink); font-size: 10px; }
+  .pick button.on { border-color: #ffb3d4; background: rgba(255, 179, 212, .18); }
+  .pick button:disabled { opacity: .35; cursor: default; }
+  .pick img { width: 54px; height: 54px; display: block; margin: 0 auto; }
+  #pairPreview { font-size: 15px; font-weight: 800; min-height: 1.3em; }
+  .timer { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; margin: 8px 0; }
+
   /* backup */
   #backup .card { text-align: left; }
   #backup h2, #backup .lead2 { text-align: center; }
@@ -352,6 +361,15 @@
   <div id="switcher"></div>
 </div>
 
+<div id="incubator" class="overlay modal hidden">
+  <div class="card glass dark wide">
+    <h2 id="incTitle">The incubator</h2>
+    <p class="sub" id="incSub"></p>
+    <div class="scroll" id="incBody"></div>
+    <button class="ghost" id="incClose">close</button>
+  </div>
+</div>
+
 <div id="confirmLeave" class="overlay modal hidden">
   <div class="card glass dark">
     <h2>Leave this egg?</h2>
@@ -399,7 +417,7 @@
   <div class="card glass dark wide">
     <h2>Glowpedia</h2>
     <p class="sub" id="libSub"></p>
-    <div class="seg"><button data-lib="sp" class="on">Glowlings</button><button data-lib="cr">Geodes</button></div>
+    <div class="seg"><button data-lib="sp" class="on">Glowlings</button><button data-lib="cr">Geodes</button><button data-lib="hy">Hybrids</button></div>
     <div class="scroll"><div id="libGrid"></div></div>
   </div>
 </div>
@@ -892,6 +910,23 @@ const SPECIES = [
 ];
 const SP = Object.fromEntries(SPECIES.map(s => [s.id, s]));
 
+const PARTS = ["body", "ears", "head", "back", "pattern", "eyes"];
+const palOf = sp => sp.pal || CRYSTAL[sp.crystal].c;
+const hybridCache = new Map();
+/** What a glowling looks and sounds like: its species, or for a mixed hatchling, its own blend of parts. */
+function specOf(cr) {
+  if (!cr.mix) return SP[cr.sp];
+  let h = hybridCache.get(cr.id);
+  if (!h) {
+    const m = cr.mix;
+    h = { id: "h" + cr.id, name: m.name, crystal: m.crystal, pal: m.pal, snack: m.snack, voice: m.voice, beh: m.beh, hybrid: true, parents: m.parents,
+      lore: `A one-of-a-kind mix of ${m.parents.join(" and ")}, hatched in your nest.` };
+    for (const k of PARTS) h[k] = m[k];
+    hybridCache.set(cr.id, h);
+  }
+  return h;
+}
+
 /** Real geode outsides: rough, plain rock that gives nothing away. */
 const STONES = [
   ["#8d8a91", "#5f5c66", "#b7b3bb"], // basalt
@@ -1057,7 +1092,7 @@ function addXP(cr, n) {
     toast(grew ? `${cr.name} grew up: now ${STAGES[stageOf(cr.level)]}! ✦` : `${cr.name} reached level ${cr.level} ✦`);
     sfx.levelUp();
     const a = actors.get(cr.id);
-    if (game.scene === "nest" && a) { const v = actorView(a); burst(v.x, v.y, grew ? 40 : 18, ["#fff", ...CRYSTAL[SP[cr.sp].crystal].c], grew ? 1.6 : 1); }
+    if (game.scene === "nest" && a) { const v = actorView(a); burst(v.x, v.y, grew ? 40 : 18, ["#fff", ...palOf(specOf(cr))], grew ? 1.6 : 1); }
   }
   if (cr.level >= MAX_LEVEL) cr.xp = 0;
 }
@@ -1507,7 +1542,7 @@ function drawFace(c, s, sp, t, mood, eating) {
  */
 function drawCreature(c, x, y, s, sp, o = {}) {
   const t = o.t ?? game.time, level = o.level || 1, stage = stageOf(level), mood = o.mood || "ok";
-  const pal = CRYSTAL[sp.crystal].c;
+  const pal = palOf(sp);
   const R = seeded(sp.id);
   s *= [0.82, 1, 1.12, 1.22][stage];
   const asleep = mood === "asleep";
@@ -2125,6 +2160,15 @@ function showFound() {
   show("found", true);
 }
 
+function nestHint() {
+  if (!save.creatures.length) return "";
+  if (!tipDone("pet")) return "stroke your glowling to pet it ♥";
+  if (!tipDone("call")) return "tip: hold a finger on the floor to call everyone";
+  if (save.incubator && Date.now() >= save.incubator.due) return "the egg is ready: tap it three times to hatch ✦";
+  if (!save.incubator && !tipDone("pair") && save.creatures.filter(c => !pairReason(c)).length >= 2) return "two of your glowlings could share an egg: tap the incubator 💞";
+  return "";
+}
+
 // ---------- first-time guidance: a ghost finger shows each new move once ----------
 
 const tipDone = id => !!(save.tips && save.tips[id]);
@@ -2148,6 +2192,9 @@ function coachMove() {
     if (e.state === "ready" && !tipDone("open")) return { kind: "tap", at: [L.ecx, L.ecy] };
     if (e.state === "polish" && !tipDone("polish") && e.matte && e.matte.shine < 0.15)
       return { kind: "path", pts: [0, 1, 2, 3, 4].map(i => [L.ecx + (i % 2 ? 0.3 : -0.3) * L.ew, L.ecy - L.eh * 0.15 + i * L.eh * 0.08]) };
+  }
+  if (game.scene === "nest" && tipDone("pet") && save.incubator && Date.now() >= save.incubator.due) {
+    const [x, y] = incSpot(); return { kind: "tap", at: [x, y - N.base * 0.4] };
   }
   if (game.scene === "nest" && !tipDone("pet")) {
     const a = activeActor(), cr = activeCreature();
@@ -2225,7 +2272,7 @@ function setScene(scene) {
   show("map", scene === "map");
   show("lib", scene === "lib");
   show("found", false);
-  if (scene !== "crack") setHint(scene === "nest" && save.creatures.length && !tipDone("pet") ? "stroke your glowling to pet it ♥" : "");
+  if (scene !== "crack") setHint(scene === "nest" ? nestHint() : "");
   $("nestEmpty").hidden = !(scene === "nest" && !save.creatures.length);
   if (scene === "map") renderMap();
   if (scene === "lib") renderLib();
@@ -2266,14 +2313,14 @@ function renderMap() {
 // ---------- the nest ----------
 
 function renderNest(full) {
-  if (game.scene === "nest") syncActors();
+  if (game.scene === "nest") { syncActors(); setHint(nestHint()); }
   const cr = activeCreature();
   const hasAny = !!cr;
   $("nestTop").hidden = !hasAny;
   $("nestBottom").hidden = !hasAny;
   if (!hasAny) return;
   applyTime(cr);
-  const sp = SP[cr.sp];
+  const sp = specOf(cr);
   $("nestName").textContent = cr.name;
   $("nestLvl").textContent = `Level ${cr.level} · ${STAGES[stageOf(cr.level)]} ${sp.name}${cr.level >= MAX_LEVEL ? " · max" : ""}`;
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
@@ -2287,7 +2334,7 @@ function renderNest(full) {
   $("playBtn").disabled = cr.sleeping;
   if (full) {
     $("switcher").innerHTML = save.creatures.map(c =>
-      `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}" title="${c.name}"><img src="${creatureImage(SP[c.sp], { size: 64, level: c.level, shiny: c.shiny })}" alt="${c.name}"></button>`).join("");
+      `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}" title="${c.name}"><img src="${creatureImage(specOf(c), { size: 64, level: c.level, shiny: c.shiny })}" alt="${c.name}"></button>`).join("");
     $$("#switcher button").forEach(b => b.addEventListener("click", () => selectCreature(Number(b.dataset.id))));
   }
 }
@@ -2295,7 +2342,7 @@ function renderNest(full) {
 function openSnacks() {
   const cr = activeCreature();
   if (!cr) return;
-  const sp = SP[cr.sp];
+  const sp = specOf(cr);
   $("snackSub").textContent = `You have ✦ ${save.shards} shards. ${sp.name}s love ${SNACKS[sp.snack].name.toLowerCase()}s.`;
   $("snackList").innerHTML = Object.entries(SNACKS).map(([id, s]) =>
     `<button class="snack" data-id="${id}" ${save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>tummy +${s.tummy}${id === sp.snack ? " · favorite!" : ""}</small></span><span class="cost">✦ ${s.cost}</span></button>`).join("");
@@ -2304,7 +2351,7 @@ function openSnacks() {
 }
 
 function feed(id) {
-  const cr = activeCreature(), s = SNACKS[id], sp = SP[cr.sp];
+  const cr = activeCreature(), s = SNACKS[id], sp = specOf(cr);
   show("snacks", false);
   if (cr.tummy >= 95) { toast(`${cr.name} is too full right now`); return; }
   if (save.shards < s.cost) { toast("Not enough shards: crack a geode to earn more ✦"); return; }
@@ -2370,7 +2417,7 @@ function toggleSleep() {
   applyTime(cr);
   cr.sleeping = !cr.sleeping;
   if (cr.sleeping) { sfx.lullaby(); toast(`Sweet dreams, ${cr.name} 🌙`); }
-  else { sfx.chirp(SP[cr.sp].voice); const a = activeActor(); if (a) a.hop = 1; }
+  else { sfx.chirp(specOf(cr).voice); const a = activeActor(); if (a) a.hop = 1; }
   persist();
   renderNest();
 }
@@ -2414,7 +2461,7 @@ function syncActors() {
   for (const cr of list) {
     if (actors.has(cr.id)) continue;
     const [x, y] = roomPoint();
-    actors.set(cr.id, { id: cr.id, x, y, tx: x, ty: y, alt: 0, state: "idle", t: rand(0.5, 2.5), hop: 0, ph: rand(0, TAU), emote: null, friend: null, beh: BEHAVIOR[cr.sp] || "dance" });
+    actors.set(cr.id, { id: cr.id, x, y, tx: x, ty: y, alt: 0, state: "idle", t: rand(0.5, 2.5), hop: 0, ph: rand(0, TAU), emote: null, friend: null, beh: specOf(cr).beh || BEHAVIOR[cr.sp] || "dance" });
   }
 }
 
@@ -2440,7 +2487,7 @@ function selectCreature(id) {
   save.active = id; persist();
   const a = actors.get(id), cr = activeCreature();
   if (a) { a.hop = 1; emote(a, "♥", 1.2); }
-  sfx.chirp(SP[cr.sp].voice);
+  sfx.chirp(specOf(cr).voice);
   renderNest(true);
 }
 
@@ -2515,11 +2562,11 @@ function updateActors(dt) {
       a.state = d.id === "cushion" ? "nap" : d.id === "rug" ? "dance" : "visit";
       a.t = d.id === "cushion" ? rand(6, 10) : rand(3, 6);
       emote(a, d.emote, 2);
-      if (a.id === save.active) floatText(`${SP[cr.sp].name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
+      if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
     } else if (a.state === "walk") {
       a.state = "idle"; a.t = rand(1.2, 3.5);
       const f = a.friend && actors.get(a.friend);
-      if (f) { emote(a, pick(["♥", "♪", "✦"])); emote(f, pick(["♥", "♪", "!"])); f.hop = 1; a.hop = 1; sfx.chirp(SP[cr.sp].voice * 1.1); }
+      if (f) { emote(a, pick(["♥", "♪", "✦"])); emote(f, pick(["♥", "♪", "!"])); f.hop = 1; a.hop = 1; sfx.chirp(specOf(cr).voice * 1.1); }
       a.friend = null;
     } else if (a.state === "toBed" && d <= 3) a.state = "sleep";
     // fliers hover, swimmers glide, hoppers bounce
@@ -2543,7 +2590,7 @@ function updateActors(dt) {
     // needs show up as little thought bubbles now and then
     if (!a.emote && a.state !== "sleep" && Math.random() < dt * 0.07) {
       const m = moodOf(cr);
-      if (m === "hungry") emote(a, SNACKS[SP[cr.sp].snack].emoji, 2.2);
+      if (m === "hungry") emote(a, SNACKS[specOf(cr).snack].emoji, 2.2);
       else if (m === "sleepy") emote(a, "zz", 2.2);
       else if (m === "sad") emote(a, "…", 2.2);
     }
@@ -2590,6 +2637,7 @@ function drawRoom() {
   }
   if (hasDecor("rug")) drawStarryRug(cx - rx * 0.1, fy + ry * 0.15, rx * 0.42, ry * 0.42);
   drawCushion(N.bedX, N.bedY + N.base * 0.12, N.base * 0.85);
+  drawIncubator();
   for (const d of DECOR) if (hasDecor(d.id) && d.id !== "rug") DRAW_DECOR[d.id](...decorSpot(d.id));
 }
 
@@ -2733,7 +2781,7 @@ function drawNest() {
   for (const a of [...actors.values()].sort((p, q) => p.y - q.y)) {
     const cr = save.creatures.find(c => c.id === a.id);
     if (!cr) continue;
-    const v = actorView(a), sp = SP[cr.sp], mine = act && a.id === act.id;
+    const v = actorView(a), sp = specOf(cr), mine = act && a.id === act.id;
     ctx.fillStyle = "rgba(5,0,20,.35)";
     ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.38 * clamp(1 - a.alt / (N.base * 1.4), 0.4, 1), v.size * 0.09, 0, 0, TAU); ctx.fill();
     if (mine) {
@@ -2761,6 +2809,215 @@ function drawNest() {
     ctx.textAlign = "start";
   }
 }
+
+// ---------- breeding and incubation ----------
+
+const INCUBATE_MS = 3 * 3600e3, REST_MS = 6 * 3600e3, PAIR_LEVEL = 5;
+const incSpot = () => [lerp(N.x0, N.x1, 0.06), lerp(N.y0, N.y1, 0.5)];
+
+/** Who can share an egg right now, and if not, why. */
+function pairReason(cr) {
+  if (cr.level < PAIR_LEVEL) return `level ${cr.level}/${PAIR_LEVEL}`;
+  if (cr.sleeping) return "asleep";
+  applyTime(cr);
+  if (cr.joy < 50) return "needs joy";
+  if (cr.bredAt && Date.now() - cr.bredAt < REST_MS) return `resting ${fmtLeft(cr.bredAt + REST_MS - Date.now())}`;
+  return "";
+}
+
+function fmtLeft(ms) {
+  const m = Math.max(0, Math.ceil(ms / 60000));
+  return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : `${m}m`;
+}
+
+/** Each part comes from one parent or the other, now and then a surprise; colors and names blend. */
+function mixGlowling(a, b) {
+  const A = specOf(a), B = specOf(b), mix = {};
+  let surprise = false;
+  for (const k of PARTS) {
+    if (Math.random() < 0.08) { mix[k] = pick(SPECIES)[k]; surprise = true; }
+    else mix[k] = (Math.random() < 0.5 ? A : B)[k];
+  }
+  const pa = palOf(A), pb = palOf(B);
+  mix.pal = [pa[0], pb[1], Math.random() < 0.5 ? pa[2] : pb[2]];
+  mix.crystal = (Math.random() < 0.5 ? A : B).crystal;
+  mix.snack = pick([A.snack, B.snack]);
+  mix.voice = (A.voice + B.voice) / 2;
+  mix.beh = pick([A.beh || BEHAVIOR[a.sp] || "dance", B.beh || BEHAVIOR[b.sp] || "dance"]);
+  const na = A.name.replace(/^✦ /, ""), nb = B.name.replace(/^✦ /, "");
+  mix.name = na.slice(0, Math.ceil(na.length / 2)) + nb.slice(Math.floor(nb.length / 2)).toLowerCase();
+  mix.parents = [na, nb];
+  return { mix, surprise, shiny: Math.random() < (a.shiny || b.shiny ? 0.15 : 0.04) };
+}
+
+let pairPick = [];
+function openIncubator() {
+  sfx.tick();
+  const inc = save.incubator;
+  if (inc && Date.now() >= inc.due) { show("incubator", false); return; }
+  if (inc) {
+    $("incTitle").textContent = "Keeping it warm";
+    $("incSub").textContent = `${inc.mix.parents[0]} × ${inc.mix.parents[1]}`;
+    const cost = hurryCost();
+    $("incBody").innerHTML = `<div class="timer" id="incTimer">${fmtLeft(inc.due - Date.now())}</div>
+      <p class="sub">Stroke the egg in the incubator to keep it warm: it hatches faster. Time keeps going even when the game is closed.</p>
+      <div class="row center"><button class="act" id="hurryBtn" ${save.shards < cost ? "disabled" : ""}>✨ Hatch now · ✦ ${cost}</button></div>`;
+    $("hurryBtn").addEventListener("click", hurryEgg);
+    clearInterval(openIncubator.tick);
+    openIncubator.tick = setInterval(() => { if ($("incTimer") && save.incubator) $("incTimer").textContent = fmtLeft(save.incubator.due - Date.now()); else clearInterval(openIncubator.tick); }, 1000);
+  } else {
+    pairPick = pairPick.filter(id => save.creatures.some(c => c.id === id && !pairReason(c)));
+    const ready = save.creatures.filter(c => !pairReason(c));
+    $("incTitle").textContent = "Lay a mixed egg";
+    $("incSub").textContent = `Two happy glowlings at level ${PAIR_LEVEL}+ can share an egg. The baby mixes their parts and colors and hatches in about 3 hours.`;
+    $("incBody").innerHTML = `<div class="pick">${save.creatures.map(c => {
+      const why = pairReason(c);
+      return `<button data-id="${c.id}" class="${pairPick.includes(c.id) ? "on" : ""}" ${why ? "disabled" : ""}><img src="${creatureImage(specOf(c), { size: 64, level: c.level, shiny: c.shiny })}" alt="">${why || c.name}</button>`;
+    }).join("")}</div>
+      <p id="pairPreview" class="center">${pairPick.length === 2 ? pairPick.map(id => save.creatures.find(c => c.id === id).name).join(" ♥ ") : ready.length < 2 ? "Feed, pet and play with your glowlings to grow them up" : "Pick two glowlings"}</p>
+      <div class="row center"><button class="act" id="layBtn" ${pairPick.length === 2 ? "" : "disabled"}>💞 Lay the egg</button></div>`;
+    $$("#incBody .pick button").forEach(b => b.addEventListener("click", () => {
+      const id = Number(b.dataset.id);
+      pairPick = pairPick.includes(id) ? pairPick.filter(x => x !== id) : [...pairPick, id].slice(-2);
+      sfx.tick();
+      openIncubator();
+    }));
+    $("layBtn").addEventListener("click", layEgg);
+  }
+  show("incubator", true);
+}
+
+function layEgg() {
+  markTip("pair");
+  const [a, b] = pairPick.map(id => save.creatures.find(c => c.id === id));
+  if (!a || !b || pairReason(a) || pairReason(b)) return;
+  const { mix, surprise, shiny } = mixGlowling(a, b);
+  const now = Date.now();
+  save.incubator = { mix, surprise, shiny, laid: now, due: now + INCUBATE_MS, warmed: 0 };
+  for (const p of [a, b]) { p.bredAt = now; p.joy = clamp(p.joy + 15, 0, 100); const ac = actors.get(p.id); if (ac) { emote(ac, "♥", 2.5); ac.hop = 1; } }
+  pairPick = [];
+  persist();
+  show("incubator", false);
+  sfx.lullaby();
+  toast(`${a.name} and ${b.name} laid an egg ♥ Keep it warm!`);
+  const [x, y] = incSpot();
+  burst(x, y - N.base * 0.5, 20, ["#fff", "#ffb3d4", mix.pal[0], mix.pal[1]]);
+}
+
+const hurryCost = () => Math.max(1, Math.ceil((save.incubator.due - Date.now()) / 60000 / 6));
+function hurryEgg() {
+  const cost = hurryCost();
+  if (save.shards < cost) return;
+  save.shards -= cost;
+  save.incubator.due = Date.now();
+  persist();
+  updateTopbar();
+  show("incubator", false);
+  sfx.gleam();
+}
+
+/** Stroking the egg warms it: each stroke takes a little time off, up to half the wait. */
+function warmEgg(d) {
+  const inc = save.incubator;
+  if (!inc || Date.now() >= inc.due) return;
+  game.nest.warmDist = (game.nest.warmDist || 0) + d;
+  if (game.nest.warmDist < 40) return;
+  game.nest.warmDist = 0;
+  const cut = Math.min(30e3, INCUBATE_MS / 2 - inc.warmed);
+  if (cut <= 0) { if (!game.nest.warmToldMax) { game.nest.warmToldMax = true; toast("It's as warm as it can get ✦ now it just needs time"); } return; }
+  inc.warmed += cut; inc.due -= cut;
+  const [x, y] = incSpot();
+  game.sparks.push({ x: x + rand(-12, 12), y: y - N.base * 0.55, vx: rand(-15, 15), vy: -40, t: 0, life: 0.8, s: 4, color: pick(["#ffd27a", "#ffb3d4", "#fff"]) });
+  if (Math.random() < 0.3) persist();
+}
+
+/** Hatching: tap the ready egg three times; it cracks a little more each time, then pops open. */
+function tapIncubator() {
+  const inc = save.incubator, n = game.nest;
+  if (!inc) return openIncubator();
+  if (Date.now() < inc.due) return openIncubator();
+  n.hatchTaps = (n.hatchTaps || 0) + 1;
+  n.hatchWob = 1;
+  if (n.hatchTaps < 3) { sfx.crackDone(n.hatchTaps + 2); sfx.knock(0.8); return; }
+  // it hatches!
+  const now = Date.now();
+  const cr = { id: save.nextId++, sp: "hybrid", mix: inc.mix, name: (inc.shiny ? "✦ " : "") + inc.mix.name, shiny: inc.shiny, level: 1, xp: 0, tummy: 70, joy: 90, energy: 80, sleeping: false, last: now, born: now };
+  save.creatures.push(cr);
+  save.hybrids = save.hybrids || [];
+  save.hybrids.push({ id: cr.id, name: inc.mix.name, parents: inc.mix.parents, date: now });
+  save.incubator = null;
+  save.active = cr.id;
+  n.hatchTaps = 0;
+  persist();
+  syncActors();
+  const [x, y] = incSpot(), a = actors.get(cr.id);
+  if (a) { a.x = x + N.base * 0.4; a.y = y; a.tx = a.x; a.ty = a.y; a.hop = 1; emote(a, "♥", 2.5); }
+  burst(x, y - N.base * 0.5, 40, ["#fff", ...inc.mix.pal], 1.5);
+  sfx.burst("rare");
+  setTimeout(() => sfx.chirp(inc.mix.voice), 500);
+  toast(inc.surprise ? `${cr.name} hatched, with a surprise trait! ✦` : `${cr.name} hatched! ✦`);
+  renderNest(true);
+}
+
+function drawIncubator() {
+  const [x, y] = incSpot(), b = N.base, inc = save.incubator, n = game.nest;
+  const ready = inc && Date.now() >= inc.due;
+  // woven stand
+  ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + 4, b * 0.5, b * 0.1, 0, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#8a6a9e"; ctx.beginPath(); ctx.ellipse(x, y - b * 0.06, b * 0.42, b * 0.14, 0, 0, Math.PI); ctx.lineTo(x - b * 0.42, y - b * 0.06); ctx.fill();
+  ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 1;
+  for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(x + i * b * 0.11, y - b * 0.06); ctx.lineTo(x + i * b * 0.09, y + b * 0.06); ctx.stroke(); }
+  if (inc) {
+    // the egg: speckled in both parents' colors, glowing warmer as it gets closer
+    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), wob = ready ? Math.sin(game.time * 0.02) * 0.08 + (n.hatchWob || 0) * Math.sin(game.time * 0.05) * 0.2 : 0;
+    const glow = ctx.createRadialGradient(x, y - b * 0.4, 2, x, y - b * 0.4, b * (0.6 + k * 0.4));
+    glow.addColorStop(0, `rgba(255,214,150,${0.2 + k * 0.35})`); glow.addColorStop(1, "rgba(255,214,150,0)");
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y - b * 0.4, b * (0.6 + k * 0.4), 0, TAU); ctx.fill();
+    ctx.save();
+    ctx.translate(x, y - b * 0.1); ctx.rotate(wob); ctx.translate(-x, -(y - b * 0.1));
+    const ew = b * 0.42, eh = ew * 1.28, ey = y - b * 0.12 - eh / 2;
+    tracePoly(ctx, eggPoly(x, ey, ew, eh, 40));
+    const eg = ctx.createLinearGradient(x - ew / 2, ey - eh / 2, x + ew / 2, ey + eh / 2);
+    eg.addColorStop(0, "#fff"); eg.addColorStop(0.4, inc.mix.pal[1]); eg.addColorStop(1, inc.mix.pal[0]);
+    ctx.fillStyle = eg; ctx.fill();
+    ctx.save(); ctx.clip();
+    const R2 = seeded(inc.mix.name);
+    ctx.fillStyle = inc.mix.pal[2]; ctx.globalAlpha = 0.45;
+    for (let i = 0; i < 9; i++) { ctx.beginPath(); ctx.arc(x + (R2() - 0.5) * ew, ey + (R2() - 0.5) * eh, ew * (0.04 + R2() * 0.05), 0, TAU); ctx.fill(); }
+    ctx.restore();
+    // cracks from the taps
+    if (n.hatchTaps) {
+      ctx.strokeStyle = "rgba(40,20,50,.8)"; ctx.lineWidth = 1.6; ctx.lineJoin = "round";
+      ctx.beginPath(); ctx.moveTo(x - ew / 2, ey);
+      for (let i = 1; i <= 6; i++) ctx.lineTo(x - ew / 2 + i * ew / 6, ey + (i % 2 ? -1 : 1) * eh * 0.06);
+      ctx.stroke();
+      if (n.hatchTaps > 1) { ctx.beginPath(); ctx.moveTo(x - ew * 0.1, ey - eh * 0.04); ctx.lineTo(x - ew * 0.05, ey - eh * 0.3); ctx.moveTo(x + ew * 0.2, ey + eh * 0.04); ctx.lineTo(x + ew * 0.12, ey + eh * 0.3); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+  // the glass dome
+  const dg = ctx.createLinearGradient(x - b * 0.4, 0, x + b * 0.4, 0);
+  dg.addColorStop(0, "rgba(255,255,255,.22)"); dg.addColorStop(0.3, "rgba(255,255,255,.05)"); dg.addColorStop(1, "rgba(255,255,255,.16)");
+  ctx.fillStyle = dg; ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.4;
+  ctx.beginPath(); ctx.moveTo(x - b * 0.4, y - b * 0.06); ctx.lineTo(x - b * 0.4, y - b * 0.55); ctx.arc(x, y - b * 0.55, b * 0.4, Math.PI, 0); ctx.lineTo(x + b * 0.4, y - b * 0.06); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.beginPath(); ctx.ellipse(x - b * 0.22, y - b * 0.62, b * 0.05, b * 0.16, 0.3, 0, TAU); ctx.fill();
+  // a progress ring while it incubates, a sparkle when it's ready
+  if (inc && !ready) {
+    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1);
+    ctx.strokeStyle = "rgba(255,255,255,.18)"; ctx.lineWidth = 4;
+    ctx.beginPath(); ctx.arc(x, y - b * 0.55, b * 0.5, Math.PI * 0.85, Math.PI * 2.15); ctx.stroke();
+    ctx.strokeStyle = "#ffb3d4";
+    ctx.beginPath(); ctx.arc(x, y - b * 0.55, b * 0.5, Math.PI * 0.85, Math.PI * (0.85 + 1.3 * k)); ctx.stroke();
+  } else if (ready) {
+    ctx.fillStyle = "#ffe9a8";
+    for (let i = 0; i < 3; i++) { const a = game.time * 0.002 + i * 2.1; sparklePath(ctx, x + Math.cos(a) * b * 0.5, y - b * 0.55 + Math.sin(a) * b * 0.4, 5 + 3 * Math.abs(Math.sin(game.time * 0.005 + i))); ctx.fill(); }
+  } else {
+    ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.font = `800 ${Math.round(b * 0.28)}px ui-rounded, system-ui, sans-serif`; ctx.textAlign = "center";
+    ctx.fillText("♥", x, y - b * 0.45); ctx.textAlign = "start";
+  }
+}
+
+const atIncubator = (x, y) => { const [ix, iy] = incSpot(); return Math.hypot(x - ix, y - (iy - N.base * 0.4)) < N.base * 0.55; };
 
 // ---------- the sparkle-catch mini-game ----------
 
@@ -2800,7 +3057,7 @@ function updateCatch(dt) {
   const pace = 1 + (20 - g.t) / 14;
   if (g.spawn <= 0) {
     g.spawn = rand(0.32, 0.6) / pace;
-    g.items.push({ x: rand(30, W - 30), y: -20, vy: rand(150, 230) * pace, pebble: Math.random() < 0.22, rot: rand(0, 6), color: pick(CRYSTAL[SP[activeCreature().sp].crystal].c) });
+    g.items.push({ x: rand(30, W - 30), y: -20, vy: rand(150, 230) * pace, pebble: Math.random() < 0.22, rot: rand(0, 6), color: pick(palOf(specOf(activeCreature()))) });
   }
   for (const it of g.items) {
     it.y += it.vy * dt; it.rot += dt * 2;
@@ -2868,7 +3125,7 @@ function drawCatch() {
     }
     ctx.restore();
   }
-  drawCreature(ctx, g.x, y, s, SP[cr.sp], { level: cr.level, shiny: cr.shiny, mood: g.flinch > 0 ? "sad" : "happy" });
+  drawCreature(ctx, g.x, y, s, specOf(cr), { level: cr.level, shiny: cr.shiny, mood: g.flinch > 0 ? "sad" : "happy" });
 }
 
 // ---------- input ----------
@@ -2882,7 +3139,8 @@ cvs.addEventListener("pointerdown", e => {
   if (game.scene === "crack" && game.egg.state === "cracking") trace(e.clientX, e.clientY);
   if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = performance.now(); }
   if (game.scene === "catch" && game.catch) game.catch.tx = e.clientX;
-  if (game.scene === "nest" && !actorAt(e.clientX, e.clientY) && e.clientY > N.y0 - N.base) {
+  if (game.scene === "nest" && atIncubator(e.clientX, e.clientY)) pointer.warm = true;
+  else if (game.scene === "nest" && !actorAt(e.clientX, e.clientY) && e.clientY > N.y0 - N.base) {
     pointer.call = true;
     markTip("call");
     game.nest.call = { x: clamp(e.clientX, N.x0, N.x1), y: clamp(e.clientY, N.y0, N.y1), t: game.time };
@@ -2914,6 +3172,7 @@ cvs.addEventListener("pointermove", e => {
   }
   if (game.scene === "nest") {
     if (pointer.call) game.nest.call = { x: clamp(e.clientX, N.x0, N.x1), y: clamp(e.clientY, N.y0, N.y1), t: game.time };
+    else if (pointer.warm) warmEgg(d);
     else pet(e.clientX, e.clientY, d);
   }
   pointer.lx = e.clientX; pointer.ly = e.clientY;
@@ -2926,6 +3185,7 @@ cvs.addEventListener("pointerup", e => {
   if (game.scene === "nest") { game.nest.petting = false; sfx.purrOff(); }
   sfx.rubOff();
   if (!tap) return;
+  if (game.scene === "nest" && !calling && atIncubator(e.clientX, e.clientY)) { tapIncubator(); return; }
   if (game.scene === "crack") {
     const egg = game.egg;
     if (egg.state === "ready" && inside(L.egg, [e.clientX, e.clientY])) openEgg();
@@ -2937,7 +3197,7 @@ cvs.addEventListener("pointerup", e => {
     if (a && a.id !== save.active) selectCreature(a.id);
     else if (a) {
       const cr = activeCreature(), v = actorView(a);
-      if (!cr.sleeping) { a.hop = 1; sfx.chirp(SP[cr.sp].voice); heart(v.x, v.y - v.size * 0.4); }
+      if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); }
     }
   }
 });
@@ -2954,7 +3214,7 @@ function pet(x, y, d) {
   if (n.petDist > 45) {
     n.petDist = 0;
     heart(x, y - 10);
-    if (!tipDone("pet")) { markTip("pet"); setHint(tipDone("call") ? "" : "tip: hold a finger on the floor to call everyone"); setTimeout(() => { if (game.scene === "nest") setHint(""); }, 4000); }
+    if (!tipDone("pet")) { markTip("pet"); setHint(nestHint()); }
     cr.joy = clamp(cr.joy + 1.2, 0, 100);
     if (performance.now() - n.petXpT > 1500) { n.petXpT = performance.now(); addXP(cr, 1); persist(); renderNest(); }
   }
@@ -2994,6 +3254,7 @@ $("nextLvl").addEventListener("click", () => {
 $("foundNest").addEventListener("click", () => setScene("nest"));
 $("polishDone").addEventListener("click", finishPolish);
 $("decorBtn").addEventListener("click", openShop);
+$("incClose").addEventListener("click", () => show("incubator", false));
 $("shopClose").addEventListener("click", () => show("shop", false));
 $("foundMap").addEventListener("click", () => setScene("map"));
 $("feedBtn").addEventListener("click", openSnacks);
@@ -3004,7 +3265,7 @@ $("catchBack").addEventListener("click", () => { show("catchDone", false); game.
 $("nestName").addEventListener("click", () => {
   const cr = activeCreature();
   if (!cr) return;
-  const name = (prompt(`A new name for your ${SP[cr.sp].name}?`, cr.name) || "").trim().slice(0, 18);
+  const name = (prompt(`A new name for your ${specOf(cr).name}?`, cr.name) || "").trim().slice(0, 18);
   if (name) { cr.name = name; persist(); renderNest(true); }
 });
 $("spClose").addEventListener("click", () => show("spCard", false));
@@ -3139,8 +3400,13 @@ function nudgeBackup() {
 function renderLib() {
   const found = SPECIES.filter(s => save.seen[s.id]).length;
   const geos = CRYSTALS.filter(c => save.geodes[c.id]).length;
-  $("libSub").textContent = `${found} of ${SPECIES.length} glowlings · ${geos} of ${CRYSTALS.length} geodes · ${save.creatures.length} in your nest`;
-  if (game.libTab === "sp") {
+  const hyN = save.creatures.filter(c => c.mix).length;
+  $("libSub").textContent = `${found} of ${SPECIES.length} glowlings · ${geos} of ${CRYSTALS.length} geodes${hyN ? ` · ${hyN} hybrid${hyN === 1 ? "" : "s"}` : ""} · ${save.creatures.length} in your nest`;
+  if (game.libTab === "hy") {
+    const hy = save.creatures.filter(c => c.mix);
+    $("libGrid").innerHTML = hy.length ? hy.map((c, i) => `<button data-hy="${c.id}" style="animation-delay:${i * 20}ms"><img src="${creatureImage(specOf(c), { size: 96, level: c.level, shiny: c.shiny })}" alt=""><b>${c.name}</b><small>${c.mix.parents.join(" × ")}</small></button>`).join("")
+      : `<p class="sub" style="grid-column:1/-1;padding:20px 0">No hybrids yet. Grow two glowlings to level ${PAIR_LEVEL}, keep them happy, and tap the incubator in your nest 💞</p>`;
+  } else if (game.libTab === "sp") {
     $("libGrid").innerHTML = SPECIES.map((s, i) => {
       const seen = save.seen[s.id];
       return `<button data-sp="${s.id}" style="animation-delay:${i * 20}ms"><img src="${creatureImage(s, { size: 96, sil: !seen })}" alt=""><b>${seen ? s.name : "???"}</b><small>${CRYSTAL[s.crystal].rarity}</small></button>`;
@@ -3154,6 +3420,20 @@ function renderLib() {
   }
   $$("#libGrid [data-sp]").forEach(b => b.addEventListener("click", () => openSpecies(SP[b.dataset.sp])));
   $$("#libGrid [data-cr]").forEach(b => b.addEventListener("click", () => openCrystal(CRYSTAL[b.dataset.cr])));
+  $$("#libGrid [data-hy]").forEach(b => b.addEventListener("click", () => openHybrid(save.creatures.find(c => c.id === Number(b.dataset.hy)))));
+}
+
+function openHybrid(cr) {
+  const sp = specOf(cr);
+  sfx.tick();
+  $("spImg").src = creatureImage(sp, { size: 200, level: cr.level, shiny: cr.shiny });
+  $("spName").textContent = cr.name;
+  $("spRarity").textContent = "one of a kind";
+  $("spRarity").className = "rarity r-legendary";
+  $("spLore").textContent = sp.lore;
+  $("spFacts").innerHTML = `Favorite snack: ${SNACKS[sp.snack].emoji} ${SNACKS[sp.snack].name}<br>Level ${cr.level} · hatched ${new Date(cr.born).toLocaleDateString()}`;
+  show("spCard", true);
+  sfx.chirp(sp.voice);
 }
 
 let mysteryUrl = null;
