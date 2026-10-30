@@ -164,6 +164,15 @@
     background: rgba(255, 255, 255, .92); color: #1d1745; box-shadow: 0 6px 20px rgba(5, 0, 25, .3);
   }
   .act:disabled { opacity: .45; cursor: default; }
+  .act { white-space: nowrap; }
+  @media (max-width: 420px) { .acts { gap: 5px; } .acts .act { padding: 10px 11px; font-size: 14px; } }
+  .decor { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .08); border-radius: 16px; padding: 10px 14px; margin-top: 8px; cursor: pointer; text-align: left; }
+  .decor:disabled { opacity: .4; cursor: default; }
+  .decor .em { font-size: 26px; }
+  .decor b { display: block; }
+  .decor small { color: var(--soft); }
+  .decor .cost { margin-left: auto; font-weight: 800; color: var(--gold); white-space: nowrap; }
+  .decor.owned .cost { color: #b9e88a; }
   #switcher { display: flex; gap: 8px; overflow-x: auto; max-width: min(420px, 100%); padding: 2px; scrollbar-width: none; }
   #switcher button { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .08); padding: 2px; cursor: pointer; }
   #switcher button.on { background: rgba(255, 255, 255, .32); }
@@ -286,6 +295,7 @@
     <button class="act" id="feedBtn">🍪 Feed</button>
     <button class="act" id="playBtn">✨ Play</button>
     <button class="act" id="sleepBtn">🌙 Sleep</button>
+    <button class="act" id="decorBtn">🛋️ Decor</button>
   </div>
   <div id="switcher"></div>
 </div>
@@ -296,6 +306,15 @@
     <p class="sub" id="snackSub"></p>
     <div id="snackList"></div>
     <button class="ghost" id="snackClose">not now</button>
+  </div>
+</div>
+
+<div id="shop" class="overlay hidden">
+  <div class="card glass dark wide">
+    <h2>Decorate the nest</h2>
+    <p class="sub" id="shopSub"></p>
+    <div class="scroll" id="shopList"></div>
+    <button class="ghost" id="shopClose">done</button>
   </div>
 </div>
 
@@ -802,6 +821,20 @@ const SNACKS = {
   berry: { name: "Moonberry", emoji: "🫐", cost: 15, tummy: 40, joy: 10 },
 };
 
+/** Things to buy with shards. Each has a fixed spot in the room and the kinds of glowling that love it. */
+const DECOR = [
+  { id: "lamp", name: "Crystal lamp", emoji: "🔮", cost: 40, lovers: ["flutter"], spot: [0.04, 0.06], verb: "warms up by the lamp", emote: "✦" },
+  { id: "mushrooms", name: "Glow mushrooms", emoji: "🍄", cost: 35, lovers: ["hop"], spot: [0.1, 0.92], verb: "bounces on the mushrooms", emote: "♪" },
+  { id: "cushion", name: "Cloud cushion", emoji: "☁️", cost: 30, lovers: ["nap"], spot: [0.72, 0.92], verb: "naps on the cloud", emote: "zz" },
+  { id: "rug", name: "Starry rug", emoji: "✨", cost: 45, lovers: ["dance"], spot: [0.42, 0.55], verb: "dances on the rug", emote: "♪" },
+  { id: "shelf", name: "Geode shelf", emoji: "💎", cost: 60, lovers: ["curious"], spot: [0.18, 0], verb: "admires your geodes", emote: "💎" },
+  { id: "spring", name: "Moon spring", emoji: "💧", cost: 80, lovers: ["swim"], spot: [0.62, 0.66], verb: "splashes in the spring", emote: "💧" },
+  { id: "swing", name: "Moon swing", emoji: "🌙", cost: 70, lovers: ["nap", "hop"], spot: [0.9, 0.4], verb: "swings on the moon", emote: "♥" },
+  { id: "lights", name: "Fairy lights", emoji: "🎐", cost: 55, lovers: ["flutter", "dance"], spot: [0.5, 0], verb: "chases the fairy lights", emote: "✦" },
+];
+const DECO = Object.fromEntries(DECOR.map(d => [d.id, d]));
+const BEHAVIOR_NAMES = { flutter: "flutterers", hop: "hoppers", nap: "nappers", dance: "dancers", curious: "curious ones", swim: "swimmers" };
+
 const STAGES = ["Baby", "Young", "Grown", "Radiant"];
 const stageOf = level => level < 5 ? 0 : level < 10 ? 1 : level < 15 ? 2 : 3;
 const xpNeed = level => 20 + level * 15;
@@ -828,6 +861,7 @@ function levelConf(n) {
 const SAVE_KEY = "hatchstone.save";
 const save = Object.assign({ shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, nextId: 1 }, store.get(SAVE_KEY, {}));
 save.geodes = save.geodes || {};
+save.decor = save.decor || {};
 function persist() { store.set(SAVE_KEY, save); }
 const activeCreature = () => save.creatures.find(c => c.id === save.active) || save.creatures[0] || null;
 const totalStars = () => Object.values(save.stars).reduce((s, v) => s + v, 0);
@@ -2063,6 +2097,41 @@ function finishSnack(sn) {
   renderNest();
 }
 
+const hasDecor = id => save.decor[id] && save.decor[id].on;
+
+function openShop() {
+  sfx.tick();
+  $("shopSub").textContent = `You have ✦ ${save.shards} shards. Glowlings visit the things they love.`;
+  $("shopList").innerHTML = DECOR.map(d => {
+    const owned = save.decor[d.id];
+    const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(" and ");
+    return `<button class="decor${owned ? " owned" : ""}" data-id="${d.id}" ${!owned && save.shards < d.cost ? "disabled" : ""}><span class="em">${d.emoji}</span><span><b>${d.name}</b><small>${who[0].toUpperCase() + who.slice(1)} love it</small></span><span class="cost">${owned ? (owned.on ? "placed ✓" : "stored") : "✦ " + d.cost}</span></button>`;
+  }).join("");
+  $$("#shopList .decor").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
+  show("shop", true);
+}
+
+/** Buy a decoration, or tap one you own to put it away or bring it back. */
+function buyDecor(id) {
+  const d = DECO[id], owned = save.decor[id];
+  if (owned) { owned.on = !owned.on; sfx.tick(); }
+  else {
+    if (save.shards < d.cost) return;
+    save.shards -= d.cost;
+    save.decor[id] = { on: true, at: Date.now() };
+    sfx.levelUp();
+    toast(`${d.name} placed in the nest ✦`);
+  }
+  persist();
+  updateTopbar();
+  openShop();
+}
+
+function decorSpot(id) {
+  const [u, v] = DECO[id].spot;
+  return [lerp(N.x0, N.x1, u), lerp(N.y0, N.y1, v)];
+}
+
 function toggleSleep() {
   const cr = activeCreature();
   if (!cr) return;
@@ -2146,6 +2215,13 @@ function selectCreature(id) {
 /** Pick what to do next: nap, dance, visit a friend, or wander (flutterers chase the light motes). */
 function chooseNext(a, list) {
   const r = Math.random(), b = a.beh;
+  const loved = DECOR.filter(d => hasDecor(d.id) && d.lovers.includes(b));
+  if (loved.length && Math.random() < 0.4) {
+    const d = pick(loved), [x, y] = decorSpot(d.id);
+    a.goal = d.id; a.state = "walk";
+    a.tx = clamp(x + rand(-0.25, 0.25) * N.base, N.x0, N.x1); a.ty = clamp(y + rand(-0.1, 0.1) * N.base, N.y0, N.y1);
+    return;
+  }
   if (b === "nap" && r < 0.35) { a.state = "nap"; a.t = rand(5, 10); emote(a, "zz", 2.5); return; }
   if (b === "dance" && r < 0.3) { a.state = "dance"; a.t = rand(1.6, 2.8); emote(a, "♪", 1.6); return; }
   const others = list.filter(o => o !== a);
@@ -2185,21 +2261,29 @@ function updateActors(dt) {
     if (a.id === save.active && game.nest.petting) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
     else if (target) { a.tx = target[0]; a.ty = target[1]; }
     else if (a.state === "eat") { if ((a.t -= dt) <= 0) { a.state = "idle"; a.t = rand(1, 2); } }
-    else if (a.state === "idle" || a.state === "nap" || a.state === "dance") { if ((a.t -= dt) <= 0) chooseNext(a, list); }
+    else if (a.state === "idle" || a.state === "nap" || a.state === "dance" || a.state === "visit") { if ((a.t -= dt) <= 0) { a.decor = null; chooseNext(a, list); } }
 
     // a little personal space: glowlings gently push apart instead of piling up
-    if (a.state !== "sleep") for (const o of list) {
-      if (o === a || o.state === "sleep") continue;
+    if (a.state !== "sleep" && a.state !== "visit") for (const o of list) {
+      if (o === a || o.state === "sleep" || o.state === "visit") continue;
       const ox = a.x - o.x, oy = (a.y - o.y) * 1.6, od = Math.hypot(ox, oy), min = N.base * 0.75;
       if (od > 0.01 && od < min) { const push = (min - od) * dt * 2.5; a.x = clamp(a.x + ox / od * push, N.x0, N.x1); a.y = clamp(a.y + oy / od * push * 0.6, N.y0, N.y1); }
     }
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
-    const still = ["nap", "dance", "eat", "sleep"].includes(a.state);
+    const still = ["nap", "dance", "eat", "sleep", "visit"].includes(a.state);
     const moving = d > 3 && !still;
     if (moving) {
       const hopper = a.beh === "hop";
       const step = Math.min(d, speed * dt * (hopper ? Math.max(0, Math.sin(a.ph * 7)) * 2 : 1));
       a.x += dx / d * step; a.y += dy / d * step;
+    } else if (a.state === "walk" && a.goal) {
+      // arrived at a favorite thing
+      const d = DECO[a.goal];
+      a.decor = a.goal; a.goal = null;
+      a.state = d.id === "cushion" ? "nap" : d.id === "rug" ? "dance" : "visit";
+      a.t = d.id === "cushion" ? rand(6, 10) : rand(3, 6);
+      emote(a, d.emote, 2);
+      if (a.id === save.active) floatText(`${SP[cr.sp].name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
     } else if (a.state === "walk") {
       a.state = "idle"; a.t = rand(1.2, 3.5);
       const f = a.friend && actors.get(a.friend);
@@ -2209,11 +2293,21 @@ function updateActors(dt) {
     // fliers hover, swimmers glide, hoppers bounce
     const ease = (to, k) => { a.alt = lerp(a.alt, to, Math.min(1, dt * k)); };
     if (a.state === "sleep") ease(0, 4);
+    else if (a.state === "visit" && (a.decor === "swing" || a.decor === "spring")) { /* set above */ }
     else if (a.beh === "flutter") ease(N.base * (0.5 + 0.14 * Math.sin(a.ph * 3)), 3);
     else if (a.beh === "swim") ease(N.base * (0.28 + 0.1 * Math.sin(a.ph * 1.6)), 3);
     else if (a.beh === "hop" && moving) a.alt = Math.abs(Math.sin(a.ph * 7)) * N.base * 0.18;
     else ease(0, 6);
     if (a.state === "dance") a.hop = Math.abs(Math.sin(a.ph * 6)) * 0.6;
+    if (a.state === "visit") {
+      if (a.decor === "swing") {
+        // sit on the moon seat and swing with it
+        const seat = swingSeat();
+        a.x = seat[0]; a.y = decorSpot("swing")[1];
+        a.alt = a.y - N.base * 0.45 - (seat[1] - N.base * 0.38);
+      } else if (a.decor === "mushrooms") a.hop = Math.abs(Math.sin(a.ph * 5)) * 0.8;
+      else if (a.decor === "spring") a.alt = Math.sin(a.ph * 2.5) * N.base * 0.04;
+    }
     // needs show up as little thought bubbles now and then
     if (!a.emote && a.state !== "sleep" && Math.random() < dt * 0.07) {
       const m = moodOf(cr);
@@ -2262,8 +2356,128 @@ function drawRoom() {
     ctx.strokeStyle = `rgba(255,214,232,${0.1 + (i % 2) * 0.06})`; ctx.lineWidth = 3;
     ctx.beginPath(); ctx.ellipse(cx - rx * 0.1, fy + ry * 0.15, rx * (0.42 - i * 0.08), ry * (0.42 - i * 0.08), 0, 0, TAU); ctx.stroke();
   }
+  if (hasDecor("rug")) drawStarryRug(cx - rx * 0.1, fy + ry * 0.15, rx * 0.42, ry * 0.42);
   drawCushion(N.bedX, N.bedY + N.base * 0.12, N.base * 0.85);
+  for (const d of DECOR) if (hasDecor(d.id) && d.id !== "rug") DRAW_DECOR[d.id](...decorSpot(d.id));
 }
+
+const geodeImgs = new Map();
+function geodeImg(id) {
+  const g = save.geodes[id];
+  if (!g || !g.img) return null;
+  let im = geodeImgs.get(id);
+  if (!im || im.src !== g.img) { im = new Image(); im.src = g.img; geodeImgs.set(id, im); }
+  return im.complete ? im : null;
+}
+
+function swingSeat() {
+  const [x, y] = decorSpot("swing"), top = N.top - 20;
+  const len = y - N.base * 0.95 - top, a = Math.sin(game.time * 0.0012) * 0.18;
+  return [x + Math.sin(a) * len, top + Math.cos(a) * len, a, top];
+}
+
+function drawStarryRug(x, y, rx, ry) {
+  ctx.save();
+  ctx.fillStyle = "rgba(42,33,112,.85)";
+  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill();
+  ctx.strokeStyle = "rgba(255,233,168,.6)"; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(x, y, rx * 0.92, ry * 0.88, 0, 0, TAU); ctx.stroke();
+  ctx.fillStyle = "#ffe9a8";
+  for (let i = 0; i < 14; i++) {
+    const a = i * 2.4, d = 0.25 + (i % 5) * 0.14;
+    ctx.globalAlpha = 0.5 + 0.5 * Math.abs(Math.sin(game.time * 0.0015 + i));
+    sparklePath(ctx, x + Math.cos(a) * rx * d, y + Math.sin(a) * ry * d, 3 + (i % 3)); ctx.fill();
+  }
+  ctx.restore();
+}
+
+const DRAW_DECOR = {
+  lamp(x, y) {
+    const b = N.base, top = y - b * 1.25, pulse = 0.85 + 0.15 * Math.sin(game.time * 0.002);
+    const glow = ctx.createRadialGradient(x, top, 2, x, top, b * 1.6);
+    glow.addColorStop(0, `rgba(255,233,168,${0.35 * pulse})`); glow.addColorStop(1, "rgba(255,233,168,0)");
+    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, top, b * 1.6, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "#8a7bc8"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, top + b * 0.15); ctx.stroke();
+    ctx.fillStyle = "#5b4aa8"; ctx.beginPath(); ctx.ellipse(x, y, b * 0.2, b * 0.06, 0, 0, TAU); ctx.fill();
+    // the crystal shade
+    ctx.fillStyle = "#fff3c4";
+    ctx.beginPath(); ctx.moveTo(x, top - b * 0.28); ctx.lineTo(x + b * 0.16, top - b * 0.05); ctx.lineTo(x + b * 0.1, top + b * 0.15); ctx.lineTo(x - b * 0.1, top + b * 0.15); ctx.lineTo(x - b * 0.16, top - b * 0.05); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,200,120,.5)";
+    ctx.beginPath(); ctx.moveTo(x, top - b * 0.28); ctx.lineTo(x + b * 0.16, top - b * 0.05); ctx.lineTo(x + b * 0.1, top + b * 0.15); ctx.lineTo(x, top); ctx.closePath(); ctx.fill();
+  },
+  mushrooms(x, y) {
+    const b = N.base;
+    [[-0.3, 0.55, "#8ff0d8"], [0.15, 0.8, "#c9b8ff"], [0.42, 0.45, "#ff9ecb"]].forEach(([dx, h, col], i) => {
+      const mx = x + dx * b, cap = b * (0.18 + h * 0.18), top = y - b * h;
+      ctx.fillStyle = "#e9e1f5"; ctx.fillRect(mx - b * 0.05, top, b * 0.1, b * h);
+      const glow = ctx.createRadialGradient(mx, top, 1, mx, top, cap * 2.2);
+      glow.addColorStop(0, col + "66"); glow.addColorStop(1, col + "00");
+      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(mx, top, cap * 2.2, 0, TAU); ctx.fill();
+      ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(mx, top, cap, cap * 0.62, 0, Math.PI, TAU); ctx.fill();
+      ctx.fillStyle = "rgba(255,255,255,.8)";
+      for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(mx + (k - 1) * cap * 0.45, top - cap * (0.25 + (k % 2) * 0.15), cap * 0.09, 0, TAU); ctx.fill(); }
+    });
+  },
+  cushion(x, y) {
+    const b = N.base;
+    ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + b * 0.05, b * 0.62, b * 0.12, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#e6e0ff";
+    for (const [dx, dy, r] of [[-0.35, -0.08, 0.22], [0, -0.16, 0.28], [0.35, -0.08, 0.22], [-0.15, -0.02, 0.24], [0.18, -0.02, 0.24]]) {
+      ctx.beginPath(); ctx.arc(x + dx * b, y + dy * b, r * b, 0, TAU); ctx.fill();
+    }
+    ctx.fillStyle = "rgba(201,184,255,.5)";
+    ctx.beginPath(); ctx.ellipse(x, y + b * 0.02, b * 0.55, b * 0.1, 0, 0, TAU); ctx.fill();
+  },
+  shelf(x, y) {
+    const b = N.base, sy = y - b * 0.95, w = b * 1.5;
+    ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(x - w / 2, sy, w, 5);
+    ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x - w / 2 + 6, sy + 5, 4, 10); ctx.fillRect(x + w / 2 - 10, sy + 5, 4, 10);
+    const best = Object.entries(save.geodes).filter(([, g]) => g.img).sort((p, q) => (q[1].shine || 0) - (p[1].shine || 0)).slice(0, 3);
+    best.forEach(([id], i) => {
+      const im = geodeImg(id);
+      if (!im) return;
+      const h = b * 0.55, gw = h * im.width / im.height;
+      ctx.drawImage(im, x - w / 2 + w * (0.18 + i * 0.32) - gw / 2, sy - h, gw, h);
+    });
+  },
+  spring(x, y) {
+    const b = N.base, rx = b * 0.75, ry = b * 0.22;
+    const g = ctx.createRadialGradient(x, y, 2, x, y, rx);
+    g.addColorStop(0, "#9fe3e0"); g.addColorStop(1, "#3a6fa8");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill();
+    ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 1.5;
+    for (let i = 0; i < 3; i++) {
+      const k = ((game.time / 2200) + i / 3) % 1;
+      ctx.globalAlpha = 1 - k;
+      ctx.beginPath(); ctx.ellipse(x + rx * 0.1, y, rx * 0.2 + k * rx * 0.75, ry * 0.2 + k * ry * 0.75, 0, 0, TAU); ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.stroke();
+  },
+  swing() {
+    const [sx, sy, , top] = swingSeat(), b = N.base;
+    ctx.strokeStyle = "rgba(230,224,255,.6)"; ctx.lineWidth = 1.5;
+    const px = decorSpot("swing")[0];
+    for (const d of [-1, 1]) { ctx.beginPath(); ctx.moveTo(px + d * b * 0.3, top); ctx.lineTo(sx + d * b * 0.3, sy); ctx.stroke(); }
+    ctx.fillStyle = "#fff8d6";
+    ctx.beginPath(); ctx.arc(sx, sy, b * 0.4, Math.PI * 0.05, Math.PI * 0.95); ctx.arc(sx, sy - b * 0.14, b * 0.36, Math.PI * 0.92, Math.PI * 0.08, true); ctx.closePath(); ctx.fill();
+  },
+  lights() {
+    const x0 = N.x0 - N.base * 0.3, x1 = N.x1 + N.base * 0.3, y = N.top + 18, sag = N.base * 0.45;
+    const cols = ["#ffe9a8", "#ff9ecb", "#8fd8ef", "#b9e88a", "#c9b8ff"];
+    ctx.strokeStyle = "rgba(230,224,255,.45)"; ctx.lineWidth = 1.2;
+    ctx.beginPath(); ctx.moveTo(x0, y); ctx.quadraticCurveTo((x0 + x1) / 2, y + sag * 2, x1, y); ctx.stroke();
+    for (let i = 1; i < 14; i++) {
+      const t = i / 14, bx = lerp(x0, x1, t), by = y + sag * 4 * t * (1 - t) + 6;
+      const col = cols[i % cols.length], k = 0.55 + 0.45 * Math.sin(game.time * 0.003 + i * 1.3);
+      const g = ctx.createRadialGradient(bx, by, 1, bx, by, 14);
+      g.addColorStop(0, col); g.addColorStop(1, col + "00");
+      ctx.globalAlpha = k; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, 14, 0, TAU); ctx.fill();
+      ctx.globalAlpha = 1; ctx.fillStyle = col; ctx.beginPath(); ctx.arc(bx, by, 3.5, 0, TAU); ctx.fill();
+    }
+  },
+};
 
 function drawEmote(a, v) {
   const e = a.emote, k = e.t / e.life, r = Math.max(12, v.size * 0.2);
@@ -2294,7 +2508,7 @@ function drawNest() {
       ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.5, v.size * 0.13, 0, 0, TAU); ctx.stroke();
     }
     const asleep = a.state === "sleep" || a.state === "nap";
-    const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || (a.emote && a.emote.text === "♥") ? "happy" : moodOf(cr);
+    const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || a.state === "visit" || (a.emote && a.emote.text === "♥") ? "happy" : moodOf(cr);
     drawCreature(ctx, v.x, v.y, v.size, sp, { level: cr.level, shiny: cr.shiny, mood, hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 });
     if (asleep) {
       ctx.font = `800 ${Math.round(v.size * 0.18)}px ui-rounded, system-ui, sans-serif`;
@@ -2515,6 +2729,8 @@ $("nextLvl").addEventListener("click", () => {
 });
 $("foundNest").addEventListener("click", () => setScene("nest"));
 $("polishDone").addEventListener("click", finishPolish);
+$("decorBtn").addEventListener("click", openShop);
+$("shopClose").addEventListener("click", () => show("shop", false));
 $("foundMap").addEventListener("click", () => setScene("map"));
 $("feedBtn").addEventListener("click", openSnacks);
 $("snackClose").addEventListener("click", () => show("snacks", false));
