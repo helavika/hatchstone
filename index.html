@@ -132,6 +132,8 @@
   .fact { font-size: 12px; line-height: 1.45; color: var(--soft); margin: 4px 0; }
   #foundNote { color: var(--gold); font-size: 14px; font-weight: 700; margin: 6px 0 0; min-height: 1em; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
+  .stats.four { grid-template-columns: repeat(4, 1fr); }
+  #polishDone { position: fixed; left: 50%; bottom: calc(var(--bottom) + 40px); transform: translateX(-50%); z-index: 2; }
   .stats div { border-radius: 14px; padding: 7px 2px; background: rgba(255, 255, 255, .08); }
   .stats b { display: block; font-size: 17px; }
   .stats span { font-size: 11px; color: var(--soft); }
@@ -218,6 +220,7 @@
 </div>
 
 <div id="hint"></div>
+<button class="act" id="polishDone" hidden>✨ Shiny enough</button>
 <div id="toast" class="glass"></div>
 
 <nav id="tabs" class="glass">
@@ -255,8 +258,9 @@
     <p class="lore" id="foundLore"></p>
     <p class="fact" id="foundFact"></p>
     <p id="foundNote"></p>
-    <div class="stats">
+    <div class="stats four">
       <div><b id="stAcc">0%</b><span>on the line</span></div>
+      <div><b id="stShine">0%</b><span>shine</span></div>
       <div><b id="stTime">0s</b><span id="stTarget">time</span></div>
       <div><b id="stShards">+0</b><span>shards</span></div>
     </div>
@@ -652,6 +656,46 @@ const sfx = {
     this.grain(t, 0.06, 500, 1, 0.2, "lowpass");
   },
 
+  /** Knocking on stone: dull and short on solid rock, deep and ringing over the hollow. */
+  knock(h) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.tone(t, lerp(760, 210, h), 0.24, lerp(0.05, 0.4, h), "triangle", lerp(520, 160, h), h > 0.6);
+    this.grain(t, 0.015, lerp(4200, 1600, h), 1.5, 0.16);
+    if (h > 0.5) this.tone(t + 0.01, lerp(400, 140, h), 0.12 * h, 0.5, "sine");
+  },
+
+  /** A soft cloth on stone: the squeak rises as the surface turns glossy. */
+  rubOn() {
+    if (!this.ready() || this.rub) return;
+    const ac = this.ac;
+    const src = ac.createBufferSource(); src.buffer = this.noise; src.loop = true;
+    const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 900; bp.Q.value = 2.5;
+    const g = ac.createGain(); g.gain.value = 0;
+    src.connect(bp).connect(g).connect(this.master);
+    src.start();
+    this.rub = { src, bp, g };
+  },
+  rubSet(shine, speed) {
+    if (!this.rub) return;
+    const t = this.ac.currentTime;
+    this.rub.bp.frequency.setTargetAtTime(lerp(800, 3800, shine), t, 0.05);
+    this.rub.g.gain.setTargetAtTime(clamp(speed / 900, 0, 1) * 0.28, t, 0.04);
+  },
+  rubOff() {
+    if (!this.rub) return;
+    const { src, g } = this.rub, t = this.ac.currentTime;
+    g.gain.setTargetAtTime(0, t, 0.06);
+    src.stop(t + 0.4);
+    this.rub = null;
+  },
+
+  gleam() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    [1568, 2093, 2637, 3136].forEach((f, i) => this.tone(t + i * 0.06, f, 0.05, 1.2, "sine", null, true));
+  },
+
   tick() {
     if (!this.ready()) return;
     this.tone(this.ac.currentTime, 1500, 0.03, 0.05, "sine");
@@ -905,7 +949,7 @@ function resize() {
 
 const game = {
   scene: "menu", egg: null, time: 0, libTab: "sp",
-  chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], floaters: [],
+  chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], floaters: [], ripples: [],
   nest: { snack: null, petDist: 0, petXpT: 0, petting: false, call: null },
   actors: null,
   catch: null,
@@ -1524,12 +1568,13 @@ function newEgg(conf, animate = true) {
     clock: 0, acc: { sum: 0, n: 0 }, chipsTapped: 0, hop: 0,
   };
   const e = game.egg;
+  e.hollow = (() => { for (;;) { const p = [L.ecx + rand(-0.3, 0.3) * L.ew, L.ecy + rand(-0.32, 0.32) * L.eh]; if (inside(L.egg, p)) return p; } })();
   e.shell = makeShell(e.stone);
   e.interior = makeInterior(crystal, e.stone);
   game.pieces = [];
   $("dots").innerHTML = "<i></i>".repeat(n);
   $("lvlPill").textContent = conf.wander ? "Wander" : `Lv ${conf.n}`;
-  setHint(conf.step === 1 ? "trace the glowing line from the bright dot" : "trace the glowing lines to crack the stone");
+  setHint(conf.step === 1 ? "trace the glowing line from the bright dot" : conf.step === 2 ? "tip: knock on the stone and listen for the hollow spot" : "trace the glowing lines to crack the stone");
 }
 
 const toShell = (x, y) => [x - L.ex0 + PAD, y - L.ey0 + PAD];
@@ -1693,15 +1738,28 @@ function tapKnot(x, y) {
   return true;
 }
 
+/** Every geode has one hollow spot. Knocking tells you how close you are. */
 function chip(x, y) {
   const e = game.egg;
   if (!inside(L.egg, [x, y])) return;
-  carveChip(x, y, rand(4, 7) * L.k);
-  spawnChips(x, y, 6);
+  const dist = Math.hypot(x - e.hollow[0], y - e.hollow[1]);
+  const h = e.hollowFound ? 0.2 : Math.pow(clamp(1 - dist / (L.ew * 0.7), 0, 1), 1.6);
+  carveChip(x, y, rand(2.5, 4.5) * L.k);
+  spawnChips(x, y, 4);
   e.chipsTapped++;
   e.wob = 0.02; e.wobT = 0;
-  sfx.tok();
+  sfx.knock(h);
+  game.ripples.push({ x, y, t: 0, r: (20 + h * 50) * L.k, h });
   if (navigator.vibrate) navigator.vibrate(6);
+  if (!e.hollowFound && dist < 24 * L.k) {
+    e.hollowFound = true;
+    // a little window: peek at the crystal inside
+    carveChip(e.hollow[0], e.hollow[1], 10 * L.k);
+    burst(e.hollow[0], e.hollow[1], 14, ["#fff", ...e.crystal.c]);
+    floatText("hollow! +5 ✦", e.hollow[0], e.hollow[1] - 20 * L.k, "#ffe9a8");
+    sfx.gleam();
+    setHint("you found the hollow ✦");
+  } else if (!e.hollowFound && h > 0.75) floatText("so close…", x, y - 16 * L.k, "#e6e0ff");
 }
 
 function openEgg() {
@@ -1731,6 +1789,67 @@ function openEgg() {
   setHint("");
 }
 
+// ---------- polishing the cut face ----------
+
+/** A frosted, matte film over the inside that rubbing wears away. */
+function startPolish() {
+  const e = game.egg;
+  e.state = "polish"; e.t = 0;
+  const c = document.createElement("canvas");
+  c.width = Math.ceil((L.ew + PAD * 2) * DPR); c.height = Math.ceil((L.eh + PAD * 2) * DPR);
+  const o = c.getContext("2d");
+  o.setTransform(DPR, 0, 0, DPR, 0, 0);
+  tracePoly(o, eggPoly(L.ew / 2 + PAD, L.eh / 2 + PAD, L.ew - 10 * L.k, L.eh - 10 * L.k));
+  o.fillStyle = "rgba(226,220,236,.62)";
+  o.fill();
+  const img = o.getImageData(0, 0, c.width, c.height), d = img.data;
+  for (let i = 0; i < d.length; i += 4) if (d[i + 3]) { const n = (Math.random() - 0.5) * 40; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
+  o.putImageData(img, 0, 0);
+  // a coarse grid tracks how much of the face has been polished
+  const cell = 12 * L.k, cells = [];
+  for (let y = L.ey0; y < L.ey0 + L.eh; y += cell) for (let x = L.ex0; x < L.ex0 + L.ew; x += cell) {
+    if (inside(eggPoly(L.ecx, L.ecy, L.ew - 24 * L.k, L.eh - 24 * L.k, 48), [x + cell / 2, y + cell / 2])) cells.push({ x: x + cell / 2, y: y + cell / 2, done: false });
+  }
+  e.matte = { canvas: c, ctx: o, cells, done: 0, shine: 0 };
+  setHint("rub the geode to polish it ✦");
+  $("polishDone").hidden = false;
+}
+
+function rub(x, y, d, dt) {
+  const e = game.egg, m = e.matte;
+  if (!m || e.state !== "polish") return;
+  const r = 22 * L.k, [sx, sy] = toShell(x, y);
+  m.ctx.save();
+  m.ctx.globalCompositeOperation = "destination-out";
+  const g = m.ctx.createRadialGradient(sx, sy, 1, sx, sy, r);
+  g.addColorStop(0, "rgba(0,0,0,.45)"); g.addColorStop(1, "rgba(0,0,0,0)");
+  m.ctx.fillStyle = g;
+  m.ctx.beginPath(); m.ctx.arc(sx, sy, r, 0, TAU); m.ctx.fill();
+  m.ctx.restore();
+  for (const c of m.cells) {
+    if (c.done || (c.x - x) ** 2 + (c.y - y) ** 2 > (r * 0.8) ** 2) continue;
+    c.hits = (c.hits || 0) + 1;
+    if (c.hits >= 3) { c.done = true; m.done++; }
+  }
+  m.shine = m.done / m.cells.length;
+  sfx.rubSet(m.shine, d / Math.max(dt, 0.008));
+  if (Math.random() < 0.25) game.sparks.push({ x: x + rand(-r, r) * 0.5, y: y + rand(-r, r) * 0.5, vx: 0, vy: -20, t: 0, life: 0.5, s: rand(3, 6), color: "#fff" });
+  if (m.shine >= 0.9) finishPolish();
+}
+
+function finishPolish() {
+  const e = game.egg;
+  if (e.state !== "polish") return;
+  sfx.rubOff();
+  e.state = "gleam"; e.t = 0;
+  // polished all the way: the last bits of frost vanish
+  if (e.matte.shine >= 0.9) { e.matte.ctx.clearRect(0, 0, e.matte.canvas.width, e.matte.canvas.height); e.matte.shine = 1; }
+  $("polishDone").hidden = true;
+  setHint("");
+  sfx.gleam();
+  burst(L.ecx, L.ecy, 20, ["#fff", ...e.crystal.c], 1.2);
+}
+
 // ---------- results: stars, shards, a new friend ----------
 
 function accuracy(e) {
@@ -1745,7 +1864,8 @@ function geodeImage(withCreature = true) {
   const o = c.getContext("2d");
   o.scale(s, s);
   o.drawImage(e.interior, 0, 0, L.ew + PAD * 2, L.eh + PAD * 2);
-  drawGloss(o, L.ew / 2 + PAD, L.eh / 2 + PAD, 0.5);
+  if (e.matte) o.drawImage(e.matte.canvas, 0, 0, L.ew + PAD * 2, L.eh + PAD * 2);
+  drawGloss(o, L.ew / 2 + PAD, L.eh / 2 + PAD, 0.3 + (e.matte ? e.matte.shine : 0) * 0.6);
   if (withCreature) drawCreature(o, L.ew / 2 + PAD, L.eh / 2 + PAD + L.eh * 0.04, L.ew * 0.34, e.species, { t: 1000, mood: "happy", shiny: e.shiny });
   return c.toDataURL("image/png");
 }
@@ -1757,8 +1877,10 @@ function adopt(e) {
   const isNew = seen.count === 0;
   seen.count++;
   save.seen[sp.id] = seen;
-  // keep a small picture of the first geode of each kind for the glowpedia
-  const geo = save.geodes[e.crystal.id] || { count: 0, img: geodeImage(false) };
+  // the glowpedia keeps your shiniest geode of each kind
+  const shine = e.matte ? e.matte.shine : 0;
+  const geo = save.geodes[e.crystal.id] || { count: 0, shine: -1 };
+  if (shine > (geo.shine ?? -1)) { geo.img = geodeImage(false); geo.shine = shine; }
   geo.count++;
   save.geodes[e.crystal.id] = geo;
   let mine = save.creatures.find(c => c.sp === sp.id && !!c.shiny === e.shiny);
@@ -1782,7 +1904,8 @@ function showFound() {
   const acc = accuracy(e);
   const stars = 1 + (acc >= 0.7 ? 1 : 0) + (acc >= 0.7 && e.clock <= e.target ? 1 : 0);
   const firstClear = !conf.wander && !save.stars[conf.n];
-  const shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0);
+  const shine = e.matte ? e.matte.shine : 0;
+  const shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + (e.hollowFound ? 5 : 0) + Math.round(shine * 10);
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
   save.shards += shards;
   const { isNew, note } = adopt(e);
@@ -1797,7 +1920,8 @@ function showFound() {
   $("foundRarity").className = `rarity r-${cry.rarity}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
-  $("foundNote").textContent = note;
+  $("foundNote").textContent = note + (e.hollowFound ? " · you found the hollow" : "");
+  $("stShine").textContent = Math.round(shine * 100) + "%";
   $("stAcc").textContent = Math.round(acc * 100) + "%";
   $("stTime").textContent = Math.round(e.clock) + "s";
   $("stTarget").textContent = `★ under ${e.target}s`;
@@ -1828,6 +1952,7 @@ function setScene(scene) {
   game.scene = scene;
   document.body.className = document.body.className.replace(/\bscene-\S+/g, "").trim() + ` scene-${scene}`;
   $("hud").classList.toggle("on", scene === "crack");
+  $("polishDone").hidden = !(scene === "crack" && game.egg && game.egg.state === "polish");
   $("topbar").classList.toggle("on", ["map", "nest", "lib"].includes(scene));
   $("tabs").classList.toggle("on", ["map", "nest", "lib"].includes(scene));
   $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === scene));
@@ -2291,6 +2416,7 @@ cvs.addEventListener("pointerdown", e => {
   pointer = { x: e.clientX, y: e.clientY, t0: performance.now(), moved: 0, lx: e.clientX, ly: e.clientY };
   game.trail = game.scene === "crack" ? [{ x: e.clientX, y: e.clientY, t: performance.now() }] : [];
   if (game.scene === "crack" && game.egg.state === "cracking") trace(e.clientX, e.clientY);
+  if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = performance.now(); }
   if (game.scene === "catch" && game.catch) game.catch.tx = e.clientX;
   if (game.scene === "nest" && !actorAt(e.clientX, e.clientY) && e.clientY > N.y0 - N.base) {
     pointer.call = true;
@@ -2314,6 +2440,11 @@ cvs.addEventListener("pointermove", e => {
     for (let i = 1; i <= steps && game.egg.state === "cracking"; i++) {
       trace(lerp(pointer.lx, e.clientX, i / steps), lerp(pointer.ly, e.clientY, i / steps));
     }
+    if (game.egg.state === "polish") {
+      const now = performance.now(), steps2 = Math.max(1, Math.ceil(d / (6 * L.k)));
+      for (let i = 1; i <= steps2; i++) rub(lerp(pointer.lx, e.clientX, i / steps2), lerp(pointer.ly, e.clientY, i / steps2), d / steps2, (now - (pointer.lt || now)) / 1000 / steps2);
+      pointer.lt = now;
+    }
     game.trail.push({ x: e.clientX, y: e.clientY, t: performance.now() });
   }
   if (game.scene === "nest") {
@@ -2328,6 +2459,7 @@ cvs.addEventListener("pointerup", e => {
   const calling = pointer.call;
   pointer = null;
   if (game.scene === "nest") { game.nest.petting = false; sfx.purrOff(); }
+  sfx.rubOff();
   if (!tap) return;
   if (game.scene === "crack") {
     const egg = game.egg;
@@ -2382,6 +2514,7 @@ $("nextLvl").addEventListener("click", () => {
   startLevel(conf.wander || conf.n >= LEVELS ? 0 : conf.n + 1);
 });
 $("foundNest").addEventListener("click", () => setScene("nest"));
+$("polishDone").addEventListener("click", finishPolish);
 $("foundMap").addEventListener("click", () => setScene("map"));
 $("feedBtn").addEventListener("click", openSnacks);
 $("snackClose").addEventListener("click", () => show("snacks", false));
@@ -2488,8 +2621,9 @@ function update(dt) {
     if (e.state === "opening") {
       e.open = Math.min(1, e.t / 1.1);
       if (!e.cooed && e.t > 0.55) { e.cooed = true; sfx.chirp(e.species.voice); }
-      if (e.t > 1.6) { e.state = "open"; e.t = 0; showFound(); }
+      if (e.t > 1.6) startPolish();
     }
+    if (e.state === "gleam" && e.t > 1.1) { e.state = "open"; e.t = 0; showFound(); }
     e.hop = Math.max(0, e.hop - dt * 2.5);
   }
 
@@ -2529,6 +2663,8 @@ function update(dt) {
   game.glints = game.glints.filter(g => g.t < 0.8);
   const now = performance.now();
   game.trail = game.trail.filter(p => now - p.t < 220);
+  for (const r of game.ripples) r.t += dt;
+  game.ripples = game.ripples.filter(r => r.t < 0.6);
 }
 
 function updateClock() {
@@ -2591,15 +2727,17 @@ function drawEgg() {
   const x = L.ex0 - PAD, y = L.ey0 - PAD, w = L.ew + PAD * 2, h = L.eh + PAD * 2;
   if (e.state !== "entering") {
     ctx.drawImage(e.interior, x, y, w, h);
-    if (e.state === "open" || e.state === "opening") drawRays(e);
+    if (e.state !== "cracking" && e.state !== "ready") drawRays(e);
+    if (e.matte) ctx.drawImage(e.matte.canvas, x, y, w, h);
+    if (e.state === "gleam" || e.state === "open") drawGleam(e, x, y, w, h);
   }
-  if (e.state !== "open" && e.state !== "opening") {
+  if (e.state === "cracking" || e.state === "ready") {
     ctx.drawImage(e.shell.canvas, x, y, w, h);
     drawCrackLight(e);
     drawGloss(ctx, L.ecx, L.ecy);
     drawGuide();
   }
-  if (e.state === "opening" || e.state === "open") {
+  if (e.state !== "cracking" && e.state !== "ready") {
     const k = e.state === "open" ? 1 : clamp((e.t - 0.35) / 0.5, 0, 1);
     if (k > 0) drawCreature(ctx, L.ecx, L.ecy + L.eh * 0.04, L.ew * 0.34 * easeOutBack(k), e.species, { mood: "happy", hop: e.hop, shiny: e.shiny });
   }
@@ -2666,8 +2804,31 @@ function drawGuide() {
   ctx.restore();
 }
 
+/** A band of light sweeping across the freshly polished face. */
+function drawGleam(e, x, y, w, h) {
+  const k = e.state === "open" ? 1 : clamp(e.t / 1, 0, 1);
+  if (k >= 1) return;
+  ctx.save();
+  tracePoly(ctx, L.egg);
+  ctx.clip();
+  const sx = lerp(x - w * 0.5, x + w * 1.5, k);
+  const g = ctx.createLinearGradient(sx - 50, y, sx + 50, y + 80);
+  g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,.6)"); g.addColorStop(1, "rgba(255,255,255,0)");
+  ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
+  ctx.restore();
+}
+
+function drawRipples() {
+  for (const r of game.ripples) {
+    const k = r.t / 0.6;
+    ctx.strokeStyle = `rgba(255,255,255,${(1 - k) * (0.35 + r.h * 0.5)})`;
+    ctx.lineWidth = 1.5 + r.h * 2;
+    ctx.beginPath(); ctx.arc(r.x, r.y, r.r * k, 0, TAU); ctx.stroke();
+  }
+}
+
 function drawRays(e) {
-  const k = e.state === "open" ? 1 : e.open;
+  const k = e.state === "opening" ? e.open : 1;
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   ctx.translate(L.ecx, L.ecy);
@@ -2675,7 +2836,7 @@ function drawRays(e) {
   const r = Math.max(W, H) * 0.7;
   ctx.fillStyle = e.crystal.c[1];
   for (let i = 0; i < 14; i++) {
-    ctx.globalAlpha = (e.state === "open" ? 0.05 : 0.12 * (1 - k) + 0.05) * (i % 2 ? 0.7 : 1);
+    ctx.globalAlpha = (e.state === "opening" ? 0.12 * (1 - k) + 0.05 : 0.05) * (i % 2 ? 0.7 : 1);
     ctx.rotate(TAU / 14);
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(r, -r * 0.08); ctx.lineTo(r, r * 0.08); ctx.closePath(); ctx.fill();
   }
@@ -2825,6 +2986,7 @@ function frame(now) {
   }
   drawChips();
   drawGlints();
+  drawRipples();
   drawFlash();
   drawSparks();
   drawHearts();
