@@ -86,7 +86,7 @@
   .row.center { justify-content: center; margin-top: 16px; }
   .pillbtn {
     border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .1); color: var(--ink); border-radius: 999px;
-    padding: 10px 16px; font-weight: 700; font-size: 15px; cursor: pointer;
+    padding: 10px 16px; font-weight: 700; font-size: 15px; cursor: pointer; white-space: nowrap;
   }
   .pillbtn:active { transform: scale(.96); }
   .cave-note { font-size: 12px; color: var(--soft); margin: -4px 0 8px; text-align: left; }
@@ -196,6 +196,8 @@
   #nestName { background: none; border: 0; font-size: 24px; font-weight: 800; cursor: pointer; }
   body.scene-nest #nestName { pointer-events: auto; }
   #nestName::after { content: " ✎"; font-size: 14px; color: var(--soft); }
+  #nestShare { background: none; border: 0; font-size: 18px; cursor: pointer; vertical-align: middle; padding: 4px; }
+  body.scene-nest #nestShare { pointer-events: auto; }
   #nestLvl { font-size: 13px; color: var(--soft); margin-top: 2px; }
   #xpBar { width: 160px; margin: 6px auto 0; }
   .bar { height: 7px; border-radius: 99px; background: rgba(255, 255, 255, .15); overflow: hidden; }
@@ -346,12 +348,12 @@
       <div><b id="stShards">+0</b><span>shards</span></div>
     </div>
     <button class="cta" id="nextLvl">Next level</button><br>
-    <div class="row center" style="margin-top:12px"><button class="pillbtn" id="foundNest">🪺 Visit the nest</button><button class="pillbtn" id="foundMap">🗺️ Grotto</button></div>
+    <div class="row center" style="margin-top:12px"><button class="pillbtn" id="foundNest">🪺 Nest</button><button class="pillbtn" id="foundMap">🗺️ Grotto</button><button class="pillbtn" id="foundShare">📮 Share</button></div>
   </div>
 </div>
 
 <div id="nestTop">
-  <button id="nestName"></button>
+  <button id="nestName"></button><button id="nestShare" aria-label="Share a postcard">📮</button>
   <div id="nestLvl"></div>
   <div class="bar" id="xpBar"><i></i></div>
 </div>
@@ -3332,6 +3334,8 @@ $("nextLvl").addEventListener("click", () => {
   startLevel(conf.wander || conf.n >= LEVELS ? 0 : conf.n + 1);
 });
 $("foundNest").addEventListener("click", () => setScene("nest"));
+$("foundShare").addEventListener("click", shareFound);
+$("nestShare").addEventListener("click", () => { const cr = activeCreature(); if (cr) shareCreature(cr); });
 $("polishDone").addEventListener("click", finishPolish);
 $("decorBtn").addEventListener("click", openShop);
 $("incClose").addEventListener("click", () => show("incubator", false));
@@ -3501,6 +3505,81 @@ function renderLib() {
   $$("#libGrid [data-sp]").forEach(b => b.addEventListener("click", () => openSpecies(SP[b.dataset.sp])));
   $$("#libGrid [data-cr]").forEach(b => b.addEventListener("click", () => openCrystal(CRYSTAL[b.dataset.cr])));
   $$("#libGrid [data-hy]").forEach(b => b.addEventListener("click", () => openHybrid(save.creatures.find(c => c.id === Number(b.dataset.hy)))));
+}
+
+// ---------- postcards: a picture of your glowling to send to friends ----------
+
+const GAME_URL = "https://helavika.github.io/hatchstone/";
+
+/** Draw a 1080×1350 postcard: art in the middle, the name, what it is, and where to play. */
+function makePostcard({ art, name, line, note }) {
+  const W2 = 1080, H2 = 1350;
+  const c = document.createElement("canvas");
+  c.width = W2; c.height = H2;
+  const o = c.getContext("2d");
+  const g = o.createLinearGradient(0, 0, 0, H2);
+  g.addColorStop(0, "#110e30"); g.addColorStop(0.6, "#2a2160"); g.addColorStop(1, "#4a3a86");
+  o.fillStyle = g; o.fillRect(0, 0, W2, H2);
+  const glow = o.createRadialGradient(W2 / 2, 600, 20, W2 / 2, 600, 560);
+  glow.addColorStop(0, "rgba(201,184,255,.45)"); glow.addColorStop(1, "rgba(201,184,255,0)");
+  o.fillStyle = glow; o.fillRect(0, 0, W2, H2);
+  const R3 = seeded(name);
+  for (let i = 0; i < 90; i++) { o.globalAlpha = 0.2 + R3() * 0.7; o.fillStyle = "#e6f6ff"; o.fillRect(R3() * W2, R3() * H2, 2 + R3() * 2, 2 + R3() * 2); }
+  o.globalAlpha = 1;
+  // a frame
+  o.strokeStyle = "rgba(255,255,255,.25)"; o.lineWidth = 3;
+  o.beginPath(); o.roundRect(36, 36, W2 - 72, H2 - 72, 48); o.stroke();
+  o.textAlign = "center";
+  o.fillStyle = "rgba(236,230,255,.75)";
+  o.font = "700 40px ui-rounded, 'SF Pro Rounded', system-ui, sans-serif";
+  o.fillText("✦  H A T C H S T O N E  ✦", W2 / 2, 120);
+  // the art, as big as fits
+  const maxW = 760, maxH = 700, k = Math.min(maxW / art.width, maxH / art.height);
+  o.drawImage(art, (W2 - art.width * k) / 2, 600 - art.height * k / 2, art.width * k, art.height * k);
+  o.fillStyle = "#ffffff";
+  o.font = "800 92px ui-rounded, 'SF Pro Rounded', system-ui, sans-serif";
+  o.fillText(name, W2 / 2, 1060);
+  o.fillStyle = "#ffe9a8";
+  o.font = "700 40px ui-rounded, 'SF Pro Rounded', system-ui, sans-serif";
+  o.fillText(line, W2 / 2, 1120);
+  if (note) { o.fillStyle = "rgba(236,230,255,.8)"; o.font = "500 34px ui-rounded, system-ui, sans-serif"; o.fillText(note, W2 / 2, 1172); }
+  o.fillStyle = "rgba(236,230,255,.7)";
+  o.font = "600 32px ui-rounded, system-ui, sans-serif";
+  o.fillText("Crack open real geodes · " + GAME_URL.replace("https://", "").replace(/\/$/, ""), W2 / 2, H2 - 84);
+  return c;
+}
+
+async function sharePostcard(card, name) {
+  sfx.tick();
+  const blob = await new Promise(r => card.toBlob(r, "image/jpeg", 0.9));
+  const file = new File([blob], `hatchstone-${name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.jpg`, { type: "image/jpeg" });
+  const text = `Look who hatched in my Hatchstone nest: ${name} ✦ ${GAME_URL}`;
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    try { await navigator.share({ files: [file], title: "Hatchstone", text }); return; } catch (e) { if (e.name === "AbortError") return; }
+  }
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(file);
+  a.download = file.name;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  toast("Postcard saved ✓ Send it to a friend");
+}
+
+const imgFrom = url => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = url; });
+
+/** The postcard of a fresh hatch: the polished geode with its glowling. */
+async function shareFound() {
+  const e = game.egg, sp = e.species;
+  const art = await imgFrom(geodeImage(true, 700));
+  sharePostcard(makePostcard({ art, name: (e.shiny ? "✦ " : "") + sp.name, line: sp.moon ? `${sp.moon} moon glowling` : `from a ${e.crystal.name} geode · ${rarityOf(sp)}`, note: "just hatched in my nest" }), sp.name);
+}
+
+/** The postcard of a glowling from the nest. */
+async function shareCreature(cr) {
+  const sp = specOf(cr);
+  const art = await imgFrom(creatureImage(sp, { size: 360, level: cr.level, shiny: cr.shiny, mood: "happy" }));
+  const what = sp.hybrid ? `${sp.parents.join(" × ")} hybrid` : sp.moon ? `${sp.moon} moon glowling` : `${STAGES[stageOf(cr.level)].toLowerCase()} ${sp.name} · ${rarityOf(sp)}`;
+  sharePostcard(makePostcard({ art, name: cr.name, line: what, note: `level ${cr.level} · raised in my nest` }), cr.name);
 }
 
 function openHybrid(cr) {
