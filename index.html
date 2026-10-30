@@ -274,13 +274,26 @@
   #backupMsg, #restoreMsg { font-size: 13px; min-height: 1.2em; margin: 6px 0 0; text-align: center; }
   #restoreMsg.bad { color: #ffb3a8; }
   #backupMsg { color: #b9e88a; }
+  /* co-op invite / reply dialog */
+  #coopDialog .card { text-align: left; max-height: 85vh; max-height: 85dvh; overflow-y: auto; overscroll-behavior: contain; }
+  #coopDialog h2, #coopDialog .lead2 { text-align: center; }
+  #coopDialog .coop-actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin: 10px 0; }
+  #coopDialog input, #coopDialog select { width: 100%; border-radius: 12px; border: 1px solid var(--glass-edge); background: rgba(0,0,0,.25); color: var(--ink); padding: 10px; font: inherit; }
+  #coopDialog input { -webkit-user-select: text; user-select: text; }
+  #coopDialog label { display: block; color: var(--soft); font-size: 12px; font-weight: 700; margin: 10px 0 5px; }
+  #coopStatus { min-height: 1.3em; color: var(--soft); text-align: center; }
+  #coopError { min-height: 1.3em; color: #ffb3a8; text-align: center; }
+  #coopRoom { position: fixed; left: 50%; top: calc(var(--top) + 54px); transform: translateX(-50%); z-index: 4; display: none; }
+  #coopRoom.on { display: inline-flex; }
+  #coopRoom button { border: 0; cursor: pointer; }
+  #coopBegin:disabled, #coopAccept:disabled { opacity: .4; cursor: default; }
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
 
 <!-- while cracking -->
-<div id="hud" class="bar-top">
+<div id="hud" class="bar-top" inert aria-hidden="true">
   <div class="row">
     <button class="pill glass btn round" id="quit" aria-label="Back to the grotto">✕</button>
     <div class="pill glass" id="lvlPill">Level 1</div>
@@ -293,10 +306,11 @@
 </div>
 
 <!-- grotto, nest, glowpedia -->
-<div id="topbar" class="bar-top">
+<div id="topbar" class="bar-top" inert aria-hidden="true">
   <div class="pill glass" id="shardPill">✦ 0</div>
   <div class="row">
     <div class="pill glass" id="starPill">★ 0</div>
+    <button class="pill glass btn" id="mapCoop">👯 Co-op</button>
     <button class="pill glass btn round" id="backupBtn" aria-label="Back up your nest">💾</button>
     <button class="pill glass btn round mute" aria-label="Mute sound">🔊</button>
   </div>
@@ -307,7 +321,7 @@
 <button class="act" id="polishDone" hidden>✨ Shiny enough</button>
 <div id="toast" class="glass"></div>
 
-<nav id="tabs" class="glass">
+<nav id="tabs" class="glass" inert aria-hidden="true">
   <button data-tab="map">🗺️ Grotto</button>
   <button data-tab="nest">🪺 Nest</button>
   <button data-tab="lib">📖 Glowpedia</button>
@@ -320,6 +334,7 @@
     <p class="sub">Trace the faint lines, break the knots and open real geodes: amethyst, celestite, malachite, labradorite and more. Hatch 30 kinds of glowlings (a few only on moonlit days) and raise them in your nest.</p>
     <p class="sub">🎧 headphones recommended</p>
     <button class="cta breathe" id="play">Begin</button>
+    <button class="ghost" id="startCoop">👯 Play together</button>
   </div>
 </div>
 
@@ -472,6 +487,33 @@
   </div>
 </div>
 
+<div id="coopDialog" class="overlay modal hidden" role="dialog" aria-modal="true" aria-labelledby="coopTitle">
+  <div class="card glass dark wide">
+    <h2 id="coopTitle">Play together</h2>
+    <p class="sub lead2">One host chooses the shared egg. Exchange the codes privately, then both trace the same stone. Connecting uses Google STUN and shares network addresses with your friend. Some networks need a relay that this game does not provide.</p>
+    <p id="coopStatus" aria-live="polite"></p>
+    <p id="coopError" role="alert"></p>
+    <label for="coopDifficulty">Egg difficulty</label>
+    <select id="coopDifficulty" aria-label="Shared egg difficulty"><option value="1">Gentle · 3 cracks</option><option value="4">Knotted · 3 cracks</option><option value="8">Hard stone · 4 cracks</option></select>
+    <div class="coop-actions"><button class="act" id="coopHost">Host a shared egg</button><button class="act" id="coopBegin" disabled>Start shared egg</button></div>
+    <label for="coopInvite">Host invite · copy to your friend</label>
+    <input id="coopInvite" readonly aria-label="Host invite" spellcheck="false">
+    <div class="coop-actions"><button class="pillbtn" id="coopCopyInvite">📋 Copy invite</button></div>
+    <label for="coopInviteIn">Guest: paste a host invite</label>
+    <input id="coopInviteIn" aria-label="Paste host invite" maxlength="32768" autocapitalize="none" autocorrect="off" spellcheck="false">
+    <div class="coop-actions"><button class="act" id="coopJoin">Join as guest</button></div>
+    <label for="coopReply">Guest reply · copy to the host</label>
+    <input id="coopReply" readonly aria-label="Guest reply" spellcheck="false">
+    <div class="coop-actions"><button class="pillbtn" id="coopCopyReply">📋 Copy reply</button></div>
+    <label for="coopReplyIn">Host: paste the guest reply</label>
+    <input id="coopReplyIn" aria-label="Paste guest reply" maxlength="32768" autocapitalize="none" autocorrect="off" spellcheck="false">
+    <div class="coop-actions"><button class="act" id="coopAccept">Accept guest</button><button class="pillbtn" id="coopLeave">Leave room</button><button class="ghost" id="coopClose">close</button></div>
+  </div>
+</div>
+<div id="coopRoom" class="pill glass btn" role="button" tabindex="0" aria-label="Open shared room" aria-live="polite"><span id="coopRoomText">👯 Shared room</span><button id="coopRoomLeave" aria-label="Leave shared room">✕</button></div>
+
+<script src="coop-link.js"></script>
+<script src="coop-state.js"></script>
 <script>
 "use strict";
 
@@ -1189,13 +1231,17 @@ function resize() {
   if (oldW === W && Math.abs(oldH - H) < 120 && oldW) return; // ignore tiny mobile toolbar changes
   computeLayout();
   makeMotes();
-  if (game.egg && game.scene === "crack") newEgg(game.egg.conf, false);
+  if (game.egg && game.scene === "crack") {
+    if (game.egg.conf && game.egg.conf.coop) reprojectCoopEgg();
+    else newEgg(game.egg.conf, false);
+  }
 }
 
 // ---------- game state ----------
 
 const game = {
   scene: "menu", egg: null, time: 0, libTab: "sp",
+  coop: null,
   chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], floaters: [], ripples: [],
   nest: { snack: null, petDist: 0, petXpT: 0, petting: false, call: null },
   actors: null,
@@ -1982,11 +2028,8 @@ function tryAdvance(cr) {
   finishCrack(cr);
 }
 
-function finishCrack(cr) {
-  const e = game.egg;
-  cr.cov.fill(true);
-  inkCrack(cr, 1, cr.pts.length - 1);
-  const o = e.shell.ctx;
+function cutCrack(cr) {
+  const o = game.egg.shell.ctx;
   o.save();
   o.globalCompositeOperation = "destination-out";
   o.lineCap = "round"; o.lineJoin = "round";
@@ -1996,7 +2039,14 @@ function finishCrack(cr) {
   cr.pts.forEach(([x, y], i) => { const [sx, sy] = toShell(x, y); i ? o.lineTo(sx, sy) : o.moveTo(sx, sy); });
   o.stroke();
   o.restore();
-  // flakes break off where the crack kinks
+}
+
+function finishCrack(cr) {
+  const e = game.egg;
+  cr.cov.fill(true);
+  inkCrack(cr, 1, cr.pts.length - 1);
+  cutCrack(cr);
+  // Keep upstream's angular flakes at the actual crack corners.
   for (const i of cr.cornerAt) if (Math.random() < 0.4) carveChip(...cr.pts[i], rand(2, 4) * L.k, 3 + Math.floor(rand(0, 2)));
   cr.done = true;
   markTip("trace");
@@ -2211,6 +2261,8 @@ function adopt(e) {
 
 function showFound() {
   const e = game.egg, sp = e.species, conf = e.conf, cry = e.crystal;
+  if (conf.coop && e.coopRewarded) return;
+  if (conf.coop) e.coopRewarded = true;
   const acc = accuracy(e);
   const stars = 1 + (acc >= 0.7 ? 1 : 0) + (acc >= 0.7 && e.clock <= e.target ? 1 : 0);
   const firstClear = !conf.wander && !save.stars[conf.n];
@@ -2231,16 +2283,18 @@ function showFound() {
   $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
-  $("foundNote").textContent = note + (e.hollowFound ? " · you found the hollow" : "") + (conf.moon ? ` · moon streak ${save.moon.streak} 🔥` : "");
+  $("foundNote").textContent = (conf.coop ? "Shared egg · " : "") + note + (e.hollowFound ? " · you found the hollow" : "") + (conf.moon ? ` · moon streak ${save.moon.streak} 🔥` : "");
   $("stShine").textContent = Math.round(shine * 100) + "%";
   $("stAcc").textContent = Math.round(acc * 100) + "%";
   $("stTime").textContent = Math.round(e.clock) + "s";
   $("stTarget").textContent = `★ under ${e.target}s`;
   $("stShards").textContent = "+" + shards;
   $("foundMap").hidden = !!conf.moon;
-  $("nextLvl").textContent = conf.moon ? "Back to the grotto" : conf.wander ? "Another egg" : conf.n >= LEVELS ? "Wander on" : "Next level";
+  $("nextLvl").textContent = conf.coop ? (coopIsHost() ? "Another shared egg" : "Waiting for host") : conf.moon ? "Back to the grotto" : conf.wander ? "Another egg" : conf.n >= LEVELS ? "Wander on" : "Next level";
+  $("nextLvl").disabled = !!conf.coop && !coopIsHost();
   updateTopbar();
   show("found", true);
+  if (conf.coop) coopBroadcast(true); // deliver the result before a host can send the next egg
 }
 
 function nestHint() {
@@ -2348,10 +2402,11 @@ function setScene(scene) {
   if (game.scene === "nest" && scene !== "nest") sfx.purrOff();
   game.scene = scene;
   document.body.className = document.body.className.replace(/\bscene-\S+/g, "").trim() + ` scene-${scene}`;
-  $("hud").classList.toggle("on", scene === "crack");
+  for (const [id, active] of [["hud", scene === "crack"], ["topbar", ["map", "nest", "lib"].includes(scene)], ["tabs", ["map", "nest", "lib"].includes(scene)]]) {
+    $(id).classList.toggle("on", active); $(id).inert = !active; $(id).setAttribute("aria-hidden", String(!active));
+  }
   $("polishDone").hidden = !(scene === "crack" && game.egg && game.egg.state === "polish");
-  $("topbar").classList.toggle("on", ["map", "nest", "lib"].includes(scene));
-  $("tabs").classList.toggle("on", ["map", "nest", "lib"].includes(scene));
+
   $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === scene));
   show("map", scene === "map");
   show("lib", scene === "lib");
@@ -3360,89 +3415,290 @@ function drawCatch() {
   drawCreature(ctx, g.x, y, s, specOf(cr), { level: cr.level, shiny: cr.shiny, mood: g.flinch > 0 ? "sad" : "happy" });
 }
 
+// ---------- co-op transport and authoritative round state ----------
+
+const coopWire = globalThis.HatchstoneCoopState;
+let coopSession = null, coopGeneration = 0, coopReturnFocus = null;
+const coopPhaseIndex = phase => ["entering", "cracking", "ready", "opening", "polish", "gleam", "open"].indexOf(phase);
+const coopIsHost = () => !!coopSession && coopSession.role === "host";
+const coopIsGuest = () => !!coopSession && coopSession.role === "guest" && !!game.egg && !!game.egg.conf.coop;
+const coopLive = s => !!s && s === coopSession && s.generation === coopGeneration;
+
+window.__coop = {
+  get peer() { return coopSession && coopSession.peer || null; },
+  get round() { return coopSession && coopSession.round || null; },
+  get blueprint() { return coopSession && coopSession.round || null; },
+  get active() { return !!coopSession && !!coopSession.peer; },
+  get role() { return coopSession && coopSession.role || null; },
+};
+
+function coopUiStatus(text) { $("coopStatus").textContent = text || ""; }
+function coopUiError(text) { $("coopError").textContent = text || ""; }
+function coopCopy(value, label) {
+  if (!value) return;
+  const done = () => toast(label + " copied ✓");
+  const select = () => {
+    const input = label === "Reply" ? $("coopReply") : $("coopInvite");
+    input.focus(); input.select(); toast("Code selected — copy it using your browser.");
+  };
+  if (navigator.clipboard?.writeText) navigator.clipboard.writeText(value).then(done).catch(select);
+  else select();
+}
+function coopRoundCatalogValid(r) {
+  return !!(r && CRYSTAL[r.crystal] && SP[r.species] && STONES[r.stone] && SP[r.species].crystal === r.crystal);
+}
+function coopId() {
+  const chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_-";
+  let out = "";
+  for (let i = 0; i < 20; i++) out += chars[Math.floor(Math.random() * chars.length)];
+  return out;
+}
+function coopBlueprintFromEgg(e) {
+  const stone = STONES.indexOf(e.stone);
+  const r = { id: coopId(), step: e.conf.step, crystal: e.crystal.id, species: e.species.id, shiny: !!e.shiny, stone,
+    target: e.target, hollow: coopWire.normalisePoint(e.hollow[0], e.hollow[1], L), cracks: e.cracks.map(c => ({
+      pts: c.pts.map(p => coopWire.normalisePoint(p[0], p[1], L)), knots: c.knots.map(k => k.i), passes: c.passes,
+      cornerAt: c.cornerAt.slice(), branches: c.branches.map(b => ({ at: b.at, pts: b.pts.map(p => coopWire.normalisePoint(p[0], p[1], L)) })),
+    })) };
+  return coopWire.validRound(r) && coopRoundCatalogValid(r) ? r : null;
+}
+function coopSnapshot(e, seq) {
+  const matteHits = e.matte ? e.matte.cells.map(c => Math.min(3, c.hits || 0)) : null;
+  const s = { round: coopSession.round.id, seq, phase: e.state, clock: clamp(e.clock || 0, 0, 86400), t: clamp(e.t || 0, 0, 86400),
+    acc: { sum: clamp(e.acc && e.acc.sum || 0, 0, 60 * (e.acc && e.acc.n || 0)), n: Math.max(0, Math.min(1e9, Math.floor(e.acc && e.acc.n || 0))) },
+    hollowFound: !!e.hollowFound, chipsTapped: Math.max(0, Math.min(1e7, Math.floor(e.chipsTapped || 0))),
+    cracks: e.cracks.map(c => ({ cov: c.cov.slice(), knots: c.knots.map(k => !!k.broken), done: !!c.done, pass: c.pass })),
+    matte: matteHits ? { hits: matteHits, shine: e.matte.shine } : null };
+  return coopWire.validState(s, coopSession.round) ? s : null;
+}
+function coopBroadcast(force = false) {
+  const s = coopSession, e = game.egg;
+  if (!coopIsHost() || !s.round || !e || !e.conf.coop || !s.peer.connected || game.scene !== "crack") return;
+  const now = performance.now();
+  if (!force && now - s.lastBroadcast < 100) return;
+  const state = coopSnapshot(e, ++s.stateSeq);
+  if (!state) return;
+  s.lastBroadcast = now;
+  s.peer.send({ type: "state", state });
+}
+function coopRoundState(packet) {
+  const s = coopSession, r = packet && packet.round, state = packet && packet.state;
+  if (!s || !coopWire.validRound(r) || !coopRoundCatalogValid(r) || !coopWire.validState(state, r) || state.round !== r.id) return false;
+  return true;
+}
+function coopMakeCracks(r, state) {
+  return r.cracks.map((c, i) => ({ pts: c.pts.map(p => coopWire.projectPoint(p, L)), cov: state ? state.cracks[i].cov.slice() : c.pts.map(() => false),
+    cornerAt: c.cornerAt.slice(), branches: c.branches.map(b => ({ at: b.at, pts: b.pts.map(p => coopWire.projectPoint(p, L)), drawn: false })),
+    done: state ? state.cracks[i].done : false, fade: 1, knots: c.knots.map((k, j) => ({ i: k, broken: state ? !!state.cracks[i].knots[j] : false })), passes: c.passes, pass: state ? state.cracks[i].pass : 0 }));
+}
+function installCoopRound(r, state) {
+  if (!coopRoundState({ round: r, state })) return false;
+  const conf = { ...levelConf(r.step), n: 0, wander: true, coop: true, forced: { crystal: CRYSTAL[r.crystal], species: SP[r.species] } };
+  // newEgg supplies the ordinary canvas assets; the host blueprint replaces every random gameplay coordinate below.
+  newEgg(conf, false);
+  const e = game.egg;
+  e.conf = conf; e.crystal = CRYSTAL[r.crystal]; e.species = SP[r.species]; e.shiny = r.shiny; e.stone = STONES[r.stone]; e.target = r.target;
+  e.hollow = coopWire.projectPoint(r.hollow, L); e.coopBlueprint = r; e.cracks = coopMakeCracks(r, state);
+  e.shell = makeShell(e.stone); e.interior = makeInterior(e.crystal, e.stone); game.pieces = [];
+  $("dots").innerHTML = "<i></i>".repeat(e.cracks.length);
+  return coopApplySnapshot(state, true);
+}
+function reprojectCoopEgg() {
+  const e = game.egg, r = e && e.coopBlueprint;
+  if (!e || !r || !coopWire.validRound(r)) return;
+  const old = { phase: e.state, t: e.t, clock: e.clock, shine: e.matte?.shine, matte: e.matte ? e.matte.cells.map(c => c.hits || 0) : null };
+  e.hollow = coopWire.projectPoint(r.hollow, L); e.cracks = coopMakeCracks(r, { cracks: e.cracks.map(c => ({ cov: c.cov, knots: c.knots.map(k => k.broken), done: c.done, pass: c.pass })) });
+  e.shell = makeShell(e.stone); e.interior = makeInterior(e.crystal, e.stone); game.pieces = [];
+  if (old.matte || ["polish", "gleam", "open"].includes(old.phase)) {
+    startPolish();
+    if (old.matte) e.matte.cells.forEach((c, i) => { c.hits = old.matte[i] || 0; c.done = c.hits >= 3; });
+    e.matte.done = e.matte.cells.filter(c => c.done).length; e.matte.shine = old.shine || 0;
+    paintCoopMatte(e.matte);
+  }
+  e.state = old.phase; e.t = old.t; e.clock = old.clock;
+  paintCoopCracks(e);
+  if (coopIsGuest()) coopSendInput("cancel");
+  pointer = null; game.trail = [];
+  if (coopSession) { coopSession.remotePointer = null; coopSession.remoteCursor = null; }
+  $("polishDone").hidden = e.state !== "polish";
+  updateDots();
+}
+
+// Repaint only changed coverage/cells, never regenerate canvas assets on every packet.
+function paintCoopCracks(e, before) {
+  e.cracks.forEach((c, i) => {
+    const previous = before && before[i];
+    if (!previous || c.pass !== previous.pass || c.done !== previous.done || c.cov.some((v, j) => v !== previous.cov[j])) {
+      if (!previous && c.pass > 0) inkCrack({ ...c, cov: c.cov.map(() => true) }, 1, c.pts.length - 1);
+      inkCrack(c, 1, c.pts.length - 1);
+      if (c.done) cutCrack(c);
+    }
+    c.knots.forEach((k, j) => { if (k.broken && (!previous || !previous.knots[j])) carveChip(...c.pts[k.i], 7 * L.k); });
+  });
+}
+function paintCoopMatte(m, before = []) {
+  if (m.shine === 1) { m.ctx.clearRect(0, 0, m.canvas.width, m.canvas.height); return; }
+  const o = m.ctx, radius = 13 * L.k;
+  o.save(); o.globalCompositeOperation = "destination-out";
+  m.cells.forEach((c, i) => {
+    const [x, y] = toShell(c.x, c.y);
+    for (let h = before[i] || 0; h < (c.hits || 0); h++) {
+      const g = o.createRadialGradient(x, y, 1, x, y, radius);
+      g.addColorStop(0, "rgba(0,0,0,.65)"); g.addColorStop(1, "rgba(0,0,0,0)");
+      o.fillStyle = g; o.beginPath(); o.arc(x, y, radius, 0, TAU); o.fill();
+    }
+  });
+  o.restore();
+}
+function coopApplySnapshot(state, initial = false) {
+  const s = coopSession, e = game.egg;
+  if (!s || !e || !s.round || state.round !== s.round.id || !coopWire.validState(state, s.round)) return false;
+  if (!initial && state.seq <= s.lastStateSeq) return false;
+  if (!initial && coopPhaseIndex(state.phase) < coopPhaseIndex(e.state)) return false;
+  if (!initial && state.seq > s.lastStateSeq) s.lastStateSeq = state.seq;
+  const oldPhase = e.state;
+  const before = e.cracks.map(c => ({ cov: c.cov, pass: c.pass, done: c.done, knots: c.knots.map(k => k.broken) }));
+  state.cracks.forEach((sc, i) => { const c = e.cracks[i]; c.cov = sc.cov.slice(); c.done = sc.done; c.pass = sc.pass; sc.knots.forEach((v, j) => { c.knots[j].broken = v; }); });
+  paintCoopCracks(e, initial ? null : before);
+  if (state.phase === "opening" && oldPhase !== "opening") openEgg();
+  if (state.matte && !e.matte) startPolish();
+  if (state.phase === "gleam" && oldPhase === "polish") finishPolish();
+  if (state.matte) {
+    const oldHits = e.matte.cells.map(c => c.hits || 0);
+    e.matte.cells.forEach((c, i) => { c.hits = state.matte.hits[i] || 0; c.done = c.hits >= 3; });
+    e.matte.done = e.matte.cells.filter(c => c.done).length; e.matte.shine = state.matte.shine;
+    paintCoopMatte(e.matte, oldHits);
+  }
+  e.state = state.phase; e.t = state.t; e.clock = state.clock; e.acc = { sum: state.acc.sum, n: state.acc.n };
+  e.hollowFound = state.hollowFound; e.chipsTapped = state.chipsTapped;
+  updateDots();
+  $("polishDone").hidden = !(game.scene === "crack" && e.state === "polish");
+  if (e.state === "open" && !e.coopRewarded) showFound();
+  return true;
+}
+function coopSetSession(role) {
+  if (coopSession && coopSession.peer) coopSession.peer.close("replaced");
+  const generation = ++coopGeneration;
+  const session = { generation, role, peer: null, round: null, rounds: new Set(), stateSeq: 0, lastStateSeq: -1, lastBroadcast: 0, inputSeq: 0, lastInputSeq: -1, inputWindow: 0, inputCount: 0, remotePointer: null, remoteCursor: null };
+  coopSession = session; game.coop = session;
+  const callbacks = {
+    onStatus: status => { if (!coopLive(session)) return; if (session.peer?.connected) clearTimeout(session.connectTimer); coopUiStatus(status === "connected" ? "Connected ✓" : `Connection: ${status}`); $("coopBegin").disabled = !(role === "host" && session.peer?.connected); coopShowRoom(); },
+    onMessage: packet => { if (!coopLive(session)) return; coopReceive(session, packet); },
+    onClose: () => {
+      if (!coopLive(session)) return;
+      const started = !!session.round;
+      coopEnd("disconnected", true);
+      if (started) toast("Friend disconnected. Your nest is safe; exchange new codes to reconnect.");
+      else { coopOpenDialog(); coopUiError("Could not connect. Exchange fresh codes, or try another network."); }
+    },
+  };
+  session.peer = new globalThis.HatchstoneLink.Peer(callbacks);
+  return session;
+}
+function coopReceive(s, packet) {
+  if (!packet || typeof packet !== "object") return;
+  if (packet.type === "round" && s.role === "guest") {
+    if (!coopRoundState(packet) || s.rounds.has(packet.round.id) || (s.round && game.egg && !game.egg.coopRewarded)) return;
+    if (s.rounds.size >= 128) { coopEnd("room-limit"); return; }
+    s.rounds.add(packet.round.id);
+    s.round = packet.round; s.lastStateSeq = -1;
+    if (!installCoopRound(packet.round, packet.state)) { coopUiError("The shared egg was invalid."); coopEnd("invalid-round", true); return; }
+    s.lastStateSeq = packet.state.seq; show("start", false); setScene("crack"); show("coopDialog", false); coopUiStatus("Shared egg ready — trace together ✦");
+    return;
+  }
+  if (packet.type === "state" && s.role === "guest") { if (s.round && packet.state && packet.state.round === s.round.id) coopApplySnapshot(packet.state); return; }
+  if (packet.type === "input" && s.role === "host") applyCoopInput(s, packet.input);
+}
+function coopSendInput(kind, x, y) {
+  const s = coopSession, r = s && s.round;
+  if (!coopIsGuest() || !r || !s.peer.connected) return;
+  const p = { round: r.id, seq: ++s.inputSeq, kind };
+  if (kind !== "cancel" && kind !== "finish") p.point = coopWire.normalisePoint(x, y, L);
+  if (coopWire.validInput(p, r.id) && !s.peer.send({ type: "input", input: p }) && kind !== "move") {
+    queueMicrotask(() => coopReportFailure(s, "The connection is congested. Exchange fresh codes to reconnect."));
+  }
+}
+function withRemotePointer(s, fn) {
+  const saved = pointer; pointer = s.remotePointer;
+  try { fn(); } finally { s.remotePointer = pointer; pointer = saved; }
+}
+function applyCoopInput(s, p) {
+  const r = s.round, now = performance.now();
+  if (!r || !game.egg?.conf.coop || !coopWire.validInput(p, r.id) || p.seq <= s.lastInputSeq) return;
+  if (now - s.inputWindow >= 1000) { s.inputWindow = now; s.inputCount = 0; }
+  // Gesture-end messages must not be dropped: otherwise remote rubbing can stay held.
+  if (++s.inputCount > 120 && (p.kind === "move" || p.kind === "down")) return;
+  s.lastInputSeq = p.seq;
+  if (p.kind === "finish") { if (game.egg.state === "polish") finishPolish(); return; }
+  if (p.kind === "cancel") { withRemotePointer(s, () => handlePointerCancel(true)); return; }
+  const [x, y] = coopWire.projectPoint(p.point, L);
+  s.remoteCursor = { x, y, down: p.kind !== "up" && p.kind !== "cancel", t: now, trail: (s.remoteCursor && s.remoteCursor.trail || []).slice(-31) };
+  s.remoteCursor.trail.push({ x, y, t: now });
+  withRemotePointer(s, () => {
+    if (p.kind === "down") handlePointerDown(x, y, now, true);
+    else if (p.kind === "move") handlePointerMove(x, y, now, true);
+    else if (p.kind === "up") handlePointerUp(x, y, now, true);
+    else handlePointerCancel(true);
+  });
+}
+
 // ---------- input ----------
 
 let pointer = null;
-cvs.addEventListener("pointerdown", e => {
+function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "menu") return;
-  cvs.setPointerCapture(e.pointerId);
-  pointer = { x: e.clientX, y: e.clientY, t0: performance.now(), moved: 0, lx: e.clientX, ly: e.clientY };
-  game.trail = game.scene === "crack" ? [{ x: e.clientX, y: e.clientY, t: performance.now() }] : [];
-  if (game.scene === "crack" && game.egg.state === "cracking") trace(e.clientX, e.clientY);
-  if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = performance.now(); }
-  if (game.scene === "catch" && game.catch) game.catch.tx = e.clientX;
-  if (game.scene === "nest" && atIncubator(e.clientX, e.clientY)) pointer.warm = true;
-  else if (game.scene === "nest" && !actorAt(e.clientX, e.clientY) && (pointer.decor = decorAt(e.clientX, e.clientY))) {
+  pointer = { x, y, t0: now, moved: 0, lx: x, ly: y };
+  if (!remote) game.trail = game.scene === "crack" ? [{ x, y, t: now }] : [];
+  if (!remote && coopIsGuest()) { coopSendInput("down", x, y); return; }
+  if (game.scene === "crack" && game.egg.state === "cracking") trace(x, y);
+  if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = now; }
+  if (game.scene === "catch" && game.catch) game.catch.tx = x;
+  if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
+  else if (game.scene === "nest" && !actorAt(x, y) && (pointer.decor = decorAt(x, y))) {
     if (pointer.decor.id === "lights") playDecor(pointer.decor);
   }
-  else if (game.scene === "nest" && !actorAt(e.clientX, e.clientY) && e.clientY > N.y0 - N.base) {
-    pointer.call = true;
-    markTip("call");
-    game.nest.call = { x: clamp(e.clientX, N.x0, N.x1), y: clamp(e.clientY, N.y0, N.y1), t: game.time };
-  }
-});
-cvs.addEventListener("pointermove", e => {
-  if (game.scene === "catch" && game.catch) game.catch.tx = e.clientX;
+  else if (game.scene === "nest" && !actorAt(x, y) && y > N.y0 - N.base) { pointer.call = true; markTip("call"); game.nest.call = { x: clamp(x, N.x0, N.x1), y: clamp(y, N.y0, N.y1), t: game.time }; }
+}
+function handlePointerMove(x, y, now = performance.now(), remote = false) {
+  if (game.scene === "catch" && game.catch) game.catch.tx = x;
   if (!pointer) return;
-  const d = Math.hypot(e.clientX - pointer.lx, e.clientY - pointer.ly);
-  pointer.moved += d;
+  const d = Math.hypot(x - pointer.lx, y - pointer.ly); pointer.moved += d;
+  if (!remote && coopIsGuest()) { coopSendInput("move", x, y); pointer.lx = x; pointer.ly = y; game.trail.push({ x, y, t: now }); return; }
   if (game.scene === "crack") {
     const cr = activeCrack();
-    if (cr && !pointer.spent) {
-      // how close to the line: the average distance becomes the "on the line" score
-      let best = Infinity;
-      for (let i = 0; i < cr.pts.length; i++) best = Math.min(best, Math.hypot(cr.pts[i][0] - e.clientX, cr.pts[i][1] - e.clientY));
-      game.egg.acc.sum += Math.min(best / L.k, 60); game.egg.acc.n++;
-    }
+    if (cr && !pointer.spent) { let best = Infinity; for (const p of cr.pts) best = Math.min(best, Math.hypot(p[0] - x, p[1] - y)); game.egg.acc.sum += Math.min(best / L.k, 60); game.egg.acc.n++; }
     const steps = Math.ceil(d / (8 * L.k));
-    for (let i = 1; i <= steps && game.egg.state === "cracking"; i++) {
-      trace(lerp(pointer.lx, e.clientX, i / steps), lerp(pointer.ly, e.clientY, i / steps));
-    }
-    if (game.egg.state === "polish") {
-      const now = performance.now(), steps2 = Math.max(1, Math.ceil(d / (6 * L.k)));
-      for (let i = 1; i <= steps2; i++) rub(lerp(pointer.lx, e.clientX, i / steps2), lerp(pointer.ly, e.clientY, i / steps2), d / steps2, (now - (pointer.lt || now)) / 1000 / steps2);
-      pointer.lt = now;
-    }
-    game.trail.push({ x: e.clientX, y: e.clientY, t: performance.now() });
+    for (let i = 1; i <= steps && game.egg.state === "cracking"; i++) trace(lerp(pointer.lx, x, i / steps), lerp(pointer.ly, y, i / steps));
+    if (game.egg.state === "polish") { const steps2 = Math.max(1, Math.ceil(d / (6 * L.k))); for (let i = 1; i <= steps2; i++) rub(lerp(pointer.lx, x, i / steps2), lerp(pointer.ly, y, i / steps2), d / steps2, (now - (pointer.lt || now)) / 1000 / steps2); pointer.lt = now; }
+    if (!remote) game.trail.push({ x, y, t: now });
   }
   if (game.scene === "nest") {
-    if (pointer.call) game.nest.call = { x: clamp(e.clientX, N.x0, N.x1), y: clamp(e.clientY, N.y0, N.y1), t: game.time };
+    if (pointer.call) game.nest.call = { x: clamp(x, N.x0, N.x1), y: clamp(y, N.y0, N.y1), t: game.time };
     else if (pointer.warm) warmEgg(d);
     else if (pointer.decor) {
-      // drag along the fairy lights to play them like a little xylophone
-      const h2 = decorAt(e.clientX, e.clientY);
-      if (h2 && h2.id === "lights" && h2.bulb !== pointer.decor.bulb) { pointer.decor = h2; playDecor(h2); }
-    }
-    else pet(e.clientX, e.clientY, d);
+      const hit = decorAt(x, y);
+      if (hit?.id === "lights" && hit.bulb !== pointer.decor.bulb) { pointer.decor = hit; playDecor(hit); }
+    } else pet(x, y, d);
   }
-  pointer.lx = e.clientX; pointer.ly = e.clientY;
-});
-cvs.addEventListener("pointerup", e => {
+  pointer.lx = x; pointer.ly = y;
+}
+function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (!pointer) return;
-  const tap = pointer.moved < 10 && performance.now() - pointer.t0 < 350;
-  const calling = pointer.call, decorHit = pointer.decor;
+  const tap = pointer.moved < 10 && now - pointer.t0 < 350, calling = pointer.call, decorHit = pointer.decor;
+  if (!remote && coopIsGuest()) { coopSendInput("up", x, y); pointer = null; return; }
   pointer = null;
   if (game.scene === "nest") { game.nest.petting = false; sfx.purrOff(); }
-  sfx.rubOff();
-  if (!tap) return;
-  if (game.scene === "nest" && !calling && atIncubator(e.clientX, e.clientY)) { tapIncubator(); return; }
+  sfx.rubOff(); if (!tap) return;
+  if (game.scene === "nest" && !calling && atIncubator(x, y)) { tapIncubator(); return; }
   if (game.scene === "nest" && decorHit) { if (decorHit.id !== "lights") playDecor(decorHit); return; }
-  if (game.scene === "crack") {
-    const egg = game.egg;
-    if (egg.state === "ready" && inside(L.egg, [e.clientX, e.clientY])) openEgg();
-    else if (egg.state === "cracking" && !tapKnot(e.clientX, e.clientY)) chip(e.clientX, e.clientY);
-    else if (egg.state === "open" && Math.hypot(e.clientX - L.ecx, e.clientY - L.ecy) < L.ew * 0.25) { egg.hop = 1; sfx.chirp(egg.species.voice); }
-  }
-  if (game.scene === "nest" && !calling) {
-    const a = actorAt(e.clientX, e.clientY);
-    if (a && a.id !== save.active) selectCreature(a.id);
-    else if (a) {
-      const cr = activeCreature(), v = actorView(a);
-      if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); }
-    }
-  }
-});
-cvs.addEventListener("pointercancel", () => { pointer = null; game.nest.petting = false; sfx.purrOff(); });
+  if (game.scene === "crack") { const egg = game.egg; if (egg.state === "ready" && inside(L.egg, [x, y])) openEgg(); else if (egg.state === "cracking" && !tapKnot(x, y)) chip(x, y); else if (egg.state === "open" && Math.hypot(x - L.ecx, y - L.ecy) < L.ew * 0.25) { egg.hop = 1; sfx.chirp(egg.species.voice); } }
+  if (game.scene === "nest" && !calling) { const a = actorAt(x, y); if (a && a.id !== save.active) selectCreature(a.id); else if (a) { const cr = activeCreature(), v = actorView(a); if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); } } }
+}
+function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
+cvs.addEventListener("pointerdown", e => { if (game.scene === "menu") return; try { cvs.setPointerCapture(e.pointerId); } catch {} handlePointerDown(e.clientX, e.clientY); });
+cvs.addEventListener("pointermove", e => handlePointerMove(e.clientX, e.clientY));
+cvs.addEventListener("pointerup", e => handlePointerUp(e.clientX, e.clientY));
+cvs.addEventListener("pointercancel", () => handlePointerCancel());
 
 /** Stroking a glowling: hearts, a purr, joy, and a little XP now and then. */
 function pet(x, y, d) {
@@ -3463,6 +3719,127 @@ function pet(x, y, d) {
 
 // ---------- buttons ----------
 
+function coopShowRoom() {
+  const on = !!coopSession && !!coopSession.peer;
+  $("coopRoom").classList.toggle("on", on);
+  $("coopRoomText").textContent = on ? `👯 ${coopSession.role === "host" ? "Host" : "Guest"} · ${coopSession.peer.connected ? "connected" : "connecting"}` : "👯 Shared room";
+}
+function coopResetFields() {
+  for (const id of ["coopInvite", "coopReply", "coopInviteIn", "coopReplyIn"]) $(id).value = "";
+  coopUiStatus(""); coopUiError("");
+  $("coopBegin").disabled = true; $("coopAccept").disabled = false; $("coopHost").disabled = false; $("coopJoin").disabled = false;
+}
+function coopEnd(reason = "left", silent = false) {
+  const old = coopSession;
+  coopSession = null; game.coop = null; ++coopGeneration;
+  if (old) clearTimeout(old.connectTimer);
+  pointer = null; game.trail = []; game.pieces = []; sfx.purrOff(); sfx.rubOff();
+  if (old && old.peer) old.peer.close(reason);
+  $("coopRoom").classList.remove("on"); $("polishDone").hidden = true; show("coopDialog", false); show("found", false);
+  if (game.egg && game.egg.conf && game.egg.conf.coop) game.egg = null;
+  if (game.scene === "crack" || game.scene === "found") setScene("map");
+  if (!silent && reason && reason !== "left") toast("Shared room ended");
+  coopResetFields();
+}
+function coopOpenDialog() {
+  sfx.tick();
+  if ($("coopDialog").classList.contains("hidden")) coopReturnFocus = document.activeElement;
+  if (!coopSession) coopResetFields();
+  else coopShowRoom();
+  if (!globalThis.HatchstoneLink || !coopWire || typeof RTCPeerConnection === "undefined" || !window.isSecureContext) {
+    $("coopHost").disabled = $("coopJoin").disabled = true;
+    coopUiError("Online co-op needs a WebRTC-capable browser over HTTPS or localhost. Solo play still works.");
+  }
+  show("coopDialog", true);
+  $("coopTitle").tabIndex = -1; $("coopTitle").focus();
+}
+function coopReportFailure(s, message) {
+  if (!coopLive(s)) return;
+  coopEnd("failed", true); coopOpenDialog(); coopUiError(message);
+}
+async function coopHost() {
+  sfx.init(); if (sfx.ac?.state === "suspended") sfx.ac.resume().catch(() => {});
+  coopUiError(""); coopUiStatus("Making a private invite…"); $("coopHost").disabled = true; $("coopJoin").disabled = true;
+  const s = coopSetSession("host");
+  try {
+    const invite = await s.peer.host();
+    if (!coopLive(s)) return;
+    $("coopInvite").value = invite; $("coopAccept").disabled = false; coopUiStatus("Invite ready — copy it to your friend, then paste their reply."); coopShowRoom();
+  } catch (err) { coopReportFailure(s, err.message || "Could not create an invite"); }
+}
+async function coopJoin() {
+  const invite = $("coopInviteIn").value.trim();
+  if (!invite) { coopUiError("Paste the host invite first."); return; }
+  sfx.init(); if (sfx.ac?.state === "suspended") sfx.ac.resume().catch(() => {});
+  coopUiError(""); coopUiStatus("Joining the shared room…"); $("coopHost").disabled = true; $("coopJoin").disabled = true;
+  const s = coopSetSession("guest");
+  try {
+    const reply = await s.peer.join(invite);
+    if (!coopLive(s)) return;
+    $("coopReply").value = reply; coopUiStatus("Reply ready — copy it to the host and wait for the shared egg."); coopShowRoom();
+  } catch (err) { coopReportFailure(s, err.message || "Could not join that invite"); }
+}
+async function coopAccept() {
+  const s = coopSession, reply = $("coopReplyIn").value.trim();
+  if (!s || s.role !== "host" || !reply) { coopUiError("Paste the guest reply first."); return; }
+  try {
+    await s.peer.accept(reply); if (!coopLive(s)) return;
+    if (!s.peer.connected) s.connectTimer = setTimeout(() => {
+      coopReportFailure(s, "Connection timed out. Try fresh codes or a different network; this game has no TURN relay.");
+    }, 30000);
+    coopUiStatus("Guest accepted ✓ Waiting for the direct connection…"); $("coopBegin").disabled = !s.peer.connected; coopShowRoom();
+  }
+  catch (err) { if (coopLive(s)) coopUiError(err.message || "That reply does not match this invite"); }
+}
+function coopStartRound() {
+  const s = coopSession;
+  if (!s || s.role !== "host" || !s.peer.connected) return;
+  if (s.round && game.egg?.conf.coop && !game.egg.coopRewarded) { coopUiError("Finish this shared egg before starting another."); return; }
+  if (s.rounds.size >= 128) { coopEnd("room-limit"); return; }
+  const step = Number($("coopDifficulty").value);
+  if (![1, 4, 8].includes(step)) return;
+  sfx.init(); if (sfx.ac && sfx.ac.state === "suspended") sfx.ac.resume();
+  const conf = { ...levelConf(step), n: 0, wander: true, coop: true };
+  game.chips = []; game.sparks = []; show("start", false); setScene("crack"); newEgg(conf, true);
+  const r = coopBlueprintFromEgg(game.egg);
+  if (!r) { coopUiError("Could not make a valid shared egg."); coopEnd("invalid-round", true); return; }
+  s.round = r; s.rounds.add(r.id); game.egg.coopBlueprint = r; s.stateSeq = 0; s.lastStateSeq = -1; s.remotePointer = null; s.remoteCursor = null; pointer = null;
+  const state = coopSnapshot(game.egg, 0);
+  if (!state || !s.peer.send({ type: "round", round: r, state })) { coopUiError("The shared egg could not be sent."); coopEnd("send-failed", true); return; }
+  s.lastStateSeq = 0; show("coopDialog", false); coopShowRoom(); coopUiStatus("Shared egg started — trace together ✦");
+}
+function coopFinishPolish() {
+  if (coopIsGuest()) coopSendInput("finish");
+  else finishPolish();
+}
+
+$("startCoop").addEventListener("click", coopOpenDialog);
+$("mapCoop").addEventListener("click", coopOpenDialog);
+$("coopRoom").addEventListener("click", e => { if (e.target.id !== "coopRoomLeave") coopOpenDialog(); });
+$("coopRoom").addEventListener("keydown", e => { if ((e.key === "Enter" || e.key === " ") && e.target.id === "coopRoom") { e.preventDefault(); coopOpenDialog(); } });
+$("coopRoomLeave").addEventListener("click", () => coopEnd("left"));
+$("coopHost").addEventListener("click", coopHost);
+$("coopJoin").addEventListener("click", coopJoin);
+$("coopAccept").addEventListener("click", coopAccept);
+$("coopBegin").addEventListener("click", coopStartRound);
+$("coopCopyInvite").addEventListener("click", () => coopCopy($("coopInvite").value, "Invite"));
+$("coopCopyReply").addEventListener("click", () => coopCopy($("coopReply").value, "Reply"));
+$("coopClose").addEventListener("click", () => {
+  if (coopSession?.peer.connected) show("coopDialog", false); else coopEnd("cancelled", true);
+  if (coopReturnFocus?.isConnected && !coopReturnFocus.closest(".hidden")) coopReturnFocus.focus();
+});
+$("coopDialog").addEventListener("keydown", e => {
+  if (e.key === "Escape") { e.preventDefault(); $("coopClose").click(); return; }
+  if (e.key !== "Tab") return;
+  const items = [...$("coopDialog").querySelectorAll("button:not(:disabled),input,select")].filter(el => el.getClientRects().length);
+  const first = items[0], last = items[items.length - 1];
+  if (!items.length) return;
+  if (!items.includes(document.activeElement)) { e.preventDefault(); (e.shiftKey ? last : first).focus(); }
+  else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+  else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+});
+$("coopLeave").addEventListener("click", () => coopEnd("left"));
+
 if (save.creatures.length) {
   $("play").textContent = "Continue";
   const n = save.creatures.length;
@@ -3480,27 +3857,32 @@ $$(".mute").forEach(b => b.addEventListener("click", () => {
   sfx.setMuted(!sfx.muted);
   $$(".mute").forEach(m => { m.textContent = sfx.muted ? "🔇" : "🔊"; });
 }));
-$$("#tabs button").forEach(b => b.addEventListener("click", () => { sfx.tick(); setScene(b.dataset.tab); }));
+$$("#tabs button").forEach(b => b.addEventListener("click", () => {
+  if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
+  sfx.tick(); if (coopSession) coopEnd("navigation", true); setScene(b.dataset.tab);
+}));
 $("quit").addEventListener("click", () => {
+  if (coopSession) { coopEnd("left"); return; }
   const e = game.egg;
   const started = e && (e.state === "cracking" || e.state === "ready") && e.cracks.some(c => c.done || c.cov.some(Boolean));
   if (started) { sfx.tick(); show("confirmLeave", true); } else setScene("map");
 });
 $("keepCracking").addEventListener("click", () => show("confirmLeave", false));
-$("leaveEgg").addEventListener("click", () => { show("confirmLeave", false); setScene("map"); });
+$("leaveEgg").addEventListener("click", () => { show("confirmLeave", false); if (coopSession) coopEnd("left"); else setScene("map"); });
 $("nextLvl").addEventListener("click", () => {
   const conf = game.egg.conf;
+  if (conf.coop) { if (coopIsHost()) coopStartRound(); return; }
   if (conf.moon) return setScene("map");
   startLevel(conf.wander || conf.n >= LEVELS ? 0 : conf.n + 1);
 });
-$("foundNest").addEventListener("click", () => setScene("nest"));
+$("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
 $("foundShare").addEventListener("click", shareFound);
 $("nestShare").addEventListener("click", () => { const cr = activeCreature(); if (cr) shareCreature(cr); });
-$("polishDone").addEventListener("click", finishPolish);
+$("polishDone").addEventListener("click", coopFinishPolish);
 $("decorBtn").addEventListener("click", openShop);
 $("incClose").addEventListener("click", () => show("incubator", false));
 $("shopClose").addEventListener("click", () => show("shop", false));
-$("foundMap").addEventListener("click", () => setScene("map"));
+$("foundMap").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("map"); });
 $("feedBtn").addEventListener("click", openSnacks);
 $("snackClose").addEventListener("click", () => show("snacks", false));
 $("playBtn").addEventListener("click", startCatch);
@@ -3513,7 +3895,10 @@ $("nestName").addEventListener("click", () => {
   if (name) { cr.name = name; persist(); renderNest(true); }
 });
 $("spClose").addEventListener("click", () => show("spCard", false));
-$("backupBtn").addEventListener("click", openBackup);
+$("backupBtn").addEventListener("click", () => {
+  if ($("topbar").inert || (coopSession?.round && game.scene === "crack")) return;
+  openBackup();
+});
 $("backupClose").addEventListener("click", () => show("backup", false));
 $("copyCode").addEventListener("click", copyCode);
 $("shareCode").addEventListener("click", shareCode);
@@ -3812,19 +4197,24 @@ function update(dt) {
 
   const e = game.egg;
   if (game.scene === "crack" && e) {
-    e.t += dt; e.wobT += dt;
-    if (e.state === "entering" && !e.thudded && e.t > 0.32) { e.thudded = true; sfx.thud(); }
-    if (e.state === "entering" && e.t >= 0.9) { e.state = "cracking"; e.t = 0; }
-    if (e.state === "cracking") e.clock += dt;
+    const guestOwned = coopIsGuest();
+    if (!guestOwned) {
+      e.t += dt;
+      if (e.state === "entering" && !e.thudded && e.t > 0.32) { e.thudded = true; sfx.thud(); }
+      if (e.state === "entering" && e.t >= 0.9) { e.state = "cracking"; e.t = 0; }
+      if (e.state === "cracking") e.clock += dt;
+    }
+    e.wobT += dt;
     const ac = activeCrack();
     if (ac) ac.fade = Math.min(1, ac.fade + dt * 2);
-    if (e.state === "opening") {
+    if (!guestOwned && e.state === "opening") {
       e.open = Math.min(1, e.t / 1.1);
       if (!e.cooed && e.t > 0.55) { e.cooed = true; sfx.chirp(e.species.voice); }
       if (e.t > 1.6) startPolish();
     }
-    if (e.state === "gleam" && e.t > 1.1) { e.state = "open"; e.t = 0; showFound(); }
+    if (!guestOwned && e.state === "gleam" && e.t > 1.1) { e.state = "open"; e.t = 0; showFound(); }
     e.hop = Math.max(0, e.hop - dt * 2.5);
+    coopBroadcast();
   }
 
   if (game.scene === "nest") {
@@ -3919,6 +4309,7 @@ function drawGloss(c, cx, cy, a = 1) {
 
 function drawEgg() {
   const e = game.egg;
+  if (e.state === "opening") e.open = clamp(e.t / 1.1, 0, 1);
   const oy = eggOffset();
   const wob = e.wob * Math.sin(e.wobT * 22) * Math.exp(-e.wobT * 5)
     + (e.state === "ready" ? Math.sin(game.time * 0.02) * 0.006 : 0);
@@ -4160,6 +4551,17 @@ function drawTrail() {
   ctx.restore();
 }
 
+function drawCoopCursor() {
+  const c = coopSession && coopSession.remoteCursor;
+  if (!c || performance.now() - c.t > 450 || game.scene !== "crack") return;
+  ctx.save(); ctx.lineCap = "round";
+  for (let i = 1; i < c.trail.length; i++) {
+    const p = c.trail[i - 1], q = c.trail[i], a = clamp(1 - (performance.now() - q.t) / 450, 0, 1);
+    ctx.strokeStyle = `rgba(143,216,239,${a * .55})`; ctx.lineWidth = 2 + a * 3; ctx.beginPath(); ctx.moveTo(p.x, p.y); ctx.lineTo(q.x, q.y); ctx.stroke();
+  }
+  ctx.fillStyle = "#8fd8ef"; ctx.shadowColor = "#8fd8ef"; ctx.shadowBlur = 12; ctx.beginPath(); ctx.arc(c.x, c.y, c.down ? 8 : 5, 0, TAU); ctx.fill(); ctx.restore();
+}
+
 /** Behind the menus: a glowling floating in the dark (asleep if you haven't met it yet). */
 function drawIdle() {
   const sp = SPECIES[Math.floor(game.time / 4000) % SPECIES.length];
@@ -4195,6 +4597,7 @@ function frame(now) {
   drawHearts();
   drawFloaters();
   drawTrail();
+  drawCoopCursor();
   drawCoach();
   requestAnimationFrame(frame);
 }

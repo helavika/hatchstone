@@ -1,0 +1,27 @@
+name: Verify game
+
+on:
+  push:
+    branches: [main, feat/online-coop]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Unit and protocol tests
+        run: npm test
+      - name: JavaScript syntax and HTML identifiers
+        run: npm run check
+      - name: Two-device WebRTC, gameplay and offline smoke
+        env:
+          CHROME_PATH: /usr/bin/google-chrome
+        run: npm run test:e2e
