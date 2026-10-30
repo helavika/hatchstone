@@ -164,6 +164,16 @@
   .r-common { background: rgba(255, 255, 255, .14); }
   .r-rare { background: linear-gradient(90deg, #8fd8ef, #c9b8ff); color: #1d1745; }
   .r-legendary { background: linear-gradient(90deg, #ffe9a8, #ff9ecb, #b69cff); color: #1d1745; }
+  .r-moon { background: linear-gradient(90deg, #fff8d6, #c9d2ff); color: #1d1745; }
+  .moonbtn {
+    width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; margin: 4px 0 6px; padding: 12px 16px; cursor: pointer;
+    border-radius: 20px; border: 1px solid rgba(255, 248, 214, .5); color: var(--ink);
+    background: linear-gradient(120deg, rgba(255, 248, 214, .2), rgba(201, 210, 255, .14)); box-shadow: 0 0 24px rgba(255, 248, 214, .15);
+  }
+  .moonbtn .em { font-size: 34px; }
+  .moonbtn b { display: block; font-size: 16px; }
+  .moonbtn small { color: var(--soft); font-size: 12px; }
+  .moonbtn:disabled { cursor: default; opacity: .75; box-shadow: none; }
   .lore { font-size: 14px; line-height: 1.45; color: var(--soft); margin: 10px 0 4px; font-style: italic; }
   .fact { font-size: 12px; line-height: 1.45; color: var(--soft); margin: 4px 0; }
   #foundNote { color: var(--gold); font-size: 14px; font-weight: 700; margin: 6px 0 0; min-height: 1em; }
@@ -304,7 +314,7 @@
   <div class="card glass">
     <h1>Hatchstone</h1>
     <p class="lead">Crack open stone eggs.<br>Meet who's glowing inside.</p>
-    <p class="sub">Trace the faint lines, break the knots and open real geodes: amethyst, celestite, malachite, labradorite and more. Hatch 26 kinds of glowlings and raise them in your nest.</p>
+    <p class="sub">Trace the faint lines, break the knots and open real geodes: amethyst, celestite, malachite, labradorite and more. Hatch 30 kinds of glowlings (a few only on moonlit days) and raise them in your nest.</p>
     <p class="sub">🎧 headphones recommended</p>
     <button class="cta breathe" id="play">Begin</button>
   </div>
@@ -907,7 +917,17 @@ const SPECIES = [
     lore: "A small piece of night with gold specks for stars. Wears a constellation nobody has named yet." },
   { id: "cometail", name: "Cometail", crystal: "lapis", body: "drop", back: "comet", pattern: "galaxy", eyes: "sparkle", snack: "dew", voice: 1.2,
     lore: "Zooms. Constantly. Its tail is the last thing you see and the first thing you remember." },
+  // only in moon eggs, one per season
+  { id: "emberleaf", name: "Emberleaf", crystal: "moonstone", moon: "autumn", pal: ["#ff9a5c", "#ffd29e", "#c4542b"], body: "round", ears: "fox", head: "sprout", back: "fluff", pattern: "freckles", eyes: "sparkle", snack: "cookie", voice: 1.05,
+    lore: "Only hatches when the leaves turn. Smells like toasted marshmallows and crisp mornings." },
+  { id: "frostpuff", name: "Frostpuff", crystal: "moonstone", moon: "winter", pal: ["#cfe6ff", "#ffffff", "#7fa8d9"], body: "round", head: "petals", back: "wisp", pattern: "bubbles", eyes: "big", snack: "dew", voice: 1.25,
+    lore: "A winter moon-egg puff. Every sneeze is a tiny snowfall." },
+  { id: "bloomkit", name: "Bloomkit", crystal: "moonstone", moon: "spring", pal: ["#ffc2dc", "#fff0f6", "#e07aa8"], body: "wide", ears: "cat", head: "petals", pattern: "heart", eyes: "round", snack: "berry", voice: 1.2,
+    lore: "A spring moon-egg kitten. Sneaks flowers into your pockets when you're not looking." },
+  { id: "sunsplash", name: "Sunsplash", crystal: "moonstone", moon: "summer", pal: ["#7fe0d6", "#e0fff8", "#2fa39a"], body: "drop", head: "rays", back: "fins", pattern: "spots", eyes: "sparkle", snack: "dew", voice: 1.15,
+    lore: "A summer moon-egg sprite. Leaves warm little puddles of light wherever it naps." },
 ];
+const rarityOf = sp => sp.moon ? "moon" : CRYSTAL[sp.crystal].rarity;
 const SP = Object.fromEntries(SPECIES.map(s => [s.id, s]));
 
 const PARTS = ["body", "ears", "head", "back", "pattern", "eyes"];
@@ -1653,6 +1673,14 @@ function makeShell(stone) {
     o.fillStyle = bump;
     o.beginPath(); o.arc(x, y, r, 0, TAU); o.fill();
   }
+  if (stone.moon) {
+    for (let i = 0; i < 46; i++) {
+      o.fillStyle = Math.random() < 0.6 ? "#e8c25a" : "#ffffff";
+      o.globalAlpha = rand(0.5, 1);
+      sparklePath(o, rand(0, L.ew + PAD * 2), rand(0, L.eh + PAD * 2), rand(1.5, 4.5) * L.k); o.fill();
+    }
+    o.globalAlpha = 1;
+  }
   for (let i = 0; i < 70; i++) {
     o.fillStyle = `rgba(40,30,40,${rand(0.08, 0.22)})`;
     o.beginPath();
@@ -1778,8 +1806,8 @@ function makeCrack(angle, conf, forceKnot, forceDouble) {
 function newEgg(conf, animate = true) {
   const r = Math.random();
   const rarity = r < conf.legendary ? "legendary" : r < conf.legendary + conf.rare ? "rare" : "common";
-  const crystal = pick(CRYSTALS.filter(c => c.rarity === rarity));
-  const species = pick(SPECIES.filter(s => s.crystal === crystal.id));
+  const crystal = conf.forced ? conf.forced.crystal : pick(CRYSTALS.filter(c => c.rarity === rarity));
+  const species = conf.forced ? conf.forced.species : pick(SPECIES.filter(s => s.crystal === crystal.id && !s.moon));
   const n = conf.cracks, start = rand(0, TAU);
   // the level that introduces a mechanic always shows it
   const knotAt = conf.step === 4 || (conf.knots && Math.random() < 0.5) ? Math.floor(rand(0, n)) : -1;
@@ -1787,7 +1815,7 @@ function newEgg(conf, animate = true) {
   const cracks = Array.from({ length: n }, (_, i) => makeCrack(start + i * TAU / n, conf, i === knotAt, i === doubleAt));
   const target = Math.round(cracks.reduce((s, c) => s + conf.pace + c.knots.length * 1.5 + (c.passes - 1) * 4, 0));
   game.egg = {
-    conf, crystal, species, shiny: Math.random() < 0.04, stone: pick(STONES),
+    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04), stone: conf.moon ? MOON_STONE : pick(STONES),
     cracks, target, state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, open: 0,
     clock: 0, acc: { sum: 0, n: 0 }, chipsTapped: 0, hop: 0,
   };
@@ -1797,7 +1825,7 @@ function newEgg(conf, animate = true) {
   e.interior = makeInterior(crystal, e.stone);
   game.pieces = [];
   $("dots").innerHTML = "<i></i>".repeat(n);
-  $("lvlPill").textContent = conf.wander ? "Wander" : `Lv ${conf.n}`;
+  $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? "Wander" : `Lv ${conf.n}`;
   setHint(conf.step === 1 ? "trace the glowing line from the bright dot" : conf.step === 2 ? "tip: knock on the stone and listen for the hollow spot" : "trace the glowing lines to crack the stone");
 }
 
@@ -2134,7 +2162,8 @@ function showFound() {
   const stars = 1 + (acc >= 0.7 ? 1 : 0) + (acc >= 0.7 && e.clock <= e.target ? 1 : 0);
   const firstClear = !conf.wander && !save.stars[conf.n];
   const shine = e.matte ? e.matte.shine : 0;
-  const shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + (e.hollowFound ? 5 : 0) + Math.round(shine * 10);
+  const moonBonus = conf.moon ? finishMoon() : 0;
+  const shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + (e.hollowFound ? 5 : 0) + Math.round(shine * 10) + moonBonus;
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
   save.shards += shards;
   const { isNew, note } = adopt(e);
@@ -2145,17 +2174,18 @@ function showFound() {
   $("foundImg").src = geodeImage();
   $("newBadge").hidden = !isNew;
   $("foundName").textContent = (e.shiny ? "✦ " : "") + sp.name;
-  $("foundRarity").textContent = `${cry.name} geode · ${cry.rarity}`;
-  $("foundRarity").className = `rarity r-${cry.rarity}`;
+  $("foundRarity").textContent = sp.moon ? `${sp.moon} moon glowling` : `${cry.name} geode · ${cry.rarity}`;
+  $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
-  $("foundNote").textContent = note + (e.hollowFound ? " · you found the hollow" : "");
+  $("foundNote").textContent = note + (e.hollowFound ? " · you found the hollow" : "") + (conf.moon ? ` · moon streak ${save.moon.streak} 🔥` : "");
   $("stShine").textContent = Math.round(shine * 100) + "%";
   $("stAcc").textContent = Math.round(acc * 100) + "%";
   $("stTime").textContent = Math.round(e.clock) + "s";
   $("stTarget").textContent = `★ under ${e.target}s`;
   $("stShards").textContent = "+" + shards;
-  $("nextLvl").textContent = conf.wander ? "Another egg" : conf.n >= LEVELS ? "Wander on" : "Next level";
+  $("foundMap").hidden = !!conf.moon;
+  $("nextLvl").textContent = conf.moon ? "Back to the grotto" : conf.wander ? "Another egg" : conf.n >= LEVELS ? "Wander on" : "Next level";
   updateTopbar();
   show("found", true);
 }
@@ -2285,6 +2315,50 @@ function updateTopbar() {
   $("starPill").textContent = `★ ${totalStars()}`;
 }
 
+// ---------- the daily moon egg ----------
+
+const MOON_STONE = Object.assign(["#d7d9f2", "#9ea3cc", "#f6f6ff"], { moon: true });
+const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+const seasonOf = (d = new Date()) => ["winter", "winter", "spring", "spring", "spring", "summer", "summer", "summer", "autumn", "autumn", "autumn", "winter"][d.getMonth()];
+
+/** Today's moon egg: the season's moon glowling until you've met it, then a rare or legendary one that changes daily. */
+function moonToday() {
+  const season = SPECIES.find(s => s.moon === seasonOf());
+  if (!save.seen[season.id]) return season;
+  const pool = SPECIES.filter(s => !s.moon && CRYSTAL[s.crystal].rarity !== "common");
+  return pool[Math.floor(seeded(dayKey())() * pool.length)];
+}
+
+const moonDone = () => save.moon && save.moon.last === dayKey();
+function moonStreak() {
+  if (!save.moon) return 0;
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  return save.moon.last === dayKey() || save.moon.last === dayKey(y) ? save.moon.streak : 0;
+}
+
+function startMoon() {
+  if (moonDone()) return;
+  sfx.tick();
+  game.chips = []; game.sparks = [];
+  setScene("crack");
+  const sp = moonToday();
+  newEgg({ ...levelConf(6), n: "moon", moon: true, wander: true, forced: { species: sp, crystal: CRYSTAL.moonstone } }, true);
+  setHint("today's moon egg: something special sleeps inside 🌙");
+}
+
+/** Called when a moon egg opens: streak and bonus shards. */
+function finishMoon() {
+  const y = new Date(); y.setDate(y.getDate() - 1);
+  const streak = save.moon && save.moon.last === dayKey(y) ? save.moon.streak + 1 : 1;
+  save.moon = { last: dayKey(), streak };
+  return 25 + Math.min(50, (streak - 1) * 5);
+}
+
+function untilTomorrow() {
+  const t = new Date(); t.setHours(24, 0, 0, 0);
+  return fmtLeft(t - Date.now());
+}
+
 function startLevel(n) {
   sfx.tick();
   game.chips = []; game.sparks = [];
@@ -2306,8 +2380,13 @@ function renderMap() {
   });
   const allDone = unlocked(LEVELS + 1);
   html += `<button class="wander" data-n="0" ${allDone ? "" : "disabled"}>🌌 Wander: endless geodes from the deepest caves${allDone ? "" : " (clear level 24)"}</button>`;
-  $("mapList").innerHTML = html;
+  const streak = moonStreak(), done = moonDone(), sp = moonToday();
+  const moonCard = `<button class="moonbtn" id="moonBtn" ${done ? "disabled" : ""}><span class="em">🌙</span><span><b>${done ? "Moon egg opened" : "Today's moon egg"}</b><small>${done
+    ? `next one in ${untilTomorrow()}${streak ? ` · streak ${streak} 🔥` : ""}`
+    : `${sp.moon && !save.seen[sp.id] ? `${/^[aeiou]/.test(sp.moon) ? "an" : "a"} ${sp.moon} moon glowling` : `a ${rarityOf(sp)} glowling`} sleeps inside ✦ +25 shards${streak ? ` · streak ${streak} 🔥` : ""}`}</small></span></button>`;
+  $("mapList").innerHTML = moonCard + html;
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
+  $("moonBtn").addEventListener("click", startMoon);
 }
 
 // ---------- the nest ----------
@@ -3249,6 +3328,7 @@ $("keepCracking").addEventListener("click", () => show("confirmLeave", false));
 $("leaveEgg").addEventListener("click", () => { show("confirmLeave", false); setScene("map"); });
 $("nextLvl").addEventListener("click", () => {
   const conf = game.egg.conf;
+  if (conf.moon) return setScene("map");
   startLevel(conf.wander || conf.n >= LEVELS ? 0 : conf.n + 1);
 });
 $("foundNest").addEventListener("click", () => setScene("nest"));
@@ -3409,7 +3489,7 @@ function renderLib() {
   } else if (game.libTab === "sp") {
     $("libGrid").innerHTML = SPECIES.map((s, i) => {
       const seen = save.seen[s.id];
-      return `<button data-sp="${s.id}" style="animation-delay:${i * 20}ms"><img src="${creatureImage(s, { size: 96, sil: !seen })}" alt=""><b>${seen ? s.name : "???"}</b><small>${CRYSTAL[s.crystal].rarity}</small></button>`;
+      return `<button data-sp="${s.id}" style="animation-delay:${i * 20}ms"><img src="${creatureImage(s, { size: 96, sil: !seen })}" alt=""><b>${seen ? s.name : "???"}</b><small>${rarityOf(s)}</small></button>`;
     }).join("");
   } else {
     for (const c of CRYSTALS) if (save.geodes[c.id] && !save.geodes[c.id].img) { save.geodes[c.id].img = crystalThumb(c.id); persist(); }
@@ -3455,13 +3535,13 @@ function openSpecies(sp) {
   sfx.tick();
   $("spImg").src = creatureImage(sp, { size: 200, sil: !seen, level: mine.length ? Math.max(...mine.map(c => c.level)) : 1 });
   $("spName").textContent = seen ? sp.name : "???";
-  $("spRarity").textContent = `${cry.name} · ${cry.rarity}`;
-  $("spRarity").className = `rarity r-${cry.rarity}`;
-  $("spLore").textContent = seen ? sp.lore : `Sleeps inside ${cry.name.toLowerCase()} geodes. Crack one to meet it.`;
+  $("spRarity").textContent = sp.moon ? `${sp.moon} moon glowling` : `${cry.name} · ${cry.rarity}`;
+  $("spRarity").className = `rarity r-${rarityOf(sp)}`;
+  $("spLore").textContent = seen ? sp.lore : sp.moon ? `Hatches only from moon eggs in ${sp.moon}. Look for the 🌙 in the Grotto.` : `Sleeps inside ${cry.name.toLowerCase()} geodes. Crack one to meet it.`;
   $("spFacts").innerHTML = seen
     ? `Favorite snack: ${SNACKS[sp.snack].emoji} ${SNACKS[sp.snack].name}<br>Met ${seen.count} time${seen.count === 1 ? "" : "s"} · first on ${new Date(seen.first).toLocaleDateString()}` +
       (mine.length ? `<br>In your nest: ${mine.map(c => `${c.name} (level ${c.level})`).join(", ")}` : "")
-    : `Found ${cry.rarity === "common" ? "anywhere in" : cry.rarity === "rare" ? "deeper in" : "rarely, in the deepest parts of"} the grotto.`;
+    : sp.moon ? `Only in 🌙 moon eggs, in ${sp.moon}.` : `Found ${cry.rarity === "common" ? "anywhere in" : cry.rarity === "rare" ? "deeper in" : "rarely, in the deepest parts of"} the grotto.`;
   show("spCard", true);
   if (seen) sfx.chirp(sp.voice);
 }
