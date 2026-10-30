@@ -29,3 +29,17 @@ python3 -m http.server 8000
 ```
 
 then visit http://localhost:8000.
+
+## Install on a phone
+
+Hatchstone is a small web app: open it in Safari (iPhone) or Chrome (Android) and choose
+**Share → Add to Home Screen** / **Install app**. It opens full screen and works offline.
+Your nest, glowlings and progress are saved on the device.
+
+## Hosting on GitHub Pages
+
+Everything Pages needs is here: `index.html`, `manifest.webmanifest`, `sw.js`, `icons/`,
+`og-image.jpg` (the share preview) and `.nojekyll`. With the repository public:
+Settings → Pages → Deploy from a branch → `main`, `/ (root)`. The game then lives at
+`https://helavika.github.io/hatchstone/`; the share tags in `index.html` point there.
+Bump `CACHE` in `sw.js` when icons change.
