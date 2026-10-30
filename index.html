@@ -73,11 +73,25 @@
   #dots i.on { background: #fff; box-shadow: 0 0 10px rgba(201, 184, 255, .9); transform: scale(1.15); }
   #clock small { color: var(--soft); font-weight: 600; }
 
+  /* hints: a clear bubble near the action, not small grey text */
   #hint {
-    position: fixed; left: 16px; right: 16px; bottom: calc(var(--bottom) + 8px);
-    text-align: center; color: var(--soft); font-size: 14px; pointer-events: none; opacity: 0; transition: opacity .5s;
+    position: fixed; left: 50%; bottom: calc(var(--bottom) + 14px); transform: translate(-50%, 8px);
+    max-width: calc(100vw - 32px); padding: 10px 18px; border-radius: 999px; text-align: center;
+    font-size: 15px; font-weight: 700; color: var(--ink); pointer-events: none; opacity: 0; transition: opacity .4s, transform .4s; z-index: 3;
   }
-  #hint.on { opacity: 1; }
+  #hint.on { opacity: 1; transform: translate(-50%, 0); }
+  body.scene-nest #hint { bottom: auto; top: calc(var(--top) + 132px); }
+  body.scene-catch #hint { bottom: auto; top: calc(var(--top) + 60px); }
+  #confirmLeave .card { width: min(320px, 100%); }
+  .row.center { justify-content: center; margin-top: 16px; }
+  .pillbtn {
+    border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .1); color: var(--ink); border-radius: 999px;
+    padding: 10px 16px; font-weight: 700; font-size: 15px; cursor: pointer;
+  }
+  .pillbtn:active { transform: scale(.96); }
+  .cave-note { font-size: 12px; color: var(--soft); margin: -4px 0 8px; text-align: left; }
+  #rotate { position: fixed; inset: 0; z-index: 9; display: none; place-items: center; text-align: center; padding: 24px; background: #16123a; font-size: 18px; font-weight: 700; }
+  @media (orientation: landscape) and (max-height: 500px) { #rotate { display: grid; } }
 
   #toast {
     position: fixed; left: 50%; top: calc(var(--top) + 54px); transform: translate(-50%, -8px); opacity: 0;
@@ -155,7 +169,7 @@
   #foundNote { color: var(--gold); font-size: 14px; font-weight: 700; margin: 6px 0 0; min-height: 1em; }
   .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
   .stats.four { grid-template-columns: repeat(4, 1fr); }
-  #polishDone { position: fixed; left: 50%; bottom: calc(var(--bottom) + 40px); transform: translateX(-50%); z-index: 2; }
+  #polishDone { position: fixed; left: 50%; bottom: calc(var(--bottom) + 92px); transform: translateX(-50%); z-index: 2; }
   .stats div { border-radius: 14px; padding: 7px 2px; background: rgba(255, 255, 255, .08); }
   .stats b { display: block; font-size: 17px; }
   .stats span { font-size: 11px; color: var(--soft); }
@@ -266,7 +280,8 @@
   </div>
 </div>
 
-<div id="hint"></div>
+<div id="hint" class="glass"></div>
+<div id="rotate"><div><div style="font-size:54px">📱</div>Turn your phone upright<br><span style="font-weight:400;font-size:15px;color:var(--soft)">Hatchstone is made to be played standing tall</span></div></div>
 <button class="act" id="polishDone" hidden>✨ Shiny enough</button>
 <div id="toast" class="glass"></div>
 
@@ -312,8 +327,7 @@
       <div><b id="stShards">+0</b><span>shards</span></div>
     </div>
     <button class="cta" id="nextLvl">Next level</button><br>
-    <button class="ghost" id="foundNest">visit the nest</button>
-    <button class="ghost" id="foundMap">grotto</button>
+    <div class="row center" style="margin-top:12px"><button class="pillbtn" id="foundNest">🪺 Visit the nest</button><button class="pillbtn" id="foundMap">🗺️ Grotto</button></div>
   </div>
 </div>
 
@@ -336,6 +350,14 @@
     <button class="act" id="decorBtn">🛋️ Decor</button>
   </div>
   <div id="switcher"></div>
+</div>
+
+<div id="confirmLeave" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Leave this egg?</h2>
+    <p class="sub">The cracks you've made so far will be lost.</p>
+    <div class="row center"><button class="act" id="keepCracking">Keep cracking</button><button class="pillbtn" id="leaveEgg">Leave</button></div>
+  </div>
 </div>
 
 <div id="snacks" class="overlay modal hidden">
@@ -906,6 +928,7 @@ const xpNeed = level => 20 + level * 15;
 const MAX_LEVEL = 20;
 
 const CAVES = ["Amethyst Hollow", "Celestite Grotto", "Malachite Deep", "Labradorite Vault"];
+const CAVE_NOTES = ["First cracks · glowing knots from level 4", "Hard stone from level 8 · rare crystals", "More cracks and knots · a chance of legendary", "The rarest geodes in the grotto"];
 const LEVELS = 24;
 
 /** How hard an egg is: more cracks, knots to break and hard stone deeper in the grotto. */
@@ -1861,6 +1884,7 @@ function finishCrack(cr) {
   o.restore();
   for (let i = 0; i < cr.pts.length; i += 3) if (Math.random() < 0.5) carveChip(...cr.pts[i], rand(2, 4.5) * L.k);
   cr.done = true;
+  markTip("trace");
   if (pointer) pointer.spent = true; // the next line waits for a fresh swipe
   const doneN = e.cracks.filter(c => c.done).length;
   sfx.crackDone(doneN);
@@ -1892,6 +1916,7 @@ function tapKnot(x, y) {
   const k = cr.knots.find(k => !k.broken && Math.hypot(cr.pts[k.i][0] - x, cr.pts[k.i][1] - y) < 26 * L.k);
   if (!k) return false;
   k.broken = true;
+  markTip("knot");
   const [px, py] = cr.pts[k.i];
   carveChip(px, py, 7 * L.k);
   spawnChips(px, py, 12, 1.3);
@@ -1929,6 +1954,7 @@ function chip(x, y) {
 }
 
 function openEgg() {
+  markTip("open");
   const e = game.egg;
   e.state = "opening"; e.t = 0;
   const c = [L.ecx + rand(-0.08, 0.08) * L.ew, L.ecy + rand(-0.04, 0.08) * L.eh];
@@ -2006,6 +2032,7 @@ function rub(x, y, d, dt) {
 function finishPolish() {
   const e = game.egg;
   if (e.state !== "polish") return;
+  markTip("polish");
   sfx.rubOff();
   e.state = "gleam"; e.t = 0;
   // polished all the way: the last bits of frost vanish
@@ -2098,12 +2125,84 @@ function showFound() {
   show("found", true);
 }
 
+// ---------- first-time guidance: a ghost finger shows each new move once ----------
+
+const tipDone = id => !!(save.tips && save.tips[id]);
+function markTip(id) {
+  if (tipDone(id)) return;
+  save.tips = save.tips || {};
+  save.tips[id] = Date.now();
+  persist();
+}
+
+/** What the ghost finger should show right now, if anything. */
+function coachMove() {
+  if (pointer) return null;
+  if (game.scene === "crack" && game.egg) {
+    const e = game.egg, cr = activeCrack();
+    if (cr) {
+      const knot = cr.knots.find(k => !k.broken);
+      if (knot && !tipDone("knot") && cr.cov.filter(Boolean).length / cr.pts.length >= 0.88) return { kind: "tap", at: cr.pts[knot.i] };
+      if (!tipDone("trace") && !cr.cov.some(Boolean)) return { kind: "path", pts: cr.pts };
+    }
+    if (e.state === "ready" && !tipDone("open")) return { kind: "tap", at: [L.ecx, L.ecy] };
+    if (e.state === "polish" && !tipDone("polish") && e.matte && e.matte.shine < 0.15)
+      return { kind: "path", pts: [0, 1, 2, 3, 4].map(i => [L.ecx + (i % 2 ? 0.3 : -0.3) * L.ew, L.ecy - L.eh * 0.15 + i * L.eh * 0.08]) };
+  }
+  if (game.scene === "nest" && !tipDone("pet")) {
+    const a = activeActor(), cr = activeCreature();
+    if (a && cr && !cr.sleeping) { const v = actorView(a); return { kind: "path", pts: [[v.x - v.size * 0.3, v.y], [v.x + v.size * 0.3, v.y], [v.x - v.size * 0.3, v.y], [v.x + v.size * 0.3, v.y]] }; }
+  }
+  if (game.scene === "catch" && game.catch && game.catch.intro > 0) {
+    const y = catchLayout().y;
+    return { kind: "path", pts: [[W * 0.3, y], [W * 0.7, y], [W * 0.3, y]] };
+  }
+  return null;
+}
+
+/** A soft glowing fingertip that traces a path (with a fading trail) or taps a spot. */
+function drawCoach() {
+  const m = coachMove();
+  if (!m) return;
+  const cycle = 2600, k = (game.time % cycle) / cycle;
+  ctx.save();
+  if (m.kind === "tap") {
+    const [x, y] = m.at, press = Math.sin(Math.min(1, k * 2.2) * Math.PI);
+    ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`; ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.arc(x, y, 14 + k * 30, 0, TAU); ctx.stroke();
+    finger(x, y - 6 * (1 - press), 0.95);
+  } else {
+    const pts = m.pts, t = clamp(k * 1.25 - 0.1, 0, 1);
+    const at = u => { const f = u * (pts.length - 1), i = Math.min(Math.floor(f), pts.length - 2), r = f - i; return [lerp(pts[i][0], pts[i + 1][0], r), lerp(pts[i][1], pts[i + 1][1], r)]; };
+    const fade = t <= 0 || t >= 1 ? 0 : Math.min(1, t * 8, (1 - t) * 8);
+    for (let j = 1; j <= 8; j++) {
+      const u = t - j * 0.025;
+      if (u <= 0) break;
+      const [x, y] = at(u);
+      ctx.fillStyle = `rgba(255,255,255,${0.35 * fade * (1 - j / 9)})`;
+      ctx.beginPath(); ctx.arc(x, y, 7 - j * 0.5, 0, TAU); ctx.fill();
+    }
+    const [x, y] = at(t);
+    finger(x, y, fade);
+  }
+  ctx.restore();
+}
+
+function finger(x, y, a) {
+  if (a <= 0) return;
+  const g = ctx.createRadialGradient(x, y, 2, x, y, 26);
+  g.addColorStop(0, `rgba(255,255,255,${0.9 * a})`); g.addColorStop(0.45, `rgba(230,224,255,${0.45 * a})`); g.addColorStop(1, "rgba(230,224,255,0)");
+  ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, 26, 0, TAU); ctx.fill();
+  ctx.strokeStyle = `rgba(255,255,255,${0.9 * a})`; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(x, y, 11, 0, TAU); ctx.stroke();
+}
+
 // ---------- scenes ----------
 
 const show = (id, on) => $(id).classList.toggle("hidden", !on);
 function setHint(text) {
-  $("hint").textContent = text;
-  $("hint").classList.toggle("on", !!text && game.scene === "crack");
+  if ($("hint").textContent !== text) $("hint").textContent = text;
+  $("hint").classList.toggle("on", !!text);
 }
 
 let toastTimer = 0;
@@ -2126,7 +2225,7 @@ function setScene(scene) {
   show("map", scene === "map");
   show("lib", scene === "lib");
   show("found", false);
-  $("hint").classList.toggle("on", scene === "crack" && !!$("hint").textContent);
+  if (scene !== "crack") setHint(scene === "nest" && save.creatures.length && !tipDone("pet") ? "stroke your glowling to pet it ♥" : "");
   $("nestEmpty").hidden = !(scene === "nest" && !save.creatures.length);
   if (scene === "map") renderMap();
   if (scene === "lib") renderLib();
@@ -2151,7 +2250,7 @@ function renderMap() {
   $("mapSub").textContent = `${totalStars()} of ${LEVELS * 3} stars · tap a level to crack its geode`;
   let html = "";
   CAVES.forEach((name, ci) => {
-    html += `<h3>${name}</h3><div class="lvls">`;
+    html += `<h3>${name}</h3><p class="cave-note">${CAVE_NOTES[ci]}</p><div class="lvls">`;
     for (let i = 1; i <= 6; i++) {
       const n = ci * 6 + i, st = save.stars[n] || 0, open = unlocked(n);
       html += `<button class="lvl${n === next ? " next" : ""}" data-n="${n}" ${open ? "" : "disabled"}>${open ? n : "🔒"}<span>${st ? "★".repeat(st) : ""}</span></button>`;
@@ -2673,7 +2772,8 @@ function startCatch() {
   cr.energy = clamp(cr.energy - 15, 0, 100);
   cr.tummy = clamp(cr.tummy - 5, 0, 100);
   persist();
-  game.catch = { t: 20, x: W / 2, tx: W / 2, items: [], spawn: 0, score: 0, combo: 0, flinch: 0, done: false };
+  game.catch = { t: 20, intro: 3, x: W / 2, tx: W / 2, items: [], spawn: 0, score: 0, combo: 0, flinch: 0, done: false };
+  setTimeout(() => setHint("drag left and right · catch sparkles, dodge pebbles"), 50);
   setScene("catch");
 }
 
@@ -2686,6 +2786,14 @@ function updateCatch(dt) {
   const g = game.catch;
   if (!g || g.done) return;
   const { s, y } = catchLayout();
+  if (g.intro > 0) {
+    const before = Math.ceil(g.intro);
+    g.intro -= dt;
+    g.x = lerp(g.x, clamp(g.tx, s * 0.6, W - s * 0.6), Math.min(1, dt * 12));
+    if (Math.ceil(g.intro) !== before) sfx.tick();
+    if (g.intro <= 0) { setHint(""); sfx.ding(4); }
+    return;
+  }
   g.t -= dt;
   g.x = lerp(g.x, clamp(g.tx, s * 0.6, W - s * 0.6), Math.min(1, dt * 12));
   g.spawn -= dt;
@@ -2737,6 +2845,14 @@ function drawCatch() {
   const g = game.catch, cr = activeCreature();
   if (!g || !cr) return;
   const { s, y } = catchLayout();
+  if (g.intro > 0) {
+    ctx.save();
+    ctx.textAlign = "center"; ctx.fillStyle = "#fff";
+    ctx.globalAlpha = 0.4 + 0.6 * (g.intro % 1);
+    ctx.font = `800 ${Math.round(Math.min(W, H) * 0.22)}px ui-rounded, system-ui, sans-serif`;
+    ctx.fillText(Math.ceil(g.intro), W / 2, H * 0.42);
+    ctx.restore();
+  }
   for (const it of g.items) {
     ctx.save();
     ctx.translate(it.x, it.y); ctx.rotate(it.rot);
@@ -2768,6 +2884,7 @@ cvs.addEventListener("pointerdown", e => {
   if (game.scene === "catch" && game.catch) game.catch.tx = e.clientX;
   if (game.scene === "nest" && !actorAt(e.clientX, e.clientY) && e.clientY > N.y0 - N.base) {
     pointer.call = true;
+    markTip("call");
     game.nest.call = { x: clamp(e.clientX, N.x0, N.x1), y: clamp(e.clientY, N.y0, N.y1), t: game.time };
   }
 });
@@ -2837,12 +2954,19 @@ function pet(x, y, d) {
   if (n.petDist > 45) {
     n.petDist = 0;
     heart(x, y - 10);
+    if (!tipDone("pet")) { markTip("pet"); setHint(tipDone("call") ? "" : "tip: hold a finger on the floor to call everyone"); setTimeout(() => { if (game.scene === "nest") setHint(""); }, 4000); }
     cr.joy = clamp(cr.joy + 1.2, 0, 100);
     if (performance.now() - n.petXpT > 1500) { n.petXpT = performance.now(); addXP(cr, 1); persist(); renderNest(); }
   }
 }
 
 // ---------- buttons ----------
+
+if (save.creatures.length) {
+  $("play").textContent = "Continue";
+  const n = save.creatures.length;
+  $("play").insertAdjacentHTML("beforebegin", `<p class="sub">Your nest: ${n} glowling${n === 1 ? "" : "s"} waiting for you ✦</p>`);
+}
 
 $("play").addEventListener("click", () => {
   sfx.init();
@@ -2856,7 +2980,13 @@ $$(".mute").forEach(b => b.addEventListener("click", () => {
   $$(".mute").forEach(m => { m.textContent = sfx.muted ? "🔇" : "🔊"; });
 }));
 $$("#tabs button").forEach(b => b.addEventListener("click", () => { sfx.tick(); setScene(b.dataset.tab); }));
-$("quit").addEventListener("click", () => setScene("map"));
+$("quit").addEventListener("click", () => {
+  const e = game.egg;
+  const started = e && (e.state === "cracking" || e.state === "ready") && e.cracks.some(c => c.done || c.cov.some(Boolean));
+  if (started) { sfx.tick(); show("confirmLeave", true); } else setScene("map");
+});
+$("keepCracking").addEventListener("click", () => show("confirmLeave", false));
+$("leaveEgg").addEventListener("click", () => { show("confirmLeave", false); setScene("map"); });
 $("nextLvl").addEventListener("click", () => {
   const conf = game.egg.conf;
   startLevel(conf.wander || conf.n >= LEVELS ? 0 : conf.n + 1);
@@ -3145,7 +3275,7 @@ function updateClock() {
   const s = Math.floor(e.clock);
   if (updateClock.last !== s + "/" + e.target) {
     updateClock.last = s + "/" + e.target;
-    $("clock").innerHTML = `${s}s <small>/ ${e.target}s</small>`;
+    $("clock").innerHTML = `⏱ ${s}s <small>· ★ ${e.target}s</small>`;
   }
 }
 
@@ -3464,6 +3594,7 @@ function frame(now) {
   drawHearts();
   drawFloaters();
   drawTrail();
+  drawCoach();
   requestAnimationFrame(frame);
 }
 
