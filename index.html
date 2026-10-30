@@ -823,7 +823,8 @@ function addXP(cr, n) {
     const grew = stageOf(cr.level) !== before;
     toast(grew ? `${cr.name} grew up: now ${STAGES[stageOf(cr.level)]}! ✦` : `${cr.name} reached level ${cr.level} ✦`);
     sfx.levelUp();
-    if (game.scene === "nest") burst(N.cx, N.cy, grew ? 40 : 18, ["#fff", ...CRYSTAL[SP[cr.sp].crystal].c], grew ? 1.6 : 1);
+    const a = actors.get(cr.id);
+    if (game.scene === "nest" && a) { const v = actorView(a); burst(v.x, v.y, grew ? 40 : 18, ["#fff", ...CRYSTAL[SP[cr.sp].crystal].c], grew ? 1.6 : 1); }
   }
   if (cr.level >= MAX_LEVEL) cr.xp = 0;
 }
@@ -858,10 +859,12 @@ function computeLayout() {
   L.floor = L.ecy + L.eh / 2;
   L.egg = eggPoly(L.ecx, L.ecy, L.ew, L.eh);
   // the nest leaves room for the name above and the needs, buttons and tabs below
-  const nTop = 150, nBottom = H - 250;
-  N.size = clamp(Math.min(W * 0.46, (nBottom - nTop) * 0.62), 90, 250);
-  N.cx = W / 2;
-  N.cy = (nTop + nBottom) / 2 + N.size * 0.12;
+  const nTop = 150, nBottom = H - 260, roomW = Math.min(W * 0.92, 760);
+  N.top = nTop;
+  N.base = clamp(Math.min(W * 0.18, (nBottom - nTop) * 0.28), 56, 120);
+  N.x0 = W / 2 - roomW / 2 + N.base * 0.5; N.x1 = W / 2 + roomW / 2 - N.base * 0.5;
+  N.y0 = nTop + (nBottom - nTop) * 0.45; N.y1 = nBottom - 10;
+  N.bedX = N.x1 - N.base * 0.55; N.bedY = N.y0 + (N.y1 - N.y0) * 0.2;
 }
 
 // ---------- quality: step resolution down if the device can't keep up ----------
@@ -903,11 +906,13 @@ function resize() {
 const game = {
   scene: "menu", egg: null, time: 0, libTab: "sp",
   chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], floaters: [],
-  nest: { hop: 0, eating: 0, snack: null, petDist: 0, petXpT: 0, petting: false },
+  nest: { snack: null, petDist: 0, petXpT: 0, petting: false, call: null },
+  actors: null,
   catch: null,
   quality, save,
 };
 window.__game = game; // handy for debugging and tests
+setTimeout(() => { game.actors = actors; });
 
 // ---------- background: a moonlit grotto ----------
 
@@ -1282,7 +1287,7 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   if (!o.sil && o.glow !== false) {
     const gr = Math.min(s * (0.95 + stage * 0.15), o.maxGlow || Infinity);
     const g = c.createRadialGradient(0, 0, s * 0.2, 0, 0, gr);
-    g.addColorStop(0, `rgba(255,255,255,${0.32 + stage * 0.06})`);
+    g.addColorStop(0, `rgba(255,255,255,${(0.32 + stage * 0.06) * (o.glowK ?? 1)})`);
     g.addColorStop(1, "rgba(255,255,255,0)");
     c.fillStyle = g; c.beginPath(); c.arc(0, 0, gr, 0, TAU); c.fill();
   }
@@ -1577,7 +1582,7 @@ function spawnChips(x, y, n, spread = 1, colors = game.egg ? game.egg.stone : ["
     game.chips.push({
       x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, s: rand(1.5, 4) * Math.max(1, L.k),
       rot: rand(0, 6), vrot: rand(-8, 8), color: pick(colors), t: 0, life: rand(0.9, 1.5),
-      floor: game.scene === "crack" ? L.floor + 6 : game.scene === "nest" ? N.cy + N.size * 0.42 : Infinity,
+      floor: game.scene === "crack" ? L.floor + 6 : game.scene === "nest" ? N.y1 : Infinity,
     });
   }
 }
@@ -1870,6 +1875,7 @@ function renderMap() {
 // ---------- the nest ----------
 
 function renderNest(full) {
+  if (game.scene === "nest") syncActors();
   const cr = activeCreature();
   const hasAny = !!cr;
   $("nestTop").hidden = !hasAny;
@@ -1891,11 +1897,7 @@ function renderNest(full) {
   if (full) {
     $("switcher").innerHTML = save.creatures.map(c =>
       `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}" title="${c.name}"><img src="${creatureImage(SP[c.sp], { size: 64, level: c.level, shiny: c.shiny })}" alt="${c.name}"></button>`).join("");
-    $$("#switcher button").forEach(b => b.addEventListener("click", () => {
-      save.active = Number(b.dataset.id); persist(); sfx.tick();
-      game.nest.hop = 1; sfx.chirp(SP[activeCreature().sp].voice);
-      renderNest(true);
-    }));
+    $$("#switcher button").forEach(b => b.addEventListener("click", () => selectCreature(Number(b.dataset.id))));
   }
 }
 
@@ -1916,20 +1918,22 @@ function feed(id) {
   if (cr.tummy >= 95) { toast(`${cr.name} is too full right now`); return; }
   if (save.shards < s.cost) { toast("Not enough shards: crack a geode to earn more ✦"); return; }
   save.shards -= s.cost;
-  game.nest.snack = { emoji: s.emoji, y: N.cy - N.size * 1.6, vy: 0, fav: id === sp.snack, s };
+  const v = actorView(activeActor());
+  game.nest.snack = { emoji: s.emoji, x: v.x, y: v.y - N.base * 2, ty: v.y, vy: 0, fav: id === sp.snack, s };
   updateTopbar();
 }
 
 function finishSnack(sn) {
-  const cr = activeCreature();
-  game.nest.eating = 1.4;
+  const cr = activeCreature(), a = activeActor();
+  if (a) { a.state = "eat"; a.t = 1.4; a.tx = a.x; a.ty = a.y; }
+  const v = a ? actorView(a) : { x: sn.x, y: sn.ty, size: N.base };
   sfx.munch();
   cr.tummy = clamp(cr.tummy + sn.s.tummy, 0, 100);
   cr.joy = clamp(cr.joy + sn.s.joy + (sn.fav ? 15 : 0), 0, 100);
   addXP(cr, sn.fav ? 12 : 6);
-  spawnChips(N.cx, N.cy, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
-  floatText(sn.fav ? "favorite! ♥" : "yum", N.cx, N.cy - N.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
-  if (sn.fav) for (let i = 0; i < 5; i++) heart(N.cx + rand(-30, 30), N.cy - N.size * 0.3);
+  spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
+  floatText(sn.fav ? "favorite! ♥" : "yum", v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
+  if (sn.fav) for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3);
   persist();
   renderNest();
 }
@@ -1940,7 +1944,7 @@ function toggleSleep() {
   applyTime(cr);
   cr.sleeping = !cr.sleeping;
   if (cr.sleeping) { sfx.lullaby(); toast(`Sweet dreams, ${cr.name} 🌙`); }
-  else { sfx.chirp(SP[cr.sp].voice); game.nest.hop = 1; }
+  else { sfx.chirp(SP[cr.sp].voice); const a = activeActor(); if (a) a.hop = 1; }
   persist();
   renderNest();
 }
@@ -1951,6 +1955,239 @@ function heart(x, y) {
 
 function floatText(text, x, y, color = "#fff") {
   game.floaters.push({ text, x, y, color, t: 0 });
+}
+
+// ---------- the living nest: every glowling roams the cave room ----------
+
+/** How each kind of glowling likes to spend its time. */
+const BEHAVIOR = {
+  mothlet: "flutter", honeybop: "flutter", flutterite: "flutter",
+  dozeling: "nap", smudgekin: "nap", dreamwisp: "nap", hushowl: "nap",
+  skyfin: "swim", ripplet: "swim", bubblequill: "swim", cometail: "swim", auroray: "swim",
+  blushbun: "hop", lunaroo: "hop", ringlet: "hop", sproutle: "hop",
+  glimmerfox: "curious", ambercub: "curious", mossmew: "curious", nebbit: "curious",
+  petalpuff: "dance", rosettle: "dance", sunnub: "dance", glassling: "dance", prismpip: "dance", swirlhorn: "dance",
+};
+const ROOM_MAX = 12;
+const actors = new Map();
+
+/** Up to a dozen glowlings fit in the room: the newest ones, always including the one you picked. */
+function roomCreatures() {
+  const act = activeCreature();
+  const list = save.creatures.slice(-ROOM_MAX);
+  if (act && !list.includes(act)) list[0] = act;
+  return list;
+}
+
+const roomPoint = () => [rand(N.x0, N.x1), rand(N.y0, N.y1)];
+const depth = y => lerp(0.72, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1));
+
+function syncActors() {
+  const list = roomCreatures(), ids = new Set(list.map(c => c.id));
+  for (const id of actors.keys()) if (!ids.has(id)) actors.delete(id);
+  for (const cr of list) {
+    if (actors.has(cr.id)) continue;
+    const [x, y] = roomPoint();
+    actors.set(cr.id, { id: cr.id, x, y, tx: x, ty: y, alt: 0, state: "idle", t: rand(0.5, 2.5), hop: 0, ph: rand(0, TAU), emote: null, friend: null, beh: BEHAVIOR[cr.sp] || "dance" });
+  }
+}
+
+/** Where a glowling is drawn: its center and size (smaller further back in the room). */
+function actorView(a) {
+  const k = depth(a.y), size = N.base * k;
+  return { x: a.x, y: a.y - size * 0.45 - a.alt, size, k };
+}
+
+const activeActor = () => { const cr = activeCreature(); return cr ? actors.get(cr.id) : null; };
+const emote = (a, text, life = 1.6) => { a.emote = { text, t: 0, life }; };
+
+function actorAt(x, y) {
+  let best = null;
+  for (const a of actors.values()) {
+    const v = actorView(a);
+    if (Math.hypot(x - v.x, y - v.y) < v.size * 0.6 && (!best || a.y > best.y)) best = a;
+  }
+  return best;
+}
+
+function selectCreature(id) {
+  save.active = id; persist();
+  const a = actors.get(id), cr = activeCreature();
+  if (a) { a.hop = 1; emote(a, "♥", 1.2); }
+  sfx.chirp(SP[cr.sp].voice);
+  renderNest(true);
+}
+
+/** Pick what to do next: nap, dance, visit a friend, or wander (flutterers chase the light motes). */
+function chooseNext(a, list) {
+  const r = Math.random(), b = a.beh;
+  if (b === "nap" && r < 0.35) { a.state = "nap"; a.t = rand(5, 10); emote(a, "zz", 2.5); return; }
+  if (b === "dance" && r < 0.3) { a.state = "dance"; a.t = rand(1.6, 2.8); emote(a, "♪", 1.6); return; }
+  const others = list.filter(o => o !== a);
+  if (others.length && r < (b === "curious" ? 0.5 : 0.18)) {
+    const f = pick(others);
+    a.friend = f.id; a.state = "walk";
+    a.tx = clamp(f.x + (a.x < f.x ? -1 : 1) * N.base * 0.6, N.x0, N.x1); a.ty = f.y;
+    return;
+  }
+  [a.tx, a.ty] = roomPoint();
+  a.state = "walk";
+  if (b === "flutter" && Math.random() < 0.4) emote(a, "✦", 1);
+}
+
+function updateActors(dt) {
+  syncActors();
+  const list = [...actors.values()], call = game.nest.call;
+  for (const a of list) {
+    const cr = save.creatures.find(c => c.id === a.id);
+    if (!cr) continue;
+    a.ph += dt;
+    if (a.emote && (a.emote.t += dt) > a.emote.life) a.emote = null;
+    a.hop = Math.max(0, a.hop - dt * 2.5);
+    const base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100;
+    let speed = base, target = null;
+    if (cr.sleeping) {
+      target = [N.bedX + ((a.id % 3) - 1) * N.base * 0.35, N.bedY + (a.id % 2) * N.base * 0.15];
+      if (a.state !== "sleep") a.state = "toBed";
+    } else if (a.state === "sleep" || a.state === "toBed") { a.state = "idle"; a.t = 0.5; }
+    // a finger held on the floor calls everyone over
+    if (!cr.sleeping && call && game.time - call.t < 400 && a.state !== "eat") {
+      if (a.state !== "called") emote(a, "!", 0.9);
+      a.state = "called";
+      target = [call.x + Math.cos(a.id * 2.4) * N.base * 0.55, clamp(call.y + Math.sin(a.id * 2.4) * N.base * 0.3, N.y0, N.y1)];
+      speed = base * (a.beh === "curious" ? 2.4 : 1.7);
+    } else if (a.state === "called") { a.state = "idle"; a.t = rand(1, 2.5); }
+    if (a.id === save.active && game.nest.petting) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
+    else if (target) { a.tx = target[0]; a.ty = target[1]; }
+    else if (a.state === "eat") { if ((a.t -= dt) <= 0) { a.state = "idle"; a.t = rand(1, 2); } }
+    else if (a.state === "idle" || a.state === "nap" || a.state === "dance") { if ((a.t -= dt) <= 0) chooseNext(a, list); }
+
+    // a little personal space: glowlings gently push apart instead of piling up
+    if (a.state !== "sleep") for (const o of list) {
+      if (o === a || o.state === "sleep") continue;
+      const ox = a.x - o.x, oy = (a.y - o.y) * 1.6, od = Math.hypot(ox, oy), min = N.base * 0.75;
+      if (od > 0.01 && od < min) { const push = (min - od) * dt * 2.5; a.x = clamp(a.x + ox / od * push, N.x0, N.x1); a.y = clamp(a.y + oy / od * push * 0.6, N.y0, N.y1); }
+    }
+    const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
+    const still = ["nap", "dance", "eat", "sleep"].includes(a.state);
+    const moving = d > 3 && !still;
+    if (moving) {
+      const hopper = a.beh === "hop";
+      const step = Math.min(d, speed * dt * (hopper ? Math.max(0, Math.sin(a.ph * 7)) * 2 : 1));
+      a.x += dx / d * step; a.y += dy / d * step;
+    } else if (a.state === "walk") {
+      a.state = "idle"; a.t = rand(1.2, 3.5);
+      const f = a.friend && actors.get(a.friend);
+      if (f) { emote(a, pick(["♥", "♪", "✦"])); emote(f, pick(["♥", "♪", "!"])); f.hop = 1; a.hop = 1; sfx.chirp(SP[cr.sp].voice * 1.1); }
+      a.friend = null;
+    } else if (a.state === "toBed" && d <= 3) a.state = "sleep";
+    // fliers hover, swimmers glide, hoppers bounce
+    const ease = (to, k) => { a.alt = lerp(a.alt, to, Math.min(1, dt * k)); };
+    if (a.state === "sleep") ease(0, 4);
+    else if (a.beh === "flutter") ease(N.base * (0.5 + 0.14 * Math.sin(a.ph * 3)), 3);
+    else if (a.beh === "swim") ease(N.base * (0.28 + 0.1 * Math.sin(a.ph * 1.6)), 3);
+    else if (a.beh === "hop" && moving) a.alt = Math.abs(Math.sin(a.ph * 7)) * N.base * 0.18;
+    else ease(0, 6);
+    if (a.state === "dance") a.hop = Math.abs(Math.sin(a.ph * 6)) * 0.6;
+    // needs show up as little thought bubbles now and then
+    if (!a.emote && a.state !== "sleep" && Math.random() < dt * 0.07) {
+      const m = moodOf(cr);
+      if (m === "hungry") emote(a, SNACKS[SP[cr.sp].snack].emoji, 2.2);
+      else if (m === "sleepy") emote(a, "zz", 2.2);
+      else if (m === "sad") emote(a, "…", 2.2);
+    }
+  }
+}
+
+function drawRoom() {
+  const { x0, x1, y0, y1 } = N, cx = (x0 + x1) / 2;
+  // a round window onto the night sky, high on the back wall
+  const wr = Math.min((x1 - x0) * 0.22, (y0 - N.top) * 0.45), wy = y0 - wr * 1.08;
+  ctx.save();
+  ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU);
+  const sky = ctx.createLinearGradient(0, wy - wr, 0, wy + wr);
+  sky.addColorStop(0, "#0d0a2a"); sky.addColorStop(1, "#2d2468");
+  ctx.fillStyle = sky; ctx.fill();
+  ctx.clip();
+  ctx.fillStyle = "#fff";
+  for (let i = 0; i < 22; i++) {
+    ctx.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(game.time * 0.001 + i));
+    ctx.fillRect(cx + Math.sin(i * 12.9898) * wr * 0.9, wy + Math.cos(i * 78.233) * wr * 0.9, 1.6, 1.6);
+  }
+  ctx.globalAlpha = 1;
+  ctx.fillStyle = "#fff8d6";
+  ctx.beginPath(); ctx.arc(cx + wr * 0.4, wy - wr * 0.35, wr * 0.2, 0, TAU); ctx.fill();
+  ctx.fillStyle = "#0d0a2a";
+  ctx.beginPath(); ctx.arc(cx + wr * 0.48, wy - wr * 0.42, wr * 0.17, 0, TAU); ctx.fill();
+  ctx.restore();
+  ctx.strokeStyle = "rgba(255,255,255,.3)"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU); ctx.stroke();
+  // moonlight falling on the floor
+  const ray = ctx.createLinearGradient(0, wy, 0, y1);
+  ray.addColorStop(0, "rgba(230,224,255,.1)"); ray.addColorStop(1, "rgba(230,224,255,0)");
+  ctx.fillStyle = ray;
+  ctx.beginPath(); ctx.moveTo(cx - wr * 0.7, wy); ctx.lineTo(cx + wr * 0.7, wy); ctx.lineTo(cx + wr * 1.6, y1); ctx.lineTo(cx - wr * 1.6, y1); ctx.closePath(); ctx.fill();
+  // the cave floor and a round woven rug
+  const fy = (y0 + y1) / 2, rx = (x1 - x0) * 0.62, ry = (y1 - y0) * 0.8;
+  const floor = ctx.createRadialGradient(cx, fy, 4, cx, fy, rx);
+  floor.addColorStop(0, "rgba(91,74,168,.55)"); floor.addColorStop(1, "rgba(44,34,102,0)");
+  ctx.fillStyle = floor;
+  ctx.beginPath(); ctx.ellipse(cx, fy + ry * 0.1, rx, ry, 0, 0, TAU); ctx.fill();
+  for (let i = 0; i < 4; i++) {
+    ctx.strokeStyle = `rgba(255,214,232,${0.1 + (i % 2) * 0.06})`; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.ellipse(cx - rx * 0.1, fy + ry * 0.15, rx * (0.42 - i * 0.08), ry * (0.42 - i * 0.08), 0, 0, TAU); ctx.stroke();
+  }
+  drawCushion(N.bedX, N.bedY + N.base * 0.12, N.base * 0.85);
+}
+
+function drawEmote(a, v) {
+  const e = a.emote, k = e.t / e.life, r = Math.max(12, v.size * 0.2);
+  const bx = v.x + v.size * 0.42, by = v.y - v.size * 0.62 - k * 8;
+  ctx.save();
+  ctx.globalAlpha = Math.min(1, (e.life - e.t) / 0.3, e.t / 0.12);
+  ctx.fillStyle = "rgba(255,255,255,.92)";
+  ctx.beginPath(); ctx.arc(bx, by, r, 0, TAU); ctx.fill();
+  ctx.beginPath(); ctx.arc(bx - r * 0.85, by + r * 0.9, r * 0.22, 0, TAU); ctx.fill();
+  ctx.fillStyle = e.text === "♥" ? "#ff6fa8" : "#4a3b8f";
+  ctx.font = `800 ${Math.round(r * 1.05)}px ui-rounded, system-ui, sans-serif`;
+  ctx.textAlign = "center"; ctx.textBaseline = "middle";
+  ctx.fillText(e.text, bx, by + 1);
+  ctx.restore();
+}
+
+function drawNest() {
+  drawRoom();
+  const act = activeCreature();
+  for (const a of [...actors.values()].sort((p, q) => p.y - q.y)) {
+    const cr = save.creatures.find(c => c.id === a.id);
+    if (!cr) continue;
+    const v = actorView(a), sp = SP[cr.sp], mine = act && a.id === act.id;
+    ctx.fillStyle = "rgba(5,0,20,.35)";
+    ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.38 * clamp(1 - a.alt / (N.base * 1.4), 0.4, 1), v.size * 0.09, 0, 0, TAU); ctx.fill();
+    if (mine) {
+      ctx.strokeStyle = `rgba(255,233,168,${0.5 + 0.3 * Math.sin(game.time * 0.004)})`; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.5, v.size * 0.13, 0, 0, TAU); ctx.stroke();
+    }
+    const asleep = a.state === "sleep" || a.state === "nap";
+    const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || (a.emote && a.emote.text === "♥") ? "happy" : moodOf(cr);
+    drawCreature(ctx, v.x, v.y, v.size, sp, { level: cr.level, shiny: cr.shiny, mood, hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 });
+    if (asleep) {
+      ctx.font = `800 ${Math.round(v.size * 0.18)}px ui-rounded, system-ui, sans-serif`;
+      ctx.fillStyle = "#e6e0ff";
+      for (let i = 0; i < 2; i++) {
+        const k = ((game.time / 1600) + i / 2 + a.id * 0.13) % 1;
+        ctx.globalAlpha = Math.sin(k * Math.PI);
+        ctx.fillText("z", v.x + v.size * 0.3 + k * v.size * 0.25, v.y - v.size * 0.35 - k * v.size * 0.4);
+      }
+      ctx.globalAlpha = 1;
+    } else if (a.emote) drawEmote(a, v);
+  }
+  const sn = game.nest.snack;
+  if (sn) {
+    ctx.font = `${Math.round(N.base * 0.32)}px system-ui`; ctx.textAlign = "center";
+    ctx.fillText(sn.emoji, sn.x, sn.y);
+    ctx.textAlign = "start";
+  }
 }
 
 // ---------- the sparkle-catch mini-game ----------
@@ -2055,6 +2292,10 @@ cvs.addEventListener("pointerdown", e => {
   game.trail = game.scene === "crack" ? [{ x: e.clientX, y: e.clientY, t: performance.now() }] : [];
   if (game.scene === "crack" && game.egg.state === "cracking") trace(e.clientX, e.clientY);
   if (game.scene === "catch" && game.catch) game.catch.tx = e.clientX;
+  if (game.scene === "nest" && !actorAt(e.clientX, e.clientY) && e.clientY > N.y0 - N.base) {
+    pointer.call = true;
+    game.nest.call = { x: clamp(e.clientX, N.x0, N.x1), y: clamp(e.clientY, N.y0, N.y1), t: game.time };
+  }
 });
 cvs.addEventListener("pointermove", e => {
   if (game.scene === "catch" && game.catch) game.catch.tx = e.clientX;
@@ -2075,12 +2316,16 @@ cvs.addEventListener("pointermove", e => {
     }
     game.trail.push({ x: e.clientX, y: e.clientY, t: performance.now() });
   }
-  if (game.scene === "nest") pet(e.clientX, e.clientY, d);
+  if (game.scene === "nest") {
+    if (pointer.call) game.nest.call = { x: clamp(e.clientX, N.x0, N.x1), y: clamp(e.clientY, N.y0, N.y1), t: game.time };
+    else pet(e.clientX, e.clientY, d);
+  }
   pointer.lx = e.clientX; pointer.ly = e.clientY;
 });
 cvs.addEventListener("pointerup", e => {
   if (!pointer) return;
   const tap = pointer.moved < 10 && performance.now() - pointer.t0 < 350;
+  const calling = pointer.call;
   pointer = null;
   if (game.scene === "nest") { game.nest.petting = false; sfx.purrOff(); }
   if (!tap) return;
@@ -2090,10 +2335,12 @@ cvs.addEventListener("pointerup", e => {
     else if (egg.state === "cracking" && !tapKnot(e.clientX, e.clientY)) chip(e.clientX, e.clientY);
     else if (egg.state === "open" && Math.hypot(e.clientX - L.ecx, e.clientY - L.ecy) < L.ew * 0.25) { egg.hop = 1; sfx.chirp(egg.species.voice); }
   }
-  if (game.scene === "nest") {
-    const cr = activeCreature();
-    if (cr && !cr.sleeping && Math.hypot(e.clientX - N.cx, e.clientY - N.cy) < N.size * 0.6) {
-      game.nest.hop = 1; sfx.chirp(SP[cr.sp].voice); heart(N.cx, N.cy - N.size * 0.4);
+  if (game.scene === "nest" && !calling) {
+    const a = actorAt(e.clientX, e.clientY);
+    if (a && a.id !== save.active) selectCreature(a.id);
+    else if (a) {
+      const cr = activeCreature(), v = actorView(a);
+      if (!cr.sleeping) { a.hop = 1; sfx.chirp(SP[cr.sp].voice); heart(v.x, v.y - v.size * 0.4); }
     }
   }
 });
@@ -2101,9 +2348,10 @@ cvs.addEventListener("pointercancel", () => { pointer = null; game.nest.petting 
 
 /** Stroking a glowling: hearts, a purr, joy, and a little XP now and then. */
 function pet(x, y, d) {
-  const cr = activeCreature(), n = game.nest;
-  if (!cr || cr.sleeping) return;
-  if (Math.hypot(x - N.cx, y - N.cy) > N.size * 0.65) { if (n.petting) { n.petting = false; sfx.purrOff(); } return; }
+  const cr = activeCreature(), n = game.nest, a = activeActor();
+  if (!cr || cr.sleeping || !a) return;
+  const v = actorView(a);
+  if (Math.hypot(x - v.x, y - v.y) > v.size * 0.7) { if (n.petting) { n.petting = false; sfx.purrOff(); } return; }
   if (!n.petting) { n.petting = true; sfx.purrOn(); }
   n.petDist += d;
   if (n.petDist > 45) {
@@ -2247,11 +2495,12 @@ function update(dt) {
 
   if (game.scene === "nest") {
     const n = game.nest;
-    n.hop = Math.max(0, n.hop - dt * 2.5);
-    n.eating = Math.max(0, n.eating - dt);
+    updateActors(dt);
     if (n.snack) {
+      const a = activeActor();
+      if (a) { const v = actorView(a); n.snack.x = v.x; n.snack.ty = v.y; }
       n.snack.vy += GRAVITY * dt; n.snack.y += n.snack.vy * dt;
-      if (n.snack.y >= N.cy - N.size * 0.05) { const sn = n.snack; n.snack = null; finishSnack(sn); }
+      if (n.snack.y >= n.snack.ty) { const sn = n.snack; n.snack = null; finishSnack(sn); }
     }
     if ((nestTick += dt) > 1 && activeCreature()) { nestTick = 0; renderNest(); persist(); }
   }
@@ -2452,63 +2701,6 @@ function drawPieces() {
     ctx.lineWidth = 1;
     ctx.stroke();
     ctx.restore();
-  }
-}
-
-function drawNest() {
-  const cr = activeCreature();
-  const { cx, cy, size } = N;
-  // a round window onto the night sky behind the nest
-  const wr = size * 1.05, wy = cy - size * 0.35;
-  ctx.save();
-  ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU);
-  const sky = ctx.createLinearGradient(0, wy - wr, 0, wy + wr);
-  sky.addColorStop(0, "#0d0a2a"); sky.addColorStop(1, "#2d2468");
-  ctx.fillStyle = sky; ctx.fill();
-  ctx.clip();
-  ctx.fillStyle = "#fff";
-  for (let i = 0; i < 26; i++) {
-    const sx = cx + Math.sin(i * 12.9898) * wr * 0.9, sy = wy + Math.cos(i * 78.233) * wr * 0.9;
-    ctx.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(game.time * 0.001 + i));
-    ctx.fillRect(sx, sy, 1.6, 1.6);
-  }
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = "#fff8d6";
-  ctx.beginPath(); ctx.arc(cx + wr * 0.45, wy - wr * 0.45, wr * 0.16, 0, TAU); ctx.fill();
-  ctx.fillStyle = "#0d0a2a";
-  ctx.beginPath(); ctx.arc(cx + wr * 0.52, wy - wr * 0.5, wr * 0.14, 0, TAU); ctx.fill();
-  ctx.restore();
-  ctx.strokeStyle = "rgba(255,255,255,.3)"; ctx.lineWidth = 3;
-  ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU); ctx.stroke();
-  drawCushion(cx, cy + size * 0.4, size * 0.85);
-  if (!cr) return;
-  const sp = SP[cr.sp], mood = game.nest.petting ? "joy" : moodOf(cr);
-  drawCreature(ctx, cx, cy, size, sp, { level: cr.level, shiny: cr.shiny, mood, hop: game.nest.hop, eating: game.nest.eating > 0 });
-  if (cr.sleeping) {
-    ctx.fillStyle = "rgba(5,0,25,.35)"; ctx.fillRect(0, 0, W, H);
-    ctx.font = `800 ${Math.round(size * 0.14)}px ui-rounded, system-ui, sans-serif`;
-    for (let i = 0; i < 3; i++) {
-      const k = ((game.time / 1600) + i / 3) % 1;
-      ctx.globalAlpha = Math.sin(k * Math.PI);
-      ctx.fillStyle = "#e6e0ff";
-      ctx.fillText("z", cx + size * 0.35 + k * size * 0.3, cy - size * 0.4 - k * size * 0.5);
-    }
-    ctx.globalAlpha = 1;
-  } else if (moodOf(cr) === "hungry" && !game.nest.snack && game.nest.eating <= 0) {
-    // a thought bubble with its favorite snack
-    const bx = cx + size * 0.55, by = cy - size * 0.65;
-    ctx.fillStyle = "rgba(255,255,255,.9)";
-    ctx.beginPath(); ctx.arc(bx, by, size * 0.16, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(bx - size * 0.16, by + size * 0.17, size * 0.04, 0, TAU); ctx.fill();
-    ctx.font = `${Math.round(size * 0.16)}px system-ui`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-    ctx.fillText(SNACKS[sp.snack].emoji, bx, by + 1);
-    ctx.textAlign = "start"; ctx.textBaseline = "alphabetic";
-  }
-  const sn = game.nest.snack;
-  if (sn) {
-    ctx.font = `${Math.round(size * 0.22)}px system-ui`; ctx.textAlign = "center";
-    ctx.fillText(sn.emoji, cx, sn.y);
-    ctx.textAlign = "start";
   }
 }
 
