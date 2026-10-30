@@ -34,7 +34,8 @@ then visit http://localhost:8000.
 
 Hatchstone is a small web app: open it in Safari (iPhone) or Chrome (Android) and choose
 **Share → Add to Home Screen** / **Install app**. It opens full screen and works offline.
-Your nest, glowlings and progress are saved on the device.
+Your nest, glowlings and progress are saved on the device. Tap 💾 for a backup code
+(copy, share or save as a file) and paste it on any device to bring your nest back.
 
 ## Hosting on GitHub Pages
 

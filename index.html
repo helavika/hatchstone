@@ -65,6 +65,7 @@
     padding: var(--top) 14px 0; pointer-events: none; opacity: 0; transform: translateY(-10px); transition: opacity .5s, transform .5s;
   }
   .bar-top.on { opacity: 1; transform: none; }
+  .bar-top { z-index: 4; } /* above the grotto and glowpedia screens, so 💾 and mute stay tappable */
   .bar-top.on .btn { pointer-events: auto; }
   .row { display: flex; gap: 8px; align-items: center; }
   #dots { gap: 7px; }
@@ -100,6 +101,8 @@
   .card { width: min(380px, 100%); border-radius: 28px; padding: 26px 22px; text-align: center; transition: transform .45s cubic-bezier(.2, .9, .3, 1.2); }
   .overlay.hidden .card { transform: translateY(16px) scale(.97); }
   .card.dark { background: rgba(28, 22, 66, .74); }
+  .overlay.modal { background: rgba(8, 5, 26, .62); z-index: 5; }
+  .overlay.modal .card.dark { background: rgba(28, 22, 66, .9); }
   .card.wide { width: min(580px, 100%); max-height: calc(100vh - var(--top) - var(--bottom) - 150px); max-height: calc(100dvh - var(--top) - var(--bottom) - 150px); display: flex; flex-direction: column; }
   .scroll { overflow: auto; min-height: 0; }
 
@@ -220,6 +223,21 @@
   @keyframes pop { from { opacity: 0; transform: translateY(10px) scale(.9); } }
   #spImg { height: 170px; display: block; margin: 0 auto; }
   #spFacts { font-size: 13px; color: var(--soft); line-height: 1.6; margin-top: 8px; }
+
+  /* backup */
+  #backup .card { text-align: left; }
+  #backup h2, #backup .lead2 { text-align: center; }
+  #backup h3 { margin: 16px 0 6px; }
+  #backup textarea {
+    width: 100%; border-radius: 14px; border: 1px solid var(--glass-edge); background: rgba(0, 0, 0, .25); color: var(--ink);
+    font: 12px/1.35 ui-monospace, SFMono-Regular, Menlo, monospace; padding: 10px; resize: none; word-break: break-all;
+    -webkit-user-select: text; user-select: text;
+  }
+  #backup .row { flex-wrap: wrap; justify-content: center; margin-top: 8px; }
+  #backup .act { padding: 9px 14px; font-size: 14px; }
+  #backupMsg, #restoreMsg { font-size: 13px; min-height: 1.2em; margin: 6px 0 0; text-align: center; }
+  #restoreMsg.bad { color: #ffb3a8; }
+  #backupMsg { color: #b9e88a; }
 </style>
 </head>
 <body>
@@ -243,6 +261,7 @@
   <div class="pill glass" id="shardPill">✦ 0</div>
   <div class="row">
     <div class="pill glass" id="starPill">★ 0</div>
+    <button class="pill glass btn round" id="backupBtn" aria-label="Back up your nest">💾</button>
     <button class="pill glass btn round mute" aria-label="Mute sound">🔊</button>
   </div>
 </div>
@@ -319,7 +338,7 @@
   <div id="switcher"></div>
 </div>
 
-<div id="snacks" class="overlay hidden">
+<div id="snacks" class="overlay modal hidden">
   <div class="card glass dark">
     <h2>Snack time</h2>
     <p class="sub" id="snackSub"></p>
@@ -328,7 +347,7 @@
   </div>
 </div>
 
-<div id="shop" class="overlay hidden">
+<div id="shop" class="overlay modal hidden">
   <div class="card glass dark wide">
     <h2>Decorate the nest</h2>
     <p class="sub" id="shopSub"></p>
@@ -362,7 +381,34 @@
     <div class="scroll"><div id="libGrid"></div></div>
   </div>
 </div>
-<div id="spCard" class="overlay hidden">
+<div id="backup" class="overlay modal screen hidden">
+  <div class="card glass dark wide">
+    <h2>Keep your nest safe</h2>
+    <p class="sub lead2" id="backupSub">Your glowlings live in this browser. Keep this code somewhere safe, like your notes or a message to yourself, and paste it here on any device to bring your nest back.</p>
+    <div class="scroll">
+      <h3>Your backup code</h3>
+      <textarea id="backupCode" rows="4" readonly></textarea>
+      <div class="row">
+        <button class="act" id="copyCode">📋 Copy</button>
+        <button class="act" id="shareCode" hidden>📤 Share</button>
+        <button class="act" id="saveCode">💾 Save as file</button>
+      </div>
+      <p id="backupMsg"></p>
+      <p class="sub" id="homeTip" hidden>📱 Tip: on iPhone, Safari can clear a website's data if you don't visit for a week. Add Hatchstone to your Home Screen (Share → Add to Home Screen) to keep your nest.</p>
+      <h3>Restore a nest</h3>
+      <textarea id="restoreCode" rows="3" placeholder="Paste a backup code here"></textarea>
+      <div class="row">
+        <button class="act" id="restoreBtn">↩︎ Restore</button>
+        <button class="act" id="loadFile">📂 Load a file</button>
+        <input type="file" id="fileIn" accept=".txt,text/plain" hidden>
+      </div>
+      <p id="restoreMsg"></p>
+    </div>
+    <button class="ghost" id="backupClose" style="text-align:center">close</button>
+  </div>
+</div>
+
+<div id="spCard" class="overlay modal hidden">
   <div class="card glass dark">
     <img id="spImg" alt="">
     <div class="big-name" id="spName"></div>
@@ -877,11 +923,78 @@ function levelConf(n) {
 
 // ---------- save ----------
 
-const SAVE_KEY = "hatchstone.save";
-const save = Object.assign({ shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, nextId: 1 }, store.get(SAVE_KEY, {}));
-save.geodes = save.geodes || {};
-save.decor = save.decor || {};
-function persist() { store.set(SAVE_KEY, save); }
+// Progress is precious: a main save, a "last good" copy, and care when several tabs are open.
+const SAVE_KEY = "hatchstone.save", BAK_KEY = "hatchstone.save.bak";
+const SAVE_VERSION = 1;
+const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, nextId: 1 });
+const validSave = d => d && typeof d === "object" && Array.isArray(d.creatures) && typeof d.stars === "object";
+
+let startedEmpty = true; // no nest in storage when this page opened
+
+function loadSave() {
+  for (const key of [SAVE_KEY, BAK_KEY]) {
+    let raw = null;
+    try { raw = localStorage.getItem(key); } catch {}
+    if (!raw) continue;
+    try {
+      const d = JSON.parse(raw);
+      if (validSave(d)) { startedEmpty = false; return migrate(Object.assign(freshSave(), d)); }
+    } catch {}
+    // keep a damaged save aside instead of throwing it away
+    try { localStorage.setItem("hatchstone.save.damaged", raw); } catch {}
+  }
+  return freshSave();
+}
+
+/** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
+function migrate(d) {
+  d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {};
+  for (const g of Object.values(d.geodes)) if (g.img && g.img.length > 60000) delete g.img;
+  d.v = SAVE_VERSION;
+  return d;
+}
+
+const save = loadSave();
+let lastBak = 0, saveWarned = false;
+
+function persist() {
+  // another tab saved newer progress: take theirs instead of overwriting it
+  try {
+    const theirs = JSON.parse(localStorage.getItem(SAVE_KEY) || "null");
+    // (and a page that opened with no nest must never overwrite one that appeared since, e.g. in another tab)
+    if (theirs && validSave(theirs) && ((theirs.rev || 0) > save.rev || (startedEmpty && !save.rev && theirs.creatures.length))) { adoptSave(theirs); return; }
+  } catch {}
+  save.rev = (save.rev || 0) + 1;
+  if (!store.set(SAVE_KEY, save)) {
+    // storage is full: geode pictures can be redrawn, progress can't
+    for (const g of Object.values(save.geodes)) delete g.img;
+    if (store.set(SAVE_KEY, save)) return;
+    try { localStorage.removeItem(BAK_KEY); } catch {}
+    if (!store.set(SAVE_KEY, save) && !saveWarned) { saveWarned = true; toast("Couldn't save: tap 💾 and keep a backup code"); }
+    return;
+  }
+  if (Date.now() - lastBak > 30000) { lastBak = Date.now(); store.set(BAK_KEY, save); }
+}
+
+function adoptSave(d) {
+  if (!validSave(d)) return;
+  for (const k of Object.keys(save)) delete save[k];
+  Object.assign(save, migrate(Object.assign(freshSave(), d)));
+  actors.clear();
+  if (game.scene === "nest") renderNest(true);
+  if (game.scene === "map") renderMap();
+  if (game.scene === "lib") renderLib();
+  updateTopbar();
+}
+
+// keep tabs in step: when another tab saves, this one follows
+addEventListener("storage", e => {
+  if (e.key !== SAVE_KEY || !e.newValue) return;
+  try { const d = JSON.parse(e.newValue); if (d.rev > save.rev) adoptSave(d); } catch {}
+});
+// save when the app goes to the background (phones may close it without warning)
+addEventListener("visibilitychange", () => { if (document.hidden) { persist(); store.set(BAK_KEY, save); } });
+addEventListener("pagehide", () => persist());
 const activeCreature = () => save.creatures.find(c => c.id === save.active) || save.creatures[0] || null;
 const totalStars = () => Object.values(save.stars).reduce((s, v) => s + v, 0);
 const unlocked = n => n === 1 || (save.stars[n - 1] || 0) > 0;
@@ -1910,8 +2023,8 @@ function accuracy(e) {
   return clamp(1 - avg / 40, 0, 1);
 }
 
-function geodeImage(withCreature = true) {
-  const e = game.egg, s = 0.75;
+function geodeImage(withCreature = true, width = 0) {
+  const e = game.egg, s = width ? width / (L.ew + PAD * 2) : 0.75;
   const c = document.createElement("canvas");
   c.width = Math.round((L.ew + PAD * 2) * s); c.height = Math.round((L.eh + PAD * 2) * s);
   const o = c.getContext("2d");
@@ -1925,6 +2038,7 @@ function geodeImage(withCreature = true) {
 
 /** Hatch: the glowling joins your nest (or, if you already have one, its sibling visit gives XP). */
 function adopt(e) {
+  if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   const sp = e.species;
   const seen = save.seen[sp.id] || { count: 0, first: Date.now() };
   const isNew = seen.count === 0;
@@ -1933,7 +2047,7 @@ function adopt(e) {
   // the glowpedia keeps your shiniest geode of each kind
   const shine = e.matte ? e.matte.shine : 0;
   const geo = save.geodes[e.crystal.id] || { count: 0, shine: -1 };
-  if (shine > (geo.shine ?? -1)) { geo.img = geodeImage(false); geo.shine = shine; }
+  if (shine > (geo.shine ?? -1)) { geo.img = geodeImage(false, 150); geo.shine = shine; }
   geo.count++;
   save.geodes[e.crystal.id] = geo;
   let mine = save.creatures.find(c => c.sp === sp.id && !!c.shiny === e.shiny);
@@ -2016,7 +2130,7 @@ function setScene(scene) {
   $("nestEmpty").hidden = !(scene === "nest" && !save.creatures.length);
   if (scene === "map") renderMap();
   if (scene === "lib") renderLib();
-  if (scene === "nest") renderNest(true);
+  if (scene === "nest") { renderNest(true); nudgeBackup(); }
   updateTopbar();
 }
 
@@ -2383,7 +2497,8 @@ function drawRoom() {
 const geodeImgs = new Map();
 function geodeImg(id) {
   const g = save.geodes[id];
-  if (!g || !g.img) return null;
+  if (!g) return null;
+  if (!g.img) { g.img = crystalThumb(id); persist(); }
   let im = geodeImgs.get(id);
   if (!im || im.src !== g.img) { im = new Image(); im.src = g.img; geodeImgs.set(id, im); }
   return im.complete ? im : null;
@@ -2763,12 +2878,131 @@ $("nestName").addEventListener("click", () => {
   if (name) { cr.name = name; persist(); renderNest(true); }
 });
 $("spClose").addEventListener("click", () => show("spCard", false));
+$("backupBtn").addEventListener("click", openBackup);
+$("backupClose").addEventListener("click", () => show("backup", false));
+$("copyCode").addEventListener("click", copyCode);
+$("shareCode").addEventListener("click", shareCode);
+$("saveCode").addEventListener("click", saveCodeFile);
+$("restoreBtn").addEventListener("click", restoreFromCode);
+$("loadFile").addEventListener("click", () => $("fileIn").click());
+$("fileIn").addEventListener("change", async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  $("restoreCode").value = (await f.text()).trim();
+  e.target.value = "";
+  restoreFromCode();
+});
 $$("[data-lib]").forEach(b => b.addEventListener("click", () => {
   game.libTab = b.dataset.lib;
   $$("[data-lib]").forEach(x => x.classList.toggle("on", x === b));
   sfx.tick();
   renderLib();
 }));
+
+// ---------- backup codes: a nest you can carry to another device ----------
+
+const toB64 = bytes => { let s = ""; for (const b of bytes) s += String.fromCharCode(b); return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, ""); };
+const fromB64 = str => Uint8Array.from(atob(str.replace(/-/g, "+").replace(/_/g, "/")), c => c.charCodeAt(0));
+const pipe = (bytes, stream) => new Response(new Blob([bytes]).stream().pipeThrough(stream)).arrayBuffer().then(b => new Uint8Array(b));
+
+/** The whole save, minus geode pictures (they're big, and a restore can redraw them). HS1 = compressed, HS0 = plain. */
+async function makeBackupCode() {
+  const data = { ...save, geodes: Object.fromEntries(Object.entries(save.geodes).map(([k, g]) => [k, { count: g.count, shine: g.shine }])) };
+  const bytes = new TextEncoder().encode(JSON.stringify(data));
+  if (window.CompressionStream) {
+    try { return "HS1-" + toB64(await pipe(bytes, new CompressionStream("deflate-raw"))); } catch {}
+  }
+  return "HS0-" + toB64(bytes);
+}
+
+async function readBackupCode(code) {
+  const m = /^HS([01])-([A-Za-z0-9_-]+)$/.exec(code.replace(/\s+/g, ""));
+  if (!m) throw new Error("shape");
+  let bytes = fromB64(m[2]);
+  if (m[1] === "1") {
+    if (!window.DecompressionStream) throw new Error("This browser is too old to read compressed codes");
+    bytes = await pipe(bytes, new DecompressionStream("deflate-raw"));
+  }
+  const data = JSON.parse(new TextDecoder().decode(bytes));
+  if (!data || !Array.isArray(data.creatures) || typeof data.stars !== "object" || typeof data.shards !== "number") throw new Error("shape");
+  return data;
+}
+
+async function openBackup() {
+  sfx.tick();
+  $("backupCode").value = "…";
+  $("backupMsg").textContent = save.backupAt ? `Last backup: ${new Date(save.backupAt).toLocaleDateString()}` : "";
+  $("restoreMsg").textContent = ""; $("restoreMsg").className = "";
+  $("shareCode").hidden = !navigator.share;
+  const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
+  $("homeTip").hidden = !(/iPhone|iPad|iPod/.test(navigator.userAgent) && !standalone);
+  show("backup", true);
+  $("backupCode").value = await makeBackupCode();
+}
+
+function markBackedUp(how) {
+  save.backupAt = Date.now();
+  persist();
+  $("backupMsg").textContent = how;
+}
+
+async function copyCode() {
+  const code = $("backupCode").value;
+  try { await navigator.clipboard.writeText(code); }
+  catch { $("backupCode").select(); document.execCommand("copy"); }
+  markBackedUp("Copied ✓ Paste it somewhere safe.");
+}
+
+async function shareCode() {
+  try { await navigator.share({ title: "My Hatchstone nest", text: $("backupCode").value }); markBackedUp("Shared ✓"); } catch {}
+}
+
+function saveCodeFile() {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(new Blob([$("backupCode").value], { type: "text/plain" }));
+  a.download = `hatchstone-nest-${new Date().toISOString().slice(0, 10)}.txt`;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+  markBackedUp("Saved ✓ Look for it in your downloads.");
+}
+
+async function restoreFromCode() {
+  const msg = $("restoreMsg");
+  let data;
+  try { data = await readBackupCode($("restoreCode").value); }
+  catch (err) { msg.className = "bad"; msg.textContent = err.message === "shape" ? "That doesn't look like a Hatchstone backup code." : err.message; return; }
+  const n = data.creatures.length, mine = save.creatures.length;
+  if (mine && !confirm(`Replace your current nest (${mine} glowling${mine === 1 ? "" : "s"}) with the one in this code (${n} glowling${n === 1 ? "" : "s"})?`)) return;
+  const rev = Math.max(save.rev || 0, data.rev || 0) + 1;
+  for (const k of Object.keys(save)) delete save[k];
+  Object.assign(save, migrate(Object.assign(freshSave(), data)), { backupAt: Date.now(), rev });
+  // time doesn't pass while a nest is in a code
+  for (const cr of save.creatures) cr.last = Date.now();
+  persist();
+  msg.className = ""; msg.textContent = `Welcome back, ${n} glowling${n === 1 ? "" : "s"} ✦`;
+  setTimeout(() => location.reload(), 900);
+}
+
+/** Geodes restored from a code have no picture yet: draw a fresh one of the same crystal. */
+function crystalThumb(id) {
+  const inner = makeInterior(CRYSTAL[id], STONES[0]), s = 150 / (L.ew + PAD * 2);
+  const c = document.createElement("canvas");
+  c.width = Math.round((L.ew + PAD * 2) * s); c.height = Math.round((L.eh + PAD * 2) * s);
+  const o = c.getContext("2d");
+  o.scale(s, s);
+  o.drawImage(inner, 0, 0, L.ew + PAD * 2, L.eh + PAD * 2);
+  drawGloss(o, L.ew / 2 + PAD, L.eh / 2 + PAD, 0.8);
+  return c.toDataURL("image/png");
+}
+
+/** A gentle nudge, once per session, when there's a nest worth keeping and no recent backup. */
+let backupNudged = false;
+function nudgeBackup() {
+  if (backupNudged || save.creatures.length < 3) return;
+  if (save.backupAt && Date.now() - save.backupAt < 7 * 864e5) return;
+  backupNudged = true;
+  setTimeout(() => toast("Tip: tap 💾 to back up your nest"), 2800);
+}
 
 // ---------- the glowpedia: glowlings and geodes ----------
 
@@ -2782,6 +3016,7 @@ function renderLib() {
       return `<button data-sp="${s.id}" style="animation-delay:${i * 20}ms"><img src="${creatureImage(s, { size: 96, sil: !seen })}" alt=""><b>${seen ? s.name : "???"}</b><small>${CRYSTAL[s.crystal].rarity}</small></button>`;
     }).join("");
   } else {
+    for (const c of CRYSTALS) if (save.geodes[c.id] && !save.geodes[c.id].img) { save.geodes[c.id].img = crystalThumb(c.id); persist(); }
     $("libGrid").innerHTML = CRYSTALS.map((c, i) => {
       const geo = save.geodes[c.id];
       return `<button data-cr="${c.id}" style="animation-delay:${i * 20}ms">${geo ? `<img src="${geo.img}" alt="">` : `<img src="${mysteryGeode()}" alt="">`}<b>${geo ? c.name : "???"}</b><small>${c.rarity}</small></button>`;
@@ -2823,6 +3058,7 @@ function openSpecies(sp) {
 
 function openCrystal(cry) {
   const geo = save.geodes[cry.id];
+  if (geo && !geo.img) { geo.img = crystalThumb(cry.id); persist(); }
   const who = SPECIES.filter(s => s.crystal === cry.id);
   sfx.tick();
   $("spImg").src = geo ? geo.img : mysteryGeode();
@@ -2871,7 +3107,8 @@ function update(dt) {
       n.snack.vy += GRAVITY * dt; n.snack.y += n.snack.vy * dt;
       if (n.snack.y >= n.snack.ty) { const sn = n.snack; n.snack = null; finishSnack(sn); }
     }
-    if ((nestTick += dt) > 1 && activeCreature()) { nestTick = 0; renderNest(); persist(); }
+    // needs are worked out from time stamps, so the per-second refresh only redraws (saving here would make tabs fight)
+    if ((nestTick += dt) > 1 && activeCreature()) { nestTick = 0; renderNest(); }
   }
   if (game.scene === "catch") updateCatch(dt);
 
