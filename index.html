@@ -68,7 +68,12 @@
   .bar-top { z-index: 4; } /* above the grotto and glowpedia screens, so 💾 and mute stay tappable */
   .bar-top.on .btn { pointer-events: auto; }
   .row { display: flex; gap: 8px; align-items: center; }
-  #dots { gap: 7px; }
+  #dots { display: flex; gap: 7px; align-items: center; height: 14px; }
+  /* a tiny word under a number or icon, so new players know what it counts */
+  .pill.stack { flex-direction: column; justify-content: center; gap: 1px; line-height: 1.1; }
+  .pill.stack small { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--soft); }
+  .pill.stack.round { font-size: 15px; }
+  .pill.stack.round small { font-size: 7px; letter-spacing: 0; }
   #dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, .2); transition: background .4s, box-shadow .4s, transform .4s; }
   #dots i.on { background: #fff; box-shadow: 0 0 10px rgba(201, 184, 255, .9); transform: scale(1.15); }
   #clock small { color: var(--soft); font-weight: 600; }
@@ -302,6 +307,35 @@
   #coopRoom.on { display: inline-flex; }
   #coopRoom button { border: 0; cursor: pointer; background: none; color: inherit; font: inherit; padding: 0 0 0 8px; opacity: .8; }
   #coopBegin:disabled, #coopAccept:disabled { opacity: .4; cursor: default; }
+
+  /* manuscript details, after the portfolio: framed cards, ornament rules, chapters and a rope-framed plate */
+  .overlay .card.glass, .overlay.modal .card.glass.dark {
+    border-radius: 18px; outline: 1px solid rgba(255, 233, 168, .22); outline-offset: -7px;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Cpath d='M3.5 0 7 3.5 3.5 7 0 3.5Z' fill='%23ffe9a8' fill-opacity='.75'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Cpath d='M3.5 0 7 3.5 3.5 7 0 3.5Z' fill='%23ffe9a8' fill-opacity='.75'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: left 4px top 4px, right 4px bottom 4px;
+  }
+  #libGrid button { position: relative; border-radius: 12px; outline: 1px solid rgba(255, 233, 168, .16); outline-offset: -4px; }
+  .orn { height: 14px; margin: 2px auto 8px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='180' height='14' viewBox='0 0 180 14' fill='none' stroke='%23ffe9a8' stroke-opacity='.6' stroke-width='1.2'%3E%3Cpath d='M5 7H66M114 7H175'/%3E%3Ccircle cx='3' cy='7' r='1.8' fill='%23ffe9a8' fill-opacity='.6' stroke='none'/%3E%3Ccircle cx='177' cy='7' r='1.8' fill='%23ffe9a8' fill-opacity='.6' stroke='none'/%3E%3Cpath d='M66 7c4 0 6-4 10-4 3 0 4 3 2 4.5s-4 0-3-2M114 7c-4 0-6-4-10-4-3 0-4 3-2 4.5s4 0 3-2'/%3E%3Cpath d='M90 1.5 95 7l-5 5.5L85 7Z' fill='%23ffe9a8' fill-opacity='.8' stroke='none'/%3E%3C/svg%3E") center / contain no-repeat; width: min(180px, 70%); }
+  .orn.sm { width: 120px; margin: 18px auto 2px; opacity: .8; }
+  h3.chap { margin-top: 6px; }
+  h3.chap small { display: block; font-size: 10px; letter-spacing: 2.5px; color: var(--gold); opacity: .8; margin-bottom: 3px; }
+  .plate { position: relative; display: inline-block; padding: 9px; margin: 6px auto 4px; }
+  .plate::before {
+    content: ""; position: absolute; inset: 0; padding: 5px;
+    background: repeating-linear-gradient(135deg, rgba(255, 233, 168, .55) 0 1.5px, transparent 1.5px 4px);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+    mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+    border: 1px solid rgba(255, 233, 168, .45); outline: 1px solid rgba(255, 233, 168, .3); outline-offset: -6px;
+  }
+  .plate::after {
+    content: ""; position: absolute; inset: -3px; pointer-events: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Ccircle cx='3.5' cy='3.5' r='2.5' fill='%23ffe9a8' fill-opacity='.7'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Ccircle cx='3.5' cy='3.5' r='2.5' fill='%23ffe9a8' fill-opacity='.7'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Ccircle cx='3.5' cy='3.5' r='2.5' fill='%23ffe9a8' fill-opacity='.7'/%3E%3C/svg%3E"), url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='7' height='7'%3E%3Ccircle cx='3.5' cy='3.5' r='2.5' fill='%23ffe9a8' fill-opacity='.7'/%3E%3C/svg%3E"); background-repeat: no-repeat;
+    background-position: left top, right top, left bottom, right bottom;
+  }
+  .plate > :first-child { display: block; background: rgba(8, 5, 26, .45); }
+  .plate figcaption { font-size: 11px; color: var(--soft); letter-spacing: 1px; padding-top: 6px; position: relative; }
+  #found .plate #foundImg { margin: 0; padding: 6px 14px; }
+  #pixelGrotto { width: min(260px, 66vw); height: auto; aspect-ratio: 128 / 72; image-rendering: pixelated; }
+  #start .plate { margin: 0 auto 14px; }
 </style>
 </head>
 <body>
@@ -312,7 +346,7 @@
   <div class="row">
     <button class="pill glass btn round" id="quit" aria-label="Back to the grotto">✕</button>
     <div class="pill glass" id="lvlPill">Level 1</div>
-    <div class="pill glass" id="dots" aria-label="Cracks traced"></div>
+    <div class="pill glass stack" aria-label="Cracks traced"><span id="dots"></span><small>cracks</small></div>
   </div>
   <div class="row">
     <div class="pill glass" id="clock">0s</div>
@@ -322,11 +356,11 @@
 
 <!-- grotto, nest, glowpedia -->
 <div id="topbar" class="bar-top" inert aria-hidden="true">
-  <div class="pill glass" id="shardPill">✦ 0</div>
+  <div class="pill glass stack" title="Shards: spend them on snacks and decor"><b id="shardPill">✦ 0</b><small>shards</small></div>
   <div class="row">
-    <div class="pill glass" id="starPill">★ 0</div>
+    <div class="pill glass stack" title="Stars from the grotto levels"><b id="starPill">★ 0</b><small>stars</small></div>
     <button class="pill glass btn" id="mapCoop">👯 Co-op</button>
-    <button class="pill glass btn round" id="backupBtn" aria-label="Back up your nest">💾</button>
+    <button class="pill glass btn round stack" id="backupBtn" aria-label="Back up your nest" title="Back up your nest">💾<small>backup</small></button>
     <button class="pill glass btn round mute" aria-label="Mute sound">🔊</button>
   </div>
 </div>
@@ -344,6 +378,7 @@
 
 <div id="start" class="overlay">
   <div class="card glass">
+    <figure class="plate"><canvas id="pixelGrotto" width="128" height="72" role="img" aria-label="A pixel-art grotto by moonlight, a stone egg glowing on a ledge"></canvas><figcaption>~ the grotto, by moonlight ~</figcaption></figure>
     <h1>Hatchstone</h1>
     <p class="lead">Crack open stone eggs.<br>Meet who's glowing inside.</p>
     <p class="sub">Trace the faint lines, break the knots and open real geodes: amethyst, celestite, malachite, labradorite and more. Hatch 30 kinds of glowlings (a few only on moonlit days) and raise them in your nest.</p>
@@ -356,6 +391,7 @@
 <div id="map" class="overlay screen hidden">
   <div class="card glass dark wide">
     <h2>The Grotto</h2>
+    <div class="orn" aria-hidden="true"></div>
     <p class="sub" id="mapSub"></p>
     <div class="scroll" id="mapList"></div>
   </div>
@@ -363,9 +399,10 @@
 
 <div id="found" class="overlay hidden">
   <div class="card glass dark">
-    <h2>✦ geode opened ✦</h2>
+    <div class="orn" aria-hidden="true"></div>
+    <h2>geode opened</h2>
     <div id="stars"></div>
-    <img id="foundImg" alt="The glowling you hatched">
+    <figure class="plate"><img id="foundImg" alt="The glowling you hatched"></figure>
     <p id="newBadge" hidden>NEW SPECIES · ADDED TO YOUR GLOWPEDIA</p>
     <div class="big-name" id="foundName"></div>
     <span class="rarity" id="foundRarity"></span>
@@ -459,6 +496,7 @@
 <div id="lib" class="overlay screen hidden">
   <div class="card glass dark wide">
     <h2>Glowpedia</h2>
+    <div class="orn" aria-hidden="true"></div>
     <p class="sub" id="libSub"></p>
     <div class="seg"><button data-lib="sp" class="on">Glowlings</button><button data-lib="cr">Geodes</button><button data-lib="hy">Hybrids</button></div>
     <div class="scroll"><div id="libGrid"></div></div>
@@ -2423,7 +2461,7 @@ function showFound() {
 
 function nestHint() {
   if (!save.creatures.length) return "";
-  if (!tipDone("pet")) return "stroke your glowling to pet it ♥";
+  if (!tipDone("pet")) return `stroke ${activeCreature()?.name || "your glowling"} to pet it ♥`;
   if (!tipDone("call")) return "tip: hold a finger on the floor to call everyone";
   if (!tipDone("decorTap") && DECOR.some(d => hasDecor(d.id) && d.id !== "rug")) return "tip: tap your decorations to play with them ✦";
   if (save.incubator && Date.now() >= save.incubator.due) return "the egg is ready: tap it three times to hatch ✦";
@@ -2604,7 +2642,7 @@ function renderMap() {
   $("mapSub").textContent = `${totalStars()} of ${LEVELS * 3} stars · tap a level to crack its geode`;
   let html = "";
   CAVES.forEach((name, ci) => {
-    html += `<h3>${name}</h3><p class="cave-note">${CAVE_NOTES[ci]}</p><div class="lvls">`;
+    html += `${ci ? '<div class="orn sm" aria-hidden="true"></div>' : ""}<h3 class="chap"><small>Chapter ${["I", "II", "III", "IV", "V", "VI"][ci]}</small>${name}</h3><p class="cave-note">${CAVE_NOTES[ci]}</p><div class="lvls">`;
     for (let i = 1; i <= 6; i++) {
       const n = ci * 6 + i, st = save.stars[n] || 0, open = unlocked(n);
       html += `<button class="lvl${n === next ? " next" : ""}" data-n="${n}" ${open ? "" : "disabled"}>${open ? n : "🔒"}<span>${st ? "★".repeat(st) : ""}</span></button>`;
@@ -2849,6 +2887,11 @@ function updateActors(dt) {
       target = [call.x + Math.cos(a.id * 2.4) * N.base * 0.55, clamp(call.y + Math.sin(a.id * 2.4) * N.base * 0.3, N.y0, N.y1)];
       speed = base * (a.beh === "curious" ? 2.4 : 1.7);
     } else if (a.state === "called") { a.state = "idle"; a.t = rand(1, 2.5); }
+    // until the first stroke, your glowling waits in the middle of the room where the hint points
+    if (!target && !cr.sleeping && a.id === save.active && !tipDone("pet") && a.state !== "eat") {
+      target = decorSpot("rug"); a.goal = a.friend = null;
+      if (a.state !== "idle") { a.state = "idle"; a.t = 1; }
+    }
     if (a.id === save.active && game.nest.petting) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
     else if (target) { a.tx = target[0]; a.ty = target[1]; }
     else if (a.state === "eat") { if ((a.t -= dt) <= 0) { a.state = "idle"; a.t = rand(1, 2); } }
@@ -4721,7 +4764,6 @@ function drawGuide() {
   ctx.lineDashOffset = -game.time * 0.02;
   ctx.shadowColor = second ? "rgba(255,233,168,.95)" : "rgba(255,255,255,.95)";
   ctx.shadowBlur = quality.low ? 0 : 6 + k * 8;
-  ctx.strokeStyle = second ? `rgba(255,233,168,${0.75 + k * 0.25})` : `rgba(255,255,255,${0.7 + k * 0.3})`;
   ctx.lineWidth = 3 * Math.max(1, L.k * 0.9);
   ctx.beginPath();
   let pen = false;
@@ -4730,12 +4772,30 @@ function drawGuide() {
     pen ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
     pen = true;
   });
+  // a dark edge under the light dashes so the line also shows on pale stone
+  const lw = ctx.lineWidth;
+  ctx.save();
+  ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(34,24,72,.55)"; ctx.lineWidth = lw + 2.5 * Math.max(1, L.k * 0.9);
+  ctx.stroke();
+  ctx.restore();
+  ctx.strokeStyle = second ? `rgba(255,233,168,${0.75 + k * 0.25})` : `rgba(255,255,255,${0.7 + k * 0.3})`;
   ctx.stroke();
   ctx.setLineDash([]);
   const start = cr.pts.find((_, i) => !cr.cov[i]);
   if (start) {
+    const s = Math.max(1, L.k), r = (3 + k * 2) * s;
+    ctx.save();
+    ctx.shadowBlur = 0;
+    // a ring that keeps rippling out from the bead: "start here"
+    const w = (game.time * 0.0009) % 1;
+    ctx.strokeStyle = second ? `rgba(255,233,168,${0.8 * (1 - w)})` : `rgba(255,255,255,${0.85 * (1 - w)})`;
+    ctx.lineWidth = 2 * s;
+    ctx.beginPath(); ctx.arc(start[0], start[1], r + 4 * s + w * 14 * s, 0, TAU); ctx.stroke();
+    ctx.fillStyle = "rgba(34,24,72,.6)";
+    ctx.beginPath(); ctx.arc(start[0], start[1], r + 1.8 * s, 0, TAU); ctx.fill();
+    ctx.restore();
     ctx.fillStyle = second ? "#ffe9a8" : "#fff";
-    ctx.beginPath(); ctx.arc(start[0], start[1], (3 + k * 2) * Math.max(1, L.k), 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(start[0], start[1], r, 0, TAU); ctx.fill();
   }
   // knots: glowing rings that must be tapped
   for (const kn of cr.knots) {
@@ -4967,6 +5027,90 @@ resize();
 updateTopbar();
 coopImportLocationInvite();
 requestAnimationFrame(frame);
+
+// ---------- the start plate: a dithered pixel-art grotto, drawn live like the keep on helavika's portfolio ----------
+(() => {
+  const c = $("pixelGrotto"), g = c.getContext("2d"), W = c.width, H = c.height, img = g.createImageData(W, H);
+  const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+  const P = Object.fromEntries(Object.entries({
+    sky: ["#06041a", "#0f0a2e", "#1b1446", "#2a2163", "#3d3185"],
+    moon: ["#5b4ea3", "#9b8fd6", "#c9b8ff", "#ece6ff", "#fff8d6"],
+    far: ["#120d36", "#231a5a", "#382a80", "#5a46a8"],
+    crystal: ["#2a1d63", "#5b3fb0", "#9a7ce6", "#c9b8ff", "#eef0ff"],
+    rock: ["#050314", "#0d0926", "#18123a", "#251d52", "#372c6e"],
+    egg: ["#2e2a3e", "#58526a", "#8a8396", "#b9b1bf", "#ddd6d8"],
+    glow: ["#5b3fb0", "#8fd8ef", "#c9b8ff", "#ffffff"],
+  }).map(([k, v]) => [k, v.map(hex)]));
+  const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
+  const pick = (ramp, v, x, y) => { const n = ramp.length - 1; return ramp[clamp(Math.floor(clamp(v, 0, 1) * n + bayer[(y & 3) * 4 + (x & 3)]), 0, n)]; };
+  const hash = (x, y) => { let h = x * 374761393 + y * 668265263; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
+  const noise = (x, y) => {
+    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+    const a = hash(xi, yi), b = hash(xi + 1, yi), c2 = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
+    return a + (b - a) * u + (c2 - a) * v + (a - b - c2 + d) * u * v;
+  };
+  const fbm = (x, y) => noise(x, y) * .55 + noise(x * 2.1, y * 2.1) * .3 + noise(x * 4.3, y * 4.3) * .15;
+  const moon = { x: 99, y: 17, r: 10 }, egg = { x: 64, y: 50, rx: 8, ry: 11 };
+  // crystal spires on the far ridge: [x, base, height, half width]
+  const spires = [[18, 44, 15, 3], [24, 45, 9, 2], [36, 43, 12, 2], [84, 44, 13, 3], [91, 45, 8, 2], [108, 43, 17, 3], [115, 45, 10, 2]];
+  const ridge = x => 41 - 5 * Math.abs(Math.sin(x * .06 + .4)) - 3 * noise(x * .15, 2);
+  const ledge = x => 58 + 2 * Math.sin(x * .09) + 2 * noise(x * .2, 7) + Math.abs(x - 64) * .04;
+  // the cave mouth: rock hangs down from the top corners
+  const cave = (x, y) => {
+    const l = 20 - 14 * (y / H) - 4 * noise(y * .2, 1), r = W - 18 + 12 * (y / H) + 4 * noise(y * .2, 4);
+    const roof = 4 + 3 * noise(x * .18, 3) + (Math.abs(x - 64) > 30 ? 0 : -6) + 4 * (hash(x >> 2, 9) > .8 ? 1 : 0) * smooth(30, 0, Math.abs(x - 64) - 10);
+    return x < l || x > r || y < roof;
+  };
+  function smooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+  const eggD = (x, y) => { const dx = (x - egg.x) / (egg.rx * (y < egg.y ? .86 : 1)), dy = (y - egg.y) / egg.ry; return dx * dx + dy * dy; };
+  const crack = new Set([[64, 41], [65, 42], [64, 43], [63, 44], [64, 45], [65, 46], [66, 47], [65, 48], [64, 49], [63, 49], [62, 50], [66, 48], [67, 49]].map(([x, y]) => y * W + x));
+  const stars = Array.from({ length: 22 }, (_, i) => [Math.floor(hash(i, 1) * W), Math.floor(hash(i, 2) * 34), hash(i, 3) * 6]);
+
+  const base = new Array(W * H), sky = new Uint8Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, md = Math.hypot(x - moon.x, y - moon.y);
+    let col;
+    if (eggD(x, y) <= 1) col = pick(P.egg, .78 - (x - egg.x + 3) / 22 - (y - egg.y + 6) / 40 + fbm(x * .5, y * .5) * .25, x, y);
+    else if (y >= ledge(x)) col = pick(P.rock, .55 - (y - ledge(x)) / 16 + fbm(x * .25, y * .25) * .3 + .25 * smooth(18, 0, Math.hypot(x - egg.x, (y - 60) * 2)), x, y);
+    else if (cave(x, y)) col = pick(P.rock, .08 + fbm(x * .2, y * .2) * .3, x, y);
+    else {
+      let sp = null;
+      for (const [sx, sb, sh, sw] of spires) { const t = (sb - y) / sh; if (t >= 0 && t <= 1 && Math.abs(x - sx) <= sw * (1 - t) + .5) sp = x < sx ? .85 - t * .2 : .45; }
+      if (sp !== null) col = pick(P.crystal, sp + fbm(x, y) * .1, x, y);
+      else if (y >= ridge(x)) col = pick(P.far, .6 - (y - ridge(x)) / 18 + fbm(x * .12, y * .12) * .3, x, y);
+      else if (md < moon.r) col = pick(P.moon, .9 - .5 * (md / moon.r) ** 3 - .3 * smooth(.55, .7, fbm(x * .3 + 5, y * .3)), x, y);
+      else { sky[i] = 1; col = pick(P.sky, y / 40 * .45 + Math.max(0, .35 - (md - moon.r) / 30), x, y); }
+    }
+    base[i] = col;
+  }
+
+  function draw(t) {
+    const d = img.data, put = (x, y, col) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
+    for (let i = 0; i < W * H; i++) put(i % W, Math.floor(i / W), base[i]);
+    for (const [x, y, ph] of stars) if (sky[y * W + x] && Math.sin(t * .35 + ph) > -.3) put(x, y, P.moon[Math.sin(t * .35 + ph) > .7 ? 4 : 2]);
+    // the egg's crack breathes, and its light spills on the ledge
+    const k = .5 + .5 * Math.sin(t * .22);
+    for (let y = egg.y - 18; y <= egg.y + 14; y++) for (let x = egg.x - 18; x <= egg.x + 18; x++) {
+      const r = Math.hypot(x - egg.x, (y - egg.y) * .8);
+      if (eggD(x, y) > 1 && r < 17 && bayer[(y & 3) * 4 + (x & 3)] < (1 - r / 17) * (.25 + k * .25)) put(x, y, P.glow[0]);
+    }
+    for (const i of crack) put(i % W, Math.floor(i / W), P.glow[k > .6 ? 3 : 2]);
+    // motes drifting up out of the grotto
+    for (let n = 0; n < 7; n++) {
+      const life = (t * .08 + hash(n, 5)) % 1, x = Math.round(30 + hash(n, 6) * 68 + Math.sin(t * .1 + n) * 2), y = Math.round(60 - life * 50);
+      if (life < .9) put(x, y, P.glow[life < .5 ? 2 : 1]);
+    }
+    g.putImageData(img, 0, 0);
+  }
+  let t = 0, last = 0;
+  function loop(now) {
+    if (!$("start").classList.contains("hidden") && now - last > 110) { last = now; draw(++t); }
+    requestAnimationFrame(loop);
+  }
+  draw(0);
+  if (!calm) requestAnimationFrame(loop);
+})();
 </script>
 </body>
 </html>
