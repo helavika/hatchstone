@@ -68,14 +68,16 @@
   .bar-top { z-index: 4; } /* above the grotto and glowpedia screens, so 💾 and mute stay tappable */
   .bar-top.on .btn { pointer-events: auto; }
   .row { display: flex; gap: 8px; align-items: center; }
-  #dots { display: flex; gap: 7px; align-items: center; height: 14px; }
+  #dots { display: block; width: 64px; height: 8px; border-radius: 99px; background: rgba(255, 255, 255, .16); overflow: hidden; margin: 3px 0 1px; }
+  #dots i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #c9b8ff, #ffe9a8); transition: width .25s; }
+  #clock b { font-size: 15px; }
+  #clock.bump b { animation: bump .18s ease-out; }
+  @keyframes bump { 50% { transform: scale(1.3); color: #ffe9a8; } }
   /* a tiny word under a number or icon, so new players know what it counts */
   .pill.stack { flex-direction: column; justify-content: center; gap: 1px; line-height: 1.1; }
   .pill.stack small { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--soft); }
   .pill.stack.round { font-size: 15px; }
   .pill.stack.round small { font-size: 7px; letter-spacing: 0; }
-  #dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(255, 255, 255, .2); transition: background .4s, box-shadow .4s, transform .4s; }
-  #dots i.on { background: #fff; box-shadow: 0 0 10px rgba(201, 184, 255, .9); transform: scale(1.15); }
   #clock small { color: var(--soft); font-weight: 600; }
 
   /* hints: a clear bubble near the action, not small grey text */
@@ -407,10 +409,10 @@
   <div class="row">
     <button class="pill glass btn round" id="quit" aria-label="Back to the grotto">✕</button>
     <div class="pill glass" id="lvlPill">Level 1</div>
-    <div class="pill glass stack" aria-label="Cracks traced"><span id="dots"></span><small>cracks</small></div>
+    <div class="pill glass stack" aria-label="How cracked the egg is"><span id="dots"><i></i></span><small>crack</small></div>
   </div>
   <div class="row">
-    <div class="pill glass" id="clock">0s</div>
+    <div class="pill glass stack" id="clock" aria-label="Shards caught and taps"><b>✦ 0</b><small>0 taps</small></div>
     <button class="pill glass btn round mute" aria-label="Mute sound">🔊</button>
   </div>
 </div>
@@ -444,7 +446,7 @@
     <div id="startNew">
       <p class="lead">Crack open stone eggs.<br>Meet who's glowing inside.</p>
       <ul class="howto">
-        <li><img data-icon="crack" alt="">trace the cracks</li>
+        <li><img data-icon="crack" alt="">tap to crack</li>
         <li><img data-icon="geode" alt="">open real geodes</li>
         <li><img data-icon="glowling" alt="">raise glowlings</li>
       </ul>
@@ -479,9 +481,9 @@
     <div class="tale"><p class="lore" id="foundLore"></p><p class="fact" id="foundFact"></p></div>
     <p id="foundNote"></p>
     <div class="stats four">
-      <div><b id="stAcc">0%</b><span>on the line</span></div>
+      <div><b id="stTaps">0</b><span id="stPar">taps</span></div>
       <div><b id="stShine">0%</b><span>shine</span></div>
-      <div><b id="stTime">0s</b><span id="stTarget">time</span></div>
+      <div><b id="stCrits">0</b><span>weak-spot hits</span></div>
       <div><b id="stShards">+0</b><span>shards</span></div>
     </div>
     <button class="cta" id="nextLvl">Next level</button><br>
@@ -713,6 +715,9 @@ function shade(hex, k) {
   const ch = s => Math.round(lerp((n >> s) & 255, t, a));
   return `rgb(${ch(16)},${ch(8)},${ch(0)})`;
 }
+
+/** "#rrggbb" with an alpha, as an rgba() string. */
+const hexA = (hex, a) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
 
 /** A small repeatable random generator, so each species always gets the same spots. */
 function seeded(str) {
@@ -1179,7 +1184,7 @@ const xpNeed = level => 20 + level * 15;
 const MAX_LEVEL = 20;
 
 const CAVES = ["Amethyst Hollow", "Celestite Grotto", "Malachite Deep", "Labradorite Vault"];
-const CAVE_NOTES = ["First cracks · glowing knots from level 4", "Hard stone from level 8 · rare crystals", "More cracks and knots · a chance of legendary", "The rarest geodes in the grotto"];
+const CAVE_NOTES = ["Soft stone · the weak spot hides from level 4", "Harder stone · rare crystals", "Find the weak spot by ear · a chance of legendary", "The toughest stone and the rarest geodes"];
 
 // ---------- pixel art: dithered scenes in the style of helavika's portfolio keep ----------
 const PX_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
@@ -1255,16 +1260,14 @@ function pixelCave(th, W, H, { floorY = H - 8, lx, ly = H * .62, crystals = 16, 
 }
 const LEVELS = 24;
 
-/** How hard an egg is: more cracks, knots to break and hard stone deeper in the grotto. */
+/** How hard an egg is: tougher stone deeper in the grotto, and a weak spot that glows less and less. */
 function levelConf(n) {
   const wander = n === 0, step = wander ? LEVELS : n, cave = wander ? 3 : Math.floor((n - 1) / 6);
   return {
     n, wander, cave, step,
-    cracks: clamp(3 + Math.floor((step - 1) / 4), 3, 8),
-    knots: step >= 4 ? Math.min(0.3 + (step - 4) * 0.04, 0.85) : 0,
-    doubles: step >= 8 ? Math.min(0.25 + (step - 8) * 0.05, 0.9) : 0,
+    hp: Math.round(8 + step * 1.4 + cave * 2),
+    spotGlow: step < 4 ? 1 : step < 10 ? 0.45 : step < 18 ? 0.2 : 0,
     rare: [0.08, 0.25, 0.45, 0.5][cave], legendary: [0, 0.03, 0.08, 0.15][cave],
-    pace: 5.5 - cave * 0.6,
   };
 }
 
@@ -1457,7 +1460,7 @@ function resize() {
   makeMotes();
   if (game.egg && game.scene === "crack") {
     if (game.egg.conf && game.egg.conf.coop) reprojectCoopEgg();
-    else newEgg(game.egg.conf, false);
+    else refitEgg(game.egg);
   }
 }
 
@@ -1466,7 +1469,7 @@ function resize() {
 const game = {
   scene: "menu", egg: null, time: 0, libTab: "sp",
   coop: null,
-  chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], floaters: [], ripples: [],
+  chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], floaters: [], ripples: [], pops: [], gems: [], shake: 0, freeze: 0,
   nest: { snack: null, petDist: 0, petXpT: 0, petting: false, call: null },
   actors: null,
   catch: null,
@@ -2048,200 +2051,131 @@ function makeInterior(crystal, stone) {
   return c;
 }
 
-/**
- * A crack line as a self-affine curve (midpoint displacement): straight overall, rough only at small scales.
- * Each level halves the segments and shrinks the sideways nudge by 2^-H; H ≈ 0.8 is the roughness exponent
- * measured on real fractures, which is what keeps it calm instead of scribbly.
- */
-function fractalPath(a, b, sigma, H = 0.8, levels = 5) {
-  let pts = [a, b], s = sigma;
-  for (let l = 0; l < levels; l++) {
-    const next = [pts[0]];
-    for (let i = 1; i < pts.length; i++) {
-      const [ax, ay] = pts[i - 1], [bx, by] = pts[i], nx = -(by - ay), ny = bx - ax, nl = Math.hypot(nx, ny) || 1, d = rand(-1, 1) * s;
-      next.push([(ax + bx) / 2 + nx / nl * d, (ay + by) / 2 + ny / nl * d], pts[i]);
-    }
-    pts = next;
-    s *= Math.pow(2, -H);
-  }
-  return pts;
-}
+// ---------- cracking: every tap grows real cracks ----------
 
-/** Points every `step` pixels along a path, so tracing can be measured evenly. */
-function resample(path, step) {
-  const out = [path[0]];
-  let carry = 0;
-  for (let i = 1; i < path.length; i++) {
-    const [ax, ay] = path[i - 1], [bx, by] = path[i], d = Math.hypot(bx - ax, by - ay);
-    let t = step - carry;
-    while (t <= d) { out.push([lerp(ax, bx, t / d), lerp(ay, by, t / d)]); t += step; }
-    carry = d - (t - step);
-  }
-  const last = path[path.length - 1];
-  if (Math.hypot(last[0] - out[out.length - 1][0], last[1] - out[out.length - 1][1]) > step * 0.4) out.push(last);
-  return out;
-}
-
-/**
- * How an impacted eggshell breaks: N radial cracks fan out from the impact point at angles
- * θi = θ0 + i·2π/N (± a little), and hoop cracks link neighbouring radials on rings whose radii grow
- * geometrically, r_k = r_0·q^k. The links are nearly straight chords, so with N ≥ 6 the shell splits into
- * tidy four-sided cells, and they end on the radials in T-junctions instead of crossing them.
- * Only `n` radials are traced; the others are shorter and appear when a traced neighbour finishes.
- */
-function makeWeb(n, conf, knotAt, doubleAt) {
-  const k = L.k, step = 6 * k, N = Math.max(n, 6);
-  const c = [L.ecx + rand(-0.12, 0.12) * L.ew, L.ecy + rand(-0.18, 0.05) * L.eh];
-  const theta0 = rand(0, TAU), r0 = 7 * k;
-  const traced = new Set(Array.from({ length: n }, (_, j) => Math.round(j * N / n) % N));
-  const rays = [], cracks = [];
-  for (let i = 0; i < N; i++) {
-    const th = theta0 + i * TAU / N + rand(-0.2, 0.2) * TAU / N;
-    let reach = r0;
-    while (inside(L.egg, [c[0] + Math.cos(th) * (reach + 4), c[1] + Math.sin(th) * (reach + 4)])) reach += 4;
-    const main = traced.has(i), len = reach * (main ? rand(0.72, 0.97) : rand(0.35, 0.6));
-    const a = [c[0] + Math.cos(th) * r0, c[1] + Math.sin(th) * r0], b = [c[0] + Math.cos(th) * len, c[1] + Math.sin(th) * len];
-    const pts = resample(fractalPath(a, b, len * 0.04), step).filter(p => inside(L.egg, p));
-    if (main) {
-      const ci = cracks.length, knots = [];
-      if (pts.length > 10 && (ci === knotAt || Math.random() < conf.knots)) {
-        const two = conf.step >= 14 && Math.random() < 0.4;
-        for (const f of two ? [0.35, 0.72] : [rand(0.4, 0.65)]) knots.push({ i: Math.floor(pts.length * f), broken: false });
-      }
-      const passes = ci === doubleAt || Math.random() < conf.doubles ? 2 : 1;
-      const crack = { pts, th, cornerAt: [], branches: [], cov: pts.map(() => false), done: false, fade: 0, knots, passes, pass: 0 };
-      cracks.push(crack);
-      rays.push({ crack, pts });
-    } else rays.push({ minor: true, pts, drawn: false });
-  }
-  // a short ray appears when the traced ray before it finishes
-  for (let i = 0; i < N; i++) if (rays[i].minor) {
-    for (let j = 1; j <= N; j++) { const r2 = rays[(i - j + N) % N]; if (r2.crack) { rays[i].after = r2.crack; break; } }
-  }
-  // hoop cracks: rough, slightly bowed chords between neighbouring rays, on geometric rings
-  const hoops = [], q = rand(1.55, 1.75);
-  let r = rand(15, 20) * k;
-  for (let ring = 0; ring < 4; ring++, r *= q) {
-    const p = [0.9, 0.7, 0.45, 0.25][ring];
-    for (let i = 0; i < N; i++) {
-      if (Math.random() > p) continue;
-      const A = rays[i], B = rays[(i + 1) % N];
-      const at = ray => ray.pts.findIndex(pt => Math.hypot(pt[0] - c[0], pt[1] - c[1]) >= r * rand(0.9, 1.1));
-      const ia = at(A), ib = at(B);
-      if (ia < 0 || ib < 0) continue;
-      const pa = A.pts[ia], pb = B.pts[ib], mx = (pa[0] + pb[0]) / 2, my = (pa[1] + pb[1]) / 2;
-      // bow the chord a little away from the impact
-      const ox = mx - c[0], oy = my - c[1], ol = Math.hypot(ox, oy) || 1, bow = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]) * rand(0.03, 0.09);
-      const mid = [mx + ox / ol * bow, my + oy / ol * bow];
-      const len = Math.hypot(pb[0] - pa[0], pb[1] - pa[1]);
-      const path = [...fractalPath(pa, mid, len * 0.03, 0.8, 3), ...fractalPath(mid, pb, len * 0.03, 0.8, 3).slice(1)];
-      if (path.every(pt => inside(L.egg, pt))) hoops.push({ a: i, ia, b: (i + 1) % N, ib, pts: path, drawn: false });
-    }
-  }
-  return { cracks, rays, hoops, c };
-}
-
-/** Is a ray's point reached yet? Traced rays by tracing, short rays once they've appeared. */
-const rayReached = (ray, i) => ray.crack ? ray.crack.cov[i] : ray.drawn;
-
-/** Short rays and hoop cracks appear as the rays they hang on are traced. */
-function drawHoops() {
-  const e = game.egg, o = e.shell.ctx, k = L.k;
-  const lines = [];
-  for (const ray of e.rays) if (ray.minor && !ray.drawn && ray.after.done) { ray.drawn = true; lines.push(ray.pts); }
-  for (const h of e.hoops) if (!h.drawn && rayReached(e.rays[h.a], h.ia) && rayReached(e.rays[h.b], h.ib)) { h.drawn = true; lines.push(h.pts); }
-  if (!lines.length) return;
-  o.save();
-  o.lineCap = "butt"; o.lineJoin = "miter";
-  for (const [w, col, off] of [[0.7 * k, "rgba(255,250,240,.4)", 0.7 * k], [1 * k, "rgba(46,26,30,.82)", 0]]) {
-    o.strokeStyle = col; o.lineWidth = w;
-    o.beginPath();
-    for (const pts of lines) pts.map(pt => toShell(...pt)).forEach(([x, y], i) => (i ? o.lineTo(x + off, y + off) : o.moveTo(x + off, y + off)));
-    o.stroke();
-  }
-  o.restore();
-  if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.02, 4500, 3, 0.12);
-}
+// Crack geometry lives in egg units (1 = the egg's width), so it survives resizes and replays the same on every screen.
+const EGG_R = 1.28;
+const EGG_UNIT = eggPoly(0.5, EGG_R / 2, 0.94, EGG_R * 0.94, 64);
+const fromEgg = (u, v) => [L.ex0 + u * L.ew, L.ey0 + v * L.ew];
+const toEgg = (x, y) => [(x - L.ex0) / L.ew, (y - L.ey0) / L.ew];
 
 function newEgg(conf, animate = true) {
   const r = Math.random();
   const rarity = r < conf.legendary ? "legendary" : r < conf.legendary + conf.rare ? "rare" : "common";
   const crystal = conf.forced ? conf.forced.crystal : pick(CRYSTALS.filter(c => c.rarity === rarity));
   const species = conf.forced ? conf.forced.species : pick(SPECIES.filter(s => s.crystal === crystal.id && !s.moon));
-  const n = conf.cracks;
-  // the level that introduces a mechanic always shows it
-  const knotAt = conf.step === 4 || (conf.knots && Math.random() < 0.5) ? Math.floor(rand(0, n)) : -1;
-  const doubleAt = conf.step === 8 ? Math.floor(rand(0, n)) : -1;
-  const web = makeWeb(n, conf, knotAt, doubleAt), cracks = web.cracks;
-  const target = Math.round(cracks.reduce((s, c) => s + conf.pace + c.knots.length * 1.5 + (c.passes - 1) * 4, 0));
   game.egg = {
     conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04), stone: conf.moon ? MOON_STONE : pick(STONES),
-    cracks, target, state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, open: 0,
-    clock: 0, acc: { sum: 0, n: 0 }, chipsTapped: 0, hop: 0, hoops: web.hoops, rays: web.rays, impact: web.c,
+    state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
+    hp: conf.hp, damage: 0, taps: 0, crits: 0, gems: 0, combo: 0, lastTap: -9, hits: [], seed: coopId(),
+    net: { segs: [], tips: [] }, painted: 0,
   };
   const e = game.egg;
-  e.hollow = (() => { for (;;) { const p = [L.ecx + rand(-0.3, 0.3) * L.ew, L.ecy + rand(-0.32, 0.32) * L.eh]; if (inside(L.egg, p)) return p; } })();
-  e.shell = makeShell(e.stone);
-  e.interior = makeInterior(crystal, e.stone);
+  // the weak spot: somewhere on the face of the egg, away from the very edge
+  // stored the way co-op sends it (height / EGG_R), so host and guest compute with the very same numbers
+  for (;;) { const p = [rand(0.25, 0.75), rand(0.3, 1) / EGG_R * EGG_R]; if (inside(EGG_UNIT, p)) { e.spot = p; break; } }
+  e.par = Math.ceil(e.hp / 2.6);
+  game.gemsShown = 0; game.gems = []; game.pops = [];
+  refitEgg(e);
   game.pieces = [];
-  $("dots").innerHTML = "<i></i>".repeat(n);
+  updateDots();
   $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? "Wander" : `Lv ${conf.n}`;
-  setHint(conf.step === 1 ? "trace the glowing line from the bright dot" : conf.step === 2 ? "tip: knock on the stone and listen for the hollow spot" : "trace the glowing lines to crack the stone");
+  setHint(conf.step === 1 ? "tap the egg to crack it · aim for the glow ✦" : conf.step === 4 ? "the weak spot hides now: knocks sound higher near it" : conf.step === 10 ? "hard stone: find the weak spot by ear" : "");
+}
+
+/** Fresh shell and inside for the current layout, with every crack so far drawn back on. */
+function refitEgg(e) {
+  e.shell = makeShell(e.stone);
+  e.interior = makeInterior(e.crystal, e.stone);
+  e.painted = 0;
+  paintNet(e);
 }
 
 const toShell = (x, y) => [x - L.ex0 + PAD, y - L.ey0 + PAD];
 
-function activeCrack() {
-  const e = game.egg;
-  return e && e.state === "cracking" ? e.cracks.find(c => !c.done) : null;
-}
-
 function updateDots() {
-  const e = game.egg, done = e.cracks.filter(c => c.done).length;
-  [...$("dots").children].forEach((d, i) => d.classList.toggle("on", i < done));
+  const e = game.egg;
+  $("dots").firstElementChild.style.width = (e ? clamp(e.damage / e.hp, 0, 1) * 100 : 0) + "%";
 }
 
-/** Draw newly traced bits of a crack: a crisp dark line with a lit edge beside it, like a real fracture. */
-function inkCrack(cr, from, to) {
-  const o = game.egg.shell.ctx, k = L.k;
-  const lines = [];
-  for (let i = Math.max(1, from); i <= Math.min(to, cr.pts.length - 1); i++) {
-    if (cr.cov[i] || cr.cov[i - 1]) lines.push([toShell(...cr.pts[i - 1]), toShell(...cr.pts[i])]);
+/** The rest of a crack network: segments [x1, y1, x2, y2, width] and live tips {x, y, a, w} in egg units. */
+function nearSeg(net, x, y, skip, r) {
+  for (let i = net.segs.length - 1; i >= 0; i--) {
+    if (i === skip) continue;
+    const [ax, ay, bx, by] = net.segs[i], dx = bx - ax, dy = by - ay, l2 = dx * dx + dy * dy || 1e-9;
+    const t = clamp(((x - ax) * dx + (y - ay) * dy) / l2, 0, 1), px = ax + dx * t - x, py = ay + dy * t - y;
+    if (px * px + py * py < r * r) return [ax + dx * t, ay + dy * t];
   }
-  const fresh = cr.branches.filter(b => !b.drawn && cr.cov[b.at]);
-  for (const b of fresh) b.drawn = true;
-  const stroke = (segs, width, color, off) => {
-    o.strokeStyle = color; o.lineWidth = width;
-    o.beginPath();
-    for (const [[ax, ay], [bx, by]] of segs) { o.moveTo(ax + off, ay + off); o.lineTo(bx + off, by + off); }
-    o.stroke();
-  };
-  const branchSegs = fresh.flatMap(b => b.pts.slice(1).map((p, j) => [toShell(...b.pts[j]), toShell(...p)]));
-  o.save();
-  o.lineCap = "butt"; o.lineJoin = "miter";
-  stroke(lines, 0.9 * k, "rgba(255,250,240,.45)", 0.8 * k);
-  stroke(lines, 1.3 * k, "rgba(46,26,30,.9)", 0);
-  stroke(branchSegs, 0.6 * k, "rgba(255,250,240,.35)", 0.6 * k);
-  stroke(branchSegs, 0.8 * k, "rgba(46,26,30,.75)", 0);
-  o.restore();
+  return null;
 }
 
-/** A knock leaves a little star of hairline cracks around the spot. */
-function starCrack(x, y) {
-  const o = game.egg.shell.ctx, k = L.k, [sx, sy] = toShell(x, y);
-  const n = 5 + Math.floor(rand(0, 2)), th0 = rand(0, TAU), rays = [];
-  for (let i = 0; i < n; i++) {
-    const th = th0 + i * TAU / n + rand(-0.2, 0.2) * TAU / n, len = rand(7, 13) * k;
-    rays.push(fractalPath([sx, sy], [sx + Math.cos(th) * len, sy + Math.sin(th) * len], len * 0.06, 0.8, 3));
+/**
+ * One tap: the stone takes the hit and the cracks grow. Near the tap, live crack tips push on; with none close by,
+ * a fresh star of cracks bursts out of the impact. Tips wander a little, sometimes fork, stop at the rim and end in a
+ * T where they meet an older crack, the way an eggshell breaks. Everything comes from rng, so a replay is identical.
+ */
+function crackHit(e, p, power, rng) {
+  const net = e.net, [u, v] = p;
+  const weak = clamp(1 - Math.hypot(u - e.spot[0], v - e.spot[1]) / 0.2, 0, 1);
+  const crit = weak > 0.45, dmg = power * (1 + weak * 2.2);
+  let budget = dmg * 0.18, grown = 0;
+  // the blow travels along the cracks already there and pushes their nearest ends on
+  const dist = t => Math.hypot(t.x - u, t.y - v);
+  const near = net.tips.slice().sort((a, b) => dist(a) - dist(b)).slice(0, 3).filter(t => dist(t) < 0.45);
+  const fresh = [];
+  if (!near.length || dist(near[0]) > 0.16 || rng() < 0.3) {
+    const n = near.length ? 2 : 3 + Math.floor(rng() * 3), a0 = rng() * TAU;
+    for (let i = 0; i < n; i++) fresh.push({ x: u, y: v, a: a0 + i * TAU / n + (rng() - 0.5) * 0.9, w: 1 });
+    net.tips.push(...fresh);
   }
+  const active = [...near, ...fresh];
+  for (let guard = 0; budget > 0 && guard < 600; guard++) {
+    if (!active.length) {
+      // every end is stuck: a new crack splits off the side of the one closest to the blow
+      if (!net.segs.length) break;
+      let best = 0, bd = Infinity;
+      net.segs.forEach((g, i) => { const d = Math.hypot((g[0] + g[2]) / 2 - u, (g[1] + g[3]) / 2 - v) + rng() * 0.08; if (d < bd) { bd = d; best = i; } });
+      const [ax, ay, bx, by, w] = net.segs[best], side = rng() < 0.5 ? -1 : 1;
+      const f = { x: (ax + bx) / 2, y: (ay + by) / 2, a: Math.atan2(by - ay, bx - ax) + side * (0.9 + rng() * 0.6), w: Math.max(0.5, w * 0.8), last: best };
+      net.tips.push(f); active.push(f);
+    }
+    const t = active[guard % active.length];
+    if (t.dead) { active.splice(active.indexOf(t), 1); continue; }
+    const step = 0.016 + rng() * 0.008;
+    t.a += (rng() - 0.5) * 0.32;
+    let nx = t.x + Math.cos(t.a) * step, ny = t.y + Math.sin(t.a) * step;
+    if (!inside(EGG_UNIT, [nx, ny])) { t.dead = true; continue; }
+    const hitAt = net.segs.length > 2 ? nearSeg(net, nx, ny, t.last ?? -1, 0.007) : null;
+    if (hitAt && Math.hypot(t.x - u, t.y - v) > 0.02) { [nx, ny] = hitAt; t.dead = true; }
+    net.segs.push([t.x, t.y, nx, ny, t.w]);
+    t.last = net.segs.length - 1; t.x = nx; t.y = ny;
+    budget -= step; grown++;
+    if (!t.dead && rng() < 0.09 && active.length < 6) {
+      const side = rng() < 0.5 ? -1 : 1, f = { x: nx, y: ny, a: t.a + side * (0.45 + rng() * 0.5), w: t.w * 0.7, last: t.last };
+      net.tips.push(f); active.push(f);
+    }
+  }
+  net.tips = net.tips.filter(t => !t.dead);
+  e.damage += dmg;
+  return { dmg, crit, weak, grown };
+}
+
+/** Draw the new crack segments onto the shell: a dark fracture with a pale lit edge beside it. */
+function paintNet(e) {
+  const segs = e.net.segs.slice(e.painted);
+  if (!segs.length) return;
+  e.painted = e.net.segs.length;
+  const o = e.shell.ctx, k = L.k;
   o.save();
-  o.lineCap = "butt"; o.lineJoin = "miter";
-  o.strokeStyle = "rgba(46,26,30,.5)"; o.lineWidth = 0.6 * k;
-  o.beginPath();
-  for (const ray of rays) ray.forEach(([px, py], i) => (i ? o.lineTo(px, py) : o.moveTo(px, py)));
-  // a ring of short chords linking the rays halfway out
-  rays.forEach((ray, i) => { const a = ray[4], b = rays[(i + 1) % n][4]; if (Math.random() < 0.8) { o.moveTo(...a); o.lineTo(...b); } });
-  o.stroke();
+  o.lineCap = "round"; o.lineJoin = "round";
+  for (const [col, wk, off] of [["rgba(255,250,240,.55)", 1.8, 1.4], ["rgba(40,22,28,.95)", 3.2, 0]]) {
+    o.strokeStyle = col;
+    for (const [ax, ay, bx, by, w] of segs) {
+      const [x1, y1] = toShell(...fromEgg(ax, ay)), [x2, y2] = toShell(...fromEgg(bx, by));
+      o.lineWidth = wk * w * k;
+      o.beginPath(); o.moveTo(x1 + off * k, y1 + off * k); o.lineTo(x2 + off * k, y2 + off * k); o.stroke();
+    }
+  }
   o.restore();
 }
 
@@ -2284,140 +2218,61 @@ function burst(x, y, n, colors, speed = 1) {
   }
 }
 
-function trace(x, y) {
-  const cr = activeCrack();
-  if (!cr || (pointer && pointer.spent)) return;
-  const r = 24 * L.k;
-  let newly = 0, lo = Infinity, hi = -1;
-  cr.pts.forEach((p, i) => {
-    if (cr.cov[i]) return;
-    if ((p[0] - x) ** 2 + (p[1] - y) ** 2 < r * r) {
-      cr.cov[i] = true; newly++;
-      lo = Math.min(lo, i); hi = Math.max(hi, i);
-    }
-  });
-  if (!newly) return;
-  inkCrack(cr, lo, hi + 1);
-  for (let i = lo; i <= hi; i++) {
-    if (Math.random() < 0.06) { const [px, py] = cr.pts[i]; spawnChips(px, py, 1, 0.6); }
-  }
-  sfx.crackle(newly);
-  drawHoops();
-  tryAdvance(cr);
-}
+/** How much a tap hits: your hammer, plus a little more for every upgrade later on. */
+const tapPower = () => 1;
 
-/** A traced crack still has to have its knots broken, and hard stone needs a second pass. */
-function tryAdvance(cr) {
-  if (cr.cov.filter(Boolean).length / cr.pts.length < 0.88) return;
-  if (cr.knots.some(k => !k.broken)) {
-    setHint("tap the glowing knot to break it ✦");
-    return;
-  }
-  if (cr.pass < cr.passes - 1) {
-    cr.pass++;
-    cr.cov.fill(false);
-    if (pointer) pointer.spent = true;
-    sfx.hairline();
-    game.glints.push({ pts: cr.pts, t: 0.3 });
-    game.egg.wob = 0.025; game.egg.wobT = 0;
-    setHint("hard stone: trace it once more");
-    return;
-  }
-  finishCrack(cr);
-}
-
-function cutCrack(cr) {
-  const o = game.egg.shell.ctx;
-  o.save();
-  o.globalCompositeOperation = "destination-out";
-  o.lineCap = "round"; o.lineJoin = "round";
-  o.lineWidth = 0.9 * L.k;
-  o.lineCap = "butt"; o.lineJoin = "miter";
-  o.beginPath();
-  cr.pts.forEach(([x, y], i) => { const [sx, sy] = toShell(x, y); i ? o.lineTo(sx, sy) : o.moveTo(sx, sy); });
-  o.stroke();
-  o.restore();
-}
-
-function finishCrack(cr) {
+/** A tap on the egg: crack it, pop numbers and shards, shake. Hosts and solo players run this; guests replay it. */
+function hitEgg(x, y) {
   const e = game.egg;
-  cr.cov.fill(true);
-  inkCrack(cr, 1, cr.pts.length - 1);
-  cutCrack(cr);
-  // flakes break off where the crack kinks
-  for (const i of cr.cornerAt) if (Math.random() < 0.15) carveChip(...cr.pts[i], rand(1.5, 2.6) * L.k, 3 + Math.floor(rand(0, 2)));
-  cr.done = true;
-  markTip("trace");
-  drawHoops();
-  // the first crack opens a small hole where the shell was struck
-  if (e.cracks.filter(c => c.done).length === 1) carveChip(...e.impact, 5 * L.k, 13);
-  if (pointer) pointer.spent = true; // the next line waits for a fresh swipe
-  const doneN = e.cracks.filter(c => c.done).length;
-  sfx.crackDone(doneN);
-  if (navigator.vibrate) navigator.vibrate(12);
-  game.glints.push({ pts: cr.pts, t: 0 });
-  const mid = cr.pts[Math.floor(cr.pts.length / 2)];
-  burst(mid[0], mid[1], 8, ["#fff", ...e.crystal.c]);
-  spawnChips(mid[0], mid[1], 10);
-  e.wob = 0.05; e.wobT = 0;
+  if (!e || e.state !== "cracking" || !inside(L.egg, [x, y])) return;
+  const [u, v] = toEgg(x, y), power = tapPower(), hit = [u, v / EGG_R, power];
+  e.hits.push(hit);
+  const res = crackHit(e, [hit[0], hit[1] * EGG_R], power, seeded(e.seed + ":" + (e.hits.length - 1)));
+  e.taps++;
+  if (res.crit) e.crits++;
+  e.combo = game.time - e.lastTap < 700 ? e.combo + 1 : 1;
+  e.lastTap = game.time;
+  const gems = 1 + (res.crit ? 2 : 0) + Math.floor(e.combo / 4);
+  e.gems += gems;
+  markTip("tap");
+  if (e.taps === 3 && e.conf.step === 1) setHint("");
+  hitFeedback(e, x, y, res, gems);
+  if (e.damage >= e.hp) openEgg();
+}
+
+/** Everything you see and hear when a hit lands (also used when a co-op guest replays the host's hits). */
+function hitFeedback(e, x, y, res, gems) {
+  paintNet(e);
+  const prog = clamp(e.damage / e.hp, 0, 1);
+  e.wob = 0.02 + prog * 0.04 + (res.crit ? 0.03 : 0); e.wobT = 0; e.squash = 1;
+  game.shake = Math.min(14, game.shake + (res.crit ? 7 : 3) + prog * 3) * Math.max(0.5, L.k);
+  if (res.crit) game.freeze = 0.06;
+  pop(res.crit ? `CRIT ${res.dmg.toFixed(1)}` : res.dmg.toFixed(1), x, y - 14 * L.k, res.crit ? "#ffe9a8" : "#ffffff", res.crit ? 1.5 : 1);
+  if (e.combo >= 3) pop(`×${e.combo}`, x + 34 * L.k, y - 40 * L.k, "#8fd8ef", 0.9);
+  if (Math.random() < 0.6) carveChip(x, y, rand(1.2, 2.4) * L.k, 3);
+  spawnChips(x, y, 3 + Math.round(prog * 5) + (res.crit ? 4 : 0), 1 + prog);
+  if (res.crit) burst(x, y, 10, ["#fff", ...e.crystal.c], 1.3);
+  flyGems(x, y, gems);
+  sfx.knock(res.weak);
+  if (res.grown) sfx.crackle(Math.min(res.grown, 12));
+  game.ripples.push({ x, y, t: 0, r: (20 + res.weak * 50) * L.k, h: res.weak });
+  if (navigator.vibrate) navigator.vibrate(res.crit ? 18 : 7);
+  if (e.conf.spotGlow < 0.5 && res.weak > 0.2 && !res.crit) floatText("closer…", x, y - 30 * L.k, "#e6e0ff");
   updateDots();
-  const next = activeCrack();
-  if (doneN === e.cracks.length) {
-    e.state = "ready"; e.t = 0;
-    setHint("tap the egg to open it ✦");
-    setTimeout(() => sfx.shimmer(), 450);
-  } else if (next && next.knots.length && !e.knotTold) {
-    e.knotTold = true;
-    setHint("this line has a knot: trace it, then tap the knot");
-  } else if (next && next.passes > 1) {
-    setHint("hard stone: this line needs two passes");
-  } else {
-    setHint("");
+}
+
+/** Damage numbers that pop out and float up, with a dark outline so they read on any stone. */
+function pop(text, x, y, color, size = 1) {
+  game.pops.push({ text, x: x + rand(-14, 14), y: y + rand(-6, 6), vx: rand(-70, 70), vy: -rand(110, 170), t: 0, life: 0.9, color, size });
+}
+
+/** Shards burst out of the hit, hang for a moment, then fly up into the counter. */
+function flyGems(x, y, n) {
+  const box = $("clock").getBoundingClientRect(), tx = box.left + box.width / 2, ty = box.top + box.height / 2;
+  for (let i = 0; i < n; i++) {
+    const a = rand(-Math.PI, 0), v = rand(80, 200);
+    game.gems.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: -i * 0.04, tx, ty, color: pick(game.egg.crystal.c) });
   }
-}
-
-function tapKnot(x, y) {
-  const cr = activeCrack();
-  if (!cr) return false;
-  const k = cr.knots.find(k => !k.broken && Math.hypot(cr.pts[k.i][0] - x, cr.pts[k.i][1] - y) < 26 * L.k);
-  if (!k) return false;
-  k.broken = true;
-  markTip("knot");
-  const [px, py] = cr.pts[k.i];
-  carveChip(px, py, 6 * L.k, 11);
-  spawnChips(px, py, 12, 1.3);
-  burst(px, py, 10, ["#fff", ...game.egg.crystal.c]);
-  sfx.knot();
-  if (navigator.vibrate) navigator.vibrate(15);
-  game.egg.wob = 0.035; game.egg.wobT = 0;
-  if (!cr.knots.some(k => !k.broken)) setHint(cr.cov.filter(Boolean).length / cr.pts.length >= 0.88 ? "" : "now trace the rest of the line");
-  tryAdvance(cr);
-  return true;
-}
-
-/** Every geode has one hollow spot. Knocking tells you how close you are. */
-function chip(x, y) {
-  const e = game.egg;
-  if (!inside(L.egg, [x, y])) return;
-  const dist = Math.hypot(x - e.hollow[0], y - e.hollow[1]);
-  const h = e.hollowFound ? 0.2 : Math.pow(clamp(1 - dist / (L.ew * 0.7), 0, 1), 1.6);
-  starCrack(x, y);
-  if (Math.random() < 0.5) carveChip(x, y, rand(1.2, 2.2) * L.k, 3);
-  spawnChips(x, y, 4);
-  e.chipsTapped++;
-  e.wob = 0.02; e.wobT = 0;
-  sfx.knock(h);
-  game.ripples.push({ x, y, t: 0, r: (20 + h * 50) * L.k, h });
-  if (navigator.vibrate) navigator.vibrate(6);
-  if (!e.hollowFound && dist < 24 * L.k) {
-    e.hollowFound = true;
-    // a little window: peek at the crystal inside
-    carveChip(e.hollow[0], e.hollow[1], 10 * L.k, 15);
-    burst(e.hollow[0], e.hollow[1], 14, ["#fff", ...e.crystal.c]);
-    floatText("hollow! +5 ✦", e.hollow[0], e.hollow[1] - 20 * L.k, "#ffe9a8");
-    sfx.gleam();
-    setHint("you found the hollow ✦");
-  } else if (!e.hollowFound && h > 0.75) floatText("so close…", x, y - 16 * L.k, "#e6e0ff");
 }
 
 function openEgg() {
@@ -2515,11 +2370,6 @@ function finishPolish() {
 
 // ---------- results: stars, shards, a new friend ----------
 
-function accuracy(e) {
-  const avg = e.acc.n ? e.acc.sum / e.acc.n : 0;
-  return clamp(1 - avg / 40, 0, 1);
-}
-
 function geodeImage(withCreature = true, width = 0) {
   const e = game.egg, s = width ? width / (L.ew + PAD * 2) : 0.75;
   const c = document.createElement("canvas");
@@ -2567,12 +2417,12 @@ function showFound() {
   const e = game.egg, sp = e.species, conf = e.conf, cry = e.crystal;
   if (conf.coop && e.coopRewarded) return;
   if (conf.coop) e.coopRewarded = true;
-  const acc = accuracy(e);
-  const stars = 1 + (acc >= 0.7 ? 1 : 0) + (acc >= 0.7 && e.clock <= e.target ? 1 : 0);
+  // fewer taps, more stars: finding the weak spot is the whole trick
+  const stars = e.taps <= e.par ? 3 : e.taps <= Math.ceil(e.par * 1.7) ? 2 : 1;
   const firstClear = !conf.wander && !save.stars[conf.n];
   const shine = e.matte ? e.matte.shine : 0;
   const moonBonus = conf.moon ? finishMoon() : 0;
-  const shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + (e.hollowFound ? 5 : 0) + Math.round(shine * 10) + moonBonus;
+  const shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + e.gems + Math.round(shine * 10) + moonBonus;
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
   save.shards += shards;
   const { isNew, note } = adopt(e);
@@ -2587,11 +2437,11 @@ function showFound() {
   $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
-  $("foundNote").textContent = (conf.coop ? "Shared egg · " : "") + note + (e.hollowFound ? " · you found the hollow" : "") + (conf.moon ? ` · moon streak ${save.moon.streak} 🔥` : "");
+  $("foundNote").textContent = (conf.coop ? "Shared egg · " : "") + note + (conf.moon ? ` · moon streak ${save.moon.streak} 🔥` : "");
   $("stShine").textContent = Math.round(shine * 100) + "%";
-  $("stAcc").textContent = Math.round(acc * 100) + "%";
-  $("stTime").textContent = Math.round(e.clock) + "s";
-  $("stTarget").textContent = `★ under ${e.target}s`;
+  $("stTaps").textContent = e.taps;
+  $("stPar").textContent = `taps · ★ in ${e.par}`;
+  $("stCrits").textContent = e.crits;
   $("stShards").textContent = "+" + shards;
   $("foundMap").hidden = !!conf.moon;
   $("nextLvl").textContent = conf.coop ? (coopIsHost() ? "Another shared egg" : "Waiting for host") : conf.moon ? "Back to the grotto" : conf.wander ? "Another egg" : conf.n >= LEVELS ? "Wander on" : "Next level";
@@ -2625,13 +2475,8 @@ function markTip(id) {
 function coachMove() {
   if (pointer) return null;
   if (game.scene === "crack" && game.egg) {
-    const e = game.egg, cr = activeCrack();
-    if (cr) {
-      const knot = cr.knots.find(k => !k.broken);
-      if (knot && !tipDone("knot") && cr.cov.filter(Boolean).length / cr.pts.length >= 0.88) return { kind: "tap", at: cr.pts[knot.i] };
-      if (!tipDone("trace") && !cr.cov.some(Boolean)) return { kind: "path", pts: cr.pts };
-    }
-    if (e.state === "ready" && !tipDone("open")) return { kind: "tap", at: [L.ecx, L.ecy] };
+    const e = game.egg;
+    if (e.state === "cracking" && !tipDone("tap") && !e.taps) return { kind: "tap", at: fromEgg(...e.spot) };
     if (e.state === "polish" && !tipDone("polish") && e.matte && e.matte.shine < 0.15)
       return { kind: "path", pts: [0, 1, 2, 3, 4].map(i => [L.ecx + (i % 2 ? 0.3 : -0.3) * L.ew, L.ecy - L.eh * 0.15 + i * L.eh * 0.08]) };
   }
@@ -3816,22 +3661,13 @@ function coopId() {
 function coopBlueprintFromEgg(e) {
   const stone = STONES.indexOf(e.stone);
   const r = { id: coopId(), step: e.conf.step, crystal: e.crystal.id, species: e.species.id, shiny: !!e.shiny, stone,
-    target: e.target, hollow: coopWire.normalisePoint(e.hollow[0], e.hollow[1], L), cracks: e.cracks.map(c => ({
-      pts: c.pts.map(p => coopWire.normalisePoint(p[0], p[1], L)), knots: c.knots.map(k => k.i), passes: c.passes,
-      cornerAt: c.cornerAt.slice(), branches: c.branches.map(b => ({ at: b.at, pts: b.pts.map(p => coopWire.normalisePoint(p[0], p[1], L)) })),
-    })) };
-  const norm = pts => pts.map(p => coopWire.normalisePoint(p[0], p[1], L));
-  r.web = { impact: coopWire.normalisePoint(e.impact[0], e.impact[1], L),
-    rays: e.rays.map(ray => ray.crack ? { crack: e.cracks.indexOf(ray.crack) } : { after: e.cracks.indexOf(ray.after), pts: norm(ray.pts) }),
-    hoops: e.hoops.map(h => ({ a: h.a, ia: h.ia, b: h.b, ib: h.ib, pts: norm(h.pts) })) };
+    hp: e.hp, spot: [e.spot[0], e.spot[1] / EGG_R], seed: e.seed };
   return coopWire.validRound(r) && coopRoundCatalogValid(r) ? r : null;
 }
 function coopSnapshot(e, seq) {
   const matteHits = e.matte ? e.matte.cells.map(c => Math.min(3, c.hits || 0)) : null;
-  const s = { round: coopSession.round.id, seq, phase: e.state, clock: clamp(e.clock || 0, 0, 86400), t: clamp(e.t || 0, 0, 86400),
-    acc: { sum: clamp(e.acc && e.acc.sum || 0, 0, 60 * (e.acc && e.acc.n || 0)), n: Math.max(0, Math.min(1e9, Math.floor(e.acc && e.acc.n || 0))) },
-    hollowFound: !!e.hollowFound, chipsTapped: Math.max(0, Math.min(1e7, Math.floor(e.chipsTapped || 0))),
-    cracks: e.cracks.map(c => ({ cov: c.cov.slice(), knots: c.knots.map(k => !!k.broken), done: !!c.done, pass: c.pass })),
+  const s = { round: coopSession.round.id, seq, phase: e.state, t: clamp(e.t || 0, 0, 86400),
+    taps: e.taps, crits: e.crits, gems: e.gems, damage: e.damage, hits: e.hits.map(h => h.slice()),
     matte: matteHits ? { hits: matteHits, shine: e.matte.shine } : null };
   return coopWire.validState(s, coopSession.round) ? s : null;
 }
@@ -3850,46 +3686,40 @@ function coopRoundState(packet) {
   if (!s || !coopWire.validRound(r) || !coopRoundCatalogValid(r) || !coopWire.validState(state, r) || state.round !== r.id) return false;
   return true;
 }
-function coopMakeCracks(r, state) {
-  return r.cracks.map((c, i) => ({ pts: c.pts.map(p => coopWire.projectPoint(p, L)), cov: state ? state.cracks[i].cov.slice() : c.pts.map(() => false),
-    cornerAt: c.cornerAt.slice(), branches: c.branches.map(b => ({ at: b.at, pts: b.pts.map(p => coopWire.projectPoint(p, L)), drawn: false })),
-    done: state ? state.cracks[i].done : false, fade: 1, knots: c.knots.map((k, j) => ({ i: k, broken: state ? !!state.cracks[i].knots[j] : false })), passes: c.passes, pass: state ? state.cracks[i].pass : 0 }));
-}
-// Rebuild the short rays and hoops around the shared cracks; they appear again as the cracks are traced.
-function coopMakeWeb(r, cracks) {
-  const rays = r.web.rays.map(ray => ray.crack !== undefined ? { crack: cracks[ray.crack], pts: cracks[ray.crack].pts }
-    : { minor: true, after: cracks[ray.after], pts: ray.pts.map(p => coopWire.projectPoint(p, L)), drawn: false });
-  const hoops = r.web.hoops.map(h => ({ a: h.a, ia: h.ia, b: h.b, ib: h.ib, pts: h.pts.map(p => coopWire.projectPoint(p, L)), drawn: false }));
-  return { rays, hoops, impact: coopWire.projectPoint(r.web.impact, L) };
+/** Replay shared hits we haven't drawn yet. The same seed and hit order grow the very same cracks on every screen. */
+function coopReplayHits(e, hits, feedback) {
+  for (let i = e.hits.length; i < hits.length; i++) {
+    const [u, nv, power] = hits[i], p = [u, nv * EGG_R];
+    e.hits.push(hits[i].slice());
+    const res = crackHit(e, p, power, seeded(e.seed + ":" + i));
+    if (feedback) { const [x, y] = fromEgg(...p); hitFeedback(e, x, y, res, 1 + (res.crit ? 2 : 0)); }
+  }
+  paintNet(e);
 }
 function installCoopRound(r, state) {
   if (!coopRoundState({ round: r, state })) return false;
   const conf = { ...levelConf(r.step), n: 0, wander: true, coop: true, forced: { crystal: CRYSTAL[r.crystal], species: SP[r.species] } };
-  // newEgg supplies the ordinary canvas assets; the host blueprint replaces every random gameplay coordinate below.
+  // newEgg supplies the ordinary canvas assets; the host blueprint replaces every random gameplay value below.
   newEgg(conf, false);
   const e = game.egg;
-  e.conf = conf; e.crystal = CRYSTAL[r.crystal]; e.species = SP[r.species]; e.shiny = r.shiny; e.stone = STONES[r.stone]; e.target = r.target;
-  e.hollow = coopWire.projectPoint(r.hollow, L); e.coopBlueprint = r; e.cracks = coopMakeCracks(r, state);
-  Object.assign(e, coopMakeWeb(r, e.cracks));
-  e.shell = makeShell(e.stone); e.interior = makeInterior(e.crystal, e.stone); game.pieces = [];
-  $("dots").innerHTML = "<i></i>".repeat(e.cracks.length);
+  e.conf = conf; e.crystal = CRYSTAL[r.crystal]; e.species = SP[r.species]; e.shiny = r.shiny; e.stone = STONES[r.stone];
+  e.hp = r.hp; e.spot = [r.spot[0], r.spot[1] * EGG_R]; e.seed = r.seed; e.par = Math.ceil(e.hp / 2.6); e.coopBlueprint = r;
+  e.hits = []; e.net = { segs: [], tips: [] }; e.damage = 0;
+  refitEgg(e); game.pieces = [];
   return coopApplySnapshot(state, true);
 }
 function reprojectCoopEgg() {
   const e = game.egg, r = e && e.coopBlueprint;
   if (!e || !r || !coopWire.validRound(r)) return;
-  const old = { phase: e.state, t: e.t, clock: e.clock, shine: e.matte?.shine, matte: e.matte ? e.matte.cells.map(c => c.hits || 0) : null };
-  e.hollow = coopWire.projectPoint(r.hollow, L); e.cracks = coopMakeCracks(r, { cracks: e.cracks.map(c => ({ cov: c.cov, knots: c.knots.map(k => k.broken), done: c.done, pass: c.pass })) });
-  Object.assign(e, coopMakeWeb(r, e.cracks));
-  e.shell = makeShell(e.stone); e.interior = makeInterior(e.crystal, e.stone); game.pieces = [];
+  const old = { phase: e.state, t: e.t, shine: e.matte?.shine, matte: e.matte ? e.matte.cells.map(c => c.hits || 0) : null };
+  refitEgg(e); game.pieces = [];
   if (old.matte || ["polish", "gleam", "open"].includes(old.phase)) {
     startPolish();
     if (old.matte) e.matte.cells.forEach((c, i) => { c.hits = old.matte[i] || 0; c.done = c.hits >= 3; });
     e.matte.done = e.matte.cells.filter(c => c.done).length; e.matte.shine = old.shine || 0;
     paintCoopMatte(e.matte);
   }
-  e.state = old.phase; e.t = old.t; e.clock = old.clock;
-  paintCoopCracks(e);
+  e.state = old.phase; e.t = old.t;
   if (coopIsGuest()) coopSendInput("cancel");
   pointer = null; game.trail = [];
   if (coopSession) { coopSession.remotePointer = null; coopSession.remoteCursor = null; }
@@ -3897,21 +3727,6 @@ function reprojectCoopEgg() {
   updateDots();
 }
 
-// Repaint only changed coverage/cells, never regenerate canvas assets on every packet.
-function paintCoopCracks(e, before) {
-  e.cracks.forEach((c, i) => {
-    const previous = before && before[i];
-    if (!previous || c.pass !== previous.pass || c.done !== previous.done || c.cov.some((v, j) => v !== previous.cov[j])) {
-      if (!previous && c.pass > 0) inkCrack({ ...c, cov: c.cov.map(() => true) }, 1, c.pts.length - 1);
-      inkCrack(c, 1, c.pts.length - 1);
-      if (c.done) cutCrack(c);
-    }
-    c.knots.forEach((k, j) => { if (k.broken && (!previous || !previous.knots[j])) carveChip(...c.pts[k.i], 6 * L.k, 11); });
-  });
-  // the first finished crack opens the hole where the shell was struck
-  if (e.cracks.some(c => c.done) && !(before && before.some(c => c.done))) carveChip(...e.impact, 5 * L.k, 13);
-  drawHoops();
-}
 function paintCoopMatte(m, before = []) {
   if (m.shine === 1) { m.ctx.clearRect(0, 0, m.canvas.width, m.canvas.height); return; }
   const o = m.ctx, radius = 13 * L.k;
@@ -3933,10 +3748,8 @@ function coopApplySnapshot(state, initial = false) {
   if (!initial && coopPhaseIndex(state.phase) < coopPhaseIndex(e.state)) return false;
   if (!initial && state.seq > s.lastStateSeq) s.lastStateSeq = state.seq;
   const oldPhase = e.state;
-  const before = e.cracks.map(c => ({ cov: c.cov, pass: c.pass, done: c.done, knots: c.knots.map(k => k.broken) }));
-  state.cracks.forEach((sc, i) => { const c = e.cracks[i]; c.cov = sc.cov.slice(); c.done = sc.done; c.pass = sc.pass; sc.knots.forEach((v, j) => { c.knots[j].broken = v; }); });
-  paintCoopCracks(e, initial ? null : before);
-  if (state.phase === "ready" && oldPhase !== "ready") setHint("tap the egg to open it ✦");
+  if (coopIsGuest() || initial) coopReplayHits(e, state.hits, !initial);
+  e.taps = state.taps; e.crits = state.crits; e.gems = state.gems; e.damage = state.damage;
   if (state.phase === "opening" && oldPhase !== "opening") openEgg();
   if (state.matte && !e.matte) startPolish();
   if (state.phase === "gleam" && oldPhase === "polish") finishPolish();
@@ -3946,8 +3759,7 @@ function coopApplySnapshot(state, initial = false) {
     e.matte.done = e.matte.cells.filter(c => c.done).length; e.matte.shine = state.matte.shine;
     paintCoopMatte(e.matte, oldHits);
   }
-  e.state = state.phase; e.t = state.t; e.clock = state.clock; e.acc = { sum: state.acc.sum, n: state.acc.n };
-  e.hollowFound = state.hollowFound; e.chipsTapped = state.chipsTapped;
+  e.state = state.phase; e.t = state.t;
   updateDots();
   $("polishDone").hidden = !(game.scene === "crack" && e.state === "polish");
   if (e.state === "open" && !e.coopRewarded) showFound();
@@ -4043,7 +3855,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   pointer = { x, y, t0: now, moved: 0, lx: x, ly: y };
   if (!remote) game.trail = game.scene === "crack" ? [{ x, y, t: now }] : [];
   if (!remote && coopIsGuest()) { coopSendInput("down", x, y); return; }
-  if (game.scene === "crack" && game.egg.state === "cracking") trace(x, y);
+  if (game.scene === "crack" && game.egg.state === "cracking") hitEgg(x, y);
   if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = now; }
   if (game.scene === "catch" && game.catch) game.catch.tx = x;
   if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
@@ -4058,10 +3870,6 @@ function handlePointerMove(x, y, now = performance.now(), remote = false) {
   const d = Math.hypot(x - pointer.lx, y - pointer.ly); pointer.moved += d;
   if (!remote && coopIsGuest()) { coopSendInput("move", x, y); pointer.lx = x; pointer.ly = y; game.trail.push({ x, y, t: now }); return; }
   if (game.scene === "crack") {
-    const cr = activeCrack();
-    if (cr && !pointer.spent) { let best = Infinity; for (const p of cr.pts) best = Math.min(best, Math.hypot(p[0] - x, p[1] - y)); game.egg.acc.sum += Math.min(best / L.k, 60); game.egg.acc.n++; }
-    const steps = Math.ceil(d / (8 * L.k));
-    for (let i = 1; i <= steps && game.egg.state === "cracking"; i++) trace(lerp(pointer.lx, x, i / steps), lerp(pointer.ly, y, i / steps));
     if (game.egg.state === "polish") { const steps2 = Math.max(1, Math.ceil(d / (6 * L.k))); for (let i = 1; i <= steps2; i++) rub(lerp(pointer.lx, x, i / steps2), lerp(pointer.ly, y, i / steps2), d / steps2, (now - (pointer.lt || now)) / 1000 / steps2); pointer.lt = now; }
     if (!remote) game.trail.push({ x, y, t: now });
   }
@@ -4084,7 +3892,7 @@ function handlePointerUp(x, y, now = performance.now(), remote = false) {
   sfx.rubOff(); if (!tap) return;
   if (game.scene === "nest" && !calling && atIncubator(x, y)) { tapIncubator(); return; }
   if (game.scene === "nest" && decorHit) { if (decorHit.id !== "lights") playDecor(decorHit); return; }
-  if (game.scene === "crack") { const egg = game.egg; if (egg.state === "ready" && inside(L.egg, [x, y])) openEgg(); else if (egg.state === "cracking" && !tapKnot(x, y)) chip(x, y); else if (egg.state === "open" && Math.hypot(x - L.ecx, y - L.ecy) < L.ew * 0.25) { egg.hop = 1; sfx.chirp(egg.species.voice); } }
+  if (game.scene === "crack") { const egg = game.egg; if (egg.state === "open" && Math.hypot(x - L.ecx, y - L.ecy) < L.ew * 0.25) { egg.hop = 1; sfx.chirp(egg.species.voice); } }
   if (game.scene === "nest" && !calling) { const a = actorAt(x, y); if (a && a.id !== save.active) selectCreature(a.id); else if (a) { const cr = activeCreature(), v = actorView(a); if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); } } }
 }
 function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
@@ -4400,7 +4208,7 @@ $$("#tabs button").forEach(b => b.addEventListener("click", () => {
 $("quit").addEventListener("click", () => {
   if (coopSession) { coopEnd("left"); return; }
   const e = game.egg;
-  const started = e && (e.state === "cracking" || e.state === "ready") && e.cracks.some(c => c.done || c.cov.some(Boolean));
+  const started = e && e.state === "cracking" && e.taps > 0;
   if (started) { sfx.tick(); show("confirmLeave", true); } else setScene("map");
 });
 $("keepCracking").addEventListener("click", () => show("confirmLeave", false));
@@ -4803,11 +4611,9 @@ function update(dt) {
       e.t += dt;
       if (e.state === "entering" && !e.thudded && e.t > 0.32) { e.thudded = true; sfx.thud(); }
       if (e.state === "entering" && e.t >= 0.9) { e.state = "cracking"; e.t = 0; }
-      if (e.state === "cracking") e.clock += dt;
     }
     e.wobT += dt;
-    const ac = activeCrack();
-    if (ac) ac.fade = Math.min(1, ac.fade + dt * 2);
+    e.squash = Math.max(0, e.squash - dt * 6);
     if (!guestOwned && e.state === "opening") {
       e.open = Math.min(1, e.t / 1.1);
       if (!e.cooed && e.t > 0.55) { e.cooed = true; sfx.chirp(e.species.voice); }
@@ -4858,15 +4664,36 @@ function update(dt) {
   game.trail = game.trail.filter(p => now - p.t < 220);
   for (const r of game.ripples) r.t += dt;
   game.ripples = game.ripples.filter(r => r.t < 0.6);
+  for (const p of game.pops) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 220 * dt; }
+  game.pops = game.pops.filter(p => p.t < p.life);
+  for (const g of game.gems) {
+    g.t += dt;
+    if (g.t < 0) continue;
+    if (g.t < 0.3) { g.x += g.vx * dt; g.y += g.vy * dt; g.vx *= Math.exp(-5 * dt); g.vy *= Math.exp(-5 * dt); continue; }
+    const k = 1 - Math.exp(-(6 + (g.t - 0.3) * 40) * dt);
+    g.x = lerp(g.x, g.tx, k); g.y = lerp(g.y, g.ty, k);
+    if (Math.hypot(g.x - g.tx, g.y - g.ty) < 10) { g.done = true; gemArrived(); }
+  }
+  game.gems = game.gems.filter(g => !g.done);
+  game.shake *= Math.exp(-12 * dt);
 }
 
+/** A shard lands in the counter: count up, bump and tick. */
+function gemArrived() {
+  game.gemsShown = (game.gemsShown || 0) + 1;
+  const pill = $("clock");
+  pill.classList.remove("bump"); void pill.offsetWidth; pill.classList.add("bump");
+  if (sfx.ready() && game.gemsShown % 2) sfx.grain(sfx.ac.currentTime, 0.012, 7000, 1, 0.05);
+}
+
+/** The counter in the top bar: shards caught from this egg, and taps (with the 3-star mark once you've cleared it). */
 function updateClock() {
   const e = game.egg;
   if (game.scene !== "crack" || !e) return;
-  const s = Math.floor(e.clock);
-  if (updateClock.last !== s + "/" + e.target) {
-    updateClock.last = s + "/" + e.target;
-    $("clock").innerHTML = save.stars[e.conf.n] ? `⏱ ${s}s <small>· ★ ${e.target}s</small>` : `⏱ ${s}s`;
+  const shown = Math.min(game.gemsShown || 0, e.gems), key = shown + "/" + e.taps;
+  if (updateClock.last !== key) {
+    updateClock.last = key;
+    $("clock").innerHTML = `<b>✦ ${shown}</b><small>${e.taps} tap${e.taps === 1 ? "" : "s"}${save.stars[e.conf.n] ? ` · ★ ${e.par}` : ""}</small>`;
   }
 }
 
@@ -4912,11 +4739,15 @@ function drawEgg() {
   const e = game.egg;
   if (e.state === "opening") e.open = clamp(e.t / 1.1, 0, 1);
   const oy = eggOffset();
+  // near the end it trembles by itself, as if something inside is pushing
+  const prog = e.hp ? clamp(e.damage / e.hp, 0, 1) : 0;
   const wob = e.wob * Math.sin(e.wobT * 22) * Math.exp(-e.wobT * 5)
-    + (e.state === "ready" ? Math.sin(game.time * 0.02) * 0.006 : 0);
+    + (e.state === "cracking" && prog > 0.7 ? Math.sin(game.time * 0.05) * 0.006 * (prog - 0.6) * 3 : 0);
+  const sq = e.squash * e.squash;
   ctx.save();
   ctx.translate(L.ecx, L.floor + oy);
   ctx.rotate(wob);
+  ctx.scale(1 + sq * 0.04, 1 - sq * 0.05);
   ctx.translate(-L.ecx, -L.floor);
   const x = L.ex0 - PAD, y = L.ey0 - PAD, w = L.ew + PAD * 2, h = L.eh + PAD * 2;
   // the inside and its glowling stay hidden until the shell bursts
@@ -4931,91 +4762,45 @@ function drawEgg() {
     if (k > 0) drawCreature(ctx, L.ecx, L.ecy + L.eh * 0.04, L.ew * 0.34 * easeOutBack(k), e.species, { mood: "happy", hop: e.hop, shiny: e.shiny });
   } else {
     ctx.drawImage(e.shell.canvas, x, y, w, h);
-    drawCrackLight(e);
+    drawCrackLight(e, prog);
     drawGloss(ctx, L.ecx, L.ecy);
-    if (e.state !== "entering") drawGuide();
+    if (e.state !== "entering") drawSpot(e);
   }
   ctx.restore();
 }
 
-function drawCrackLight(e) {
-  const light = e.crystal.c[1];
-  // cracks stay dark while you work; when the egg is ready, light seeps through them
-  if (e.state !== "ready") return;
-  const pulse = 0.3 + 0.25 * Math.sin(game.time * 0.006);
+/** As the egg gives way, the glow inside starts to seep out through the cracks. */
+function drawCrackLight(e, prog) {
+  if (prog < 0.3 || !e.net.segs.length) return;
+  const light = e.crystal.c[1], pulse = 0.6 + 0.4 * Math.sin(game.time * 0.006);
   ctx.save();
-  ctx.lineCap = "butt"; ctx.lineJoin = "miter";
+  ctx.lineCap = "round";
   ctx.strokeStyle = light;
-  ctx.globalAlpha = pulse;
+  ctx.globalAlpha = clamp((prog - 0.3) / 0.6, 0, 1) * 0.7 * pulse;
   ctx.shadowColor = light;
   ctx.shadowBlur = quality.low ? 0 : 8 * L.k;
-  ctx.lineWidth = 0.7 * L.k;
+  ctx.lineWidth = 0.9 * L.k;
   ctx.beginPath();
-  for (const cr of e.cracks) {
-    if (!cr.done) continue;
-    cr.pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
-  }
-  for (const h of [...e.hoops, ...e.rays.filter(r => r.minor)]) if (h.drawn) h.pts.forEach(([px, py], i) => (i ? ctx.lineTo(px, py) : ctx.moveTo(px, py)));
+  for (const [ax, ay, bx, by] of e.net.segs) { ctx.moveTo(...fromEgg(ax, ay)); ctx.lineTo(...fromEgg(bx, by)); }
   ctx.stroke();
   ctx.restore();
 }
 
-/** The next crack to trace (gold on its second pass), its starting bead and any knots. */
-function drawGuide() {
-  const cr = activeCrack();
-  if (!cr) return;
-  const k = 0.5 + 0.5 * Math.sin(game.time * 0.004);
-  const second = cr.pass > 0;
-  ctx.save();
-  ctx.globalAlpha = cr.fade;
-  ctx.lineCap = "round";
-  ctx.setLineDash([2, 8 * L.k]);
-  ctx.lineDashOffset = -game.time * 0.02;
-  ctx.shadowColor = second ? "rgba(255,233,168,.95)" : "rgba(255,255,255,.95)";
-  ctx.shadowBlur = quality.low ? 0 : 6 + k * 8;
-  ctx.lineWidth = 3 * Math.max(1, L.k * 0.9);
-  ctx.beginPath();
-  let pen = false;
-  cr.pts.forEach(([px, py], i) => {
-    if (cr.cov[i]) { pen = false; return; }
-    pen ? ctx.lineTo(px, py) : ctx.moveTo(px, py);
-    pen = true;
-  });
-  // a dark edge under the light dashes so the line also shows on pale stone
-  const lw = ctx.lineWidth;
-  ctx.save();
-  ctx.shadowBlur = 0; ctx.strokeStyle = "rgba(34,24,72,.55)"; ctx.lineWidth = lw + 2.5 * Math.max(1, L.k * 0.9);
-  ctx.stroke();
-  ctx.restore();
-  ctx.strokeStyle = second ? `rgba(255,233,168,${0.75 + k * 0.25})` : `rgba(255,255,255,${0.7 + k * 0.3})`;
-  ctx.stroke();
-  ctx.setLineDash([]);
-  const start = cr.pts.find((_, i) => !cr.cov[i]);
-  if (start) {
-    const s = Math.max(1, L.k), r = (3 + k * 2) * s;
-    ctx.save();
-    ctx.shadowBlur = 0;
-    // a ring that keeps rippling out from the bead: "start here"
-    const w = (game.time * 0.0009) % 1;
-    ctx.strokeStyle = second ? `rgba(255,233,168,${0.8 * (1 - w)})` : `rgba(255,255,255,${0.85 * (1 - w)})`;
-    ctx.lineWidth = 2 * s;
-    ctx.beginPath(); ctx.arc(start[0], start[1], r + 4 * s + w * 14 * s, 0, TAU); ctx.stroke();
-    ctx.fillStyle = "rgba(34,24,72,.6)";
-    ctx.beginPath(); ctx.arc(start[0], start[1], r + 1.8 * s, 0, TAU); ctx.fill();
-    ctx.restore();
-    ctx.fillStyle = second ? "#ffe9a8" : "#fff";
-    ctx.beginPath(); ctx.arc(start[0], start[1], r, 0, TAU); ctx.fill();
-  }
-  // knots: glowing rings that must be tapped
-  for (const kn of cr.knots) {
-    if (kn.broken) continue;
-    const [px, py] = cr.pts[kn.i], r = (8 + k * 3) * Math.max(1, L.k);
-    ctx.strokeStyle = "#fff"; ctx.lineWidth = 2.5;
-    ctx.beginPath(); ctx.arc(px, py, r, 0, TAU); ctx.stroke();
-    ctx.fillStyle = game.egg.crystal.c[0];
-    ctx.beginPath(); ctx.moveTo(px, py - r * 0.55); ctx.lineTo(px + r * 0.45, py); ctx.lineTo(px, py + r * 0.55); ctx.lineTo(px - r * 0.45, py); ctx.closePath(); ctx.fill();
-  }
-  ctx.restore();
+/** The weak spot: a soft glow on easy stone, fainter on harder stone, and gone deep in the grotto. */
+function drawSpot(e) {
+  const a = e.conf.spotGlow;
+  if (!a || e.state !== "cracking") return;
+  const [x, y] = fromEgg(...e.spot), k = 0.5 + 0.5 * Math.sin(game.time * 0.004), r = (18 + k * 6) * L.k;
+  const g = ctx.createRadialGradient(x, y, 1, x, y, r);
+  g.addColorStop(0, hexA(e.crystal.c[1], 0.9 * a));
+  g.addColorStop(0.35, hexA(e.crystal.c[0], 0.6 * a));
+  g.addColorStop(1, hexA(e.crystal.c[2], 0));
+  ctx.fillStyle = g;
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
+  // a thin ring breathing outward, so it reads on pale stone too
+  const w = (game.time * 0.0008) % 1;
+  ctx.strokeStyle = hexA(e.crystal.c[2], 0.7 * a * (1 - w)); ctx.lineWidth = 2 * Math.max(1, L.k);
+  ctx.beginPath(); ctx.arc(x, y, (8 + w * 22) * L.k, 0, TAU); ctx.stroke();
 }
 
 /** A band of light sweeping across the freshly polished face. */
@@ -5134,6 +4919,33 @@ function drawFloaters() {
   ctx.restore();
 }
 
+function drawPops() {
+  ctx.save();
+  ctx.textAlign = "center"; ctx.lineJoin = "round";
+  for (const p of game.pops) {
+    const k = p.t / p.life, grow = p.t < 0.08 ? 1.6 - p.t / 0.08 * 0.6 : 1;
+    ctx.globalAlpha = clamp((1 - k) * 2, 0, 1);
+    ctx.font = `900 ${Math.round(20 * p.size * grow * Math.max(1, L.k))}px ui-rounded, system-ui, sans-serif`;
+    ctx.lineWidth = 5; ctx.strokeStyle = "#1a1030"; ctx.strokeText(p.text, p.x, p.y);
+    ctx.fillStyle = p.color; ctx.fillText(p.text, p.x, p.y);
+  }
+  ctx.restore();
+}
+
+function drawGems() {
+  ctx.save();
+  for (const g of game.gems) {
+    if (g.t < 0) continue;
+    const s = 5 * Math.max(1, L.k);
+    ctx.fillStyle = "#1a1030";
+    ctx.beginPath(); ctx.moveTo(g.x, g.y - s - 1.5); ctx.lineTo(g.x + s * 0.7 + 1.5, g.y); ctx.lineTo(g.x, g.y + s + 1.5); ctx.lineTo(g.x - s * 0.7 - 1.5, g.y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = g.color;
+    ctx.beginPath(); ctx.moveTo(g.x, g.y - s); ctx.lineTo(g.x + s * 0.7, g.y); ctx.lineTo(g.x, g.y + s); ctx.lineTo(g.x - s * 0.7, g.y); ctx.closePath(); ctx.fill();
+    ctx.fillStyle = "rgba(255,255,255,.8)"; ctx.fillRect(g.x - s * 0.25, g.y - s * 0.5, s * 0.3, s * 0.4);
+  }
+  ctx.restore();
+}
+
 function drawGlints() {
   for (const g of game.glints) {
     const k = 1 - g.t / 0.8;
@@ -5199,14 +5011,20 @@ function frame(now) {
   const ms = now - (frame.last || now);
   frame.last = now;
   quality.sample(ms);
-  const dt = Math.min(ms / 1000, 0.05), steps = Math.ceil(dt * 60 - 0.01) || 1;
-  for (let i = 0; i < steps; i++) update(dt / steps);
+  let dt = Math.min(ms / 1000, 0.05);
+  // a crit freezes the world for a blink, so the hit lands
+  if (game.freeze > 0) { game.freeze -= dt; dt = 0; }
+  const steps = Math.ceil(dt * 60 - 0.01) || 1;
+  if (dt) for (let i = 0; i < steps; i++) update(dt / steps);
   updateClock();
   drawBackground();
   if (game.scene === "crack" && game.egg) {
+    ctx.save();
+    if (game.shake > 0.3) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     drawCushion(L.ecx, L.floor + 4, L.ew * 0.62);
     drawEgg();
     drawPieces();
+    ctx.restore();
   } else if (game.scene === "nest") {
     drawNest();
   } else if (game.scene === "catch") {
@@ -5221,6 +5039,8 @@ function frame(now) {
   drawSparks();
   drawHearts();
   drawFloaters();
+  drawPops();
+  drawGems();
   drawTrail();
   drawCoopCursor();
   drawCoach();

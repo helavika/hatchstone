@@ -9,60 +9,22 @@
   const point = (x, margin = 0) => Array.isArray(x) && x.length === 2 && x.every(n => number(n, -margin, 1 + margin));
   const phases = ["entering", "cracking", "ready", "opening", "polish", "gleam", "open"];
 
+  // A shared egg: what's inside, how tough it is, where its weak spot is, and the seed every crack grows from.
   function validRound(r) {
-    if (!object(r) || !identifier(r.id) || ![1, 4, 8].includes(r.step) ||
-        !catalogId(r.crystal) || !catalogId(r.species) || typeof r.shiny !== "boolean" ||
-        !integer(r.stone, 0, 63) || !number(r.target, 1, 300) || !point(r.hollow) ||
-        !Array.isArray(r.cracks) || r.cracks.length !== (r.step === 8 ? 4 : 3)) return false;
-    return r.cracks.every(c => object(c) && Array.isArray(c.pts) && c.pts.length >= 1 &&
-      c.pts.length <= 100 && c.pts.every(p => point(p)) && integer(c.passes, 1, 2) &&
-      Array.isArray(c.knots) && c.knots.length <= 2 && new Set(c.knots).size === c.knots.length &&
-      c.knots.every(i => integer(i, 0, c.pts.length - 1)) &&
-      Array.isArray(c.cornerAt) && c.cornerAt.length <= c.pts.length &&
-      c.cornerAt.every((n, i) => integer(n, 0, c.pts.length - 1) && (!i || n > c.cornerAt[i - 1])) &&
-      Array.isArray(c.branches) && c.branches.length <= 32 && c.branches.every(b =>
-        object(b) && integer(b.at, 0, c.pts.length - 1) && Array.isArray(b.pts) &&
-        b.pts.length >= 2 && b.pts.length <= 4 && b.pts.every(p => point(p)) &&
-        b.pts[0].every((n, j) => Math.abs(n - c.pts[b.at][j]) < 1e-6))) && validWeb(r.web, r.cracks);
+    return object(r) && identifier(r.id) && [1, 4, 8].includes(r.step) &&
+      catalogId(r.crystal) && catalogId(r.species) && typeof r.shiny === "boolean" &&
+      integer(r.stone, 0, 63) && number(r.hp, 1, 500) && point(r.spot) && identifier(r.seed);
   }
 
-  // The impact web: every traced crack is one ray; short rays wait for a traced one; hoops join two rays.
-  function validWeb(w, cracks) {
-    if (!object(w) || !point(w.impact) || !Array.isArray(w.rays) || w.rays.length < cracks.length ||
-        w.rays.length > 16 || !Array.isArray(w.hoops) || w.hoops.length > 64) return false;
-    const used = new Set();
-    const rayPts = w.rays.map(ray => {
-      if (!object(ray)) return null;
-      if (ray.crack !== undefined) {
-        if (!integer(ray.crack, 0, cracks.length - 1) || used.has(ray.crack)) return null;
-        used.add(ray.crack);
-        return cracks[ray.crack].pts;
-      }
-      const ok = integer(ray.after, 0, cracks.length - 1) && Array.isArray(ray.pts) && ray.pts.length <= 100 && ray.pts.every(p => point(p));
-      return ok ? ray.pts : null;
-    });
-    if (rayPts.some(p => !p) || used.size !== cracks.length) return false;
-    return w.hoops.every(h => object(h) && integer(h.a, 0, w.rays.length - 1) && integer(h.b, 0, w.rays.length - 1) &&
-      integer(h.ia, 0, rayPts[h.a].length - 1) && integer(h.ib, 0, rayPts[h.b].length - 1) &&
-      Array.isArray(h.pts) && h.pts.length >= 2 && h.pts.length <= 40 && h.pts.every(p => point(p)));
-  }
-
+  // Progress is the list of hits so far ([x, y, power] in egg space); replaying them rebuilds the cracks exactly.
   function validState(s, r) {
     if (!validRound(r) || !object(s) || s.round !== r.id || !integer(s.seq, 0, 1e9) ||
-        !phases.includes(s.phase) || !number(s.clock, 0, 86400) || !number(s.t, 0, 86400) ||
-        !object(s.acc) || !integer(s.acc.n, 0, 1e9) || !number(s.acc.sum, 0, 60 * s.acc.n) ||
-        typeof s.hollowFound !== "boolean" || !integer(s.chipsTapped, 0, 1e7) ||
-        !Array.isArray(s.cracks) || s.cracks.length !== r.cracks.length) return false;
-    const complete = phases.indexOf(s.phase) >= phases.indexOf("ready");
-    if (!s.cracks.every((c, i) => {
-      const base = r.cracks[i];
-      return object(c) && Array.isArray(c.cov) && c.cov.length === base.pts.length &&
-        c.cov.every(v => typeof v === "boolean") && typeof c.done === "boolean" &&
-        integer(c.pass, 0, base.passes - 1) && Array.isArray(c.knots) &&
-        c.knots.length === base.knots.length && c.knots.every(v => typeof v === "boolean") &&
-        (!c.done || (c.cov.every(Boolean) && c.knots.every(Boolean) && c.pass === base.passes - 1)) &&
-        (!complete || c.done);
-    })) return false;
+        !phases.includes(s.phase) || !number(s.t, 0, 86400) ||
+        !integer(s.taps, 0, 300) || !integer(s.crits, 0, s.taps) || !integer(s.gems, 0, 1e5) ||
+        !number(s.damage, 0, 5000) || !Array.isArray(s.hits) || s.hits.length !== s.taps ||
+        !s.hits.every(h => Array.isArray(h) && h.length === 3 && point(h.slice(0, 2)) && number(h[2], 0.1, 20))) return false;
+    const broken = phases.indexOf(s.phase) >= phases.indexOf("opening");
+    if (broken !== (s.damage >= r.hp)) return false;
     const polished = phases.indexOf(s.phase) >= phases.indexOf("polish");
     if (!polished) return s.matte === null;
     const m = s.matte;

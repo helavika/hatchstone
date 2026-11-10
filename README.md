@@ -3,9 +3,10 @@
 A tiny ASMR game for the browser and phones: crack open glossy stone eggs and find
 what's glowing inside. 🎧 Best with headphones.
 
-- Trace the faint glowing lines to crack the stone; tap to knock little chips off
-- 24 levels in four caves (plus endless Wander): more cracks, knots to tap and hard
-  stone to trace twice; 1–3 stars for staying on the line and for speed
+- Tap the egg to crack it: every tap grows real, branching cracks, and hits near the
+  egg's weak spot crack it much faster (crits, damage numbers, shards flying into your counter)
+- 24 levels in four caves (plus endless Wander): tougher stone, and a weak spot that glows
+  less and less until you find it by the sound of your knocks; 1–3 stars for fewer taps
 - 17 real geodes (amethyst, celestite, agate, malachite, labradorite, lapis lazuli…),
   each drawn the way the mineral looks, with a real fact on the card
 - Every geode holds a glowling: 26 species built from wings, ears, horns, tails and
@@ -54,7 +55,7 @@ Both devices need the same game version, served over HTTPS or localhost.
    egg**. Both tabs must stay open; switching apps or locking a phone can suspend
    browser connections. If Telegram's in-app browser lacks WebRTC, open the link
    in Chrome or Safari instead.
-4. Either player can trace, tap knots, open the shell or polish. Both see the same
+4. Either player can tap the egg or polish. Both see the same
    egg and glowling. Each receives the hatch in their **own existing local nest**;
    neither save is sent to the other device. Co-op does not unlock campaign levels
    or replace moon-egg progress.

@@ -9,11 +9,10 @@ const quickInvites = process.env.HATCHSTONE_INVITES === "1";
 
 const connected = p => p.eval("!!window.__coop?.peer?.connected");
 const phase = p => p.eval("window.__game.egg?.state");
-const progress = p => p.eval("JSON.stringify(window.__game.egg?.cracks.map(c => [c.cov,c.pass,c.done,c.knots.map(k=>k.broken)]))");
+const progress = p => p.eval("JSON.stringify(window.__game.egg && [window.__game.egg.hits, window.__game.egg.taps, Math.round(window.__game.egg.damage * 1000)])");
 const saved = p => p.eval("JSON.parse(localStorage.getItem('hatchstone.save'))");
-// The impact web in egg-relative coordinates, and which of its short rays and hoops have appeared.
-const web = p => p.eval(`(() => { const e = window.__game.egg, n = pt => HatchstoneCoopState.normalisePoint(pt[0], pt[1], L).map(v => v.toFixed(3));
-  return JSON.stringify({ impact: n(e.impact), rays: e.rays.map(r => r.crack ? "crack" : r.drawn), hoops: e.hoops.map(h => [h.a, h.b, h.drawn, n(h.pts[1])]) }); })()`);
+// The crack network in egg units: replaying the shared hits must grow exactly the same cracks on every screen.
+const web = p => p.eval("JSON.stringify(window.__game.egg.net.segs.map(s => s.map(v => v.toFixed(4))))");
 
 async function seed(page, name, id, shards) {
   await page.eval(`(() => {
@@ -82,15 +81,11 @@ async function connect(host, guest, browser) {
   await observeWire(host);
   return link;
 }
-async function traceNext(page) {
-  const crack = await page.eval(`(() => {
-    const e=window.__game.egg, c=e.cracks.find(c=>!c.done);
-    return c ? {pts:c.pts,knots:c.knots.filter(k=>!k.broken).map(k=>c.pts[k.i])} : null;
-  })()`);
-  if (!crack) return;
-  for (const p of crack.knots) { await page.tap(...p); await sleep(100); }
-  await page.stroke(crack.pts);
-  await sleep(180);
+// One tap near the egg's weak spot (each page aims in its own layout).
+async function tapEgg(page, n = 0) {
+  const at = await page.eval(`(() => { const [x, y] = fromEgg(...window.__game.egg.spot); return [x + ${(n % 3 - 1) * 9}, y + ${(n % 2) * 9}]; })()`);
+  await page.tap(...at);
+  await sleep(160);
 }
 async function rubPatch(page, end = false) {
   const points = await page.eval(`(() => {
@@ -143,7 +138,7 @@ test("two isolated devices share a real WebRTC egg without replacing solo saves"
       });
       await waitFor("both eggs cracking", async () => await phase(host)==="cracking" && await phase(guest)==="cracking");
       assert.deepEqual(await host.eval("window.__coop.round"), await guest.eval("window.__coop.round"));
-      assert.equal(await web(host), await web(guest), "Shared impact web");
+      assert.equal(await web(host), await web(guest), "Both start from an uncracked egg");
     });
 
     await stage("inactive navigation and backup controls cannot steal a shared round", async () => {
@@ -171,7 +166,7 @@ test("two isolated devices share a real WebRTC egg without replacing solo saves"
     });
 
     await stage("simultaneous gestures have independent pointers and cancel releases only the guest", async () => {
-      const a=await host.eval("window.__game.egg.cracks[0].pts[0]"), b=await guest.eval("window.__game.egg.cracks[0].pts[0]");
+      const a=await host.eval("[L.ecx,L.ecy]"), b=await guest.eval("[L.ecx,L.ecy]");
       await host.mouse("mousePressed",...a); await guest.mouse("mousePressed",...b);
       await waitFor("independent active pointers", () => host.eval("!!pointer && !!game.coop.remotePointer && pointer!==game.coop.remotePointer"));
       await guest.eval("document.getElementById('c').dispatchEvent(new PointerEvent('pointercancel',{pointerId:1}))");
@@ -179,29 +174,26 @@ test("two isolated devices share a real WebRTC egg without replacing solo saves"
       await guest.mouse("mouseReleased",...b); await host.mouse("mouseReleased",...a);
     });
 
-    await stage("both trace, tap knots and complete multi-pass cracks across viewport sizes", async () => {
-      await traceNext(host);
-      await waitFor("first stroke shared", async () => await progress(host)===await progress(guest));
+    await stage("both tap the same egg and see the same cracks across viewport sizes", async () => {
+      await tapEgg(host);
+      await waitFor("first hit shared", async () => await progress(host)===await progress(guest));
       const beforeResize=await host.eval("JSON.stringify(window.__coop.round)");
-      const oldProgress=await progress(host);
+      const oldProgress=await progress(host), oldWeb=await web(host);
       await host.resize(430, 850); await guest.resize(520, 880);
       assert.equal(await host.eval("JSON.stringify(window.__coop.round)"), beforeResize, "Host resize must not reroll");
       assert.equal(await guest.eval("JSON.stringify(window.__coop.round)"), beforeResize, "Guest resize must not reroll");
-      assert.equal(await progress(host), oldProgress, "Resize preserves shared coverage");
-      for (let i=0;i<20 && await phase(host)==="cracking";i++) {
-        await traceNext(i%2===0 ? guest : host);
-      }
-      await waitFor("both eggs ready to open", async () => await phase(host)==="ready" && await phase(guest)==="ready", 15000);
-      assert.equal(await host.eval("window.__game.egg.cracks.every(c=>c.done)"), true);
-      assert.equal(await guest.eval("window.__game.egg.cracks.every(c=>c.done)"), true);
+      assert.equal(await progress(host), oldProgress, "Resize preserves shared hits");
+      assert.equal(await web(host), oldWeb, "Resize keeps the very same cracks");
+      await waitFor("guest replayed the same cracks", async () => await web(guest)===await web(host));
+      for (let i=0;i<60 && await phase(host)==="cracking";i++) await tapEgg(i%2===0 ? guest : host, i);
+      await waitFor("both eggs broke open", async () => !["entering","cracking"].includes(await phase(host)) && !["entering","cracking"].includes(await phase(guest)), 15000);
+      assert.equal(await host.eval("window.__game.egg.damage >= window.__game.egg.hp"), true);
       assert.equal(await progress(host), await progress(guest));
-      assert.equal(await web(host), await web(guest), "Both players see the same crack web");
-      assert.equal(await guest.eval("window.__game.egg.hoops.length > 0 && window.__game.egg.hoops.every(h => h.drawn)"), true, "Every hoop appears once its rays are traced");
+      assert.equal(await web(host), await web(guest), "Both players see the same crack network");
+      assert.ok(await host.eval("window.__game.egg.net.segs.length > 20"), "Hits grew real cracks");
     });
 
-    await stage("guest can open the shell and both polish the same face", async () => {
-      const center=await guest.eval("[L.ecx,L.ecy]");
-      await guest.tap(...center);
+    await stage("both polish the same face", async () => {
       await waitFor("both polishing", async () => await phase(host)==="polish" && await phase(guest)==="polish", 15000);
       const start=await host.eval("window.__game.egg.matte.done");
       await rubPatch(host);
@@ -294,8 +286,8 @@ test("two isolated devices share a real WebRTC egg without replacing solo saves"
     await stage("solo play still works and the new local scripts are cached for offline reload", async () => {
       await host.eval("setScene('map'); startLevel(1)");
       await waitFor("solo egg", () => host.eval("window.__game.scene==='crack' && !window.__game.egg.conf.coop && window.__game.egg.state==='cracking'"));
-      await traceNext(host);
-      assert.equal(await host.eval("window.__game.egg.cracks.some(c=>c.cov.some(Boolean))"),true);
+      await tapEgg(host);
+      assert.equal(await host.eval("window.__game.egg.taps > 0 && window.__game.egg.net.segs.length > 0"),true);
       await waitFor("service worker active", () => host.eval("navigator.serviceWorker.getRegistration().then(r=>!!r?.active)"));
       for (const file of ["coop-link.js","coop-invite.js","coop-state.js","vendor/peerjs-1.5.5.min.js"]) {
         assert.equal(await host.eval(`caches.match(new URL(${JSON.stringify(file)},location.href)).then(r=>!!r&&r.status===200)`),true);
@@ -310,8 +302,8 @@ test("two isolated devices share a real WebRTC egg without replacing solo saves"
       assert.equal(await host.eval("document.getElementById('coopHost').disabled && document.getElementById('coopJoin').disabled && !!document.getElementById('coopError').textContent"),true);
       await host.click("coopClose"); await host.eval("show('start',false); startLevel(1)");
       await waitFor("offline solo without WebRTC", () => host.eval("window.__game.egg?.state==='cracking'"));
-      await traceNext(host);
-      assert.equal(await host.eval("window.__game.egg.cracks.some(c=>c.cov.some(Boolean))"),true);
+      await tapEgg(host);
+      assert.equal(await host.eval("window.__game.egg.taps > 0 && window.__game.egg.net.segs.length > 0"),true);
       await browser.cdp.send("Network.emulateNetworkConditions",{offline:false,latency:0,downloadThroughput:-1,uploadThroughput:-1},host.id);
     });
     assert.deepEqual(browser.cdp.errors,[],"No unhandled browser exceptions");
