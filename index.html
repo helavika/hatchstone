@@ -335,6 +335,48 @@
   #found .plate #foundImg { margin: 0; padding: 6px 14px; }
   #pixelGrotto { width: min(260px, 66vw); height: auto; aspect-ratio: 128 / 72; image-rendering: pixelated; }
   #start .plate { margin: 0 auto 14px; }
+
+  /* storybook pass two: chapter banners, gold-edged buttons, a book-like glowpedia, calmer nest and results */
+  .plate.band { display: block; padding: 7px; margin: 2px 0 8px; }
+  .plate.band img { width: 100%; height: auto; aspect-ratio: 160 / 40; image-rendering: pixelated; }
+  .plate.band.dim img { filter: grayscale(.7) brightness(.55); }
+
+  .cta { position: relative; border: 1px solid rgba(255, 233, 168, .9); outline: 1px solid rgba(255, 233, 168, .35); outline-offset: 3px; }
+  .cta::before, .cta::after { content: ""; position: absolute; top: 50%; width: 6px; height: 6px; background: #ffe9a8; opacity: .8; transform: translateY(-50%) rotate(45deg); }
+  .cta::before { left: -12px; } .cta::after { right: -12px; }
+  .ghost {
+    border: 1px solid rgba(255, 233, 168, .35); border-radius: 999px; background: rgba(255, 255, 255, .06); color: var(--ink);
+    min-height: 44px; padding: 10px 20px; font-weight: 700; text-decoration: none;
+  }
+  .ghost:active { transform: scale(.96); }
+  #startCoop { display: block; margin: 14px auto 0; }
+  .pillbtn { border-color: rgba(255, 233, 168, .3); }
+
+  #libGrid { gap: 12px; }
+  #libGrid button { padding: 18px 6px 8px; border-radius: 10px; background: linear-gradient(rgba(255, 233, 168, .07), rgba(255, 255, 255, .03)); }
+  #libGrid .no { position: absolute; top: 6px; left: 0; right: 0; font-style: normal; font-size: 9px; font-weight: 700; letter-spacing: 1px; text-transform: uppercase; color: var(--gold); opacity: .7; }
+  #libGrid .pg { display: block; position: relative; margin: 0 4px 6px; padding: 3px; border: 1px solid rgba(255, 233, 168, .3); background: rgba(8, 5, 26, .45); }
+  #libGrid .pg img { height: 64px; display: block; }
+  #libGrid b { display: inline-block; padding: 2px 6px; border-top: 1px solid rgba(255, 233, 168, .35); border-bottom: 1px solid rgba(255, 233, 168, .35); color: #ffe9a8; }
+  #libGrid .unk .pg img { opacity: .5; }
+  #libGrid [data-sp].unk .pg::after { content: "?"; position: absolute; inset: 0; display: grid; place-items: center; font-size: 26px; font-weight: 800; color: rgba(255, 233, 168, .6); }
+  #libGrid .unk b { color: var(--soft); border-color: rgba(255, 255, 255, .12); }
+
+  .needs.glass { gap: 0; border-radius: 16px; padding: 8px 2px; }
+  .need { padding: 0 12px; border-radius: 0; }
+  .need + .need { border-left: 1px solid rgba(255, 233, 168, .16); }
+  .acts .act { background: rgba(28, 22, 66, .55); color: var(--ink); border: 1px solid rgba(255, 233, 168, .3); box-shadow: 0 6px 18px rgba(5, 0, 25, .25); }
+  #switcher button.on { border-color: rgba(255, 233, 168, .6); }
+
+  #found .card { padding-top: 18px; padding-bottom: 20px; }
+  #found .plate #foundImg { height: 132px; }
+  #newBadge { display: inline-block; padding: 3px 10px; border-radius: 999px; border: 1px solid rgba(185, 232, 138, .45); letter-spacing: .5px; margin: 2px 0 4px; }
+  #found .tale { margin: 10px 4px 0; padding: 8px 4px 0; border-top: 1px solid rgba(255, 233, 168, .16); }
+  #found .tale .lore { margin-top: 0; }
+  .stats { gap: 0; border: 1px solid rgba(255, 233, 168, .22); border-radius: 14px; background: rgba(255, 255, 255, .05); overflow: hidden; }
+  .stats div { border-radius: 0; background: none; }
+  .stats div + div { border-left: 1px solid rgba(255, 233, 168, .14); }
+  #found .row.center .pillbtn { padding: 8px 13px; font-size: 14px; }
 </style>
 </head>
 <body>
@@ -402,11 +444,10 @@
     <h2>geode opened</h2>
     <div id="stars"></div>
     <figure class="plate"><img id="foundImg" alt="The glowling you hatched"></figure>
-    <p id="newBadge" hidden>NEW SPECIES · ADDED TO YOUR GLOWPEDIA</p>
+    <p id="newBadge" hidden>✦ new in your Glowpedia ✦</p>
     <div class="big-name" id="foundName"></div>
     <span class="rarity" id="foundRarity"></span>
-    <p class="lore" id="foundLore"></p>
-    <p class="fact" id="foundFact"></p>
+    <div class="tale"><p class="lore" id="foundLore"></p><p class="fact" id="foundFact"></p></div>
     <p id="foundNote"></p>
     <div class="stats four">
       <div><b id="stAcc">0%</b><span>on the line</span></div>
@@ -426,10 +467,10 @@
 </div>
 <div id="nestEmpty" hidden>Your nest is empty.<br>Hatch your first egg in the Grotto ✦</div>
 <div id="nestBottom">
-  <div class="needs">
-    <div class="need glass"><label>Tummy <span id="vTummy"></span></label><div class="bar" id="bTummy"><i></i></div></div>
-    <div class="need glass"><label>Joy <span id="vJoy"></span></label><div class="bar" id="bJoy"><i></i></div></div>
-    <div class="need glass"><label>Energy <span id="vEnergy"></span></label><div class="bar" id="bEnergy"><i></i></div></div>
+  <div class="needs glass">
+    <div class="need"><label>Tummy <span id="vTummy"></span></label><div class="bar" id="bTummy"><i></i></div></div>
+    <div class="need"><label>Joy <span id="vJoy"></span></label><div class="bar" id="bJoy"><i></i></div></div>
+    <div class="need"><label>Energy <span id="vEnergy"></span></label><div class="bar" id="bEnergy"><i></i></div></div>
   </div>
   <div class="acts">
     <button class="act" id="feedBtn">🍪 Feed</button>
@@ -1110,6 +1151,70 @@ const MAX_LEVEL = 20;
 
 const CAVES = ["Amethyst Hollow", "Celestite Grotto", "Malachite Deep", "Labradorite Vault"];
 const CAVE_NOTES = ["First cracks · glowing knots from level 4", "Hard stone from level 8 · rare crystals", "More cracks and knots · a chance of legendary", "The rarest geodes in the grotto"];
+
+// ---------- pixel art: dithered scenes in the style of helavika's portfolio keep ----------
+const PX_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
+const pxHex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const pxPick = (ramp, v, x, y) => { const n = ramp.length - 1; return ramp[clamp(Math.floor(clamp(v, 0, 1) * n + PX_BAYER[(y & 3) * 4 + (x & 3)]), 0, n)]; };
+const pxHash = (x, y) => { let h = x * 374761393 + y * 668265263; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
+function pxNoise(x, y) {
+  const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
+  const a = pxHash(xi, yi), b = pxHash(xi + 1, yi), c = pxHash(xi, yi + 1), d = pxHash(xi + 1, yi + 1);
+  return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
+}
+const pxFbm = (x, y) => pxNoise(x, y) * .55 + pxNoise(x * 2.1, y * 2.1) * .3 + pxNoise(x * 4.3, y * 4.3) * .15;
+function pxSmooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
+
+// one small cave banner per chapter, in that chapter's crystal
+const CHAPTER_ART = [
+  { seed: 3, wall: ["#07051a", "#120c33", "#21174f", "#33256f", "#463592"], crystal: ["#2a1d63", "#5b3fb0", "#9a7ce6", "#c9b8ff", "#f2ecff"], glow: "#b48cff" },
+  { seed: 11, wall: ["#040c20", "#0b1a3a", "#142b58", "#1f4078", "#2f5a9a"], crystal: ["#1d3f75", "#3f78b8", "#7fb8e6", "#bfe4fb", "#f0fbff"], glow: "#8fd8ef", pool: ["#0b1a3a", "#1f4078", "#5d9bd0", "#bfe4fb"] },
+  { seed: 23, wall: ["#020d08", "#06201a", "#0c3a29", "#16573c", "#257a52"], crystal: ["#0e3d2a", "#1f7a52", "#3fb07a", "#8fe0b0", "#e0fff0"], glow: "#7fe0a8", bands: true },
+  { seed: 37, wall: ["#05060b", "#0e111c", "#1a2030", "#283247", "#3a4862"], crystal: ["#1a2433", "#2f4a66", "#4f7fa3", "#9fd0e6", "#f4f7ff"], glow: "#7fd8c0", flash: ["#1f5f8f", "#2fa3b8", "#7fd8c0", "#e8d27a"] },
+];
+const chapterArtCache = [];
+function chapterArt(ci) {
+  if (chapterArtCache[ci]) return chapterArtCache[ci];
+  const th = CHAPTER_ART[ci % CHAPTER_ART.length], seed = th.seed, W = 160, H = 40;
+  const c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d"), img = g.createImageData(W, H), d = img.data;
+  const wall = th.wall.map(pxHex), crys = th.crystal.map(pxHex), glow = pxHex(th.glow), pool = th.pool?.map(pxHex), flash = th.flash?.map(pxHex);
+  const floor = x => H - 8 - 3 * pxNoise(x * .07, seed) - 2 * Math.sin(x * .05 + seed);
+  const ceil = x => 3 + 4 * pxNoise(x * .09, seed + 1);
+  // crystal points: [x, base, height, half width, up?]
+  const pts = [];
+  for (let i = 0; i < 16; i++) { const x = Math.floor(pxHash(i, seed) * W); pts.push([x, floor(x) + 2, 7 + pxHash(i, seed + 2) * 15, 1.5 + pxHash(i, seed + 3) * 2.5, true]); }
+  for (let i = 0; i < 9; i++) { const x = Math.floor(pxHash(i, seed + 5) * W); pts.push([x, ceil(x) - 1, 4 + pxHash(i, seed + 6) * 9, 1 + pxHash(i, seed + 7) * 2, false]); }
+  const lx = W * (.3 + .4 * pxHash(seed, 9)), ly = H * .62;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const light = Math.max(0, 1 - Math.hypot((x - lx) / 70, (y - ly) / 26));
+    let col = null, air = false;
+    for (const [sx, sb, sh, sw, up] of pts) {
+      const t = up ? (sb - y) / sh : (y - sb) / sh;
+      if (t >= 0 && t <= 1 && Math.abs(x - sx) <= sw * (1 - t) + .5) { col = pxPick(crys, (x < sx ? .8 - t * .15 : .4 + t * .15) + light * .25 + pxFbm(x, y) * .08, x, y); break; }
+    }
+    if (!col) {
+      const f = floor(x);
+      if (pool && y >= f - 1 && Math.abs(x - lx) < 34) col = pxPick(pool, .35 + light * .5 + .2 * Math.sin(x * .9 + y * 3) * (y % 2), x, y);
+      else if (y >= f) col = pxPick(wall, .45 - (y - f) / 14 + pxFbm(x * .25, y * .25) * .3 + light * .35, x, y);
+      else if (y <= ceil(x)) col = pxPick(wall, .12 + pxFbm(x * .2, y * .2) * .3, x, y);
+      else {
+        air = true;
+        let v = pxFbm(x * .09 + seed, y * .14) * .35 + light * .55;
+        if (th.bands) v = .2 + .25 * (.5 + .5 * Math.sin(pxFbm(x * .04 + seed, y * .07) * 22)) + light * .45;
+        col = pxPick(wall, v, x, y);
+        if (flash) { const fv = pxFbm(x * .05 + seed, y * .11 + 3); if (fv > .6 && fv < .64) col = pxPick(flash, (fv - .6) / .04 * .5 + light * .5, x, y); }
+      }
+    }
+    // a soft spill of light from the hidden geode
+    if (air && PX_BAYER[(y & 3) * 4 + (x & 3)] < light ** 3 * .22) col = glow;
+    const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+  }
+  // a few stars of sparkle on the crystal tips
+  for (let i = 0; i < 6; i++) { const [sx, sb, sh, , up] = pts[Math.floor(pxHash(i, seed + 8) * pts.length)], y = Math.round(up ? sb - sh : sb + sh); for (const [dx, dy] of [[0, 0], [1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = sx + dx, yy = y + dy; if (x >= 0 && x < W && yy >= 0 && yy < H) { const j = (yy * W + x) * 4; d[j] = d[j + 1] = d[j + 2] = dx || dy ? 200 : 255; } } }
+  g.putImageData(img, 0, 0);
+  return (chapterArtCache[ci] = c.toDataURL());
+}
 const LEVELS = 24;
 
 /** How hard an egg is: more cracks, knots to break and hard stone deeper in the grotto. */
@@ -2641,7 +2746,7 @@ function renderMap() {
   $("mapSub").textContent = `${totalStars()} of ${LEVELS * 3} stars · tap a level to crack its geode`;
   let html = "";
   CAVES.forEach((name, ci) => {
-    html += `${ci ? '<div class="orn sm" aria-hidden="true"></div>' : ""}<h3 class="chap"><small>Chapter ${["I", "II", "III", "IV", "V", "VI"][ci]}</small>${name}</h3><p class="cave-note">${CAVE_NOTES[ci]}</p><div class="lvls">`;
+    html += `${ci ? '<div class="orn sm" aria-hidden="true"></div>' : ""}<h3 class="chap"><small>Chapter ${["I", "II", "III", "IV", "V", "VI"][ci]}</small>${name}</h3><figure class="plate band${unlocked(ci * 6 + 1) ? "" : " dim"}"><img src="${chapterArt(ci)}" alt=""></figure><p class="cave-note">${CAVE_NOTES[ci]}</p><div class="lvls">`;
     for (let i = 1; i <= 6; i++) {
       const n = ci * 6 + i, st = save.stars[n] || 0, open = unlocked(n);
       html += `<button class="lvl${n === next ? " next" : ""}" data-n="${n}" ${open ? "" : "disabled"}>${open ? n : "🔒"}<span>${st ? "★".repeat(st) : ""}</span></button>`;
@@ -4424,18 +4529,18 @@ function renderLib() {
   $("libSub").textContent = `${found} of ${SPECIES.length} glowlings · ${geos} of ${CRYSTALS.length} geodes${hyN ? ` · ${hyN} hybrid${hyN === 1 ? "" : "s"}` : ""} · ${save.creatures.length} in your nest`;
   if (game.libTab === "hy") {
     const hy = save.creatures.filter(c => c.mix);
-    $("libGrid").innerHTML = hy.length ? hy.map((c, i) => `<button data-hy="${c.id}" style="animation-delay:${i * 20}ms"><img src="${creatureImage(specOf(c), { size: 96, level: c.level, shiny: c.shiny })}" alt=""><b>${c.name}</b><small>${c.mix.parents.join(" × ")}</small></button>`).join("")
+    $("libGrid").innerHTML = hy.length ? hy.map((c, i) => `<button data-hy="${c.id}" style="animation-delay:${i * 20}ms"><span class="pg"><img src="${creatureImage(specOf(c), { size: 96, level: c.level, shiny: c.shiny })}" alt=""></span><b>${c.name}</b><small>${c.mix.parents.join(" × ")}</small></button>`).join("")
       : `<p class="sub" style="grid-column:1/-1;padding:20px 0">No hybrids yet. Grow two glowlings to level ${PAIR_LEVEL}, keep them happy, and tap the incubator in your nest 💞</p>`;
   } else if (game.libTab === "sp") {
     $("libGrid").innerHTML = SPECIES.map((s, i) => {
       const seen = save.seen[s.id];
-      return `<button data-sp="${s.id}" style="animation-delay:${i * 20}ms"><img src="${creatureImage(s, { size: 96, sil: !seen })}" alt=""><b>${seen ? s.name : "???"}</b><small>${rarityOf(s)}</small></button>`;
+      return `<button data-sp="${s.id}" class="${seen ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">No. ${i + 1}</i><span class="pg"><img src="${creatureImage(s, { size: 96, sil: !seen })}" alt=""></span><b>${seen ? s.name : "???"}</b><small>${rarityOf(s)}</small></button>`;
     }).join("");
   } else {
     for (const c of CRYSTALS) if (save.geodes[c.id] && !save.geodes[c.id].img) { save.geodes[c.id].img = crystalThumb(c.id); persist(); }
     $("libGrid").innerHTML = CRYSTALS.map((c, i) => {
       const geo = save.geodes[c.id];
-      return `<button data-cr="${c.id}" style="animation-delay:${i * 20}ms">${geo ? `<img src="${geo.img}" alt="">` : `<img src="${mysteryGeode()}" alt="">`}<b>${geo ? c.name : "???"}</b><small>${c.rarity}</small></button>`;
+      return `<button data-cr="${c.id}" class="${geo ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">No. ${i + 1}</i><span class="pg"><img src="${geo ? geo.img : mysteryGeode()}" alt=""></span><b>${geo ? c.name : "???"}</b><small>${c.rarity}</small></button>`;
     }).join("");
   }
   $$("#libGrid [data-sp]").forEach(b => b.addEventListener("click", () => openSpecies(SP[b.dataset.sp])));
@@ -5031,7 +5136,6 @@ requestAnimationFrame(frame);
 (() => {
   const c = $("pixelGrotto"), g = c.getContext("2d"), W = c.width, H = c.height, img = g.createImageData(W, H);
   const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
-  const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   const P = Object.fromEntries(Object.entries({
     sky: ["#06041a", "#0f0a2e", "#1b1446", "#2a2163", "#3d3185"],
     moon: ["#5b4ea3", "#9b8fd6", "#c9b8ff", "#ece6ff", "#fff8d6"],
@@ -5040,16 +5144,8 @@ requestAnimationFrame(frame);
     rock: ["#050314", "#0d0926", "#18123a", "#251d52", "#372c6e"],
     egg: ["#2e2a3e", "#58526a", "#8a8396", "#b9b1bf", "#ddd6d8"],
     glow: ["#5b3fb0", "#8fd8ef", "#c9b8ff", "#ffffff"],
-  }).map(([k, v]) => [k, v.map(hex)]));
-  const bayer = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
-  const pick = (ramp, v, x, y) => { const n = ramp.length - 1; return ramp[clamp(Math.floor(clamp(v, 0, 1) * n + bayer[(y & 3) * 4 + (x & 3)]), 0, n)]; };
-  const hash = (x, y) => { let h = x * 374761393 + y * 668265263; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };
-  const noise = (x, y) => {
-    const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
-    const a = hash(xi, yi), b = hash(xi + 1, yi), c2 = hash(xi, yi + 1), d = hash(xi + 1, yi + 1);
-    return a + (b - a) * u + (c2 - a) * v + (a - b - c2 + d) * u * v;
-  };
-  const fbm = (x, y) => noise(x, y) * .55 + noise(x * 2.1, y * 2.1) * .3 + noise(x * 4.3, y * 4.3) * .15;
+  }).map(([k, v]) => [k, v.map(pxHex)]));
+  const bayer = PX_BAYER, pick = pxPick, hash = pxHash, noise = pxNoise, fbm = pxFbm, smooth = pxSmooth;
   const moon = { x: 99, y: 17, r: 10 }, egg = { x: 64, y: 50, rx: 8, ry: 11 };
   // crystal spires on the far ridge: [x, base, height, half width]
   const spires = [[18, 44, 15, 3], [24, 45, 9, 2], [36, 43, 12, 2], [84, 44, 13, 3], [91, 45, 8, 2], [108, 43, 17, 3], [115, 45, 10, 2]];
@@ -5061,7 +5157,6 @@ requestAnimationFrame(frame);
     const roof = 4 + 3 * noise(x * .18, 3) + (Math.abs(x - 64) > 30 ? 0 : -6) + 4 * (hash(x >> 2, 9) > .8 ? 1 : 0) * smooth(30, 0, Math.abs(x - 64) - 10);
     return x < l || x > r || y < roof;
   };
-  function smooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
   const eggD = (x, y) => { const dx = (x - egg.x) / (egg.rx * (y < egg.y ? .86 : 1)), dy = (y - egg.y) / egg.ry; return dx * dx + dy * dy; };
   const crack = new Set([[64, 41], [65, 42], [64, 43], [63, 44], [64, 45], [65, 46], [66, 47], [65, 48], [64, 49], [63, 49], [62, 50], [66, 48], [67, 49]].map(([x, y]) => y * W + x));
   const stars = Array.from({ length: 22 }, (_, i) => [Math.floor(hash(i, 1) * W), Math.floor(hash(i, 2) * 34), hash(i, 3) * 6]);
