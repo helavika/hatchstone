@@ -81,7 +81,7 @@
   /* hints: a clear bubble near the action, not small grey text */
   #hint {
     position: fixed; left: 50%; bottom: calc(var(--bottom) + 14px); transform: translate(-50%, 8px);
-    max-width: calc(100vw - 32px); padding: 10px 18px; border-radius: 999px; text-align: center;
+    width: max-content; max-width: calc(100vw - 32px); padding: 10px 18px; border-radius: 999px; text-align: center;
     font-size: 15px; font-weight: 700; color: var(--ink); pointer-events: none; opacity: 0; transition: opacity .4s, transform .4s; z-index: 3;
   }
   #hint.on { opacity: 1; transform: translate(-50%, 0); }
@@ -101,7 +101,7 @@
   #toast {
     position: fixed; left: 50%; top: calc(var(--top) + 54px); transform: translate(-50%, -8px); opacity: 0;
     padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 14px; text-align: center; pointer-events: none;
-    transition: opacity .4s, transform .4s; max-width: calc(100vw - 32px); z-index: 5;
+    transition: opacity .4s, transform .4s; width: max-content; max-width: calc(100vw - 32px); z-index: 5;
   }
   #toast.on { opacity: 1; transform: translate(-50%, 0); }
   #toast.glass { background: rgba(44, 34, 96, .95); }
@@ -377,6 +377,24 @@
   .stats div { border-radius: 0; background: none; }
   .stats div + div { border-left: 1px solid rgba(255, 233, 168, .14); }
   #found .row.center .pillbtn { padding: 8px 13px; font-size: 14px; }
+
+  /* start page: short and readable */
+  #start .card { width: min(360px, 100%); background-color: rgba(28, 22, 66, .9); }
+  #start .lead { font-size: 18px; font-weight: 700; color: var(--ink); }
+  .steps { list-style: none; padding: 0; margin: 4px 0 6px; display: flex; flex-direction: column; gap: 6px; }
+  .steps li { font-size: 15px; color: var(--ink); }
+  .steps li::before { content: "✦ "; color: var(--gold); }
+  .sub.tiny { font-size: 12px; }
+  .lvl:disabled span { letter-spacing: 0; filter: grayscale(1); }
+  /* on big screens the cards grow with the room */
+  @media (min-width: 900px) and (min-height: 760px) {
+    .card { width: min(440px, 100%); font-size: 17px; }
+    #start .card { width: min(420px, 100%); }
+    .card.wide { width: min(700px, 100%); }
+    #pixelGrotto { width: 320px; }
+    #libGrid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
+    #libGrid .pg img { height: 84px; }
+  }
 </style>
 </head>
 <body>
@@ -418,12 +436,12 @@
 </nav>
 
 <div id="start" class="overlay">
-  <div class="card glass">
+  <div class="card glass dark">
     <figure class="plate"><canvas id="pixelGrotto" width="128" height="72" role="img" aria-label="A pixel-art grotto by moonlight, a stone egg glowing on a ledge"></canvas></figure>
     <h1>Hatchstone</h1>
     <p class="lead">Crack open stone eggs.<br>Meet who's glowing inside.</p>
-    <p class="sub">Trace the faint lines, break the knots and open real geodes: amethyst, celestite, malachite, labradorite and more. Hatch 30 kinds of glowlings (a few only on moonlit days) and raise them in your nest.</p>
-    <p class="sub">🎧 headphones recommended</p>
+    <ul class="steps"><li>trace the cracks</li><li>open real geodes</li><li>raise 30 glowlings</li></ul>
+    <p class="sub tiny">🎧 best with headphones</p>
     <button class="cta breathe" id="play">Begin</button>
     <button class="ghost" id="startCoop">👯 Play together</button>
   </div>
@@ -2749,7 +2767,7 @@ function renderMap() {
     html += `${ci ? '<div class="orn sm" aria-hidden="true"></div>' : ""}<h3 class="chap"><small>Chapter ${["I", "II", "III", "IV", "V", "VI"][ci]}</small>${name}</h3><figure class="plate band${unlocked(ci * 6 + 1) ? "" : " dim"}"><img src="${chapterArt(ci)}" alt=""></figure><p class="cave-note">${CAVE_NOTES[ci]}</p><div class="lvls">`;
     for (let i = 1; i <= 6; i++) {
       const n = ci * 6 + i, st = save.stars[n] || 0, open = unlocked(n);
-      html += `<button class="lvl${n === next ? " next" : ""}" data-n="${n}" ${open ? "" : "disabled"}>${open ? n : "🔒"}<span>${st ? "★".repeat(st) : ""}</span></button>`;
+      html += `<button class="lvl${n === next ? " next" : ""}" data-n="${n}" ${open ? "" : "disabled"}>${n}<span>${open ? (st ? "★".repeat(st) : "") : "🔒"}</span></button>`;
     }
     html += "</div>";
   });
@@ -4761,7 +4779,7 @@ function updateClock() {
   const s = Math.floor(e.clock);
   if (updateClock.last !== s + "/" + e.target) {
     updateClock.last = s + "/" + e.target;
-    $("clock").innerHTML = `⏱ ${s}s <small>· ★ ${e.target}s</small>`;
+    $("clock").innerHTML = save.stars[e.conf.n] ? `⏱ ${s}s <small>· ★ ${e.target}s</small>` : `⏱ ${s}s`;
   }
 }
 
