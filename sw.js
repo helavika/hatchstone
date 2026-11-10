@@ -1,9 +1,9 @@
 // Hatchstone offline support: the page itself is fetched fresh when online, everything else from the cache.
-const CACHE = "hatchstone-v3-invite";
+const CACHE = "hatchstone-v4-pixel";
 const SHELL = [
   "./", "index.html", "coop-link.js", "coop-invite.js", "coop-state.js", "vendor/peerjs-1.5.5.min.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
-  "icons/apple-touch-icon.png", "icons/favicon-32.png",
+  "icons/apple-touch-icon.png", "icons/favicon-32.png", "fonts/pixelifysans-latin.woff2", "fonts/jacquard12-latin.woff2",
 ];
 
 self.addEventListener("install", e => {
