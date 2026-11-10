@@ -381,10 +381,12 @@
   /* start page: short and readable */
   #start .card { width: min(360px, 100%); background-color: rgba(28, 22, 66, .9); }
   #start .lead { font-size: 18px; font-weight: 700; color: var(--ink); }
-  .steps { list-style: none; padding: 0; margin: 4px 0 6px; display: flex; flex-direction: column; gap: 6px; }
-  .steps li { font-size: 15px; color: var(--ink); }
-  .steps li::before { content: "✦ "; color: var(--gold); }
-  .sub.tiny { font-size: 12px; }
+  .howto { list-style: none; padding: 0; margin: 14px 0 4px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .howto li { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; line-height: 1.2; color: var(--soft); }
+  .howto img { width: 42px; height: 42px; image-rendering: pixelated; }
+  #startBack .lead { font-size: 20px; margin-bottom: 4px; }
+  #startCoop { display: flex; width: fit-content; align-items: center; gap: 8px; }
+  #startCoop img { width: 28px; height: 28px; image-rendering: pixelated; margin: -4px 0; }
   .lvl:disabled span { letter-spacing: 0; filter: grayscale(1); }
   /* on big screens the cards grow with the room */
   @media (min-width: 900px) and (min-height: 760px) {
@@ -439,11 +441,20 @@
   <div class="card glass dark">
     <figure class="plate"><canvas id="pixelGrotto" width="128" height="72" role="img" aria-label="A pixel-art grotto by moonlight, a stone egg glowing on a ledge"></canvas></figure>
     <h1>Hatchstone</h1>
-    <p class="lead">Crack open stone eggs.<br>Meet who's glowing inside.</p>
-    <ul class="steps"><li>trace the cracks</li><li>open real geodes</li><li>raise 30 glowlings</li></ul>
-    <p class="sub tiny">🎧 best with headphones</p>
+    <div id="startNew">
+      <p class="lead">Crack open stone eggs.<br>Meet who's glowing inside.</p>
+      <ul class="howto">
+        <li><img data-icon="crack" alt="">trace the cracks</li>
+        <li><img data-icon="geode" alt="">open real geodes</li>
+        <li><img data-icon="glowling" alt="">raise glowlings</li>
+      </ul>
+    </div>
+    <div id="startBack" hidden>
+      <p class="lead">Welcome back</p>
+      <p class="sub" id="startBackSub"></p>
+    </div>
     <button class="cta breathe" id="play">Begin</button>
-    <button class="ghost" id="startCoop">👯 Play together</button>
+    <button class="ghost" id="startCoop"><img data-icon="duo" alt="">Play together</button>
   </div>
 </div>
 
@@ -4365,8 +4376,10 @@ $("coopLeave").addEventListener("click", () => coopEnd("left"));
 
 if (save.creatures.length) {
   $("play").textContent = "Continue";
-  const n = save.creatures.length;
-  $("play").insertAdjacentHTML("beforebegin", `<p class="sub">Your nest: ${n} glowling${n === 1 ? "" : "s"} waiting for you ✦</p>`);
+  const n = save.creatures.length, pet = activeCreature();
+  $("startNew").hidden = true; $("startBack").hidden = false;
+  $("startBackSub").textContent = n > 1 ? `${pet.name} and ${n - 1} other${n === 2 ? "" : "s"} are waiting in your nest ✦` : `${pet.name} is waiting in your nest ✦`;
+  $("pixelGrotto").setAttribute("aria-label", `${pet.name} waiting in a pixel-art grotto by moonlight`);
 }
 
 $("play").addEventListener("click", () => {
@@ -5225,6 +5238,7 @@ coopImportLocationInvite();
 requestAnimationFrame(frame);
 
 // ---------- the start plate: a dithered pixel-art grotto, drawn live like the keep on helavika's portfolio ----------
+// New players see a big stone egg that wobbles now and then; returning players see their own glowling on the ledge.
 (() => {
   const c = $("pixelGrotto"), g = c.getContext("2d"), W = c.width, H = c.height, img = g.createImageData(W, H);
   const calm = matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -5238,9 +5252,10 @@ requestAnimationFrame(frame);
     glow: ["#5b3fb0", "#8fd8ef", "#c9b8ff", "#ffffff"],
   }).map(([k, v]) => [k, v.map(pxHex)]));
   const bayer = PX_BAYER, pick = pxPick, hash = pxHash, noise = pxNoise, fbm = pxFbm, smooth = pxSmooth;
-  const moon = { x: 99, y: 17, r: 10 }, egg = { x: 64, y: 50, rx: 8, ry: 11 };
+  const moon = { x: 101, y: 16, r: 9 }, egg = { x: 64, y: 47, rx: 11, ry: 15 };
+  const pet = activeCreature();
   // crystal spires on the far ridge: [x, base, height, half width]
-  const spires = [[18, 44, 15, 3], [24, 45, 9, 2], [36, 43, 12, 2], [84, 44, 13, 3], [91, 45, 8, 2], [108, 43, 17, 3], [115, 45, 10, 2]];
+  const spires = [[16, 44, 15, 3], [23, 45, 9, 2], [34, 43, 12, 2], [88, 44, 13, 3], [95, 45, 8, 2], [110, 43, 17, 3], [117, 45, 10, 2]];
   const ridge = x => 41 - 5 * Math.abs(Math.sin(x * .06 + .4)) - 3 * noise(x * .15, 2);
   const ledge = x => 58 + 2 * Math.sin(x * .09) + 2 * noise(x * .2, 7) + Math.abs(x - 64) * .04;
   // the cave mouth: rock hangs down from the top corners
@@ -5250,15 +5265,16 @@ requestAnimationFrame(frame);
     return x < l || x > r || y < roof;
   };
   const eggD = (x, y) => { const dx = (x - egg.x) / (egg.rx * (y < egg.y ? .86 : 1)), dy = (y - egg.y) / egg.ry; return dx * dx + dy * dy; };
-  const crack = new Set([[64, 41], [65, 42], [64, 43], [63, 44], [64, 45], [65, 46], [66, 47], [65, 48], [64, 49], [63, 49], [62, 50], [66, 48], [67, 49]].map(([x, y]) => y * W + x));
+  // a zigzag crack down the front of the egg
+  const crack = [];
+  for (let y = egg.y - egg.ry + 4, x = egg.x, i = 0; y <= egg.y + 6; y++, i++) { x += [0, 1, 1, 0, -1, -1][i % 6]; crack.push([x, y]); if (i === 9) crack.push([x + 1, y + 1], [x + 2, y + 2], [x + 3, y + 2]); }
   const stars = Array.from({ length: 22 }, (_, i) => [Math.floor(hash(i, 1) * W), Math.floor(hash(i, 2) * 34), hash(i, 3) * 6]);
 
   const base = new Array(W * H), sky = new Uint8Array(W * H);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const i = y * W + x, md = Math.hypot(x - moon.x, y - moon.y);
     let col;
-    if (eggD(x, y) <= 1) col = pick(P.egg, .78 - (x - egg.x + 3) / 22 - (y - egg.y + 6) / 40 + fbm(x * .5, y * .5) * .25, x, y);
-    else if (y >= ledge(x)) col = pick(P.rock, .55 - (y - ledge(x)) / 16 + fbm(x * .25, y * .25) * .3 + .25 * smooth(18, 0, Math.hypot(x - egg.x, (y - 60) * 2)), x, y);
+    if (y >= ledge(x)) col = pick(P.rock, .55 - (y - ledge(x)) / 16 + fbm(x * .25, y * .25) * .3 + .25 * smooth(22, 0, Math.hypot(x - egg.x, (y - 60) * 2)), x, y);
     else if (cave(x, y)) col = pick(P.rock, .08 + fbm(x * .2, y * .2) * .3, x, y);
     else {
       let sp = null;
@@ -5271,23 +5287,36 @@ requestAnimationFrame(frame);
     base[i] = col;
   }
 
+  // a returning player's glowling, pixelated like the postcards
+  let sprite = null;
+  if (pet) imgFrom(creatureImage(specOf(pet), { size: 240, level: pet.level, shiny: pet.shiny, mood: "happy" })).then(im => { sprite = pixelate(im, 44, 38); draw(t); });
+
   function draw(t) {
     const d = img.data, put = (x, y, col) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
     for (let i = 0; i < W * H; i++) put(i % W, Math.floor(i / W), base[i]);
     for (const [x, y, ph] of stars) if (sky[y * W + x] && Math.sin(t * .35 + ph) > -.3) put(x, y, P.moon[Math.sin(t * .35 + ph) > .7 ? 4 : 2]);
-    // the egg's crack breathes, and its light spills on the ledge
     const k = .5 + .5 * Math.sin(t * .22);
-    for (let y = egg.y - 18; y <= egg.y + 14; y++) for (let x = egg.x - 18; x <= egg.x + 18; x++) {
+    // light spills on the ledge around the egg or the glowling
+    for (let y = egg.y - 22; y <= egg.y + 16; y++) for (let x = egg.x - 24; x <= egg.x + 24; x++) {
       const r = Math.hypot(x - egg.x, (y - egg.y) * .8);
-      if (eggD(x, y) > 1 && r < 17 && bayer[(y & 3) * 4 + (x & 3)] < (1 - r / 17) * (.25 + k * .25)) put(x, y, P.glow[0]);
+      if ((pet || eggD(x, y) > 1) && r < 22 && bayer[(y & 3) * 4 + (x & 3)] < (1 - r / 22) * (.2 + k * .25)) put(x, y, P.glow[0]);
     }
-    for (const i of crack) put(i % W, Math.floor(i / W), P.glow[k > .6 ? 3 : 2]);
+    if (!pet) {
+      // every few seconds the egg gives a little wobble
+      const w = t % 55, dx = w < 8 ? [0, -1, 1, -1, 1, 0, -1, 0][w] : 0;
+      for (let y = egg.y - egg.ry; y <= egg.y + egg.ry; y++) for (let x = egg.x - egg.rx - 1; x <= egg.x + egg.rx + 1; x++) {
+        if (eggD(x, y) > 1) continue;
+        put(x + dx, y, pick(P.egg, .8 - (x - egg.x + 4) / 28 - (y - egg.y + 8) / 50 + fbm(x * .45, y * .45) * .25, x, y));
+      }
+      for (const [x, y] of crack) put(x + dx, y, P.glow[k > .6 ? 3 : 2]);
+    }
     // motes drifting up out of the grotto
     for (let n = 0; n < 7; n++) {
       const life = (t * .08 + hash(n, 5)) % 1, x = Math.round(30 + hash(n, 6) * 68 + Math.sin(t * .1 + n) * 2), y = Math.round(60 - life * 50);
       if (life < .9) put(x, y, P.glow[life < .5 ? 2 : 1]);
     }
     g.putImageData(img, 0, 0);
+    if (sprite) g.drawImage(sprite, Math.round(egg.x - sprite.width / 2), Math.round(60 - sprite.height + (Math.sin(t * .3) > .6 ? -1 : 0)));
   }
   let t = 0, last = 0;
   function loop(now) {
@@ -5296,6 +5325,34 @@ requestAnimationFrame(frame);
   }
   draw(0);
   if (!calm) requestAnimationFrame(loop);
+})();
+
+// ---------- tiny pixel icons for the start page ----------
+(() => {
+  const S = 14, ramp = hexes => hexes.map(pxHex);
+  const stone = ramp(["#58526a", "#8a8396", "#b9b1bf", "#ddd6d8", "#f4f0f2"]), crys = ramp(["#2a1d63", "#5b3fb0", "#9a7ce6", "#c9b8ff", "#eef0ff"]);
+  const pink = ramp(["#7a3d68", "#d77fb0", "#ff9ecb", "#ffd0e6"]), gold = pxHex("#ffe9a8"), ink = [22, 14, 46];
+  const ICONS = {
+    crack: (x, y) => { const dx = (x - 6.5) / (y < 7 ? 4.6 : 5.4), dy = (y - 7.5) / 6.5; if (dx * dx + dy * dy > 1) return null; if ([[6, 3], [7, 4], [7, 5], [6, 6], [6, 7], [7, 8], [8, 9], [8, 10]].some(([a, b]) => a === x && b === y)) return crys[1]; return pxPick(stone, .85 - (x + y) / 26, x, y); },
+    geode: (x, y) => { const r = Math.hypot((x - 6.5) / 6.5, (y - 7) / 5.5); if (r > 1) return null; if (r > .72) return pxPick(stone, .7 - y / 20, x, y); return pxPick(crys, .95 - r * .9 + (((x * 3 + y * 5) % 4) === 0 ? .2 : 0), x, y); },
+    glowling: (x, y) => {
+      if ((x === 3 || x === 10) && y === 3) return pink[1];
+      if ((x === 3 || x === 4 || x === 9 || x === 10) && y === 4) return pink[1];
+      const r = Math.hypot((x - 6.5) / 5.6, (y - 8) / 4.8); if (r > 1) return null;
+      if ((x === 5 || x === 8) && y === 7) return ink;
+      if ((x === 4 || x === 9) && y === 9) return pink[1];
+      return pxPick(pink, 1 - r * .55 - y / 40, x, y);
+    },
+    duo: (x, y) => { const star = (cx, cy, r) => { const a = Math.abs(x - cx), b = Math.abs(y - cy); return a + b <= 1 || (a === 0 && b <= r) || (b === 0 && a <= r); }; return star(4, 7, 3) || star(10, 5, 2) ? gold : null; },
+  };
+  for (const el of $$("[data-icon]")) {
+    const fn = ICONS[el.dataset.icon], c = document.createElement("canvas"); c.width = c.height = S;
+    const g = c.getContext("2d"), im = g.createImageData(S, S), d = im.data, solid = new Uint8Array(S * S);
+    for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const col = fn(x, y); if (!col) continue; solid[y * S + x] = 1; const i = (y * S + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; }
+    if (el.dataset.icon !== "duo") for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) if (!solid[y * S + x] && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([a, b]) => solid[(y + b) * S + x + a] && x + a >= 0 && x + a < S)) { const i = (y * S + x) * 4; d[i] = ink[0]; d[i + 1] = ink[1]; d[i + 2] = ink[2]; d[i + 3] = 255; }
+    g.putImageData(im, 0, 0);
+    el.src = c.toDataURL();
+  }
 })();
 </script>
 </body>
