@@ -1574,7 +1574,10 @@ const UK = {
   "Previous glowlings": "Попередні глоулінги",
   "More glowlings": "Ще глоулінги",
   "Who made Hatchstone?": "Хто зробив Hatchstone?",
-  "I'm Viktoria Shchypalkina (helavika). I make Hatchstone in my free time, pixel by pixel. The game's code is open on [GitHub](https://github.com/helavika/hatchstone), and there's more of my work in my [portfolio](https://helavika.github.io/helavika-portfolio/). Found a bug or have an idea? [Tell me on GitHub](https://github.com/helavika/hatchstone/issues/new).": "Я Вікторія Щипалкіна (helavika). Роблю Hatchstone у вільний час, піксель за пікселем. Код гри відкритий на [GitHub](https://github.com/helavika/hatchstone), а більше моїх робіт — у [портфоліо](https://helavika.github.io/helavika-portfolio/). Знайшли баг чи маєте ідею? [Напишіть мені на GitHub](https://github.com/helavika/hatchstone/issues/new)."
+  "I'm Viktoria Shchypalkina (helavika). I make Hatchstone in my free time, pixel by pixel. The game's code is open on [GitHub](https://github.com/helavika/hatchstone), and there's more of my work in my [portfolio](https://helavika.github.io/helavika-portfolio/). Found a bug or have an idea? [Tell me on GitHub](https://github.com/helavika/hatchstone/issues/new).": "Я Вікторія Щипалкіна (helavika). Роблю Hatchstone у вільний час, піксель за пікселем. Код гри відкритий на [GitHub](https://github.com/helavika/hatchstone), а більше моїх робіт — у [портфоліо](https://helavika.github.io/helavika-portfolio/). Знайшли баг чи маєте ідею? [Напишіть мені на GitHub](https://github.com/helavika/hatchstone/issues/new).",
+  "rub the geode with your finger to polish it ✦": "потри жеоду пальцем, щоб відполірувати ✦",
+  "The inside is frosty. Rub it with your finger to make it shine.": "Усередині жеода матова. Потри її пальцем, щоб заблищала.",
+  "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.": "Чим більше блиску, тим більше осколків. Натисни кнопку, коли тобі сподобається."
 };
 
 const UK_DATA = {
@@ -2965,9 +2968,10 @@ function roomSpot(id) {
   if (N.iso && id === "cushion") { const [u, v] = cloudUV(); return isoAt(u, v); }
   if (N.iso && isoLayout().placed[id]) { const p = isoLayout().placed[id]; return isoPieceAt(p, id === "bed" || id === "cushion" || id === "incubator" ? 0 : 0.55); }
   if (N.iso) {
-    if (id === "shelf") { const [x, y] = isoAt(0.22, 0); return [x, y - N.isoWall * 0.5 + N.base * 0.95 * N.dk]; }
+    if (id === "shelf") { const m = wallSlot("shelf"), [x, y] = wallFoot(m.wall, m.s); return [x, y - N.isoWall * 0.5 + N.base * 0.95 * N.dk]; }
     if (id === "swing") { const [x, y] = floorAt(0.42, 0.04); return [x, y + N.base * 0.55]; }
     if (id === "lights") return [N.cx, N.wallTop];
+    if (id === "rug" && save.layout && save.layout.rug) return isoAt(save.layout.rug.u, save.layout.rug.v);
     const [u, v] = ROOM_SLOTS_ISO[id] || [0.5, 0.5];
     return floorAt(u, v);
   }
@@ -2985,14 +2989,22 @@ const rugSize = () => N.iso ? [N.isoW * 0.36, N.isoW * 0.18] : [Math.min(N.hf * 
 // ---------- quality: step resolution down if the device can't keep up ----------
 
 const quality = {
-  dpr: 1, low: false, pxStep: 0, pinned: /[?&]q=high\b/.test(location.search), acc: 0, n: 0,
-  sample(ms) {
-    if (this.pinned || game.scene === "menu" || ms > 250) return;
-    this.acc += ms; this.n++;
-    if (this.n < 90) return;
-    const avg = this.acc / this.n;
-    this.acc = this.n = 0;
-    if (avg < 22) return;
+  dpr: 1, low: false, pxStep: 0, pinned: /[?&]q=high\b/.test(location.search), gaps: [], works: [], slow: 0, quietUntil: 0,
+  /** Hold off judging for a few seconds (after loading, a scene change or a new pixel size, pictures are being baked). */
+  settle(ms = 4000) { this.quietUntil = performance.now() + ms; this.gaps.length = this.works.length = 0; },
+  /**
+   * gap: time between frames; work: time the game itself spent on the frame. A device is slow only if the game's own work
+   * is heavy, or frames come less than ~22 times a second, twice in a row; a 30-frame cap (battery saver) isn't slowness.
+   */
+  sample(gap, work) {
+    if (this.pinned || game.scene === "menu" || gap > 250 || document.hidden || performance.now() < this.quietUntil) return;
+    this.gaps.push(gap); this.works.push(work);
+    if (this.gaps.length < 120) return;
+    const med = a => a.slice().sort((p, q) => p - q)[a.length >> 1], g = med(this.gaps), w = med(this.works);
+    this.gaps.length = this.works.length = 0;
+    if (w < 14 && g < 45) { this.slow = 0; return; }
+    if (++this.slow < 2) return;
+    this.slow = 0;
     // first, coarser art pixels (a quarter of the work per step); then a lower screen resolution
     if (this.pxStep < (this.pxLevels || 2) - 1 && !/[?&]px=/.test(location.search)) { this.pxStep++; refit(); return; }
     if (this.dpr > 1) { this.dpr = Math.max(1, this.dpr - 0.5); sizeCanvas(); }
@@ -3088,6 +3100,7 @@ function present() {
 
 /** Redraw everything for a new pixel size (the screen itself didn't change). */
 function refit() {
+  quality.settle();
   sizeCanvas(); makeBackground(); computeLayout(); makeMotes();
   roomCanvas.key = null; spriteFrames.clear();
   if (game.egg && game.scene === "crack") {
@@ -4419,7 +4432,7 @@ function startPolish() {
   const o = c.getContext("2d");
   o.setTransform(DPR, 0, 0, DPR, 0, 0);
   tracePoly(o, eggPoly(L.ew / 2 + PAD, L.eh / 2 + PAD, L.ew - 10 * L.k, L.eh - 10 * L.k));
-  o.fillStyle = "rgba(226,220,236,.62)";
+  o.fillStyle = "rgba(220,214,232,.74)";
   o.fill();
   const img = o.getImageData(0, 0, c.width, c.height), d = img.data;
   for (let i = 0; i < d.length; i += 4) if (d[i + 3]) { const n = (Math.random() - 0.5) * 40; d[i] += n; d[i + 1] += n; d[i + 2] += n; }
@@ -4429,9 +4442,11 @@ function startPolish() {
   for (let y = L.ey0; y < L.ey0 + L.eh; y += cell) for (let x = L.ex0; x < L.ex0 + L.ew; x += cell) {
     if (inside(eggPoly(L.ecx, L.ecy, L.ew - 24 * L.k, L.eh - 24 * L.k, 48), [x + cell / 2, y + cell / 2])) cells.push({ x: x + cell / 2, y: y + cell / 2, done: false });
   }
-  e.matte = { canvas: c, ctx: o, cells, done: 0, shine: 0 };
-  setHint(tr("rub the geode to polish it ✦"));
-  $("polishDone").hidden = false;
+  // rev 1: the frosted face is drawn straight away (the picture of the inside was cached before the frost existed)
+  e.matte = { canvas: c, ctx: o, cells, done: 0, shine: 0, rev: 1 };
+  setHint(tr("rub the geode with your finger to polish it ✦"));
+  $("polishDone").hidden = false; polishLabel(0);
+  if (!e.conf.coop) talk("firstPolish");
 }
 
 function rub(x, y, d, dt) {
@@ -4452,9 +4467,16 @@ function rub(x, y, d, dt) {
     if (c.hits >= 3) { c.done = true; m.done++; }
   }
   m.shine = m.done / m.cells.length;
+  polishLabel(m.shine);
   sfx.rubSet(m.shine, d / Math.max(dt, 0.008));
   if (Math.random() < 0.25) game.sparks.push({ x: x + rand(-r, r) * 0.5, y: y + rand(-r, r) * 0.5, vx: 0, vy: -20, t: 0, life: 0.5, s: rand(3, 6), color: "#fff" });
   if (m.shine >= 0.9) finishPolish();
+}
+
+/** The button shows how shiny it is so far, so rubbing visibly does something. */
+function polishLabel(shine) {
+  const t = tr("✨ Shiny enough") + " · " + Math.round(shine * 100) + "%";
+  if ($("polishDone").textContent !== t) $("polishDone").textContent = t;
 }
 
 function finishPolish() {
@@ -4587,6 +4609,7 @@ const TALKS = {
   firstGrotto: () => [[MOSSA, "This is the Grotto. Every level is a geode, each a little harder than the last."],
     [MOSSA, "Find the weak spot and you'll need fewer taps. Fewer taps, more stars."],
     [MOSSA, "And look up: once a day a moon egg appears. Something special sleeps in it."]],
+  firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine."], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it."]],
   firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
     [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it."]],
   ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])], [MOSSA, "The stone gets harder from here on. The Forge can help."]],
@@ -4772,6 +4795,7 @@ function setScene(scene) {
   if (game.scene === "nest" && scene !== "nest") sfx.purrOff();
   game.scene = scene;
   if (wasCrack !== (scene === "crack") && W) refit();
+  else quality.settle(2500);
   document.body.className = document.body.className.replace(/\bscene-\S+/g, "").trim() + ` scene-${scene}`;
   for (const [id, active] of [["hud", scene === "crack"], ["topbar", ["map", "nest", "lib"].includes(scene)], ["tabs", ["map", "nest", "lib"].includes(scene)]]) {
     $(id).classList.toggle("on", active); $(id).inert = !active; $(id).setAttribute("aria-hidden", String(!active));
@@ -5065,14 +5089,14 @@ function roomCreatures() {
   return list;
 }
 
-const roomPoint = () => floorAt(rand(0.08, 0.92), rand(0.05, 0.95));
+const roomPoint = () => N.iso ? freeFloorPoint() : floorAt(rand(0.08, 0.92), rand(0.05, 0.95));
 
 /** The things you can't stand inside, as flat ellipses on the floor. */
 function roomObstacles() {
   const b = N.base, out = [];
   if (N.iso) {
     // every placed piece is an ellipse over its tiles
-    for (const p of Object.values(isoLayout().placed)) { const [x, y] = isoPieceAt(p); out.push({ id: p.id, x, y, rx: N.isoW / ISO_G * Math.max(p.fw, p.fd) * 0.9, ry: N.isoH / ISO_G * Math.max(p.fw, p.fd) * 0.9 }); }
+    for (const p of Object.values(isoLayout().placed)) { if (p.id === "bed") continue; const [x, y] = isoPieceAt(p); out.push({ id: p.id, x, y, rx: N.isoW / ISO_G * Math.max(p.fw, p.fd) * 0.9, ry: N.isoH / ISO_G * Math.max(p.fw, p.fd) * 0.9 }); }
     return out;
   }
   const add = (id, rx, ry) => { const [x, y] = roomSpot(id), k = depthK(y); out.push({ id, x, y, rx: rx * b * k, ry: ry * b * k }); };
@@ -5083,9 +5107,110 @@ function roomObstacles() {
   if (hasDecor("spring")) add("spring", 0.75, 0.22);
   return out;
 }
-/** Keep a glowling on the floor and out of the furniture (fliers pass over; the one using a thing may stand on it). */
+// ---------- solid furniture: glowlings find their way around pieces and can't pass through them ----------
+const WALK_N = 12;          // for finding a way, the floor is a grid of half tiles (ISO_G × 2)
+const BODY_R = 0.26;        // a glowling's footprint, in tiles
+/** The tiles nobody can stand in: every placed piece but the bed (it's soft: they climb onto it). */
+function isoBlocked() {
+  const L = isoLayout();
+  if (!L.blocked) {
+    L.blocked = [];
+    for (const p of Object.values(L.placed)) if (p.id !== "bed") for (let a = 0; a < p.fw; a++) for (let b = 0; b < p.fd; b++) L.blocked.push([p.i + a, p.j + b]);
+    L.blockSet = new Set(L.blocked.map(([i, j]) => i + "," + j));
+  }
+  return L;
+}
+const cellFree = (ci, cj) => ci >= 0 && cj >= 0 && ci < WALK_N && cj < WALK_N && !isoBlocked().blockSet.has((ci >> 1) + "," + (cj >> 1));
+/** Is a straight walk between two floor points (in tiles) clear of every piece, body and all? */
+function walkClear(U0, V0, U1, V1) {
+  const n = Math.ceil(Math.hypot(U1 - U0, V1 - V0) / 0.12);
+  for (let k = 0; k <= n; k++) {
+    const U = lerp(U0, U1, k / n), V = lerp(V0, V1, k / n);
+    for (const [i, j] of isoBlocked().blocked) if (Math.hypot(U - clamp(U, i, i + 1), V - clamp(V, j, j + 1)) < BODY_R * 0.95) return false;
+  }
+  return true;
+}
+/**
+ * A way from one floor point to another around the furniture (A* over half tiles, no cutting corners), smoothed into a few
+ * straight legs. If the goal is inside a piece, the way ends at the nearest free spot. Points are in CSS pixels.
+ */
+function findPath(x0, y0, x1, y1) {
+  // in tiles, kept off the walls the way keepInRoom keeps everyone
+  const mT = isoMargin(0.42) * ISO_G, inR = c => clamp(c, mT, ISO_G - mT), toT = (x, y) => isoFrom(x, y).map(c => inR(c * ISO_G)), [U0, V0] = toT(x0, y0);
+  let [U1, V1] = toT(x1, y1);
+  const cellOf = (U, V) => [clamp(Math.floor(U * 2), 0, WALK_N - 1), clamp(Math.floor(V * 2), 0, WALK_N - 1)];
+  const nearestFree = ([ci, cj]) => { let best = null, bd = Infinity; for (let i = 0; i < WALK_N; i++) for (let j = 0; j < WALK_N; j++) if (cellFree(i, j)) { const d = Math.hypot(i - ci, j - cj); if (d < bd) { bd = d; best = [i, j]; } } return best; };
+  let s = cellOf(U0, V0), g = cellOf(U1, V1);
+  if (!cellFree(...s)) s = nearestFree(s);
+  if (!cellFree(...g)) { g = nearestFree(g); if (g) [U1, V1] = [inR((g[0] + 0.5) / 2), inR((g[1] + 0.5) / 2)]; }
+  if (!s || !g) return { pts: [], end: [x1, y1] };
+  const end = isoAt(U1 / ISO_G, V1 / ISO_G);
+  if (walkClear(U0, V0, U1, V1)) return { pts: [end], end };
+  const key = (i, j) => i * WALK_N + j, cost = new Map([[key(...s), 0]]), from = new Map(), open = [[...s, Math.hypot(g[0] - s[0], g[1] - s[1])]];
+  while (open.length) {
+    open.sort((p, q) => q[2] - p[2]);
+    const [ci, cj] = open.pop();
+    if (ci === g[0] && cj === g[1]) break;
+    for (const [di, dj] of [[1, 0], [-1, 0], [0, 1], [0, -1], [1, 1], [1, -1], [-1, 1], [-1, -1]]) {
+      const ni = ci + di, nj = cj + dj;
+      if (!cellFree(ni, nj) || (di && dj && (!cellFree(ci + di, cj) || !cellFree(ci, cj + dj)))) continue;
+      const c = cost.get(key(ci, cj)) + Math.hypot(di, dj);
+      if (c < (cost.get(key(ni, nj)) ?? Infinity)) { cost.set(key(ni, nj), c); from.set(key(ni, nj), [ci, cj]); open.push([ni, nj, c + Math.hypot(g[0] - ni, g[1] - nj)]); }
+    }
+  }
+  if (!from.has(key(...g)) && (g[0] !== s[0] || g[1] !== s[1])) return { pts: [], end };
+  const cells = [];
+  for (let c = g; c && (c[0] !== s[0] || c[1] !== s[1]); c = from.get(key(...c))) cells.unshift(c);
+  const way = [...cells.map(([i, j]) => [inR((i + 0.5) / 2), inR((j + 0.5) / 2)]), [U1, V1]];
+  // keep only the corners: from each point, head straight for the furthest one in clear sight
+  const pts = [];
+  let at = [U0, V0], k = 0;
+  while (k < way.length) {
+    let far = k;
+    for (let m = way.length - 1; m > k; m--) if (walkClear(at[0], at[1], way[m][0], way[m][1])) { far = m; break; }
+    at = way[far]; pts.push(isoAt(at[0] / ISO_G, at[1] / ISO_G)); k = far + 1;
+  }
+  return { pts, end };
+}
+/** The next point to walk to on the way to (a.tx, a.ty), working the way out again when the goal or the furniture changes. */
+function nextWaypoint(a, dt) {
+  const key = `${Math.round(a.tx)},${Math.round(a.ty)}|${isoLayout().key}`;
+  a.repath = (a.repath || 0) - dt;
+  if (a.pathKey !== key || a.repath < 0) {
+    const path = findPath(a.x, a.y, a.tx, a.ty);
+    a.path = path.pts; a.pathEnd = path.end; a.pathKey = key; a.repath = 1.2;
+  }
+  // a goal inside a piece moves to the free spot beside it
+  [a.tx, a.ty] = a.pathEnd;
+  while (a.path.length > 1 && Math.hypot(a.path[0][0] - a.x, a.path[0][1] - a.y) < 5) a.path.shift();
+  return a.path[0] || [a.tx, a.ty];
+}
+/** Out of any piece it ended up overlapping: pushed out the nearest way, so it slides along the side instead of walking through. */
+function pushOutOfPieces(a) {
+  let [U, V] = isoFrom(a.x, a.y).map(c => c * ISO_G), moved = false;
+  for (let pass = 0; pass < 2; pass++) for (const [i, j] of isoBlocked().blocked) {
+    const nx = clamp(U, i, i + 1), ny = clamp(V, j, j + 1), dx = U - nx, dy = V - ny, d = Math.hypot(dx, dy);
+    if (d >= BODY_R) continue;
+    moved = true;
+    if (d > 1e-4) { U = nx + dx / d * BODY_R; V = ny + dy / d * BODY_R; }
+    else [U, V] = [[i - BODY_R, V, U - i], [i + 1 + BODY_R, V, i + 1 - U], [U, j - BODY_R, V - j], [U, j + 1 + BODY_R, j + 1 - V]].sort((p, q) => p[2] - q[2])[0];
+  }
+  if (moved) [a.x, a.y] = isoAt(U / ISO_G, V / ISO_G);
+}
+/** A random free spot on the floor. */
+function freeFloorPoint() {
+  for (let k = 0; k < 20; k++) { const [x, y] = floorAt(Math.random(), Math.random()), [U, V] = isoFrom(x, y).map(c => c * ISO_G); if (cellFree(Math.floor(U * 2), Math.floor(V * 2)) && walkClear(U, V, U, V)) return [x, y]; }
+  return floorAt(0.5, 0.5);
+}
+
+/** Keep a glowling on the floor and out of the furniture (the one riding the swing or asleep on the bed is placed by hand). */
 function keepInRoom(a) {
-  if (N.iso) { const m = isoMargin(0.42); let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m)); }
+  if (N.iso) {
+    const m = isoMargin(0.42); let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+    if (a.state !== "visit" || a.decor !== "swing") pushOutOfPieces(a);
+    [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+    return;
+  }
   a.y = clamp(a.y, N.y0, N.y1);
   const h = N.iso ? N.isoW : floorHalf(a.y) - N.base * 0.42;
   a.x = clamp(a.x, N.cx - h, N.cx + h);
@@ -5112,7 +5237,7 @@ function syncActors() {
 /** Where a glowling is drawn: its center and size (smaller further back in the room). */
 function actorView(a) {
   const k = depth(a.y), size = N.base * k;
-  return { x: a.x, y: a.y - size * 0.45 - a.alt, size, k };
+  return { x: a.x, y: a.y - size * 0.45 - a.alt - (a.perch || 0), size, k };
 }
 
 const activeActor = () => { const cr = activeCreature(); return cr ? actors.get(cr.id) : null; };
@@ -5146,6 +5271,11 @@ function chooseNext(a, list) {
     a.tx = x + rand(-0.25, 0.25) * N.base; a.ty = clamp(y + rand(-0.1, 0.1) * N.base, N.y0, N.y1);
     return;
   }
+  // hoppers like bouncing on the bed now and then
+  if (N.iso && b === "hop" && r < 0.15 && isoLayout().placed.bed) {
+    const p = isoLayout().placed.bed; [a.tx, a.ty] = isoAt((p.i + p.fw * rand(0.3, 0.7)) / ISO_G, (p.j + p.fd * rand(0.3, 0.7)) / ISO_G);
+    a.state = "walk"; emote(a, "♪", 1.2); return;
+  }
   if (b === "nap" && r < 0.35) { a.state = "nap"; a.t = rand(5, 10); emote(a, "zz", 2.5); return; }
   if (b === "dance" && r < 0.3) { a.state = "dance"; a.t = rand(1.6, 2.8); emote(a, "♪", 1.6); return; }
   const others = list.filter(o => o !== a);
@@ -5174,7 +5304,8 @@ function updateActors(dt) {
     let speed = base, target = null;
     if (cr.sleeping) {
       target = bedSpot(a.id);
-      if (a.state !== "sleep") a.state = "toBed";
+      // asleep somewhere else (the bed moved, or someone else lay down and the places shifted): shuffle over and lie down again
+      if (a.state !== "sleep" || Math.hypot(a.x - target[0], a.y - target[1]) > 10) a.state = "toBed";
     } else if (a.state === "sleep" || a.state === "toBed") { a.state = "idle"; a.t = 0.5; }
     // a finger held on the floor calls everyone over
     if (!cr.sleeping && call && game.time - call.t < 400 && a.state !== "eat") {
@@ -5194,8 +5325,9 @@ function updateActors(dt) {
     else if (a.state === "idle" || a.state === "nap" || a.state === "dance" || a.state === "visit") { if ((a.t -= dt) <= 0) { a.decor = null; chooseNext(a, list); } }
 
     // a little personal space: glowlings gently push apart instead of piling up
-    if (a.state !== "sleep" && a.state !== "visit") for (const o of list) {
-      if (o === a || o.state === "sleep" || o.state === "visit") continue;
+    // (except on the way to bed: sleepy ones squeeze in and cuddle up)
+    if (a.state !== "sleep" && a.state !== "visit" && a.state !== "toBed") for (const o of list) {
+      if (o === a || o.state === "sleep" || o.state === "visit" || o.state === "toBed") continue;
       const ox = a.x - o.x, oy = (a.y - o.y) * 1.6, od = Math.hypot(ox, oy), min = N.base * 0.95;
       if (od > 0.01 && od < min) {
         // step aside, and move where you were heading too, or you'd walk straight back into them
@@ -5204,11 +5336,29 @@ function updateActors(dt) {
         if (a.state !== "walk" && a.state !== "called" && a.state !== "toBed") { a.tx += px; a.ty += py; }
       }
     }
+    // the way around the furniture (this also moves a goal that's inside a piece to the free spot beside it)
+    const walking = N.iso && !["nap", "dance", "eat", "sleep", "visit"].includes(a.state) && !(a.id === save.active && game.nest.petting);
+    const wp = walking ? nextWaypoint(a, dt) : null;
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
     if (a.state === "toBed" && d <= 8) a.state = "sleep"; // close enough: lie down (the room's edge may keep the exact spot just out of reach)
     const still = ["nap", "dance", "eat", "sleep", "visit"].includes(a.state);
     const moving = d > 3 && !still;
-    if (moving) {
+    if (!moving) a.vx = a.vy = 0;
+    if (moving && wp) {
+      // walking has weight: it picks up speed from a stop, slows down to arrive, and turns gradually toward the next corner of its way
+      const [wx, wy] = wp, wdx = wx - a.x, wdy = wy - a.y, wd = Math.hypot(wdx, wdy) || 1;
+      const left = Math.hypot(a.tx - a.x, a.ty - a.y), want = speed * (a.state === "toBed" ? 1.4 : 1) * clamp(left / (N.base * 0.4) + 0.35, 0.35, 1);
+      const k = Math.min(1, dt * 5);
+      a.vx = lerp(a.vx || 0, wdx / wd * want, k); a.vy = lerp(a.vy || 0, wdy / wd * want, k);
+      const gate = a.beh === "hop" ? Math.max(0, Math.sin(a.ph * 7)) * 2 : 1;
+      const step = Math.hypot(a.vx, a.vy) * dt * gate, lim = Math.min(step, wd);
+      const x0 = a.x, y0 = a.y;
+      if (step > 0) { a.x += a.vx * dt * gate * (lim / step); a.y += a.vy * dt * gate * (lim / step); }
+      // pressed against something for a second and a half without getting anywhere: give up and think of something else
+      a.stuck = Math.hypot(a.x - (a.lastX ?? x0), a.y - (a.lastY ?? y0)) < N.base * 0.04 ? (a.stuck || 0) + dt : 0;
+      if (!a.stuck) { a.lastX = a.x; a.lastY = a.y; }
+      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
+    } else if (moving) {
       const hopper = a.beh === "hop";
       const step = Math.min(d, speed * dt * (hopper ? Math.max(0, Math.sin(a.ph * 7)) * 2 : 1));
       a.x += dx / d * step; a.y += dy / d * step;
@@ -5227,6 +5377,11 @@ function updateActors(dt) {
       a.friend = null;
     } else if (a.state === "toBed" && d <= 8) a.state = "sleep";
     keepInRoom(a);
+    // standing on the bed (it fills its corner, so there's no "behind" it): up on its soft top, with a little hop on the way up
+    const onBed = isoOnBed(a.x, a.y);
+    if (onBed && !a.onBed) a.hop = 1;
+    a.onBed = onBed;
+    a.perch = lerp(a.perch || 0, onBed ? isoBedTop() : 0, Math.min(1, dt * 10));
     // fliers hover, swimmers glide, hoppers bounce
     const ease = (to, k) => { a.alt = lerp(a.alt, to, Math.min(1, dt * k)); };
     if (a.state === "sleep") ease(0, 4);
@@ -5241,8 +5396,8 @@ function updateActors(dt) {
       if (a.decor === "swing") {
         // sit on the moon seat and swing with it
         const seat = swingSeat();
-        a.x = seat[0]; a.y = decorSpot("swing")[1];
-        a.alt = a.y - N.base * 0.45 - (seat[1] - N.base * 0.38);
+        if (seat[5] !== undefined) { const size = N.base * depth(seat[6]); a.x = seat[0]; a.y = seat[6] + 1; a.alt = a.y - size * 0.45 - (seat[1] - size * 0.32); }
+        else { a.x = seat[0]; a.y = decorSpot("swing")[1]; a.alt = a.y - N.base * 0.45 - (seat[1] - N.base * 0.38); }
       } else if (a.decor === "mushrooms") a.hop = Math.abs(Math.sin(a.ph * 5)) * 0.8;
       else if (a.decor === "spring") a.alt = Math.sin(a.ph * 2.5) * N.base * 0.04;
     }
@@ -5263,7 +5418,7 @@ function updateActors(dt) {
 function drawRoom() {
   const { y1 } = N, cx = N.cx, kind = ROOM_KIND[currentTheme()] || "cave";
   // the walls and floor of this backdrop, painted once in art pixels
-  const rk = `${currentTheme()}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}`;
+  const rk = `${currentTheme()}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}`;
   if (roomCanvas.key !== rk + N.iso) { roomCanvas.key = rk + N.iso; roomCanvas.c = N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()); }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
   // a round window onto the night sky in the cave wall (the abbey has its own arched one; outdoors the sky is already there)
@@ -5420,7 +5575,7 @@ function isoArt(w, h, paint, { outline = true } = {}) {
 }
 
 const ISO_G = 6;          // the floor is a 6×6 grid of tiles
-const ISO_CAP = 7;        // how many tiles of furniture fit before the room feels stuffed (the bed and incubator come with the room)
+const ISO_CAP = 8;        // how many tiles of furniture fit before the room feels stuffed (the bed and incubator come with the room)
 /** Each piece: its size in tiles, and the tiles it likes to stand on, best first (i runs along the right wall, j along the left). */
 const ISO_PLACES = {
   lamp: { fw: 1, fd: 1, at: [[0, 0], [1, 0]] },
@@ -5431,7 +5586,22 @@ const ISO_PLACES = {
   plant: { fw: 1, fd: 1, at: [[3, 0], [5, 2], [5, 3]] },
   table: { fw: 1, fd: 1, at: [[4, 3], [3, 4], [4, 2]] },
   mushrooms: { fw: 1, fd: 1, at: [[5, 5], [4, 5], [5, 4]] },
+  swing: { fw: 1, fd: 1, at: [[2, 0], [3, 0], [1, 0], [0, 2], [0, 3]] },
 };
+/** Pieces on the walls: which wall (L is the left one, along j; R the right one, along i) and the slot along it, in tiles. */
+const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.64 } };
+const wallSlot = id => { const m = save.layout && save.layout[id]; return m && m.wall ? m : WALL_ITEMS[id]; };
+/** Where a wall slot meets the floor. */
+const wallFoot = (wall, s) => { const c = (s + 0.5) / ISO_G; return wall === "R" ? isoAt(c, 0) : isoAt(0, c); };
+/**
+ * Pieces have their back to the right wall when not turned, and to the left one when turned. Put against one wall,
+ * a piece turns by itself to stand with its back to it; in a corner or out in the room it keeps its turn.
+ */
+function autoFlip(id, i, j, flip) {
+  if (j === 0 && i !== 0) return false;
+  if (i === 0 && j !== 0) return true;
+  return flip;
+}
 const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] } };
 
 /** A piece's size in tiles; turned to face the other wall, its two sides swap. */
@@ -5460,10 +5630,11 @@ function isoLayout() {
   center.forEach(t => busy.add(t));
   for (const id of out) {
     if (placed[id]) continue;
-    const f = ISO_PLACES[id], spot = f.at.find(([i, j]) => free(i, j, f.fw, f.fd));
+    // its favorite tiles, or else any free one (so nothing that's out ever goes missing)
+    const f = ISO_PLACES[id], spot = f.at.find(([i, j]) => free(i, j, f.fw, f.fd)) || Array.from({ length: ISO_G * ISO_G }, (_, k) => [k % ISO_G, Math.floor(k / ISO_G)]).find(([i, j]) => free(i, j, f.fw, f.fd));
     if (!spot) continue;
     take(spot[0], spot[1], f.fw, f.fd);
-    placed[id] = { id, i: spot[0], j: spot[1], fw: f.fw, fd: f.fd, flip: false };
+    placed[id] = { id, i: spot[0], j: spot[1], fw: f.fw, fd: f.fd, flip: autoFlip(id, spot[0], spot[1], false) };
   }
   center.forEach(t => busy.delete(t));
   return (isoLayoutCache = { key, placed, busy });
@@ -5538,6 +5709,25 @@ const ISO_ART = {
     const cx = ax, cy = ay + t / 2;
     if (!o.float) T.disc(cx, cy + 1, t * 0.5, IC.l3);
     for (const [dx, dy, r] of [[-0.24, -0.08, 0.24], [0.2, -0.1, 0.26], [0, -0.26, 0.28], [-0.05, 0.02, 0.26]]) T.ball(cx + dx * t, cy + dy * t, r * t, IC.l0, IC.l1, IC.l2, r * t * 0.82);
+  },
+  swing(t, T, ax, ay, o = {}) {
+    // a little wooden A-frame with a brass moon on its bar; in the room the moon seat hangs from it and swings (drawSwingIso)
+    const h = t / 2, H = Math.round(t * 1.8), at = (du, dv, up = 0) => [ax + 2 * du - 2 * dv, ay + du + dv - up], th = Math.max(2, Math.round(t / 14));
+    for (const du of [h * 0.08, h * 0.92]) {
+      const [tx, ty] = at(du, h * 0.5, H);
+      // sturdy legs, lit on the left: a light edge, the wood, a dark edge
+      for (const dv of [h * 0.05, h * 0.95]) { const [fx, fy] = at(du, dv); for (let k = 0; k <= th; k++) T.line(tx + k, ty, fx + k, fy, k === 0 ? IC.w0 : k === th ? IC.w3 : IC.w1); }
+    }
+    const [b0x, b0y] = at(h * 0.02, h * 0.5, H + 1), [b1x, b1y] = at(h * 0.98, h * 0.5, H + 1);
+    for (let k = 0; k <= th; k++) T.line(b0x, b0y + k, b1x, b1y + k, k === 0 ? IC.w0 : k === th ? IC.w3 : IC.w1);
+    const [mx, my] = at(h * 0.5, h * 0.5, H + 5);
+    T.px(mx, my, IC.y0); T.px(mx - 1, my + 1, IC.y0); T.px(mx - 1, my + 2, IC.y1); T.px(mx, my + 3, IC.y1);
+    if (!o.room) {
+      // for the Decor list: the seat at rest
+      const [sx, sy] = at(h * 0.5, h * 0.5, H * 0.3), r = Math.max(3, t * 0.28);
+      for (const d of [-1, 1]) T.line(sx + d * r * 0.7, sy - 2, b0x + (b1x - b0x) * (0.5 + d * 0.3), b0y + (b1y - b0y) * (0.5 + d * 0.3) + 1, IC.s1);
+      for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (Math.hypot(x, y) <= r && Math.hypot(x, y + r * 0.45) > r * 0.85 && y > -r * 0.2) T.px(sx + x, sy + y, y > r * 0.5 ? IC.y1 : IC.y0);
+    }
   },
   chest(t, T, ax, ay) {
     const a = t * 0.42, b = t * 0.32, hgt = Math.round(t * 0.42), x = ax, y = ay + 2;
@@ -5646,6 +5836,21 @@ function isoPiece(p, extra = {}) {
   });
 }
 
+/** The swing in the room: its frame, then the ropes and the moon seat swinging under the bar. */
+function drawSwingIso(p) {
+  drawBaked(isoPiece(p, { room: true }));
+  const [sx, sy, , top, bar, cx] = swingSeat(), r = N.isoW / ISO_G * 0.62;
+  ctx.fillStyle = "#d8d2e0";
+  for (const d of [-1, 1]) {
+    const x0 = cx + d * bar[0], y0 = top + d * bar[1] + PX, x1 = sx + Math.sign(d * bar[0]) * r * 0.7, y1 = sy - r * 0.1, n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / PX));
+    for (let k = 0; k <= n; k++) ctx.fillRect(Math.round(lerp(x0, x1, k / n) / PX) * PX, Math.round(lerp(y0, y1, k / n) / PX) * PX, PX, PX);
+  }
+  ctx.fillStyle = "#fff8d6";
+  ctx.beginPath(); ctx.arc(sx, sy, r, Math.PI * 0.05, Math.PI * 0.95); ctx.arc(sx, sy - r * 0.35, r * 0.9, Math.PI * 0.92, Math.PI * 0.08, true); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#eec26a";
+  ctx.beginPath(); ctx.arc(sx, sy, r, Math.PI * 0.3, Math.PI * 0.95); ctx.arc(sx, sy - r * 0.2, r * 0.92, Math.PI * 0.9, Math.PI * 0.35, true); ctx.closePath(); ctx.fill();
+}
+
 // ---------- rearranging the room ----------
 const arrange = { on: false, sel: null, drag: null };
 function startArrange() {
@@ -5660,55 +5865,96 @@ function stopArrange() {
   $("arrangeBar").hidden = true;
   [N.bedX, N.bedY] = roomSpot("bed");
 }
+/** What sort of thing is being arranged: a floor piece on tiles, a wall piece in a slot along a wall, or the rug. */
+const arrangeKind = id => WALL_ITEMS[id] ? "wall" : id === "rug" ? "rug" : "floor";
 function arrangeUi() {
-  const p = arrange.sel && isoLayout().placed[arrange.sel];
-  $("arrangeTip").textContent = p ? (DECO[p.id]?.name || tr(p.id === "bed" ? "Bed" : "Incubator")) : tr("Tap a piece, then drag it to a new spot");
-  $("arrangeFlip").disabled = !p;
-  $("arrangeStore").disabled = !p || !!ISO_FIXED[p.id];
+  const id = arrange.sel;
+  $("arrangeTip").textContent = id ? (DECO[id]?.name || tr(id === "bed" ? "Bed" : "Incubator")) : tr("Tap a piece, then drag it to a new spot");
+  $("arrangeFlip").disabled = !id || id === "rug";
+  $("arrangeStore").disabled = !id || !!ISO_FIXED[id];
 }
-/** The piece under a finger (the nearest one whose footprint or body is there). */
+/** The wall piece under a finger, if any. */
+function wallItemAt(x, y) {
+  for (const id of Object.keys(WALL_ITEMS)) {
+    if (!hasDecor(id)) continue;
+    const m = wallSlot(id), [fx, fy] = wallFoot(m.wall, m.s), cy = fy - N.isoWall * (id === "painting" ? 0.65 : 0.55), r = N.isoW / ISO_G * 1.1;
+    if (Math.abs(x - fx) < r && Math.abs(y - cy) < r * 0.9) return id;
+  }
+  return null;
+}
+/** What's under a finger: a wall piece, else the nearest floor piece whose footprint or body is there, else the rug. */
 function pieceAt(x, y) {
+  const w = wallItemAt(x, y);
+  if (w) return w;
   let best = null, bd = Infinity;
   for (const p of Object.values(isoLayout().placed)) {
     const [px, py] = isoPieceAt(p), tile = N.isoW / ISO_G, reach = tile * Math.max(p.fw, p.fd);
-    if (Math.abs(x - px) < reach && y < py + tile * 0.7 && y > py - tile * 2.2) { const d = Math.hypot(x - px, y - py); if (d < bd) { bd = d; best = p; } }
+    if (Math.abs(x - px) < reach && y < py + tile * 0.7 && y > py - tile * 2.2) { const d = Math.hypot(x - px, y - py); if (d < bd) { bd = d; best = p.id; } }
   }
-  return best;
+  if (best) return best;
+  if (hasDecor("rug")) { const [rx, ry] = rugSize(), [cx, cy] = roomSpot("rug"); if (((x - cx) / rx) ** 2 + ((y - cy) / ry) ** 2 < 1) return "rug"; }
+  return null;
 }
 /** Would this piece fit with its corner on tile (i, j), turned or not, ignoring where it is now? */
 function pieceFits(id, i, j, flip) {
-  const d = pieceDims(id, flip), cur = isoLayout().placed[id];
+  const d = pieceDims(id, flip);
   if (i < 0 || j < 0 || i + d.fw > ISO_G || j + d.fd > ISO_G) return false;
   for (const p of Object.values(isoLayout().placed)) {
     if (p.id === id) continue;
     if (i < p.i + p.fw && p.i < i + d.fw && j < p.j + p.fd && p.j < j + d.fd) return false;
   }
-  return !!cur || true;
+  return true;
 }
-function placePiece(id, i, j, flip) {
-  save.layout = { ...save.layout, [id]: { i, j, flip: !!flip } };
+/** Is this wall slot clear of the other wall piece? */
+const wallFree = (id, wall, s) => Object.keys(WALL_ITEMS).every(o => o === id || !hasDecor(o) || wallSlot(o).wall !== wall || Math.abs(wallSlot(o).s - s) >= 1.6);
+function setLayout(id, m) {
+  save.layout = { ...save.layout, [id]: m };
   isoLayoutCache = null; persist(); sfx.tick();
 }
+const placePiece = (id, i, j, flip) => setLayout(id, { i, j, flip: !!flip });
 function arrangeDown(x, y) {
-  const p = pieceAt(x, y);
-  arrange.sel = p ? p.id : null; arrange.drag = null; arrangeUi();
-  if (p) { const [u, v] = isoFrom(x, y); arrange.grab = [u * ISO_G - p.i, v * ISO_G - p.j]; }
+  const id = pieceAt(x, y);
+  arrange.sel = id; arrange.drag = null; arrangeUi();
+  if (id && arrangeKind(id) === "floor") { const p = isoLayout().placed[id], [u, v] = isoFrom(x, y); arrange.grab = [u * ISO_G - p.i, v * ISO_G - p.j]; }
+  else if (id === "rug") { const [rx, ry] = roomSpot("rug"); arrange.grab = [x - rx, y - ry]; }
 }
 function arrangeMove(x, y) {
-  const p = arrange.sel && isoLayout().placed[arrange.sel];
-  if (!p) return;
-  const [u, v] = isoFrom(x, y), i = Math.round(u * ISO_G - arrange.grab[0]), j = Math.round(v * ISO_G - arrange.grab[1]);
-  arrange.drag = { id: p.id, i, j, ok: pieceFits(p.id, i, j, p.flip) };
+  const id = arrange.sel;
+  if (!id) return;
+  const kind = arrangeKind(id);
+  if (kind === "wall") {
+    // whichever wall the finger is nearer: the left half of the room is the left wall
+    const wall = x < N.cx ? "L" : "R", s = clamp(Math.round(Math.abs(x - N.cx) / N.isoW * ISO_G - 0.5), 0, ISO_G - 1);
+    arrange.drag = { id, wall, s, ok: wallFree(id, wall, s) };
+  } else if (kind === "rug") {
+    const m = 0.26, [u, v] = isoFrom(x - arrange.grab[0], y - arrange.grab[1]);
+    arrange.drag = { id, u: clamp(u, m, 1 - m), v: clamp(v, m, 1 - m), ok: true };
+  } else {
+    const p = isoLayout().placed[id];
+    if (!p) return;
+    const [u, v] = isoFrom(x, y), i = Math.round(u * ISO_G - arrange.grab[0]), j = Math.round(v * ISO_G - arrange.grab[1]), flip = autoFlip(id, i, j, p.flip);
+    arrange.drag = { id, i, j, flip, ok: pieceFits(id, i, j, flip) };
+  }
 }
 function arrangeUp() {
-  const d = arrange.drag, p = d && isoLayout().placed[d.id];
-  if (d && p && d.ok && (d.i !== p.i || d.j !== p.j)) placePiece(d.id, d.i, d.j, p.flip);
-  else if (d && !d.ok) toast(tr("That spot is taken"));
+  const d = arrange.drag;
+  if (d && d.ok) {
+    if (d.wall) setLayout(d.id, { wall: d.wall, s: d.s });
+    else if (d.id === "rug") setLayout("rug", { u: d.u, v: d.v });
+    else { const p = isoLayout().placed[d.id]; if (p && (d.i !== p.i || d.j !== p.j || d.flip !== p.flip)) placePiece(d.id, d.i, d.j, d.flip); }
+  } else if (d) toast(tr("That spot is taken"));
   arrange.drag = null; arrangeUi();
 }
-/** Turn the chosen piece to face the other wall, keeping it where it is if it fits, or the nearest free spot. */
+/** Turn the chosen piece: a floor piece faces the other wall (where it is if it fits, or the nearest free spot); a wall piece goes to the other wall. */
 function arrangeFlip() {
-  const p = arrange.sel && isoLayout().placed[arrange.sel];
+  const id = arrange.sel, kind = id && arrangeKind(id);
+  if (kind === "wall") {
+    const m = wallSlot(id), wall = m.wall === "L" ? "R" : "L", s = [Math.round(m.s), 0, 1, 2, 3, 4, 5].find(k => wallFree(id, wall, k));
+    if (s === undefined) { toast(tr("No room to turn it here")); return; }
+    setLayout(id, { wall, s });
+    return;
+  }
+  const p = kind === "floor" && isoLayout().placed[id];
   if (!p) return;
   const flip = !p.flip, spots = [[p.i, p.j], ...Array.from({ length: ISO_G * ISO_G }, (_, k) => [k % ISO_G, Math.floor(k / ISO_G)]).sort((a, b) => Math.hypot(a[0] - p.i, a[1] - p.j) - Math.hypot(b[0] - p.i, b[1] - p.j))];
   const spot = spots.find(([i, j]) => pieceFits(p.id, i, j, flip));
@@ -5716,22 +5962,35 @@ function arrangeFlip() {
   placePiece(p.id, spot[0], spot[1], flip);
 }
 function arrangeStore() {
-  const p = arrange.sel && isoLayout().placed[arrange.sel];
-  if (!p || ISO_FIXED[p.id] || !save.decor[p.id]) return;
-  save.decor[p.id].on = false; isoLayoutCache = null; persist(); sfx.tick();
+  const id = arrange.sel;
+  if (!id || ISO_FIXED[id] || !save.decor[id]) return;
+  save.decor[id].on = false; isoLayoutCache = null; persist(); sfx.tick();
   arrange.sel = null; arrangeUi();
 }
-/** While arranging: the floor's tiles, the chosen piece's footprint, and where it would land. */
+/** While arranging: the floor's tiles, the chosen piece's place, and where it would land. */
 function drawArrangeGrid() {
   const corner = (i, j) => isoAt(i / ISO_G, j / ISO_G);
   ctx.save();
   ctx.strokeStyle = "rgba(230,224,255,.22)"; ctx.lineWidth = 1;
   for (let k = 0; k <= ISO_G; k++) { let [a, b] = [corner(k, 0), corner(k, ISO_G)]; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); [a, b] = [corner(0, k), corner(ISO_G, k)]; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); }
-  const foot = (i, j, fw, fd, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(...corner(i, j)); ctx.lineTo(...corner(i + fw, j)); ctx.lineTo(...corner(i + fw, j + fd)); ctx.lineTo(...corner(i, j + fd)); ctx.closePath(); ctx.fill(); };
-  const p = arrange.sel && isoLayout().placed[arrange.sel];
-  if (p) foot(p.i, p.j, p.fw, p.fd, "rgba(238,194,106,.35)");
-  const d = arrange.drag;
-  if (d && p) foot(d.i, d.j, p.fw, p.fd, d.ok ? "rgba(87,173,106,.5)" : "rgba(224,99,79,.5)");
+  const fill = (pts, col) => { ctx.fillStyle = col; ctx.beginPath(); pts.forEach((p, k) => k ? ctx.lineTo(...p) : ctx.moveTo(...p)); ctx.closePath(); ctx.fill(); };
+  const foot = (i, j, fw, fd, col) => fill([corner(i, j), corner(i + fw, j), corner(i + fw, j + fd), corner(i, j + fd)], col);
+  // a wall slot: a band up the wall
+  const band = (wall, s, col) => { const a = wall === "R" ? corner(s, 0) : corner(0, s), b = wall === "R" ? corner(s + 1, 0) : corner(0, s + 1), up = N.isoWall * 0.9; fill([a, b, [b[0], b[1] - up], [a[0], a[1] - up]], col); };
+  const ring = (x, y, col) => { const [rx, ry] = rugSize(); ctx.strokeStyle = col; ctx.lineWidth = PX * 1.5; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.stroke(); };
+  const id = arrange.sel, kind = id && arrangeKind(id), d = arrange.drag, gold = "rgba(238,194,106,.35)", ok = "rgba(87,173,106,.5)", no = "rgba(224,99,79,.5)";
+  if (kind === "floor") {
+    const p = isoLayout().placed[id];
+    if (p) foot(p.i, p.j, p.fw, p.fd, gold);
+    if (d && p) { const dd = pieceDims(id, d.flip); foot(d.i, d.j, dd.fw, dd.fd, d.ok ? ok : no); }
+  } else if (kind === "wall") {
+    const m = wallSlot(id);
+    band(m.wall, m.s, gold);
+    if (d) band(d.wall, d.s, d.ok ? ok : no);
+  } else if (kind === "rug") {
+    ring(...roomSpot("rug"), "rgba(238,194,106,.7)");
+    if (d) ring(...isoAt(d.u, d.v), "rgba(87,173,106,.9)");
+  }
   ctx.restore();
 }
 const isoPieces = {};
@@ -5768,6 +6027,74 @@ function moveCloud(x, y) {
   let [u, v] = isoFrom(x, y + cloudLift());
   save.cloud = [clamp(u, m, 1 - m), clamp(v, m, 1 - m)];
 }
+
+// ---------- weather: tap the cloud and it rains (or snows) for a while; puddles and snow on the floor melt away slowly ----------
+const weather = { kind: null, last: null, until: 0, acc: 0, drops: [], ground: [] };
+const COLD_THEMES = ["frost", "summit", "celestite"];
+function startWeather() {
+  // rain and snow take turns; the cold backdrops start with snow
+  weather.kind = weather.last ? (weather.last === "rain" ? "snow" : "rain") : COLD_THEMES.includes(currentTheme()) ? "snow" : "rain";
+  weather.last = weather.kind; weather.until = game.time + 4000;
+  if (!sfx.ready()) return;
+  const t = sfx.ac.currentTime;
+  if (weather.kind === "rain") for (let k = 0; k < 16; k++) sfx.grain(t + k * 0.25 + rand(0, 0.1), 0.35, rand(2400, 4200), 0.7, 0.05);
+  else for (let k = 0; k < 7; k++) sfx.tone(t + k * 0.5 + rand(0, 0.2), pick(NOTES) * 2, 0.018, 1.2, "sine", null, true);
+}
+function updateWeather(dt) {
+  const on = N.iso && hasDecor("cushion"), c = on && cloudSpot(), tile = N.isoW / ISO_G, snow = weather.kind === "snow";
+  if (on && game.time < weather.until) {
+    weather.acc += dt * (snow ? 34 : 90);
+    for (; weather.acc >= 1; weather.acc--) {
+      // from under the cloud, falling onto the floor beneath it (a 2:1 patch, as everything on the floor is)
+      const an = rand(0, TAU), r = Math.sqrt(Math.random()) * tile * 1.1, ox = Math.cos(an) * r, oy = Math.sin(an) * r / 2;
+      weather.drops.push({ x: c.x + ox, y: c.bodyY + tile * 0.35 + rand(-2, 2), floor: c.y + oy, vy: snow ? rand(0.6, 0.9) * N.base : N.base * 3, ph: rand(0, TAU), snow });
+    }
+  }
+  for (const d of weather.drops) {
+    if (d.snow) { d.y += d.vy * dt; d.x += Math.sin(game.time * 0.003 + d.ph) * dt * N.base * 0.25; }
+    else { d.vy += N.base * 14 * dt; d.y += d.vy * dt; }
+    if (d.y < d.floor) continue;
+    d.done = true;
+    weather.ground.push({ x: d.x, y: d.floor, life: 1, snow: d.snow, r: d.snow ? 0 : rand(1.5, 3.2) });
+    if (!d.snow && Math.random() < 0.3) game.sparks.push({ x: d.x, y: d.floor - 1, vx: rand(-25, 25), vy: rand(-60, -30), t: 0, life: 0.25, s: 2, color: "#bfe3f5" });
+    // a glowling caught in it says so
+    if (Math.random() < 0.04) for (const a of actors.values()) if (!a.emote && a.state !== "sleep" && Math.hypot(a.x - d.x, (a.y - d.floor) * 2) < tile * 0.8) emote(a, d.snow ? "❄" : "💧", 1.4);
+  }
+  weather.drops = weather.drops.filter(d => !d.done);
+  // what's on the floor fades: rain soaks away in about six seconds, snow melts in about nine
+  for (const g of weather.ground) g.life -= dt / (g.snow ? 9 : 6);
+  weather.ground = weather.ground.filter(g => g.life > 0).slice(-500);
+}
+/** Weather's own pixel: about a sixteenth of a tile, so rain and snow read at any pixel size. */
+const weatherPx = () => Math.max(1, Math.round(N.isoW / ISO_G / PX / 16)) * PX;
+/** Puddles and snow on the floor, fading out pixel by pixel (dithered, so they thin away instead of turning see-through). */
+function drawWeatherGround() {
+  const Q = weatherPx();
+  const put = (x, y, col, life) => { const X = Math.round(x / Q), Y = Math.round(y / Q); if (PX_BAYER[(Y & 3) * 4 + (X & 3)] < life * 1.15) { ctx.fillStyle = col; ctx.fillRect(X * Q, Y * Q, Q, Q); } };
+  for (const g of weather.ground) {
+    if (g.snow) { put(g.x, g.y, "#f4f7ff", g.life); if (g.life > 0.5) put(g.x + Q, g.y, "#c9d8ef", g.life - 0.3); continue; }
+    const R = Math.round(g.r);
+    for (let y = -Math.ceil(R / 2); y <= Math.ceil(R / 2); y++) for (let x = -R; x <= R; x++) if ((x / R) ** 2 + (y / (R / 2)) ** 2 <= 1) put(g.x + x * Q, g.y + y * Q, y < 0 && x < 0 ? "#8fc7e6" : "#3f74a8", g.life);
+  }
+}
+/** The drops and flakes in the air. */
+function drawWeatherAir() {
+  const Q = weatherPx();
+  for (const d of weather.drops) {
+    const X = Math.round(d.x / Q) * Q, Y = Math.round(d.y / Q) * Q;
+    if (d.snow) { ctx.fillStyle = "#ffffff"; ctx.fillRect(X, Y, Q, Q); if (d.ph > 4) { ctx.fillStyle = "#dfe8fa"; ctx.fillRect(X - Q, Y, Q, Q); ctx.fillRect(X + Q, Y, Q, Q); ctx.fillRect(X, Y - Q, Q, Q); ctx.fillRect(X, Y + Q, Q, Q); } }
+    else { ctx.fillStyle = "#6fa8d6"; ctx.fillRect(X, Y - Q * 3, Q, Q * 2); ctx.fillStyle = "#d4f0ff"; ctx.fillRect(X, Y - Q, Q, Q * 2); }
+  }
+}
+
+/** Is this floor point on the (isometric) bed? and how high its soft top is. */
+function isoOnBed(x, y) {
+  const p = N.iso && isoLayout().placed.bed;
+  if (!p) return false;
+  const [u, v] = isoFrom(x, y), U = u * ISO_G, V = v * ISO_G;
+  return U > p.i + 0.15 && U < p.i + p.fw - 0.05 && V > p.j + 0.05 && V < p.j + p.fd - 0.15;
+}
+const isoBedTop = () => N.isoW / ISO_G * 0.22;
 
 /** Each sleeper's own place on the bed: a 2×2 spread on the big isometric bed, side by side on the straight-on one. */
 function bedSpot(id) {
@@ -5924,21 +6251,17 @@ function paintRoomIso(id) {
   // what holds things up: hooks indoors, wooden posts outdoors
   const post = (x, y0, y1) => { for (let y = Math.round(y1); y <= Math.round(y0); y++) { put(x - 1, y, wood[0]); put(x, y, wood[2]); put(x + 1, y, wood[1]); } };
   const wallTopQ = x => q(isoWallTop(x * PX));
-  if (hasDecor("swing")) {
-    const sx = q(roomSpot("swing")[0]);
-    if (indoor) { put(sx, wallTopQ(sx) + 2, pxHex("#e4dfe8")); put(sx - 1, wallTopQ(sx) + 1, pxHex("#8a8494")); put(sx + 1, wallTopQ(sx) + 1, pxHex("#8a8494")); }
-    else { const px = sx + q(N.base * 0.5), [, fy] = at(0.7, 0.02); post(px, fy, wallTopQ(sx)); for (let x = Math.round(sx - 3); x <= px; x++) { put(x, wallTopQ(sx), wood[2]); put(x, wallTopQ(sx) + 1, wood[0]); } }
-  }
   if (hasDecor("lights")) for (const k of [-0.94, 0, 0.94]) {
     const x = cx + k * hw, [, fy] = k < 0 ? at(0, 0.94) : k > 0 ? at(0.94, 0) : at(0, 0);
     if (indoor) { put(x, wallTopQ(x) + 2, pxHex("#8a8494")); } else post(Math.round(x), fy, wallTopQ(x) + 4);
   }
   if (hasDecor("shelf") && !indoor) { const [shx, shy] = roomSpot("shelf"), py = q(shy - N.base * 0.95 * N.dk), [, fy] = at(0.22, 0); post(Math.round(q(shx) - 3), fy, py); post(Math.round(q(shx) + 4), fy + 2, py + 3); }
   if (hasDecor("painting")) {
-    // a framed night with a moon, on the left wall's plane (a parallelogram that follows the wall)
-    const s0 = 0.08, s1 = 0.3, z0 = indoor ? 0.48 : 0.0, z1 = indoor ? 0.82 : 0.0;
-    if (indoor) for (let x = Math.floor(cx - hw * s1); x <= Math.ceil(cx - hw * s0); x++) {
-      const tt = (cx - x) / hw, base = top + tt * hh, lx = (tt - s0) / (s1 - s0);
+    // a framed night with a moon, on its wall's plane (a parallelogram that follows the wall), in the slot it was put in
+    const slot = wallSlot("painting"), sg = slot.wall === "L" ? -1 : 1, mid = (slot.s + 0.5) / ISO_G;
+    const s0 = Math.max(0.03, mid - 0.11), s1 = Math.min(0.97, s0 + 0.22), z0 = indoor ? 0.48 : 0.0, z1 = indoor ? 0.82 : 0.0;
+    if (indoor) for (let x = Math.floor(Math.min(cx + sg * hw * s0, cx + sg * hw * s1)); x <= Math.ceil(Math.max(cx + sg * hw * s0, cx + sg * hw * s1)); x++) {
+      const tt = sg * (x - cx) / hw, base = top + tt * hh, lx = (tt - s0) / (s1 - s0);
       for (let y = Math.floor(base - wall * z1); y <= base - wall * z0; y++) {
         const hy = (base - y) / wall, ly = (hy - z0) / (z1 - z0), edge = lx < 0.09 || lx > 0.91 || ly < 0.1 || ly > 0.9;
         let col = edge ? (lx < 0.09 || ly > 0.9 ? IC.w0 : IC.w2) : pxPick([IC.ink2, pxHex("#2e1d4f"), pxHex("#3d2866"), pxHex("#523a85")], ly * 0.9, x, y);
@@ -5959,20 +6282,20 @@ function drawRoomIso() {
   drawBaked(isoRug(hasDecor("rug")));
   if (arrange.on) drawArrangeGrid();
   if (hasDecor("cushion")) drawCloudShadow();
+  drawWeatherGround();
   const items = [];
   for (const p of Object.values(isoLayout().placed)) {
     const fy = isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1];
     const box = { u0: p.i, u1: p.i + p.fw, v0: p.j, v1: p.j + p.fd, id: p.id };
     if (p.id === "incubator") { items.push({ y: fy, box, draw: drawIncubator }); continue; }
+    if (p.id === "swing") { items.push({ y: fy, box, draw: () => drawSwingIso(p) }); continue; }
     const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
     const extra = p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : {};
     items.push({ y: fy, box, draw: () => drawBaked(isoPiece(p, extra), 0, bob) });
   }
-  // the swing hangs out over the first row of the floor: it sorts by the ground under its seat, so pieces by the wall stay behind it
-  // the swing hangs out over the first row of tiles: in front of pieces by the wall, behind anything further into the room
-  if (hasDecor("swing")) { const su = 0.42 * ISO_G; items.push({ y: isoAt(0.42, 1.3 / ISO_G)[1], box: { u0: su - 0.45, u1: su + 0.45, v0: 1.0, v1: 1.05, id: "swing" }, draw: () => DRAW_DECOR.swing() }); }
-  if (hasDecor("shelf")) { const [x, y] = decorSpot("shelf"); items.push({ y: -2, draw: () => { decorK = N.dk; drawBaked(cachedSprite(roomSprites, "shelf", `${x}|${y}|${N.base}|${PX}|${Math.floor(game.time / 200)}`, () => bakeSprite(x, y - N.base * 0.6 * N.dk, N.base * N.dk, () => DRAW_DECOR.shelf(x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } }); }
+  if (hasDecor("shelf")) { const [x, y] = decorSpot("shelf"); items.push({ y: -2, draw: () => { decorK = N.dk; drawBaked(cachedSprite(roomSprites, "shelf", `${x}|${y}|${wallSlot("shelf").wall}|${N.base}|${PX}|${Math.floor(game.time / 200)}`, () => bakeSprite(x, y - N.base * 0.6 * N.dk, N.base * N.dk, () => DRAW_DECOR.shelf(x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } }); }
   if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
+  if (weather.drops.length) items.push({ y: 1e6, top: true, draw: drawWeatherAir });
   if (hasDecor("cushion")) items.push({ y: 1e6, top: true, id: "cushion", draw: drawCloud });
   return items;
 }
@@ -6156,6 +6479,14 @@ function geodeImg(id) {
 }
 
 function swingSeat() {
+  const p = N.iso && isoLayout().placed.swing;
+  if (p) {
+    const tw = N.isoW / ISO_G, [cx, cy] = isoAt((p.i + 0.5) / ISO_G, (p.j + 0.5) / ISO_G), top = cy - (Math.round(tw / PX * 1.8) + 1) * PX;
+    const len = (cy - top) * 0.72, a = Math.sin(game.time * 0.0012 * (1 + swingPush)) * (0.18 + swingPush);
+    // the bar runs along the wall behind it, and the seat swings out into the room and back
+    const sw = p.flip ? [0.894, 0.447] : [-0.894, 0.447], bar = p.flip ? [-tw * 0.3, N.isoH / ISO_G * 0.3] : [tw * 0.3, N.isoH / ISO_G * 0.3];
+    return [cx + sw[0] * Math.sin(a) * len * 0.8, top + Math.cos(a) * len + sw[1] * Math.sin(a) * len * 0.8, a, top, bar, cx, cy];
+  }
   const [x, y] = decorSpot("swing"), top = N.iso ? isoWallTop(x) + 3 : N.wallTop + 3;
   const len = y - N.base * 0.95 - top, a = Math.sin(game.time * 0.0012 * (1 + swingPush)) * (0.18 + swingPush);
   return [x + Math.sin(a) * len, top + Math.cos(a) * len, a, top];
@@ -6225,7 +6556,7 @@ const DRAW_DECOR = {
   },
   shelf(x, y) {
     const b = N.base * decorK, sy = y - b * 0.95, w = b * 1.2;
-    if (N.iso) { ctx.translate(x, sy); ctx.transform(1, 0.5, 0, 1, 0, 0); ctx.translate(-x, -sy); }
+    if (N.iso) { ctx.translate(x, sy); ctx.transform(1, wallSlot("shelf").wall === "L" ? -0.5 : 0.5, 0, 1, 0, 0); ctx.translate(-x, -sy); }
     ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(x - w / 2, sy, w, 5);
     ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x - w / 2 + 6, sy + 5, 4, 10); ctx.fillRect(x + w / 2 - 10, sy + 5, 4, 10);
     // brackets under the plank
@@ -6365,7 +6696,8 @@ function playDecor(hit) {
       break;
     case "cushion":
       if (sfx.ready()) { sfx.grain(t, 0.25, 500, 0.7, 0.25, "lowpass"); sfx.grain(t + 0.02, 0.12, 2200, 1, 0.08); }
-      spawnChips(x, y - b * 0.2, 10, 0.5, ["#ffffff", "#e6e0ff", "#f3eefc"]);
+      if (N.iso) startWeather();
+      else spawnChips(x, y - b * 0.2, 10, 0.5, ["#ffffff", "#e6e0ff", "#f3eefc"]);
       break;
     case "spring":
       if (sfx.ready()) { sfx.tone(t, rand(1300, 1700), 0.08, 0.4, "sine", null, true); sfx.tone(t + 0.04, 2600, 0.03, 0.3, "sine"); }
@@ -6478,7 +6810,7 @@ function drawNest() {
       const [u, v] = isoFrom(a.x, a.y);
       item.box = { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G };
       // lying on the bed, napping on the cloud or sitting on the swing or a piece: drawn right after it
-      item.after = a.state === "sleep" ? "bed" : a.state === "nap" && a.decor === "cushion" ? "cushion" : (a.state === "visit" || a.state === "nap") && a.decor ? a.decor : null;
+      item.after = a.state === "sleep" || a.onBed ? "bed" : a.state === "nap" && a.decor === "cushion" ? "cushion" : (a.state === "visit" || a.state === "nap") && a.decor ? a.decor : null;
       if (item.after === "cushion") item.top = true;
     }
     items.push(item);
@@ -6531,7 +6863,7 @@ function drawActor(a) {
     if (!cr) return;
     const v = actorView(a), sp = specOf(cr), mine = act && a.id === act.id;
     ctx.fillStyle = "rgba(5,0,20,.35)";
-    ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.38 * clamp(1 - a.alt / (N.base * 1.4), 0.4, 1), v.size * 0.09, 0, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.ellipse(a.x, a.y - (a.perch || 0), v.size * 0.38 * clamp(1 - a.alt / (N.base * 1.4), 0.4, 1), v.size * 0.09, 0, 0, TAU); ctx.fill();
     if (mine) {
       ctx.strokeStyle = `rgba(255,233,168,${0.5 + 0.3 * Math.sin(game.time * 0.004)})`; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.5, v.size * 0.13, 0, 0, TAU); ctx.stroke();
@@ -8028,6 +8360,7 @@ function update(dt) {
   if (game.scene === "nest") {
     const n = game.nest;
     updateActors(dt);
+    updateWeather(dt);
     swingPush *= Math.exp(-0.35 * dt);
     if (n.snack) {
       const a = activeActor();
@@ -8432,9 +8765,9 @@ function drawIdle() {
 }
 
 function frame(now) {
-  const ms = now - (frame.last || now);
+  const ms = now - (frame.last || now), t0 = performance.now();
   frame.last = now;
-  quality.sample(ms);
+  quality.sample(ms, frame.work || 0);
   let dt = Math.min(ms / 1000, 0.05);
   // a crit freezes the world for a blink, so the hit lands
   if (game.freeze > 0) { game.freeze -= dt; dt = 0; }
@@ -8473,6 +8806,7 @@ function frame(now) {
   drawCoopCursor();
   drawCoach();
   present();
+  frame.work = performance.now() - t0;
   requestAnimationFrame(frame);
 }
 
@@ -8485,6 +8819,7 @@ resize();
 updateTopbar();
 checkThemes();
 coopImportLocationInvite();
+quality.settle(5000); // the first seconds bake every picture: don't judge the device by them
 requestAnimationFrame(frame);
 
 // ---------- the start plate: a dithered pixel-art grotto, drawn live like the keep on helavika's portfolio ----------
