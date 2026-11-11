@@ -1588,7 +1588,8 @@ function callOf(cr) {
 function updateCalls() {
   const t = document.querySelector('#tabs [data-tab="nest"]');
   if (!t) return;
-  const n = save.creatures.filter(c => { applyTime(c); return callOf(c); }).length;
+  // looks ahead on a copy: just checking must never change the save
+  const n = save.creatures.filter(c => { const p = { ...c, dust: [...(c.dust || [])] }; applyTime(p); return callOf(p); }).length;
   t.classList.toggle("call", n > 0 && game.scene !== "nest");
 }
 
