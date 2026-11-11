@@ -653,6 +653,16 @@
 
   /* ---------- small phones: everything a little tighter, so the nest has room to breathe ---------- */
   .menu-only { display: none !important; }
+  /* the nest header: one quiet line (name, level, a thin bar), so the room isn't crowded from above */
+  #nestTop { display: flex; align-items: center; justify-content: center; gap: 8px; top: calc(var(--top) + 52px) !important; }
+  #nestTop #nestName { font-size: 26px; text-shadow: 0 2px 0 var(--px-ink); }
+  #nestTop #nestLvl { order: 2; margin: 0; font-size: 15px; color: var(--px-gold); }
+  #nestTop #xpBar { order: 3; width: 54px; height: 6px; margin: 0; }
+  #nestTop #nestShare { order: 4; padding: 0 2px; }
+  #nestTop #nestShare .ic { width: 20px; height: 20px; }
+  body.scene-nest #hint, body.compact.scene-nest #hint { top: calc(var(--top) + 92px) !important; }
+  body.compact #nestTop #nestName { font-size: 22px; }
+  body.compact #nestTop { top: calc(var(--top) + 46px) !important; }
   .view-seg { display: flex; margin: 4px 0 8px; }
   .view-seg button { flex: 1; }
   body.compact .card { max-width: calc(100vw - 20px); }
@@ -1500,7 +1510,10 @@ const UK = {
   "No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in your nest 💞": "Гібридів ще немає. Вирости двох глоулінгів до {0} рівня, потіш їх і тапни інкубатор у гніздечку 💞",
   "View": "Вигляд",
   "Straight on": "Прямо",
-  "Isometric": "Ізометрія"
+  "Isometric": "Ізометрія",
+  "Your friend left · {0} is in your nest ✦": "Друг вийшов · {0} уже в твоєму гніздечку ✦",
+  "{0} met a sibling: +40 XP": "{0} зустрів родича: +40 досвіду",
+  "Your friend left the shared room": "Друг вийшов зі спільної кімнати"
 };
 
 const UK_DATA = {
@@ -2776,7 +2789,7 @@ function computeLayout() {
   L.egg = eggPoly(L.ecx, L.ecy, L.ew, L.eh);
   // the nest leaves room for the name above and the needs, buttons and tabs below
   const compact = H < 740 || W < 360;
-  const nTop = compact ? 112 : 150, nBottom = H - (compact ? 206 : 280), roomW = Math.min(W * 0.92, 760);
+  const nTop = compact ? 98 : 116, nBottom = H - (compact ? 206 : 280), roomW = Math.min(W * 0.92, 760);
   N.top = nTop;
   N.base = clamp(Math.min(W * 0.18, (nBottom - nTop) * 0.28), 56, 120);
   N.x0 = W / 2 - roomW / 2 + N.base * 0.5; N.x1 = W / 2 + roomW / 2 - N.base * 0.5;
@@ -2805,10 +2818,10 @@ function computeLayout() {
   [N.bedX, N.bedY] = roomSpot("bed");
 }
 
-/** Which way the room is seen: straight on (the default) or isometric. ?view=iso tries it without saving. */
+/** Which way the room is seen: isometric (the default) or straight on. ?view=front tries it without saving. */
 function roomView() {
   const q = /[?&]view=(iso|front)\b/.exec(location.search);
-  return q ? q[1] : save.view === "iso" ? "iso" : "front";
+  return q ? q[1] : save.view === "front" ? "front" : "iso";
 }
 /** Isometric floor coordinates: u runs from the back corner to the right corner, v from the back corner to the left one. */
 const isoAt = (u, v) => [N.cx + (u - v) * N.isoW, N.isoTop + (u + v) * N.isoH];
@@ -4288,9 +4301,11 @@ function adopt(e) {
     addXP(mine, 40);
     mine.joy = clamp(mine.joy + 20, 0, 100);
     note = tr("Your {0} met a sibling: +40 XP and lots of joy ✦", mine.name);
+    adopt.sibling = true;
   } else {
     mine = { id: save.nextId++, sp: sp.id, name: (e.shiny ? "✦ " : "") + sp.name, shiny: e.shiny, level: 1, xp: 0, tummy: 70, joy: 80, energy: 80, sleeping: false, last: Date.now(), born: Date.now() };
     save.creatures.push(mine);
+    adopt.sibling = false;
     note = e.shiny ? tr("A shiny one! It sparkles in your nest now ✦") : tr("{0} moved into your nest", sp.name);
   }
   save.active = mine.id;
@@ -4337,7 +4352,7 @@ function showFound() {
   $("foundMap").hidden = !!conf.moon;
   // the nest is the other half of the game: say who's waiting there, so it's not just egg after egg
   $("foundNestLabel").textContent = tr("Go to the nest");
-  $("foundNestSub").textContent = tr("{0} is waiting for you", mine.name);
+  $("foundNestSub").textContent = adopt.sibling ? tr("{0} met a sibling: +40 XP", mine.name) : tr("{0} is waiting for you", mine.name);
   $("nextLvl").textContent = conf.coop ? (coopIsHost() ? tr("Another shared egg") : tr("Waiting for host")) : conf.moon ? tr("Back to the grotto") : conf.wander ? tr("Another egg") : conf.n >= LEVELS ? tr("Wander on") : tr("Next level");
   $("nextLvl").disabled = !!conf.coop && !coopIsHost();
   updateTopbar();
@@ -4665,7 +4680,8 @@ function renderNest(full) {
   applyTime(cr);
   const sp = specOf(cr);
   $("nestName").textContent = cr.name;
-  $("nestLvl").textContent = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name) + (cr.level >= MAX_LEVEL ? tr(" · max") : "");
+  $("nestLvl").textContent = tr("Lv {0}", cr.level) + (cr.level >= MAX_LEVEL ? tr(" · max") : "");
+  $("nestTop").title = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name);
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
   for (const [k, id] of [["tummy", "Tummy"], ["joy", "Joy"], ["energy", "Energy"]]) {
     // four icons per need, like an old handheld pet: full ones for what's there, faint ones for what's missing
@@ -6235,6 +6251,13 @@ function coopSetSession(role, mode = "manual") {
   const generation = ++coopGeneration;
   const session = { generation, role, mode, peer: null, round: null, rounds: new Set(), stateSeq: 0, lastStateSeq: -1, lastBroadcast: 0, inputSeq: 0, lastInputSeq: -1, inputWindow: 0, inputCount: 0, remotePointer: null, remoteCursor: null };
   coopSession = session; game.coop = session; game.coopTouched = true;
+  session.lastHeard = Date.now();
+  session.beat = setInterval(() => {
+    if (!coopLive(session)) { clearInterval(session.beat); return; }
+    if (!session.peer?.connected) { session.lastHeard = Date.now(); return; }
+    session.peer.send({ type: "ping" });
+    if (!document.hidden && Date.now() - session.lastHeard > COOP_SILENCE_MS) { coopEnd("timeout", true); coopPartnerGone(); }
+  }, 4000);
   const callbacks = {
     onStatus: status => {
       if (!coopLive(session)) return;
@@ -6253,9 +6276,9 @@ function coopSetSession(role, mode = "manual") {
     onMessage: packet => { if (!coopLive(session)) return; coopReceive(session, packet); },
     onClose: reason => {
       if (!coopLive(session)) return;
-      const started = !!session.round;
+      const started = !!session.round, done = game.egg && game.egg.coopRewarded;
       coopEnd("disconnected", true);
-      if (started) toast(tr("Friend disconnected. Your nest is safe; create a fresh invite to reconnect."));
+      if (started && !done) toast(tr("Friend disconnected. Your nest is safe; create a fresh invite to reconnect."));
       else {
         coopOpenDialog();
         coopUiError(mode === "invite" ? globalThis.HatchstoneInvite.friendlyError(reason) : tr("Could not connect. Exchange fresh codes, or try another network."));
@@ -6265,8 +6288,16 @@ function coopSetSession(role, mode = "manual") {
   session.peer = new (mode === "invite" ? globalThis.HatchstoneInvite.Peer : globalThis.HatchstoneLink.Peer)(callbacks);
   return session;
 }
+const COOP_SILENCE_MS = 45000;
+/** Your friend left (or went quiet): say so, kindly, wherever you are. */
+function coopPartnerGone() {
+  if ($("found").classList.contains("hidden")) toast(tr("Your friend left the shared room"));
+}
 function coopReceive(s, packet) {
   if (!packet || typeof packet !== "object") return;
+  s.lastHeard = Date.now();
+  if (packet.type === "ping") return;
+  if (packet.type === "bye") { coopEnd("partner-left", true); coopPartnerGone(); return; }
   if (packet.type === "round" && s.role === "guest") {
     if (!coopRoundState(packet) || s.rounds.has(packet.round.id) || (s.round && game.egg && !game.egg.coopRewarded)) return;
     if (s.rounds.size >= 128) { coopEnd("room-limit"); return; }
@@ -6435,12 +6466,22 @@ function coopEnd(reason = "left", silent = false) {
   coopForgetLocationInvite();
   const old = coopSession;
   coopSession = null; game.coop = null; ++coopGeneration;
-  if (old) clearTimeout(old.connectTimer);
+  if (old) { clearTimeout(old.connectTimer); clearInterval(old.beat); }
+  if (old && old.peer && old.peer.connected && reason !== "partner-left" && reason !== "timeout") { try { old.peer.send({ type: "bye" }); } catch (e) {} }
   pointer = null; game.trail = []; game.pieces = []; sfx.purrOff(); sfx.rubOff();
-  if (old && old.peer) old.peer.close(reason);
-  $("coopRoom").classList.remove("on"); $("polishDone").hidden = true; show("coopDialog", false); show("found", false);
-  if (game.egg && game.egg.conf && game.egg.conf.coop) game.egg = null;
-  if (game.scene === "crack" || game.scene === "found") setScene("map");
+  // when you walk away yourself, a moment for the goodbye to leave before the line closes
+  if (old && old.peer) { if (reason === "left" || reason === "navigation") setTimeout(() => old.peer.close(reason), 200); else old.peer.close(reason); }
+  $("coopRoom").classList.remove("on"); $("polishDone").hidden = true; show("coopDialog", false);
+  // a finished shared egg keeps its card: the glowling is already in your nest, and your friend leaving mustn't hide it
+  const keepCard = !$("found").classList.contains("hidden") && game.egg && game.egg.coopRewarded;
+  if (keepCard) {
+    $("nextLvl").disabled = false; $("nextLvl").textContent = tr("Back to the grotto");
+    if (reason !== "navigation") $("foundNote").textContent = tr("Your friend left · {0} is in your nest ✦", (activeCreature() || {}).name || "");
+  } else {
+    show("found", false);
+    if (game.egg && game.egg.conf && game.egg.conf.coop) game.egg = null;
+    if (game.scene === "crack" || game.scene === "found") setScene("map");
+  }
   if (!silent && reason && reason !== "left") toast(tr("Shared room ended"));
   coopResetFields();
 }
@@ -6701,6 +6742,7 @@ $("keepCracking").addEventListener("click", () => show("confirmLeave", false));
 $("leaveEgg").addEventListener("click", () => { show("confirmLeave", false); if (coopSession) coopEnd("left"); else setScene("map"); });
 $("nextLvl").addEventListener("click", () => {
   const conf = game.egg.conf;
+  if (conf.coop && !coopSession) { game.egg = null; return setScene("map"); }
   if (conf.coop) { if (coopIsHost()) coopStartRound(); return; }
   if (conf.moon) return setScene("map");
   startLevel(conf.wander || conf.n >= LEVELS ? 0 : conf.n + 1);
