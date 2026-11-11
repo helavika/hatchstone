@@ -45,8 +45,8 @@
   #c { image-rendering: pixelated; image-rendering: crisp-edges; }
   /* crisp words over the pixel world: damage numbers, little notes */
   #fx { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
-  @font-face { font-family: "Pixelify Sans"; src: url(fonts/pixelifysans-latin.woff2) format("woff2"); font-weight: 400; font-display: swap; }
-  @font-face { font-family: "Jacquard 12"; src: url(fonts/jacquard12-latin.woff2) format("woff2"); font-display: swap; }
+  @font-face { font-family: "Jersey 15"; src: url(fonts/jersey15-latin.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Jersey 10"; src: url(fonts/jersey10-latin.woff2) format("woff2"); font-weight: 400; font-display: swap; }
   button { font: inherit; color: inherit; }
   [hidden] { display: none !important; }
 
@@ -403,7 +403,7 @@
     --px-gold: #eec26a; --px-gold-hi: #fff0b5; --px-gold-lo: #c98f3a; --px-rose: #e88bb1;
     --px-frame: 0 -3px 0 0 var(--px-ink), 0 3px 0 0 var(--px-ink), -3px 0 0 0 var(--px-ink), 3px 0 0 0 var(--px-ink);
   }
-  html, body { font-family: "Pixelify Sans", ui-rounded, system-ui, sans-serif; font-synthesis: none; -webkit-font-smoothing: none; }
+  html, body { font-family: "Jersey 15", ui-rounded, system-ui, sans-serif; font-synthesis: none; -webkit-font-smoothing: none; }
   input, select, textarea { font-family: inherit; }
   .ic { display: inline-block; width: 28px; height: 28px; flex: 0 0 auto; background: center / contain no-repeat; image-rendering: pixelated; vertical-align: middle; }
   .ic.big { width: 42px; height: 42px; }
@@ -421,16 +421,28 @@
   .overlay.hidden .card { transform: translateY(12px); }
   .card { transition: transform .25s steps(4); }
 
-  /* type: Pixelify for reading, Jacquard for gothic titles */
-  h1, h2, .big-name, h3.chap { font-family: "Jacquard 12", "Pixelify Sans", serif; font-weight: 400; letter-spacing: 1px; }
+  /* type: Jersey 15 for reading (clear letters, solid strokes), Jersey 10 for titles */
+  h1, h2, .big-name, h3.chap { font-family: "Jersey 10", "Jersey 15", sans-serif; font-weight: 400; letter-spacing: 1px; }
   h1 { font-size: 72px; line-height: .9; background: none; color: var(--px-gold-hi); animation: none; text-shadow: 0 3px 0 var(--px-gold-lo), 0 6px 0 var(--px-ink); margin-bottom: 14px; }
   h2 { font-size: 42px; line-height: 1; color: var(--px-gold-hi); text-shadow: 0 3px 0 var(--px-ink); margin-bottom: 6px; }
-  #found h2 { font-family: "Pixelify Sans", sans-serif; font-size: 15px; letter-spacing: 3px; color: var(--soft); text-shadow: none; }
+  #found h2 { font-family: "Jersey 15", sans-serif; font-size: 15px; letter-spacing: 3px; color: var(--soft); text-shadow: none; }
   .big-name { font-size: 42px; color: var(--ink); text-shadow: 0 3px 0 var(--px-ink); }
   h3, h3.chap { color: var(--soft); }
   h3.chap { font-size: 30px; letter-spacing: 1px; text-transform: none; color: var(--px-gold-hi); text-shadow: 0 3px 0 var(--px-ink); }
-  h3.chap small { font-family: "Pixelify Sans", sans-serif; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; text-shadow: none; }
+  h3.chap small { font-family: "Jersey 15", sans-serif; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; text-shadow: none; }
   .sub, .lore, .fact, .cave-note { color: var(--soft); }
+  /* Jersey runs small: everything a size up, nothing under 15px */
+  body { font-size: 18px; }
+  .sub, .lore { font-size: 18px; line-height: 1.3; }
+  .fact, .cave-note, #coopDialog label, #coopStatus, #coopError { font-size: 16px; }
+  .act, .pillbtn, .ghost, #tabs button, .seg button, #hint, #toast { font-size: 19px; }
+  .cta { font-size: 24px; }
+  .decor small, .snack small, .forge small, .moonbtn small, #libGrid small { font-size: 15px; }
+  .decor b, .snack b, .moonbtn b, #libGrid b { font-size: 19px; }
+  .stats b { font-size: 22px; } .stats span { font-size: 15px; }
+  .need label { font-size: 17px; }
+  #nestLvl { font-size: 17px; }
+  .lvl { font-size: 22px; }
   .lore { font-style: normal; }
   .pill.stack small { font-size: 11px; letter-spacing: 1px; }
   .pill.stack.round small { font-size: 9px; }
@@ -508,13 +520,24 @@
   @keyframes pxBlink { 50% { opacity: .35; } }
   .need .bar::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(20% - 3px), var(--px-ink) calc(20% - 3px) 20%); }
   #xpBar i, #dots i { background: var(--px-gold); }
-  #nestName { font-family: "Jacquard 12", "Pixelify Sans", serif; font-size: 42px; line-height: 1; text-shadow: 0 3px 0 var(--px-ink); }
+  #nestName { font-family: "Jersey 10", "Jersey 15", sans-serif; font-size: 44px; line-height: 1; text-shadow: 0 3px 0 var(--px-ink); }
   #nestName::after { content: ""; }
   #nestLvl { color: var(--soft); text-shadow: 0 2px 0 var(--px-ink); font-size: 14px; }
   #nestShare .ic { width: 28px; height: 28px; }
   #switcher button img { image-rendering: pixelated; }
   #switcher button.on { background: var(--px-gold-lo) !important; }
 
+  /* backdrops in the decor shop */
+  .themes { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; padding: 6px 3px; }
+  .theme { display: flex; flex-direction: column; gap: 4px; align-items: stretch; padding: 8px; cursor: pointer; text-align: left; color: var(--ink); border: 0;
+    background: var(--px-raise); box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep); }
+  .theme img { width: 100%; aspect-ratio: 3 / 2; image-rendering: pixelated; box-shadow: 0 0 0 3px var(--px-ink); }
+  .theme b { font-size: 17px; }
+  .theme small { display: flex; align-items: center; gap: 2px; font-size: 14px; color: var(--soft); }
+  .theme small .ic { width: 18px; height: 18px; }
+  .theme.on { background: var(--px-gold-lo); box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -3px 0 0 #946027; }
+  .theme.locked img { filter: brightness(.35) saturate(.4); }
+  .theme:disabled { cursor: default; }
   /* the forge: upgrade cards with level pips */
   .forge { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; margin-top: 12px; cursor: pointer; text-align: left; }
   .forge .txt { flex: 1; }
@@ -968,6 +991,49 @@ const sfx = {
     setTimeout(drip, 4000);
   },
 
+  /**
+   * A quiet tune that never quite repeats, in each backdrop's own voice: a music box in the caves, slow bells in the
+   * churchyard, a kalimba in the mushroom wood, an organ breath in the abbey. Notes wander a scale with rests between.
+   */
+  music(id) {
+    const caves = { root: 523.25, scale: [0, 2, 4, 7, 9], beat: 0.45, rest: 0.45, type: "sine", gain: 0.03, decay: 1.4, shine: 0.35, bass: 0.5 };
+    this.tune = {
+      amethyst: caves, celestite: { ...caves, root: 587.33 }, malachite: { ...caves, root: 493.88, scale: [0, 2, 3, 7, 9] },
+      labradorite: { ...caves, root: 440, scale: [0, 3, 5, 7, 10], beat: 0.55 },
+      churchyard: { root: 293.66, scale: [0, 2, 3, 7, 8], beat: 0.8, rest: 0.4, type: "triangle", gain: 0.045, decay: 2.6, shine: 0.5, bass: 0.6 },
+      glowcap: { root: 392, scale: [0, 2, 4, 7, 9], beat: 0.28, rest: 0.5, type: "triangle", gain: 0.04, decay: 0.35, shine: 0.15, bass: 0.35 },
+      abbey: { root: 261.63, scale: [0, 2, 4, 5, 7, 9, 11], beat: 1.1, rest: 0.25, type: "sine", gain: 0.03, decay: 3.2, shine: 0.6, bass: 0.7, chord: true },
+    }[id] || caves;
+    if (this.tuneOn) return;
+    this.tuneOn = true;
+    let step = 0, at = 5;
+    const tick = () => {
+      const m = this.tune;
+      setTimeout(tick, m.beat * 1000);
+      if (!this.ready() || document.hidden) return;
+      const t = this.ac.currentTime + 0.05, n = m.scale.length, f = i => m.root * Math.pow(2, (m.scale[((i % n) + n) % n] + 12 * Math.floor(i / n)) / 12);
+      // a low note at the start of every bar
+      if (step % 8 === 0) this.tone(t, f(0) / 2, m.gain * m.bass, m.decay * 2, "sine");
+      if (m.chord && step % 8 === 0) for (const k of [2, 4]) this.tone(t, f(k) / 2, m.gain * 0.5, m.decay * 2, "sine");
+      if (Math.random() > m.rest) {
+        at = clamp(at + pick([-2, -1, -1, 1, 1, 2, 3]), 0, n * 2 - 1);
+        this.tone(t, f(at), m.gain, m.decay, m.type, null, true);
+        // the bright little partial that makes a music box or a bell
+        if (m.shine) this.tone(t, f(at) * 2.01, m.gain * m.shine * 0.4, m.decay * 0.4, "sine");
+      }
+      step++;
+    };
+    setTimeout(tick, 1200);
+  },
+
+  /** An 8-bit blip for a shard landing; it climbs while a run of shards keeps coming. */
+  blip(n) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime, f = 880 * Math.pow(2, (Math.min(n, 24) % 25) / 24);
+    this.tone(t, f, 0.025, 0.06, "square");
+    this.tone(t + 0.04, f * 1.5, 0.02, 0.08, "square");
+  },
+
   grain(t, dur, freq, q, gain, type = "bandpass") {
     const ac = this.ac;
     const src = ac.createBufferSource();
@@ -1083,7 +1149,9 @@ const sfx = {
 
   star(i) {
     if (!this.ready()) return;
-    this.tone(this.ac.currentTime, [1046.5, 1318.5, 1568][i] || 1568, 0.08, 1.2, "sine", null, true);
+    const t = this.ac.currentTime, f = [1046.5, 1318.5, 1568][i] || 1568;
+    this.tone(t, f, 0.08, 1.2, "sine", null, true);
+    this.tone(t, f / 2, 0.025, 0.12, "square");
   },
 
   munch() {
@@ -1448,7 +1516,7 @@ function pixelCave(th, W, H, { floorY = H - 8, lx, ly = H * .62, crystals = 16, 
         let v = pxFbm(x * .09 + seed, y * .14) * .35 + light * .55;
         if (th.bands) v = .2 + .25 * (.5 + .5 * Math.sin(pxFbm(x * .04 + seed, y * .07) * 22)) + light * .45;
         col = pxPick(wall, v, x, y);
-        if (flash) { const fv = pxFbm(x * .05 + seed, y * .11 + 3); if (fv > .6 && fv < .64) col = pxPick(flash, (fv - .6) / .04 * .5 + light * .5, x, y); }
+        if (flash && pxNoise(x * 12 / W + seed, y * 6 / H) > .62) { const fv = pxFbm(x * .05 + seed, y * .11 + 3); if (fv > .6 && fv < .64) col = pxPick(flash, (fv - .6) / .04 * .5 + light * .5, x, y); }
       }
     }
     // a soft spill of light from the hidden geode
@@ -1461,6 +1529,219 @@ function pixelCave(th, W, H, { floorY = H - 8, lx, ly = H * .62, crystals = 16, 
   return c;
 }
 const LEVELS = 24;
+
+// ---------- backdrops: each cave chapter has its own, and three night scenes unlock as you play ----------
+const THEMES = [
+  { id: "amethyst", name: "Amethyst Hollow", art: 0, how: "", ok: () => true },
+  { id: "celestite", name: "Celestite Grotto", art: 1, how: "reach chapter II", ok: () => unlocked(7) },
+  { id: "malachite", name: "Malachite Deep", art: 2, how: "reach chapter III", ok: () => unlocked(13) },
+  { id: "labradorite", name: "Labradorite Vault", art: 3, how: "reach chapter IV", ok: () => unlocked(19) },
+  { id: "churchyard", name: "Moonlit Churchyard", how: "open a moon egg", ok: () => !!save.moon },
+  { id: "glowcap", name: "Glowcap Wood", how: "collect 30 stars", ok: () => totalStars() >= 30 },
+  { id: "abbey", name: "Starfall Abbey", how: "clear all 24 levels", ok: () => unlocked(LEVELS + 1) },
+];
+const THEME = Object.fromEntries(THEMES.map(t => [t.id, t]));
+const CAVE_THEME = ["amethyst", "celestite", "malachite", "labradorite"];
+
+/** Outdoor night scenes: sky, far hills, ground and mist ramps, a moon, and props drawn on top. */
+const NIGHT = {
+  churchyard: {
+    seed: 41, sky: ["#0b0614", "#160c26", "#22143a", "#2e1d4f", "#3d2866"], far: ["#0b0614", "#160c26", "#22143a"],
+    ground: ["#0b0614", "#10301f", "#1e5233", "#2f7d4a"], mist: "#523a85", hill: 0.62,
+    moon: [0.74, 0.17, 0.09], moonCol: ["#8a6cc9", "#d2bfff", "#efe6ff", "#ffffff"],
+  },
+  glowcap: {
+    seed: 53, sky: ["#0b0614", "#0f2f4a", "#1d5276", "#3383a8"], far: ["#0b0614", "#10301f", "#1e5233"],
+    ground: ["#0b0614", "#10301f", "#1e5233", "#2f7d4a", "#57ad6a"], mist: "#69b7d6", hill: 0.6,
+    moon: [0.22, 0.13, 0.05], moonCol: ["#69b7d6", "#b8e6f5", "#ffffff"],
+  },
+  abbey: {
+    seed: 67, sky: ["#160c26", "#2e1d4f", "#5c1f3f", "#8f3460", "#c25586"], far: ["#0b0614", "#160c26", "#22143a"],
+    ground: ["#0b0614", "#22143a", "#3a3440", "#5d5666"], mist: "#c25586", hill: 0.66,
+    moon: [0.5, 0.1, 0.04], moonCol: ["#eec26a", "#fff0b5", "#ffffff"],
+  },
+};
+
+/** Paint one night scene on a W×H canvas, then snap every pixel to the palette (no stray in-between colors). */
+function pixelNight(id, W, H) {
+  const T = NIGHT[id], seed = T.seed, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d", { willReadFrequently: true }), img = g.createImageData(W, H), d = img.data;
+  const R = k => T[k].map(pxHex), sky = R("sky"), far = R("far"), ground = R("ground"), moonCol = R("moonCol"), mist = pxHex(T.mist);
+  const floorY = Math.round(H * 0.86);
+  const hill = x => H * T.hill - H * 0.07 * pxNoise(x * 0.025, seed) - H * 0.025 * Math.sin(x * 0.03 + seed);
+  const gnd = x => floorY - 2 * pxNoise(x * 0.08, seed + 3);
+  const mx = W * T.moon[0], my = H * T.moon[1], mr = Math.max(6, Math.min(W, H) * T.moon[2] * 1.6);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let col;
+    const gy = gnd(x), hy = hill(x), md = Math.hypot(x - mx, y - my);
+    if (y >= gy) col = pxPick(ground, 0.75 - (y - gy) / 16 + pxFbm(x * 0.3, y * 0.3) * 0.25, x, y);
+    else if (y >= hy) col = pxPick(far, 0.55 - (y - hy) / (gy - hy) * 0.5 + pxFbm(x * 0.1, y * 0.1) * 0.3, x, y);
+    else if (md < mr) col = pxPick(moonCol, 0.95 - 0.5 * (md / mr) ** 2 - 0.3 * pxSmooth(0.55, 0.7, pxFbm(x * 0.35 + seed, y * 0.35)), x, y);
+    else {
+      col = pxPick(sky, y / hy * 0.75 + Math.max(0, 0.35 - (md - mr) / (W * 0.35)), x, y);
+      if (pxHash(x, y + seed) > 0.994 && y < hy * 0.8) col = pxHex(pxHash(y, x) > 0.5 ? "#ffffff" : "#d2bfff");
+    }
+    // a band of low mist lying on the ground
+    const m = (y - (floorY - H * 0.1)) / (H * 0.1);
+    if (y < gy && m > 0 && PX_BAYER[(y & 3) * 4 + (x & 3)] < m * 0.45 * (0.6 + 0.4 * pxNoise(x * 0.05, seed + 9))) col = mist;
+    const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+  }
+  g.putImageData(img, 0, 0);
+  NIGHT_PROPS[id](g, W, H, floorY, seed, hill);
+  // snap the props' soft edges to the palette
+  const out = g.getImageData(0, 0, W, H), o = out.data;
+  for (let i = 0; i < o.length; i += 4) {
+    const col = PIXEL_PALETTE[PIXEL_LUT[(o[i] >> 3 << 10) | (o[i + 1] >> 3 << 5) | (o[i + 2] >> 3)]];
+    o[i] = col[0]; o[i + 1] = col[1]; o[i + 2] = col[2]; o[i + 3] = 255;
+  }
+  g.putImageData(out, 0, 0);
+  return c;
+}
+
+/** Spots for props: mostly at the sides, so the egg or the nest in the middle stays clear. */
+const sideX = (W, i, seed) => { const h = pxHash(i, seed); return h < 0.5 ? h * 0.6 * W : W - (h - 0.5) * 0.6 * W; };
+const NIGHT_PROPS = {
+  churchyard(g, W, H, fy, seed, hill) {
+    // a little chapel on the far hill, one window lit
+    const cx = Math.round(W * 0.2), cy = Math.round(hill(W * 0.2)) + 2, cw = Math.max(10, Math.round(W * 0.07));
+    g.fillStyle = "#0b0614";
+    g.fillRect(cx - cw, cy - cw, cw * 2, cw);
+    g.beginPath(); g.moveTo(cx - cw - 1, cy - cw); g.lineTo(cx, cy - cw * 1.7); g.lineTo(cx + cw + 1, cy - cw); g.fill();
+    g.fillRect(cx + cw * 0.4, cy - cw * 2.6, Math.max(3, cw * 0.4), cw * 1.6);
+    g.beginPath(); g.moveTo(cx + cw * 0.3, cy - cw * 2.6); g.lineTo(cx + cw * 0.6, cy - cw * 3.4); g.lineTo(cx + cw * 0.9, cy - cw * 2.6); g.fill();
+    g.fillStyle = "#eec26a"; g.fillRect(cx - 1, cy - cw * 0.75, 3, 4);
+    // a bare tree, branching
+    const branch = (x, y, a, len, w) => {
+      if (len < 2) return;
+      const x2 = x + Math.cos(a) * len, y2 = y + Math.sin(a) * len;
+      g.strokeStyle = "#0b0614"; g.lineWidth = w; g.lineCap = "round";
+      g.beginPath(); g.moveTo(x, y); g.lineTo(x2, y2); g.stroke();
+      branch(x2, y2, a - 0.45 + pxHash(len, x) * 0.2, len * 0.72, Math.max(1, w * 0.65));
+      branch(x2, y2, a + 0.4 + pxHash(x, len) * 0.2, len * 0.66, Math.max(1, w * 0.6));
+    };
+    branch(W * 0.9, fy + 2, -Math.PI / 2 - 0.12, H * 0.2, 5);
+    // the iron fence behind the graves
+    const ry = fy - Math.round(H * 0.06);
+    g.fillStyle = "#160c26";
+    g.fillRect(0, ry, W, 1); g.fillRect(0, ry + Math.round(H * 0.035), W, 1);
+    for (let x = 1; x < W; x += 4) { g.fillRect(x, ry - 2, 1, fy - ry + 2); g.fillRect(x - 1, ry - 2, 3, 1); g.fillRect(x, ry - 3, 1, 1); }
+    // gravestones and crosses, lit from the moon side
+    for (let i = 0; i < 7; i++) {
+      const x = Math.round(sideX(W, i, seed)), w = 6 + Math.round(pxHash(i, 3) * 5), h = 9 + Math.round(pxHash(i, 4) * 7), y = fy + 1 + (i % 2);
+      if (pxHash(i, 5) < 0.3) {
+        g.fillStyle = "#5d5666"; g.fillRect(x - 1, y - h - 2, 3, h + 2); g.fillRect(x - 4, y - h + 1, 9, 3);
+        g.fillStyle = "#8a8494"; g.fillRect(x - 1, y - h - 2, 1, h + 2);
+        continue;
+      }
+      g.fillStyle = "#3a3440"; g.beginPath(); g.moveTo(x - w / 2, y); g.lineTo(x - w / 2, y - h + w / 2); g.arc(x, y - h + w / 2, w / 2, Math.PI, 0); g.lineTo(x + w / 2, y); g.fill();
+      g.fillStyle = "#8a8494"; g.beginPath(); g.moveTo(x - w / 2, y); g.lineTo(x - w / 2, y - h + w / 2); g.arc(x, y - h + w / 2, w / 2, Math.PI, -Math.PI / 2); g.lineTo(x - w / 2 + 2, y - h); g.lineTo(x - w / 2 + 2, y); g.fill();
+      g.fillStyle = "#22143a"; g.fillRect(x - 1, y - h + 3, 2, 5); g.fillRect(x - 2, y - h + 4, 4, 1);
+      g.fillStyle = "#2f7d4a"; g.fillRect(x - w / 2, y - 2, w * 0.6, 2);
+    }
+  },
+  glowcap(g, W, H, fy, seed) {
+    // giant mushrooms with spotted caps; a soft glow under each cap
+    const caps = [["#8f3460", "#c25586", "#e88bb1"], ["#1d5276", "#3383a8", "#69b7d6"], ["#5c1f3f", "#8f3460", "#e88bb1"]];
+    for (let i = 0; i < 6; i++) {
+      const x = Math.round(sideX(W, i, seed)), big = 0.6 + pxHash(i, 2) * 0.6, h = Math.round(H * (0.14 + 0.2 * big)), r = Math.round(W * 0.08 * big + 5);
+      const [dk, md, lt] = caps[i % 3], top = fy - h;
+      const glow = g.createRadialGradient(x, top + r * 0.4, 1, x, top + r * 0.4, r * 2.2);
+      glow.addColorStop(0, lt + "66"); glow.addColorStop(1, lt + "00");
+      g.fillStyle = glow; g.fillRect(x - r * 2.2, top - r * 2, r * 4.4, r * 4.4);
+      g.fillStyle = "#b9b3c0"; g.fillRect(x - Math.max(1, r * 0.18), top, Math.max(3, r * 0.36), h + 2);
+      g.fillStyle = "#e4dfe8"; g.fillRect(x - Math.max(1, r * 0.18), top, Math.max(1, r * 0.12), h + 2);
+      g.fillStyle = dk; g.beginPath(); g.ellipse(x, top + 1, r, r * 0.62, 0, Math.PI, 0); g.fill();
+      g.fillStyle = md; g.beginPath(); g.ellipse(x - 1, top, r - 1, r * 0.56, 0, Math.PI, 0); g.fill();
+      g.fillStyle = lt; g.beginPath(); g.ellipse(x - r * 0.35, top - r * 0.3, r * 0.3, r * 0.14, 0, 0, TAU); g.fill();
+      g.fillStyle = "#efe6ff";
+      for (let k = 0; k < 4; k++) g.fillRect(Math.round(x + (pxHash(i, k + 7) - 0.5) * r * 1.3), Math.round(top - r * 0.15 - pxHash(k, i) * r * 0.35), 2, 2);
+    }
+    // little mushrooms and floating spores
+    for (let i = 0; i < 18; i++) {
+      const x = Math.round(pxHash(i, seed + 4) * W), y = fy + 1 + Math.round(pxHash(i, 9) * 3);
+      g.fillStyle = "#e4dfe8"; g.fillRect(x, y - 3, 1, 3);
+      g.fillStyle = i % 2 ? "#e88bb1" : "#eec26a"; g.fillRect(x - 1, y - 4, 3, 1);
+    }
+    g.fillStyle = "#fff0b5";
+    for (let i = 0; i < 26; i++) g.fillRect(Math.round(pxHash(i, seed + 11) * W), Math.round(H * 0.2 + pxHash(seed, i) * H * 0.6), 1, 1);
+  },
+  abbey(g, W, H, fy, seed) {
+    // ruined gothic walls with pointed windows, and a great rose window glowing in the middle
+    const stone = "#3a3440", lit = "#5d5666", dark = "#22143a";
+    const wall = (x, w, h) => {
+      g.fillStyle = stone; g.fillRect(x, fy - h, w, h + 2);
+      g.fillStyle = lit; g.fillRect(x, fy - h, 2, h + 2);
+      // broken top edge
+      g.fillStyle = "#2e1d4f";
+      for (let k = 0; k < w; k += 3) { const cut = Math.round(pxHash(k, x) * 6); g.fillRect(x + k, fy - h, 3, cut); }
+      // pointed windows showing the sky
+      for (let k = 6; k + 6 < w; k += 12) {
+        const wx = x + k, wy = fy - h * 0.75, ww = 6, wh = h * 0.45;
+        g.fillStyle = "#8f3460"; g.fillRect(wx, wy, ww, wh);
+        g.beginPath(); g.moveTo(wx, wy); g.lineTo(wx + ww / 2, wy - ww); g.lineTo(wx + ww, wy); g.fill();
+        g.fillStyle = dark; g.fillRect(wx + ww / 2 - 0.5, wy - ww + 2, 1, wh + ww - 2);
+      }
+      // ivy
+      g.fillStyle = "#2f7d4a";
+      for (let k = 0; k < w * 1.2; k++) g.fillRect(x + Math.round(pxHash(k, seed) * w), fy - Math.round(pxHash(seed, k) * h * 0.7), 1 + (k % 2), 1);
+    };
+    wall(0, Math.round(W * 0.3), Math.round(H * 0.34));
+    wall(Math.round(W * 0.72), Math.round(W * 0.3), Math.round(H * 0.28));
+    // the rose window: rings of colored glass with stone spokes
+    const rx = W / 2, ry = H * 0.4, rr = Math.round(Math.min(W, H) * 0.2);
+    g.fillStyle = stone; g.beginPath(); g.arc(rx, ry, rr + 3, 0, TAU); g.fill();
+    const glass = ["#eec26a", "#c25586", "#3383a8", "#8a6cc9", "#fff0b5"];
+    for (let ring = 4; ring >= 0; ring--) {
+      const r0 = rr * (ring + 1) / 5;
+      for (let k = 0; k < 12; k++) {
+        g.fillStyle = glass[(k + ring) % glass.length];
+        g.beginPath(); g.moveTo(rx, ry); g.arc(rx, ry, r0, k / 12 * TAU, (k + 1) / 12 * TAU); g.fill();
+      }
+    }
+    g.strokeStyle = "#22143a"; g.lineWidth = 1;
+    for (let k = 0; k < 12; k++) { g.beginPath(); g.moveTo(rx, ry); g.lineTo(rx + Math.cos(k / 12 * TAU) * rr, ry + Math.sin(k / 12 * TAU) * rr); g.stroke(); }
+    for (const f of [0.45, 0.8, 1]) { g.beginPath(); g.arc(rx, ry, rr * f, 0, TAU); g.stroke(); }
+    // falling stars
+    g.fillStyle = "#fff0b5";
+    for (let i = 0; i < 4; i++) { const x = Math.round(pxHash(i, seed + 2) * W), y = Math.round(pxHash(seed, i + 3) * H * 0.3); for (let k = 0; k < 6; k++) g.fillRect(x - k, y - k, 1, 1); g.fillStyle = "#ffffff"; g.fillRect(x, y, 2, 2); g.fillStyle = "#fff0b5"; }
+  },
+};
+
+/** The backdrop for a theme at the size of the screen's art grid. */
+function paintTheme(id, w, h) {
+  const t = THEME[id] || THEME.amethyst;
+  if (t.art === undefined) return pixelNight(t.id, w, h);
+  const a = CHAPTER_ART[t.art];
+  const th = { seed: 5 + t.art * 7, wall: a.wall.map(pxHex), crystal: a.crystal.map(pxHex), glow: pxHex(a.glow), pool: a.pool?.map(pxHex), flash: a.flash?.map(pxHex), bands: a.bands };
+  const c = pixelCave(th, w, h, { floorY: Math.round(h * 0.86), lx: w / 2, ly: h * 0.55, crystals: Math.round(w / 12), reach: h / 150, girth: 1.6, spill: 0.04, keepClear: Math.round(w * 0.32) });
+  // cobwebs in the top corners
+  const o = c.getContext("2d");
+  o.strokeStyle = "rgba(228,223,232,.32)"; o.lineWidth = 1;
+  for (const [cx, sx] of [[0, 1], [w, -1]]) {
+    const r = Math.min(w, h) * 0.16;
+    for (let i = 0; i <= 4; i++) { const an = i / 4 * Math.PI / 2; o.beginPath(); o.moveTo(cx + 0.5, 0.5); o.lineTo(cx + sx * Math.cos(an) * r, Math.sin(an) * r); o.stroke(); }
+    for (const f of [0.35, 0.6, 0.85]) {
+      o.beginPath();
+      for (let i = 0; i <= 4; i++) { const an = i / 4 * Math.PI / 2, rr = r * f * (i % 2 ? 0.9 : 1); const x = cx + sx * Math.cos(an) * rr, y = Math.sin(an) * rr; i ? o.lineTo(x, y) : o.moveTo(x, y); }
+      o.stroke();
+    }
+  }
+  return c;
+}
+
+const themeThumbs = {};
+const themeThumb = id => themeThumbs[id] || (themeThumbs[id] = paintTheme(id, 96, 64).toDataURL());
+
+/** Newly reached backdrops get a little announcement, once. */
+function checkThemes(quiet = false) {
+  save.themesSeen = save.themesSeen || [];
+  const fresh = THEMES.filter(t => t.ok() && !save.themesSeen.includes(t.id));
+  if (!fresh.length) return;
+  save.themesSeen.push(...fresh.map(t => t.id));
+  persist();
+  const shown = fresh.filter(t => t.id !== "amethyst");
+  if (!quiet && shown.length) setTimeout(() => toast(`New backdrop: ${shown.map(t => t.name).join(", ")} · choose it in Decor ✦`), 1600);
+}
 
 /** How hard an egg is: tougher stone deeper in the grotto, and a weak spot that glows less and less. */
 function levelConf(n) {
@@ -1627,7 +1908,7 @@ const screen = cvs.getContext("2d");
 const low = document.createElement("canvas");
 let ctx = low.getContext("2d", { willReadFrequently: true }); // let: asSprite() lends it out for a moment
 const fxCanvas = $("fx"), fx = fxCanvas.getContext("2d");
-const PIXEL_FONT = '"Pixelify Sans", ui-rounded, system-ui, sans-serif';
+const PIXEL_FONT = '"Jersey 15", ui-rounded, system-ui, sans-serif';
 let W = 0, H = 0, DPR = 1, PX = 3;
 const L = {}; // the egg
 const N = {}; // the nest
@@ -1679,8 +1960,8 @@ const quality = {
 };
 
 function sizeCanvas() {
-  // about 130 art pixels across a phone, a little chunkier on big screens
-  PX = clamp(Math.round(Math.min(W, H * 0.6) / 130), 2, 6);
+  // about 195 art pixels across a phone (2 screen pixels each): small enough for detail, big enough to read as pixels
+  PX = clamp(Math.ceil(Math.min(W, H * 0.6) / 200), 2, 5);
   low.width = cvs.width = Math.ceil(W / PX); low.height = cvs.height = Math.ceil(H / PX);
   cvs.style.width = cvs.width * PX + "px"; cvs.style.height = cvs.height * PX + "px";
   ctx.setTransform(1 / PX, 0, 0, 1 / PX, 0, 0);
@@ -1784,24 +2065,16 @@ setTimeout(() => { game.actors = actors; });
 
 // ---------- background: a moonlit grotto ----------
 
-let bg = null, motes = [];
+let motes = [], bgTheme = null;
+const bgCache = new Map();
 /** The grotto behind everything: a dithered crystal cave drawn at art resolution, its middle left open. */
-function makeBackground() {
-  const w = Math.ceil(W / PX), h = Math.ceil(H / PX);
-  const th = { seed: 5, wall: CHAPTER_ART[0].wall.map(pxHex), crystal: CHAPTER_ART[0].crystal.map(pxHex), glow: pxHex("#8a6cc9") };
-  bg = pixelCave(th, w, h, { floorY: Math.round(h * 0.86), lx: w / 2, ly: h * 0.55, crystals: Math.round(w / 12), reach: h / 150, girth: 1.6, spill: 0.04, keepClear: Math.round(w * 0.32) });
-  // cobwebs in the top corners
-  const o = bg.getContext("2d");
-  o.strokeStyle = "rgba(228,223,232,.32)"; o.lineWidth = 1;
-  for (const [cx, sx] of [[0, 1], [w, -1]]) {
-    const r = Math.min(w, h) * 0.16;
-    for (let i = 0; i <= 4; i++) { const a = i / 4 * Math.PI / 2; o.beginPath(); o.moveTo(cx + 0.5, 0.5); o.lineTo(cx + sx * Math.cos(a) * r, Math.sin(a) * r); o.stroke(); }
-    for (const f of [0.35, 0.6, 0.85]) {
-      o.beginPath();
-      for (let i = 0; i <= 4; i++) { const a = i / 4 * Math.PI / 2, rr = r * f * (i % 2 ? 0.9 : 1); const x = cx + sx * Math.cos(a) * rr, y = Math.sin(a) * rr; i ? o.lineTo(x, y) : o.moveTo(x, y); }
-      o.stroke();
-    }
-  }
+function makeBackground() { bgCache.clear(); }
+
+/** Which backdrop shows now: the chapter's own cave while cracking, moonlight for moon eggs, your pick elsewhere. */
+function currentTheme() {
+  const c = game.scene === "crack" && game.egg && game.egg.conf;
+  if (c) return c.moon ? "churchyard" : c.wander ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
+  return THEME[save.theme] && THEME[save.theme].ok() ? save.theme : "amethyst";
 }
 
 // ---------- gothic little things: candles by the egg, bats in the dark ----------
@@ -1848,7 +2121,10 @@ function makeMotes() {
 }
 
 function drawBackground() {
-  ctx.drawImage(bg, 0, 0, W, H);
+  const id = currentTheme();
+  if (!bgCache.has(id)) bgCache.set(id, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX)));
+  if (id !== bgTheme) { bgTheme = id; sfx.music(id); }
+  ctx.drawImage(bgCache.get(id), 0, 0, W, H);
   ctx.fillStyle = "#e6f6ff";
   for (const m of motes) {
     ctx.globalAlpha = m.a * (0.5 + 0.5 * Math.sin(game.time * 0.0012 + m.ph));
@@ -2917,6 +3193,7 @@ function showFound() {
   save.shards += shards;
   const { isNew, note } = adopt(e);
   persist();
+  checkThemes();
 
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
@@ -3216,13 +3493,19 @@ const hasDecor = id => save.decor[id] && save.decor[id].on;
 
 function openShop() {
   sfx.tick();
-  $("shopSub").textContent = `You have ✦ ${save.shards} shards. Glowlings visit the things they love.`;
-  $("shopList").innerHTML = DECOR.map(d => {
+  $("shopSub").innerHTML = `You have ${ic("shard")}${save.shards}. Glowlings visit the things they love.`;
+  const now = currentTheme();
+  const themes = `<h3>Backdrop</h3><div class="themes">${THEMES.map(t => {
+    const ok = t.ok();
+    return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
+  }).join("")}</div><h3>Decorations</h3>`;
+  $("shopList").innerHTML = themes + DECOR.map(d => {
     const owned = save.decor[d.id];
     const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(" and ");
     return `<button class="decor${owned ? " owned" : ""}" data-id="${d.id}" ${!owned && save.shards < d.cost ? "disabled" : ""}><span class="em">${d.emoji}</span><span><b>${d.name}</b><small>${who[0].toUpperCase() + who.slice(1)} love it</small></span><span class="cost">${owned ? (owned.on ? "placed ✓" : "stored") : "✦ " + d.cost}</span></button>`;
   }).join("");
   $$("#shopList .decor").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
+  $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); openShop(); }));
   show("shop", true);
 }
 
@@ -3444,29 +3727,31 @@ function updateActors(dt) {
 
 function drawRoom() {
   const { x0, x1, y0, y1 } = N, cx = (x0 + x1) / 2;
-  // a round window onto the night sky, high on the back wall
+  // a round window onto the night sky, high on the back wall (only in the caves: outdoors the sky is already there)
   const wr = Math.min((x1 - x0) * 0.22, (y0 - N.top) * 0.45), wy = y0 - wr * 1.08;
-  ctx.save();
-  ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU);
-  const sky = ctx.createLinearGradient(0, wy - wr, 0, wy + wr);
-  sky.addColorStop(0, "#0d0a2a"); sky.addColorStop(1, "#2d2468");
-  ctx.fillStyle = sky; ctx.fill();
-  ctx.clip();
-  ctx.fillStyle = "#fff";
-  for (let i = 0; i < 22; i++) {
-    ctx.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(game.time * 0.001 + i));
-    ctx.fillRect(cx + Math.sin(i * 12.9898) * wr * 0.9, wy + Math.cos(i * 78.233) * wr * 0.9, 1.6, 1.6);
+  if (THEME[currentTheme()].art !== undefined) {
+    ctx.save();
+    ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU);
+    const sky = ctx.createLinearGradient(0, wy - wr, 0, wy + wr);
+    sky.addColorStop(0, "#0d0a2a"); sky.addColorStop(1, "#2d2468");
+    ctx.fillStyle = sky; ctx.fill();
+    ctx.clip();
+    ctx.fillStyle = "#fff";
+    for (let i = 0; i < 22; i++) {
+      ctx.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(game.time * 0.001 + i));
+      ctx.fillRect(cx + Math.sin(i * 12.9898) * wr * 0.9, wy + Math.cos(i * 78.233) * wr * 0.9, 1.6, 1.6);
+    }
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = "#fff8d6";
+    ctx.beginPath(); ctx.arc(cx + wr * 0.4, wy - wr * 0.35, wr * 0.2, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#0d0a2a";
+    ctx.beginPath(); ctx.arc(cx + wr * 0.48, wy - wr * 0.42, wr * 0.17, 0, TAU); ctx.fill();
+    ctx.restore();
+    // a solid stone frame, three art pixels thick, with a lit inner edge
+    ctx.beginPath(); ctx.arc(cx, wy, wr + PX, 0, TAU);
+    ctx.strokeStyle = "#160c26"; ctx.lineWidth = PX * 3.2; ctx.stroke();
+    ctx.strokeStyle = "#523a85"; ctx.lineWidth = PX * 1.2; ctx.stroke();
   }
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = "#fff8d6";
-  ctx.beginPath(); ctx.arc(cx + wr * 0.4, wy - wr * 0.35, wr * 0.2, 0, TAU); ctx.fill();
-  ctx.fillStyle = "#0d0a2a";
-  ctx.beginPath(); ctx.arc(cx + wr * 0.48, wy - wr * 0.42, wr * 0.17, 0, TAU); ctx.fill();
-  ctx.restore();
-  // a solid stone frame, three art pixels thick, with a lit inner edge
-  ctx.beginPath(); ctx.arc(cx, wy, wr + PX, 0, TAU);
-  ctx.strokeStyle = "#160c26"; ctx.lineWidth = PX * 3.2; ctx.stroke();
-  ctx.strokeStyle = "#523a85"; ctx.lineWidth = PX * 1.2; ctx.stroke();
   // moonlight falling on the floor
   const ray = ctx.createLinearGradient(0, wy, 0, y1);
   ray.addColorStop(0, "rgba(230,224,255,.1)"); ray.addColorStop(1, "rgba(230,224,255,0)");
@@ -5258,7 +5543,7 @@ function gemArrived() {
   game.gemsShown = (game.gemsShown || 0) + 1;
   const pill = $("clock");
   pill.classList.remove("bump"); void pill.offsetWidth; pill.classList.add("bump");
-  if (sfx.ready() && game.gemsShown % 2) sfx.grain(sfx.ac.currentTime, 0.012, 7000, 1, 0.05);
+  if (game.gemsShown % 2) sfx.blip(game.gemsShown >> 1);
 }
 
 /** The counter in the top bar: shards caught from this egg, and taps (with the 3-star mark once you've cleared it). */
@@ -5643,6 +5928,7 @@ window.addEventListener("hashchange", coopImportLocationInvite);
 for (const cr of save.creatures) applyTime(cr);
 resize();
 updateTopbar();
+checkThemes();
 coopImportLocationInvite();
 requestAnimationFrame(frame);
 

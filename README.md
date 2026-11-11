@@ -14,6 +14,9 @@ what's glowing inside. 🎧 Best with headphones.
 - The nest: feed, pet, play a sparkle-catch mini-game and put them to sleep; needs drift
   in real time (nobody ever dies), and glowlings level up to 20 and grow Baby → Young →
   Grown → Radiant
+- Seven pixel-art backdrops: each cave chapter has its own, and a moonlit churchyard, a
+  glowcap mushroom wood and a starfall abbey unlock as you play (pick one in Decor); each
+  backdrop has its own quiet generative tune
 - The Forge: spend shards on hammer upgrades that last forever (heavier taps, a keener
   eye for the weak spot, echoing knocks, more shards from weak-spot hits)
 - Like an old handheld pet, glowlings call for you when they're hungry, sleepy or lonely,
