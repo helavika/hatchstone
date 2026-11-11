@@ -395,6 +395,146 @@
   #startCoop { display: flex; width: fit-content; align-items: center; gap: 8px; }
   #startCoop img { width: 28px; height: 28px; image-rendering: pixelated; margin: -4px 0; }
   .lvl:disabled span { letter-spacing: 0; filter: grayscale(1); }
+
+  /* ---------- pixel UI: square frames, chunky bevels, pixel fonts, no glass ---------- */
+  :root {
+    --ink: #efe6ff; --soft: #c9b6f0; --gold: #eec26a;
+    --px-ink: #160c26; --px-deep: #22143a; --px-panel: #2e1d4f; --px-raise: #3d2866; --px-edge: #6b4fa8; --px-hi: #8a6cc9;
+    --px-gold: #eec26a; --px-gold-hi: #fff0b5; --px-gold-lo: #c98f3a; --px-rose: #e88bb1;
+    --px-frame: 0 -3px 0 0 var(--px-ink), 0 3px 0 0 var(--px-ink), -3px 0 0 0 var(--px-ink), 3px 0 0 0 var(--px-ink);
+  }
+  html, body { font-family: "Pixelify Sans", ui-rounded, system-ui, sans-serif; font-synthesis: none; -webkit-font-smoothing: none; }
+  input, select, textarea { font-family: inherit; }
+  .ic { display: inline-block; width: 28px; height: 28px; flex: 0 0 auto; background: center / contain no-repeat; image-rendering: pixelated; vertical-align: middle; }
+  .ic.big { width: 42px; height: 42px; }
+  .pill .ic, .act .ic, #tabs .ic, .pillbtn .ic { margin: -6px 0; }
+  .pill.stack .ic { width: 21px; height: 21px; margin: -3px 2px -3px 0; }
+
+  /* panels: a dark ink frame with notched corners, a lilac bevel inside */
+  .glass, .overlay .card.glass, .overlay.modal .card.glass.dark, .card.dark, #start .card {
+    background: var(--px-panel) !important; background-image: none !important; border: 0; border-radius: 0 !important; outline: 0 !important;
+    backdrop-filter: none !important; -webkit-backdrop-filter: none !important;
+    box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep), 0 9px 0 0 rgba(11, 6, 20, .55) !important;
+  }
+  .card { padding: 24px 21px; }
+  .overlay.modal { background: repeating-conic-gradient(rgba(11, 6, 20, .82) 0 25%, rgba(11, 6, 20, .5) 0 50%) 0 0 / 6px 6px; }
+  .overlay.hidden .card { transform: translateY(12px); }
+  .card { transition: transform .25s steps(4); }
+
+  /* type: Pixelify for reading, Jacquard for gothic titles */
+  h1, h2, .big-name, h3.chap { font-family: "Jacquard 12", "Pixelify Sans", serif; font-weight: 400; letter-spacing: 1px; }
+  h1 { font-size: 72px; line-height: .9; background: none; color: var(--px-gold-hi); animation: none; text-shadow: 0 3px 0 var(--px-gold-lo), 0 6px 0 var(--px-ink); margin-bottom: 14px; }
+  h2 { font-size: 42px; line-height: 1; color: var(--px-gold-hi); text-shadow: 0 3px 0 var(--px-ink); margin-bottom: 6px; }
+  #found h2 { font-family: "Pixelify Sans", sans-serif; font-size: 15px; letter-spacing: 3px; color: var(--soft); text-shadow: none; }
+  .big-name { font-size: 42px; color: var(--ink); text-shadow: 0 3px 0 var(--px-ink); }
+  h3, h3.chap { color: var(--soft); }
+  h3.chap { font-size: 30px; letter-spacing: 1px; text-transform: none; color: var(--px-gold-hi); text-shadow: 0 3px 0 var(--px-ink); }
+  h3.chap small { font-family: "Pixelify Sans", sans-serif; font-size: 12px; letter-spacing: 3px; text-transform: uppercase; text-shadow: none; }
+  .sub, .lore, .fact, .cave-note { color: var(--soft); }
+  .lore { font-style: normal; }
+  .pill.stack small { font-size: 11px; letter-spacing: 1px; }
+  .pill.stack.round small { font-size: 9px; }
+
+  /* buttons: square, bevelled, they sink when pressed */
+  .pill, .act, .pillbtn, .ghost, .cta, #tabs, #tabs button, .seg, .seg button, .lvl, .wander, .moonbtn, .decor, .snack, .forge, #switcher button, #libGrid button, .pick button, .stats, .rarity, #newBadge, #hint, #toast, .needs.glass, .bar, #dots, input, select, textarea {
+    border-radius: 0 !important;
+  }
+  .btn:active, .act:active, .lvl:active, .pillbtn:active, .ghost:active, .cta:active, .decor:active, .snack:active, .forge:active, .moonbtn:active { transform: translateY(3px); }
+  .act, .acts .act, .pillbtn, .ghost, .wander, .decor, .snack, .forge, .moonbtn, .lvl, #switcher button, .pick button, #libGrid button {
+    background: var(--px-raise) !important; color: var(--ink); border: 0 !important; outline: 0;
+    box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep), 0 6px 0 0 rgba(11, 6, 20, .6) !important;
+  }
+  .act:active, .pillbtn:active, .ghost:active, .decor:active, .snack:active, .forge:active, .moonbtn:active, .lvl:active { box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-deep), inset -3px -3px 0 0 var(--px-hi) !important; }
+  .act, .pillbtn, .ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+  .ghost { text-decoration: none; color: var(--soft); }
+  .cta {
+    color: var(--px-ink); background: var(--px-gold) !important; border: 0; outline: 0; text-shadow: 0 2px 0 var(--px-gold-hi);
+    box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -4px 0 0 var(--px-gold-lo), 0 6px 0 0 rgba(11, 6, 20, .6) !important;
+  }
+  .cta:active { box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-lo), inset -3px -3px 0 0 var(--px-gold-hi) !important; }
+  .cta::before, .cta::after { width: 6px; height: 6px; background: var(--px-gold); transform: translateY(-50%); box-shadow: 0 0 0 3px var(--px-ink); }
+  .cta.breathe { animation: pxBob 1.6s steps(2) infinite; }
+  @keyframes pxBob { 50% { transform: translateY(-3px); } }
+  .lvl.next { animation: pxBob 1.2s steps(2) infinite; box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -3px 0 0 var(--px-gold-lo), 0 0 0 6px var(--px-gold) !important; }
+  .lvl span { color: var(--px-gold); }
+  .act:disabled, .decor:disabled, .snack:disabled, .forge:disabled, .lvl:disabled, .wander:disabled, .pick button:disabled { opacity: .5; }
+  .decor .cost, .snack .cost, .forge .cost { color: var(--px-gold); display: inline-flex; align-items: center; gap: 2px; }
+  .ic + * { min-width: 0; }
+
+  /* top bars, tabs and bubbles */
+  .pill { gap: 6px; }
+  #tabs { padding: 6px; gap: 6px; }
+  #tabs button { color: var(--soft); padding: 6px 12px; }
+  #tabs button.on { background: var(--px-gold) !important; color: var(--px-ink); box-shadow: inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -3px 0 0 var(--px-gold-lo); }
+  #tabs button.call { position: relative; }
+  #tabs button.call::after { content: "!"; position: absolute; top: -9px; right: -3px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
+  #hint, #toast { box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep) !important; }
+  #toast.glass { background: var(--px-raise) !important; }
+  .seg { background: var(--px-deep); box-shadow: var(--px-frame); padding: 3px; }
+  .seg button.on { background: var(--px-gold); color: var(--px-ink); }
+  .rarity { box-shadow: 0 0 0 3px var(--px-ink); }
+  .r-common { background: var(--px-raise); }
+  .r-rare { background: #69b7d6; color: var(--px-ink); }
+  .r-legendary { background: var(--px-gold); color: var(--px-ink); }
+  .r-moon { background: #efe6ff; color: var(--px-ink); }
+  #newBadge { border: 0; box-shadow: 0 0 0 3px #57ad6a; color: #a3dd9b; }
+  #stars b { color: var(--px-gold); text-shadow: 0 3px 0 var(--px-ink); }
+
+  /* frames around pictures: gold and ink, square */
+  .plate::before { background: none; -webkit-mask: none; mask: none; border: 3px solid var(--px-gold); outline: 3px solid var(--px-ink); outline-offset: 0; }
+  .plate::after { display: none; }
+  .plate > :first-child { background: var(--px-deep); }
+  .orn { height: 9px; width: min(180px, 70%); background: repeating-linear-gradient(90deg, var(--px-gold) 0 3px, transparent 3px 9px) center / 100% 3px no-repeat; position: relative; }
+  .orn::after { content: ""; position: absolute; left: 50%; top: 3px; width: 3px; height: 3px; transform: translateX(-50%); background: var(--px-gold-hi); box-shadow: 0 -3px var(--px-gold), 0 3px var(--px-gold), -3px 0 var(--px-gold), 3px 0 var(--px-gold), -6px 0 var(--px-panel), 6px 0 var(--px-panel), -9px 0 var(--px-panel), 9px 0 var(--px-panel); }
+  #libGrid button { outline: 0; }
+  #libGrid .pg { border: 0; box-shadow: 0 0 0 3px var(--px-ink); background: var(--px-deep); }
+  #libGrid .pg img { image-rendering: pixelated; }
+  #libGrid b { border: 0; color: var(--px-gold-hi); }
+  .stats { border: 0; background: var(--px-deep); box-shadow: var(--px-frame); }
+  .stats div + div { border-left: 3px solid var(--px-ink); }
+  #found .tale { border-top: 3px solid var(--px-raise); }
+  #coopAdvanced { border-top: 3px solid var(--px-raise); }
+  input, select, textarea, #backup textarea, #coopDialog input, #coopDialog select { border: 0 !important; background: var(--px-ink) !important; box-shadow: inset 3px 3px 0 0 #0b0614, 0 0 0 3px var(--px-edge); }
+
+  /* nest: chunky stepped meters with icons, like an old handheld pet */
+  .needs.glass { padding: 9px 3px; }
+  .need + .need { border-left: 3px solid var(--px-ink); }
+  .need label { align-items: center; justify-content: flex-start; gap: 4px; font-size: 13px; color: var(--ink); }
+  .need label .ic { width: 21px; height: 21px; }
+  .need label span { display: none; }
+  .bar, #dots { height: 12px; background: var(--px-ink); box-shadow: 0 0 0 3px var(--px-edge); position: relative; }
+  .bar i, #dots i { border-radius: 0; background: #57ad6a; transition: width .3s steps(3); }
+  .bar.low i { background: #e0634f; animation: pxBlink 1s steps(2) infinite; }
+  @keyframes pxBlink { 50% { opacity: .35; } }
+  .need .bar::after { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(90deg, transparent 0 calc(20% - 3px), var(--px-ink) calc(20% - 3px) 20%); }
+  #xpBar i, #dots i { background: var(--px-gold); }
+  #nestName { font-family: "Jacquard 12", "Pixelify Sans", serif; font-size: 42px; line-height: 1; text-shadow: 0 3px 0 var(--px-ink); }
+  #nestName::after { content: ""; }
+  #nestLvl { color: var(--soft); text-shadow: 0 2px 0 var(--px-ink); font-size: 14px; }
+  #nestShare .ic { width: 28px; height: 28px; }
+  #switcher button img { image-rendering: pixelated; }
+  #switcher button.on { background: var(--px-gold-lo) !important; }
+
+  /* the forge: upgrade cards with level pips */
+  .forge { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; margin-top: 12px; cursor: pointer; text-align: left; }
+  .forge .txt { flex: 1; }
+  .forge b { display: block; font-size: 17px; }
+  .forge small { display: block; color: var(--soft); font-size: 13px; line-height: 1.35; margin-top: 4px; }
+  .forge .cost { margin-left: auto; white-space: nowrap; font-size: 16px; }
+  .forge .cost .ic { width: 21px; height: 21px; }
+  .forge.maxed .cost { color: #a3dd9b; }
+  .pips { display: flex; gap: 3px; margin-top: 5px; }
+  .pips i { width: 12px; height: 9px; background: var(--px-ink); box-shadow: inset 0 0 0 3px var(--px-edge); }
+  .pips i.on { background: var(--px-gold); box-shadow: inset 0 -3px 0 0 var(--px-gold-lo); }
+  .forge.forged { animation: pxForged .5s steps(5); }
+  @keyframes pxForged { 0%, 40% { background: var(--px-gold) !important; transform: translateY(-6px); } }
+  .forgebtn { border: 0; }
+  .forgebtn.ready .tag { font-style: normal; font-size: 12px; color: var(--px-ink); background: var(--px-gold); padding: 0 6px; margin-left: 6px; animation: pxBlink 1.2s steps(2) infinite; }
+  .moonbtn .ic.big { margin: -4px 0; }
+  #foundForge, #foundShare, #foundNest, #foundMap { gap: 4px; }
+  #found .row.center { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: min(300px, 100%); margin: 16px auto 0; }
+  #found .row.center .pillbtn { padding: 8px 10px; font-size: 15px; }
+  #foundImg, #spImg { image-rendering: pixelated; }
   /* on big screens the cards grow with the room */
   @media (min-width: 900px) and (min-height: 760px) {
     .card { width: min(440px, 100%); font-size: 17px; }
@@ -413,13 +553,13 @@
 <!-- while cracking -->
 <div id="hud" class="bar-top" inert aria-hidden="true">
   <div class="row">
-    <button class="pill glass btn round" id="quit" aria-label="Back to the grotto">✕</button>
+    <button class="pill glass btn round" id="quit" aria-label="Back to the grotto"><i class="ic" data-ic="close"></i></button>
     <div class="pill glass" id="lvlPill">Level 1</div>
     <div class="pill glass stack" aria-label="How cracked the egg is"><span id="dots"><i></i></span><small>crack</small></div>
   </div>
   <div class="row">
     <div class="pill glass stack" id="clock" aria-label="Shards caught and taps"><b>✦ 0</b><small>0 taps</small></div>
-    <button class="pill glass btn round mute" aria-label="Mute sound">🔊</button>
+    <button class="pill glass btn round mute" aria-label="Mute sound"><i class="ic" data-ic="sound"></i></button>
   </div>
 </div>
 
@@ -428,9 +568,9 @@
   <div class="pill glass stack" title="Shards: spend them on snacks and decor"><b id="shardPill">✦ 0</b><small>shards</small></div>
   <div class="row">
     <div class="pill glass stack" title="Stars from the grotto levels"><b id="starPill">★ 0</b><small>stars</small></div>
-    <button class="pill glass btn" id="mapCoop">👯 Co-op</button>
-    <button class="pill glass btn round stack" id="backupBtn" aria-label="Back up your nest" title="Back up your nest">💾<small>backup</small></button>
-    <button class="pill glass btn round mute" aria-label="Mute sound">🔊</button>
+    <button class="pill glass btn" id="mapCoop"><i class="ic" data-ic="duo"></i>Co-op</button>
+    <button class="pill glass btn round stack" id="backupBtn" aria-label="Back up your nest" title="Back up your nest"><i class="ic" data-ic="scroll"></i><small>backup</small></button>
+    <button class="pill glass btn round mute" aria-label="Mute sound"><i class="ic" data-ic="sound"></i></button>
   </div>
 </div>
 
@@ -440,9 +580,9 @@
 <div id="toast" class="glass"></div>
 
 <nav id="tabs" class="glass" inert aria-hidden="true">
-  <button data-tab="map">🗺️ Grotto</button>
-  <button data-tab="nest">🪺 Nest</button>
-  <button data-tab="lib">📖 Glowpedia</button>
+  <button data-tab="map"><i class="ic" data-ic="grotto"></i>Grotto</button>
+  <button data-tab="nest"><i class="ic" data-ic="nest"></i>Nest</button>
+  <button data-tab="lib"><i class="ic" data-ic="book"></i>Glowpedia</button>
 </nav>
 
 <div id="start" class="overlay">
@@ -493,27 +633,27 @@
       <div><b id="stShards">+0</b><span>shards</span></div>
     </div>
     <button class="cta" id="nextLvl">Next level</button><br>
-    <div class="row center" style="margin-top:12px"><button class="pillbtn" id="foundNest">🪺 Nest</button><button class="pillbtn" id="foundMap">🗺️ Grotto</button><button class="pillbtn" id="foundShare">📮 Share</button></div>
+    <div class="row center" style="margin-top:12px"><button class="pillbtn" id="foundNest"><i class="ic" data-ic="nest"></i>Nest</button><button class="pillbtn" id="foundMap"><i class="ic" data-ic="grotto"></i>Grotto</button><button class="pillbtn" id="foundForge"><i class="ic" data-ic="hammer"></i>Forge</button><button class="pillbtn" id="foundShare"><i class="ic" data-ic="postcard"></i>Share</button></div>
   </div>
 </div>
 
 <div id="nestTop">
-  <button id="nestName"></button><button id="nestShare" aria-label="Share a postcard">📮</button>
+  <button id="nestName"></button><button id="nestShare" aria-label="Share a postcard"><i class="ic" data-ic="postcard"></i></button>
   <div id="nestLvl"></div>
   <div class="bar" id="xpBar"><i></i></div>
 </div>
 <div id="nestEmpty" hidden>Your nest is empty.<br>Hatch your first egg in the Grotto ✦</div>
 <div id="nestBottom">
   <div class="needs glass">
-    <div class="need"><label>Tummy <span id="vTummy"></span></label><div class="bar" id="bTummy"><i></i></div></div>
-    <div class="need"><label>Joy <span id="vJoy"></span></label><div class="bar" id="bJoy"><i></i></div></div>
-    <div class="need"><label>Energy <span id="vEnergy"></span></label><div class="bar" id="bEnergy"><i></i></div></div>
+    <div class="need"><label><i class="ic" data-ic="cookie"></i>Tummy <span id="vTummy"></span></label><div class="bar" id="bTummy"><i></i></div></div>
+    <div class="need"><label><i class="ic" data-ic="heart"></i>Joy <span id="vJoy"></span></label><div class="bar" id="bJoy"><i></i></div></div>
+    <div class="need"><label><i class="ic" data-ic="moon"></i>Energy <span id="vEnergy"></span></label><div class="bar" id="bEnergy"><i></i></div></div>
   </div>
   <div class="acts">
-    <button class="act" id="feedBtn">🍪 Feed</button>
-    <button class="act" id="playBtn">✨ Play</button>
-    <button class="act" id="sleepBtn">🌙 Sleep</button>
-    <button class="act" id="decorBtn">🛋️ Decor</button>
+    <button class="act" id="feedBtn"><i class="ic" data-ic="cookie"></i>Feed</button>
+    <button class="act" id="playBtn"><i class="ic" data-ic="sparkle"></i>Play</button>
+    <button class="act" id="sleepBtn"><i class="ic" data-ic="moon"></i>Sleep</button>
+    <button class="act" id="decorBtn"><i class="ic" data-ic="candle"></i>Decor</button>
   </div>
   <div id="switcher"></div>
 </div>
@@ -550,6 +690,15 @@
     <p class="sub" id="shopSub"></p>
     <div class="scroll" id="shopList"></div>
     <button class="ghost" id="shopClose">done</button>
+  </div>
+</div>
+
+<div id="forge" class="overlay modal hidden">
+  <div class="card glass dark wide">
+    <h2>The Forge</h2>
+    <p class="sub" id="forgeSub"></p>
+    <div class="scroll" id="forgeList"></div>
+    <button class="ghost" id="forgeClose">done</button>
   </div>
 </div>
 
@@ -1205,6 +1354,53 @@ function pxNoise(x, y) {
 const pxFbm = (x, y) => pxNoise(x, y) * .55 + pxNoise(x * 2.1, y * 2.1) * .3 + pxNoise(x * 4.3, y * 4.3) * .15;
 function pxSmooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
+// ---------- pixel icons: little sprites for buttons and labels, drawn from text maps ----------
+const PX_ICON_COLORS = { w: "#efe6ff", W: "#ffffff", l: "#ad91e6", L: "#d2bfff", p: "#6b4fa8", d: "#3d2866", k: "#160c26", g: "#eec26a", G: "#fff0b5", o: "#c98f3a", b: "#946027", B: "#5e3a1c", r: "#e88bb1", R: "#c25586", s: "#e4dfe8", S: "#8a8494", z: "#5d5666", t: "#69b7d6", T: "#3383a8", m: "#57ad6a", e: "#e0634f", E: "#b8323b" };
+const PX_ICON_MAPS = {
+  hammer: ["............", ".zSSSSSSSSz.", ".SswssssssS.", ".SsssssssSS.", ".zSSSSSSSSz.", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....bB.....", "............"],
+  eye: ["............", "............", "....ssss....", "..ssssssss..", ".sssTTTTsss.", "ssssTkkTssss", "ssssTkWTssss", ".sssTTTTsss.", "..ssssssss..", "....ssss....", "............", "............"],
+  bell: [".....bb.....", ".....gg.....", "....gGgg....", "...gGgggo...", "...gGgggo...", "...gGgggo...", "..gGggggoo..", "..gGggggoo..", ".ggggggggoo.", ".oooooooooo.", ".....bb.....", "............"],
+  pouch: ["............", "...b....b...", "....bbbb....", "....rrrr....", "...rRRRRr...", "..rrrrrrRR..", "..rrgGrrRR..", "..rGWGrrRR..", "..rrgGrrRR..", "..rrrrrRRR..", "...RRRRRR...", "............"],
+  cookie: ["............", "....oooo....", "...oggggo...", "..oggBgggo..", "..ogggggBo..", "..oBgggggo..", "..oggggBgo..", "..ogBggggo..", "...oggggo...", "....oooo....", "............", "............"],
+  sparkle: [".....W......", ".....G......", "....GWG.....", "..GGWWWGG...", "....GWG.....", ".....G......", ".....W..W...", "........G...", ".......GWG..", "........G...", "............", "............"],
+  moon: ["............", "....GGGG....", "...GGg......", "..GGg.......", "..GGg.......", "..GGg.......", "..GGgg......", "...GGgggg...", "....GGGGGg..", "............", "............", "............"],
+  sun: ["............", ".g...g...g..", "..g.ggg.g...", "...gGGGg....", "..gGGWGGg...", "gggGWWGGggg.", "..gGGGGGg...", "...gGGGg....", "..g.ggg.g...", ".g...g...g..", "............", "............"],
+  candle: [".....g......", "....gGg.....", "....gWg.....", ".....o......", "....wws.....", "....wws.....", "....wws.....", "....wws.....", "...SSSSS....", "..SzzzzzS...", "............", "............"],
+  heart: ["............", "..RR...RR...", ".RrrR.RrrR..", ".RrWrRrrrR..", ".RrrrrrrrR..", "..RrrrrrR...", "...RrrrR....", "....RrR.....", ".....R......", "............", "............", "............"],
+  star: [".....g......", ".....g......", "....gGg.....", "ggggGWGgggg.", ".gGGGGGGGg..", "..gGGGGGg...", "..gGGgGGg...", ".gGg...gGg..", ".g.......g..", "............", "............", "............"],
+  shard: ["............", "....LLLL....", "...LWLLlp...", "..LWLLLlpp..", "..ppppppppd.", "...pppppdd..", "....ppppd...", ".....ppd....", "......d.....", "............", "............", "............"],
+  sound: ["............", "....s....l..", "...ss..l..l.", ".ssss...l.l.", ".ssss...l.l.", ".ssss...l.l.", "...ss..l..l.", "....s....l..", "............", "............", "............", "............"],
+  mute: ["............", "....s.......", "...ss.......", ".ssss.e...e.", ".ssss..e.e..", ".ssss...e...", ".ssss..e.e..", "...ss.e...e.", "....s.......", "............", "............", "............"],
+  scroll: ["............", ".ooooooooo..", "oGGGGGGGGGo.", ".oGzzzzzGo..", ".oGGGGGGGo..", ".oGzzzzGGo..", ".oGGGGGGGo..", ".oGzzzzzGo..", "oGGGGGGGGGo.", ".ooooooooo..", "............", "............"],
+  close: ["............", "..ss....ss..", "...ss..ss...", "....ssss....", ".....ss.....", "....ssss....", "...ss..ss...", "..ss....ss..", "............", "............", "............", "............"],
+  grotto: ["............", "...dddddd...", "..ddppppdd..", ".ddpkkkkpdd.", ".dpkkkkkkpd.", ".dpkkLkkkpd.", ".dpkLWLkkpd.", ".dpkLLLkkpd.", ".dpkLLLLkpd.", "dddddddddddd", "............", "............"],
+  nest: ["............", "....sss.....", "...sswss....", "...sssss....", "..bsssSsb...", ".bobobobobo.", ".obobobobob.", "..bobobobo..", "...BBBBBB...", "............", "............", "............"],
+  book: ["............", ".RRRRRRRRR..", ".RrrrrrrrRs.", ".RrGGGGGrRs.", ".RrrrrrrrRs.", ".RrrrGrrrRs.", ".RrrrrrrrRs.", ".RrrrrrrrRs.", ".RRRRRRRRRs.", "..ssssssss..", "............", "............"],
+  duo: ["............", "...r....t...", "..rrr..ttt..", ".rrrrrtttt..", ".rkrkrtktkt.", ".rrrrrtttt..", "..rrr..ttt..", "............", "............", "............", "............", "............"],
+  postcard: ["............", "............", ".wwwwwwwwww.", ".Swwwwwwwws.", ".sSwwwwwwSs.", ".ssSwwwwSss.", ".sssSRRSsss.", ".ssssRRssss.", ".ssssssssss.", "............", "............", "............"],
+  lock: ["............", "....SSSS....", "...S....S...", "...S....S...", "..gggggggg..", "..gGGGGGgo..", "..gGGkkGgo..", "..gGGkkGgo..", "..ggggggoo..", "..oooooooo..", "............", "............"],
+  broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
+};
+const pxIconCache = {};
+/** A pixel icon as a data URL: the map drawn 1:1 with a dark outline around it. */
+function pxIcon(name) {
+  if (pxIconCache[name]) return pxIconCache[name];
+  const map = PX_ICON_MAPS[name];
+  if (!map) return "";
+  const S = 14, c = document.createElement("canvas"); c.width = c.height = S;
+  const g = c.getContext("2d"), im = g.createImageData(S, S), d = im.data, solid = new Uint8Array(S * S);
+  const put = (x, y, rgb) => { const i = (y * S + x) * 4; d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2]; d[i + 3] = 255; };
+  map.forEach((row, y) => [...row].forEach((ch, x) => { const col = PX_ICON_COLORS[ch]; if (col) { solid[(y + 1) * S + x + 1] = 1; put(x + 1, y + 1, pxHex(col)); } }));
+  const ink = pxHex("#160c26");
+  for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+    if (solid[y * S + x]) continue;
+    if ((x > 0 && solid[y * S + x - 1]) || (x < S - 1 && solid[y * S + x + 1]) || (y > 0 && solid[(y - 1) * S + x]) || (y < S - 1 && solid[(y + 1) * S + x])) put(x, y, ink);
+  }
+  g.putImageData(im, 0, 0);
+  return pxIconCache[name] = c.toDataURL();
+}
+const ic = (name, cls = "") => `<i class="ic${cls ? " " + cls : ""}" style="background-image:url(${pxIcon(name)})" aria-hidden="true"></i>`;
+
 // one small cave banner per chapter, in that chapter's crystal
 const CHAPTER_ART = [
   { seed: 3, wall: ["#07051a", "#120c33", "#21174f", "#33256f", "#463592"], crystal: ["#2a1d63", "#5b3fb0", "#9a7ce6", "#c9b8ff", "#f2ecff"], glow: "#b48cff" },
@@ -1282,7 +1478,7 @@ function levelConf(n) {
 // Progress is precious: a main save, a "last good" copy, and care when several tabs are open.
 const SAVE_KEY = "hatchstone.save", BAK_KEY = "hatchstone.save.bak";
 const SAVE_VERSION = 1;
-const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, nextId: 1 });
+const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1 });
 const validSave = d => d && typeof d === "object" && Array.isArray(d.creatures) && typeof d.stars === "object";
 
 let startedEmpty = true; // no nest in storage when this page opened
@@ -1304,7 +1500,7 @@ function loadSave() {
 
 /** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
 function migrate(d) {
-  d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {};
+  d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {}; d.forge = d.forge || {};
   for (const g of Object.values(d.geodes)) if (g.img && g.img.length > 60000) delete g.img;
   d.v = SAVE_VERSION;
   return d;
@@ -1326,7 +1522,7 @@ function persist() {
     for (const g of Object.values(save.geodes)) delete g.img;
     if (store.set(SAVE_KEY, save)) return;
     try { localStorage.removeItem(BAK_KEY); } catch {}
-    if (!store.set(SAVE_KEY, save) && !saveWarned) { saveWarned = true; toast("Couldn't save: tap 💾 and keep a backup code"); }
+    if (!store.set(SAVE_KEY, save) && !saveWarned) { saveWarned = true; toast("Couldn't save: tap backup and keep a backup code"); }
     return;
   }
   if (Date.now() - lastBak > 30000) { lastBak = Date.now(); store.set(BAK_KEY, save); }
@@ -1364,10 +1560,36 @@ function applyTime(cr, now = Date.now()) {
     cr.energy = clamp(cr.energy + min * 12, 0, 100);
     cr.tummy = clamp(cr.tummy - min * 0.25, 0, 100);
   } else {
+    // dust bunnies gather while it's awake, and an untidy nest wears joy down a little faster
+    const dust = cr.dust = cr.dust || [];
     cr.tummy = clamp(cr.tummy - min * 0.5, 0, 100);
-    cr.joy = clamp(cr.joy - min * 0.4, 0, 100);
+    cr.joy = clamp(cr.joy - min * (0.4 + dust.length * 0.15), 0, 100);
     cr.energy = clamp(cr.energy - min * 0.25, 0, 100);
+    cr.messT = (cr.messT || 0) + min;
+    // (four at most in the whole nest, however many glowlings live there)
+    while (cr.messT >= MESS_MIN && dust.length < 3 && save.creatures.reduce((n, c) => n + (c.dust || []).length, 0) < 4) { dust.push([Math.round(Math.random() * 100) / 100, Math.round(Math.random() * 100) / 100]); cr.messT -= MESS_MIN; }
+    cr.messT = Math.min(cr.messT, MESS_MIN / 2); // a swept nest stays tidy for a while
   }
+}
+
+const MESS_MIN = 45;
+
+/** What a glowling is calling you for, if anything: gently, the way a Tamagotchi beeps. */
+function callOf(cr) {
+  if (cr.sleeping) return "";
+  if (cr.tummy < 25) return "hungry";
+  if (cr.energy < 20) return "sleepy";
+  if ((cr.dust || []).length >= 2) return "messy";
+  if (cr.joy < 25) return "lonely";
+  return "";
+}
+
+/** A little "!" on the Nest tab whenever someone at home needs you. */
+function updateCalls() {
+  const t = document.querySelector('#tabs [data-tab="nest"]');
+  if (!t) return;
+  const n = save.creatures.filter(c => { applyTime(c); return callOf(c); }).length;
+  t.classList.toggle("call", n > 0 && game.scene !== "nest");
 }
 
 function moodOf(cr) {
@@ -1493,6 +1715,24 @@ const PIXEL_LUT = (() => {
   return lut;
 })();
 const PIXEL_DITHER = PX_BAYER.map(v => (v - 0.5) * 16);
+// sprites snap to the palette without the stone greys and warm neutrals, so pale glowlings don't go blotchy
+const SPRITE_SKIP = new Set(["#3a3440", "#5d5666", "#8a8494", "#b9b3c0", "#2a1e1a", "#4a362c", "#6e5444", "#98786a", "#c4a796", "#d9c2b4", "#efe0d4", "#7a6a7e", "#a596a8", "#cfc4d6"].map(h => pxHex(h).join()));
+const SPRITE_LUT = (() => {
+  const lut = new Uint8Array(32768), ok = PIXEL_PALETTE.map((c, j) => SPRITE_SKIP.has(c.join()) ? -1 : j).filter(j => j >= 0);
+  for (let i = 0; i < 32768; i++) {
+    const r = (i >> 10) * 8.2, g = ((i >> 5) & 31) * 8.2, b = (i & 31) * 8.2;
+    let best = 0, bd = Infinity;
+    for (const j of ok) { const [pr, pg, pb] = PIXEL_PALETTE[j], d = 3 * (r - pr) ** 2 + 4 * (g - pg) ** 2 + 2 * (b - pb) ** 2; if (d < bd) { bd = d; best = j; } }
+    lut[i] = best;
+  }
+  return lut;
+})();
+// colors that are already exactly in the palette skip dithering: sprites stay flat and clean
+const PIXEL_EXACT = (() => {
+  const t = new Int16Array(32768).fill(-1);
+  PIXEL_PALETTE.forEach(([r, g, b], j) => { t[(r >> 3 << 10) | (g >> 3 << 5) | (b >> 3)] = j; });
+  return t;
+})();
 
 /** Snap the finished frame to the palette with ordered dithering and show it. */
 function present() {
@@ -1500,6 +1740,8 @@ function present() {
   for (let y = 0, i = 0; y < h; y++) {
     const row = (y & 3) * 4;
     for (let x = 0; x < w; x++, i += 4) {
+      const ex = PIXEL_EXACT[(d[i] >> 3 << 10) | (d[i + 1] >> 3 << 5) | (d[i + 2] >> 3)];
+      if (ex >= 0) { const c = PIXEL_PALETTE[ex]; if (c[0] === d[i] && c[1] === d[i + 1] && c[2] === d[i + 2]) { d[i + 3] = 255; continue; } }
       const o = PIXEL_DITHER[row + (x & 3)];
       const r = clamp(d[i] + o, 0, 255) >> 3, g = clamp(d[i + 1] + o, 0, 255) >> 3, b = clamp(d[i + 2] + o, 0, 255) >> 3;
       const c = PIXEL_PALETTE[PIXEL_LUT[(r << 10) | (g << 5) | b]];
@@ -1998,22 +2240,110 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   c.restore();
 }
 
+/**
+ * A glowling as a proper pixel sprite on the main canvas: drawn small, cut out with hard edges, shaded in flat palette
+ * bands (no dither noise), traced with a one-pixel dark outline, and lit from behind by a soft glow so it stands out.
+ */
+const spriteBuf = { c: document.createElement("canvas"), o: document.createElement("canvas") };
+spriteBuf.g = spriteBuf.c.getContext("2d", { willReadFrequently: true });
+spriteBuf.og = spriteBuf.o.getContext("2d");
+function drawSprite(x, y, s, sp, o = {}) {
+  const grow = [0.82, 1, 1.12, 1.22][stageOf(o.level || 1)];
+  if (o.glow !== false) {
+    // a lighter pool of light behind it: the dark outline needs something brighter to sit on
+    const gr = s * grow * 1.05, g = ctx.createRadialGradient(x, y, s * 0.3, x, y, gr);
+    g.addColorStop(0, `rgba(210,191,255,${0.55 * (o.glowK ?? 1)})`);
+    g.addColorStop(0.6, `rgba(138,108,201,${0.3 * (o.glowK ?? 1)})`);
+    g.addColorStop(1, "rgba(138,108,201,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, gr, 0, TAU); ctx.fill();
+  }
+  cutSprite(ctx, x, y, s * grow, g => drawCreature(g, x, y, s, sp, { ...o, glow: false }));
+}
+
+/** Draw something as a crisp sprite onto a canvas whose transform maps to its pixels: see drawSprite. */
+function cutSprite(target, x, y, size, draw) {
+  const M = target.getTransform(), k = Math.hypot(M.a, M.b);
+  const cx = M.a * x + M.c * y + M.e, cy = M.b * x + M.d * y + M.f, r = size * k;
+  const ox = Math.floor(cx - r * 1.25) - 1, oy = Math.floor(cy - r * 1.75) - 1;
+  const w = Math.ceil(r * 2.5) + 3, h = Math.ceil(r * 2.75) + 3;
+  const { c, g, o: oc, og } = spriteBuf, W2 = w * 2, H2 = h * 2;
+  if (c.width < W2 || c.height < H2) { c.width = Math.max(c.width, W2); c.height = Math.max(c.height, H2); }
+  if (oc.width < w || oc.height < h) { oc.width = Math.max(oc.width, w); oc.height = Math.max(oc.height, h); }
+  // drawn at twice the size, then shrunk by hand so that eyes and mouths survive as solid dark pixels
+  g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
+  g.setTransform(M.a * 2, M.b * 2, M.c * 2, M.d * 2, (M.e - ox) * 2, (M.f - oy) * 2);
+  draw(g);
+  const src = g.getImageData(0, 0, W2, H2).data, im = og.createImageData(w, h), d = im.data;
+  const solid = new Uint8Array(w * h), idx = new Int16Array(w * h).fill(-1);
+  for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+    let n = 0, r = 0, gg = 0, b = 0, dark = null, dl = 75;
+    for (const [sx, sy] of [[0, 0], [1, 0], [0, 1], [1, 1]]) {
+      const i = ((yy * 2 + sy) * W2 + xx * 2 + sx) * 4, a = src[i + 3];
+      if (a < 120) continue;
+      const k = 255 / a, pr = Math.min(255, src[i] * k), pg = Math.min(255, src[i + 1] * k), pb = Math.min(255, src[i + 2] * k);
+      const l = pr * 0.3 + pg * 0.59 + pb * 0.11;
+      if (l < dl) { dl = l; dark = [pr, pg, pb]; }
+      n++; r += pr; gg += pg; b += pb;
+    }
+    if (n < 2) continue;
+    const p = yy * w + xx, [cr, cg, cb] = dark || [r / n, gg / n, b / n];
+    idx[p] = SPRITE_LUT[(cr >> 3 << 10) | (cg >> 3 << 5) | (cb >> 3)];
+    solid[p] = 1;
+  }
+  // lone pixels join their neighbors: clean clusters instead of speckle (eyes and other dark marks stay)
+  const clean = idx.slice();
+  for (let yy = 1; yy < h - 1; yy++) for (let xx = 1; xx < w - 1; xx++) {
+    const p = yy * w + xx, me = idx[p];
+    if (me < 0 || me === 1 || me === 0) continue;
+    const n = [idx[p - 1], idx[p + 1], idx[p - w], idx[p + w]];
+    if (n.includes(me) || n.includes(-1)) continue;
+    const best = n.find(v => n.filter(q => q === v).length >= 3);
+    if (best !== undefined) clean[p] = best;
+  }
+  for (let p = 0, i = 0; p < w * h; p++, i += 4) {
+    if (clean[p] < 0) continue;
+    const col = PIXEL_PALETTE[clean[p]];
+    d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+  }
+  // one-pixel outline in the darkest ink, on every side the sprite touches empty space
+  const ink = PIXEL_PALETTE[1];
+  for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
+    const p = yy * w + xx;
+    if (solid[p]) continue;
+    if ((xx > 0 && solid[p - 1]) || (xx < w - 1 && solid[p + 1]) || (yy > 0 && solid[p - w]) || (yy < h - 1 && solid[p + w])) {
+      const i = p * 4; d[i] = ink[0]; d[i + 1] = ink[1]; d[i + 2] = ink[2]; d[i + 3] = 255;
+    }
+  }
+  og.clearRect(0, 0, oc.width, oc.height);
+  og.putImageData(im, 0, 0);
+  target.save(); target.setTransform(1, 0, 0, 1, 0, 0);
+  target.drawImage(oc, 0, 0, w, h, ox, oy, w, h);
+  target.restore();
+}
+
 const thumbCache = new Map();
 /** A glowling as a small picture: for the nest switcher, the glowpedia and the found card. */
 function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, mood = "ok" } = {}) {
   const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}`;
   if (thumbCache.has(key)) return thumbCache.get(key);
-  const c = document.createElement("canvas");
-  c.width = c.height = Math.round(size * 2);
-  const o = c.getContext("2d");
-  o.scale(2, 2);
+  // a real pixel sprite (about one art pixel per three of yours), scaled up with hard edges
+  const n = Math.max(16, Math.round(size / 3)), small = document.createElement("canvas");
+  small.width = small.height = n;
+  const o = small.getContext("2d");
+  o.setTransform(n / size, 0, 0, n / size, 0, 0);
   const grow = [0.82, 1, 1.12, 1.22][stageOf(level)];
-  drawCreature(o, size / 2, size * 0.56, size * 0.5 / grow, sp, { t: 1000, sil, level, shiny, mood, glow: !sil, maxGlow: size * 0.48 });
+  cutSprite(o, size / 2, size * 0.56, size * 0.5, g => drawCreature(g, size / 2, size * 0.56, size * 0.5 / grow, sp, { t: 1000, sil, level, shiny, mood, glow: false }));
   if (sil) {
+    o.setTransform(1, 0, 0, 1, 0, 0);
     o.globalCompositeOperation = "source-atop";
-    o.fillStyle = "#4a4185";
-    o.fillRect(0, 0, size, size);
+    o.fillStyle = "#523a85";
+    o.fillRect(0, 0, n, n);
   }
+  const c = document.createElement("canvas");
+  c.width = c.height = n * Math.max(1, Math.round(size * 2 / n));
+  const big = c.getContext("2d");
+  big.imageSmoothingEnabled = false;
+  big.drawImage(small, 0, 0, c.width, c.height);
   const url = c.toDataURL("image/png");
   thumbCache.set(key, url);
   return url;
@@ -2318,30 +2648,70 @@ function burst(x, y, n, colors, speed = 1) {
   }
 }
 
-/** How much a tap hits: your hammer, plus a little more for every upgrade later on. */
-const tapPower = () => 1;
+// ---------- the forge: shards buy hammer upgrades that last forever ----------
+const FORGE = [
+  { id: "heft", name: "Heavy head", icon: "hammer", cost: [25, 50, 90, 140, 200], what: l => `taps hit ${l * 15}% harder` },
+  { id: "eye", name: "Owl's eye", icon: "eye", cost: [40, 90, 160], what: l => ["", "a faint glow shows the weak spot on hard stone", "the weak spot glows brighter", "the weak spot glows even in the deepest caves"][l] },
+  { id: "echo", name: "Bell echo", icon: "bell", cost: [60, 120, 200], what: l => `${l * 10}% of taps ring twice, for 60% more` },
+  { id: "magpie", name: "Magpie pouch", icon: "pouch", cost: [30, 70, 120, 180], what: l => `+${l} shard${l > 1 ? "s" : ""} from every weak-spot hit` },
+];
+const forgeLvl = id => (save.forge && save.forge[id]) || 0;
+const canForge = () => FORGE.some(f => f.cost[forgeLvl(f.id)] <= save.shards);
+
+/** How hard a tap hits: the hammer plus its upgrades. Shared eggs use the plain hammer, so both friends are even. */
+function tapPower() {
+  if (game.egg && game.egg.conf.coop) return { power: 1, echo: false };
+  const echo = Math.random() < forgeLvl("echo") * 0.1;
+  return { power: Math.round((1 + forgeLvl("heft") * 0.15) * (echo ? 1.6 : 1) * 100) / 100, echo };
+}
+
+function openForge() {
+  sfx.tick();
+  $("forgeSub").innerHTML = `You have ${ic("shard")}${save.shards}. Upgrades last forever.`;
+  $("forgeList").innerHTML = FORGE.map(f => {
+    const l = forgeLvl(f.id), max = f.cost.length, cost = f.cost[l];
+    return `<button class="forge${l >= max ? " maxed" : ""}" data-id="${f.id}" ${l >= max || save.shards < cost ? "disabled" : ""}>${ic(f.icon, "big")}<span class="txt"><b>${f.name}</b><span class="pips">${f.cost.map((_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l < max ? (l ? "next: " : "") + f.what(l + 1) : f.what(l)}</small></span><span class="cost">${l >= max ? "max" : `${ic("shard")}${cost}`}</span></button>`;
+  }).join("");
+  $$("#forgeList .forge").forEach(b => b.addEventListener("click", () => buyForge(b.dataset.id)));
+  show("forge", true);
+}
+
+function buyForge(id) {
+  const f = FORGE.find(f => f.id === id), l = forgeLvl(id), cost = f.cost[l];
+  if (cost === undefined || save.shards < cost) return;
+  save.shards -= cost;
+  save.forge = { ...save.forge, [id]: l + 1 };
+  sfx.levelUp();
+  if (navigator.vibrate) navigator.vibrate([12, 30, 12]);
+  toast(`${f.name} · level ${l + 1} ✦`);
+  persist();
+  updateTopbar();
+  openForge();
+  const card = document.querySelector(`#forgeList [data-id="${id}"]`);
+  if (card) card.classList.add("forged");
+}
 
 /** A tap on the egg: crack it, pop numbers and shards, shake. Hosts and solo players run this; guests replay it. */
 function hitEgg(x, y) {
   const e = game.egg;
   if (!e || e.state !== "cracking" || !inside(L.egg, [x, y])) return;
-  const [u, v] = toEgg(x, y), power = tapPower(), hit = [u, v / EGG_R, power];
+  const [u, v] = toEgg(x, y), { power, echo } = tapPower(), hit = [u, v / EGG_R, power];
   e.hits.push(hit);
   const res = crackHit(e, [hit[0], hit[1] * EGG_R], power, seeded(e.seed + ":" + (e.hits.length - 1)));
   e.taps++;
   if (res.crit) e.crits++;
   e.combo = game.time - e.lastTap < 700 ? e.combo + 1 : 1;
   e.lastTap = game.time;
-  const gems = 1 + (res.crit ? 2 : 0) + Math.floor(e.combo / 4);
+  const gems = 1 + (res.crit ? 2 + (e.conf.coop ? 0 : forgeLvl("magpie")) : 0) + Math.floor(e.combo / 4);
   e.gems += gems;
   markTip("tap");
   if (e.taps === 3 && e.conf.step === 1) setHint("");
-  hitFeedback(e, x, y, res, gems);
+  hitFeedback(e, x, y, res, gems, echo);
   if (e.damage >= e.hp) openEgg();
 }
 
 /** Everything you see and hear when a hit lands (also used when a co-op guest replays the host's hits). */
-function hitFeedback(e, x, y, res, gems) {
+function hitFeedback(e, x, y, res, gems, echo = false) {
   paintNet(e);
   const prog = clamp(e.damage / e.hp, 0, 1);
   e.wob = 0.02 + prog * 0.04 + (res.crit ? 0.03 : 0); e.wobT = 0; e.squash = 1;
@@ -2349,6 +2719,11 @@ function hitFeedback(e, x, y, res, gems) {
   if (res.crit) game.freeze = 0.06;
   pop(res.crit ? `CRIT ${res.dmg.toFixed(1)}` : res.dmg.toFixed(1), x, y - 14 * L.k, res.crit ? "#ffe9a8" : "#ffffff", res.crit ? 1.5 : 1);
   if (e.combo >= 3) pop(`×${e.combo}`, x + 34 * L.k, y - 40 * L.k, "#8fd8ef", 0.9);
+  if (echo) {
+    // the bell echo: a second ring a beat later
+    pop("ECHO", x - 34 * L.k, y - 30 * L.k, "#eec26a", 1.1);
+    setTimeout(() => { sfx.knock(res.weak * 0.6); game.ripples.push({ x, y, t: 0, r: 60 * L.k, h: 1 }); }, 110);
+  }
   if (Math.random() < 0.6) carveChip(x, y, rand(1.2, 2.4) * L.k, 3);
   spawnChips(x, y, 3 + Math.round(prog * 5) + (res.crit ? 4 : 0), 1 + prog);
   if (res.crit) burst(x, y, 10, ["#fff", ...e.crystal.c], 1.3);
@@ -2531,6 +2906,8 @@ function showFound() {
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
   $("foundImg").src = geodeImage();
+  // the same picture as a pixel sprite, once it's drawn
+  imgFrom($("foundImg").src).then(im => { $("foundImg").src = pixelate(im, 66, 88).toDataURL(); });
   $("newBadge").hidden = !isNew;
   $("foundName").textContent = (e.shiny ? "✦ " : "") + sp.name;
   $("foundRarity").textContent = sp.moon ? `${sp.moon} moon glowling` : `${cry.name} geode · ${cry.rarity}`;
@@ -2554,6 +2931,8 @@ function showFound() {
 function nestHint() {
   if (!save.creatures.length) return "";
   if (!tipDone("pet")) return `stroke ${activeCreature()?.name || "your glowling"} to pet it ♥`;
+  const cr = activeCreature(), call = cr && callOf(cr);
+  if (call) return { hungry: `${cr.name} is hungry: give it a snack`, sleepy: `${cr.name} is sleepy: tuck it in`, messy: "dust bunnies! tap them to sweep the nest", lonely: `${cr.name} feels lonely: pet it or play` }[call];
   if (!tipDone("call")) return "tip: hold a finger on the floor to call everyone";
   if (!tipDone("decorTap") && DECOR.some(d => hasDecor(d.id) && d.id !== "rug")) return "tip: tap your decorations to play with them ✦";
   if (save.incubator && Date.now() >= save.incubator.due) return "the egg is ready: tap it three times to hatch ✦";
@@ -2669,8 +3048,9 @@ function setScene(scene) {
 }
 
 function updateTopbar() {
-  $("shardPill").textContent = `✦ ${save.shards}`;
-  $("starPill").textContent = `★ ${totalStars()}`;
+  $("shardPill").innerHTML = `${ic("shard")}${save.shards}`;
+  $("starPill").innerHTML = `${ic("star")}${totalStars()}`;
+  updateCalls();
 }
 
 // ---------- the daily moon egg ----------
@@ -2742,7 +3122,10 @@ function renderMap() {
   const moonCard = `<button class="moonbtn" id="moonBtn" ${done ? "disabled" : ""}><span class="em">🌙</span><span><b>${done ? "Moon egg opened" : "Today's moon egg"}</b><small>${done
     ? `next one in ${untilTomorrow()}${streak ? ` · streak ${streak} 🔥` : ""}`
     : `${sp.moon && !save.seen[sp.id] ? `${/^[aeiou]/.test(sp.moon) ? "an" : "a"} ${sp.moon} moon glowling` : `a ${rarityOf(sp)} glowling`} sleeps inside ✦ +25 shards${streak ? ` · streak ${streak} 🔥` : ""}`}</small></span></button>`;
-  $("mapList").innerHTML = moonCard + html;
+  const ready = canForge();
+  const forgeCard = `<button class="moonbtn forgebtn${ready ? " ready" : ""}" id="forgeBtn">${ic("hammer", "big")}<span><b>The Forge${ready ? ' <em class="tag">upgrade ready</em>' : ""}</b><small>spend shards on your hammer: harder taps, keener eyes</small></span></button>`;
+  $("mapList").innerHTML = forgeCard + moonCard + html;
+  $("forgeBtn").addEventListener("click", openForge);
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
   $("moonBtn").addEventListener("click", startMoon);
 }
@@ -2762,11 +3145,11 @@ function renderNest(full) {
   $("nestLvl").textContent = `Level ${cr.level} · ${STAGES[stageOf(cr.level)]} ${sp.name}${cr.level >= MAX_LEVEL ? " · max" : ""}`;
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
   for (const [k, id] of [["tummy", "Tummy"], ["joy", "Joy"], ["energy", "Energy"]]) {
-    $("b" + id).firstElementChild.style.width = cr[k] + "%";
+    $("b" + id).firstElementChild.style.width = Math.ceil(cr[k] / 20) * 20 + "%";
     $("b" + id).classList.toggle("low", cr[k] < 25);
     $("v" + id).textContent = Math.round(cr[k]);
   }
-  $("sleepBtn").textContent = cr.sleeping ? "☀️ Wake" : "🌙 Sleep";
+  $("sleepBtn").innerHTML = cr.sleeping ? `${ic("sun")}Wake` : `${ic("moon")}Sleep`;
   $("feedBtn").disabled = cr.sleeping;
   $("playBtn").disabled = cr.sleeping;
   if (full) {
@@ -2804,6 +3187,7 @@ function finishSnack(sn) {
   const v = a ? actorView(a) : { x: sn.x, y: sn.ty, size: N.base };
   sfx.munch();
   cr.tummy = clamp(cr.tummy + sn.s.tummy, 0, 100);
+  cr.messT = (cr.messT || 0) + 15;
   cr.joy = clamp(cr.joy + sn.s.joy + (sn.fav ? 15 : 0), 0, 100);
   addXP(cr, sn.fav ? 12 : 6);
   spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
@@ -3030,11 +3414,15 @@ function updateActors(dt) {
       else if (a.decor === "spring") a.alt = Math.sin(a.ph * 2.5) * N.base * 0.04;
     }
     // needs show up as little thought bubbles now and then
-    if (!a.emote && a.state !== "sleep" && Math.random() < dt * 0.07) {
+    const wants = callOf(cr);
+    if (!a.emote && a.state !== "sleep" && Math.random() < dt * (wants ? 0.4 : 0.07)) {
       const m = moodOf(cr);
-      if (m === "hungry") emote(a, SNACKS[specOf(cr).snack].emoji, 2.2);
+      if (wants === "messy") emote(a, "!", 2.2);
+      else if (m === "hungry") emote(a, SNACKS[specOf(cr).snack].emoji, 2.2);
       else if (m === "sleepy") emote(a, "zz", 2.2);
       else if (m === "sad") emote(a, "…", 2.2);
+      // the one you're looking after beeps for you now and then
+      if (wants && a.id === save.active && Math.random() < 0.3) sfx.chirp(specOf(cr).voice * 1.2);
     }
   }
 }
@@ -3316,8 +3704,56 @@ function drawEmote(a, v) {
   ctx.restore();
 }
 
+/** Dust bunnies: little grey puffs with ears and eyes, gathering on the floor until you sweep them. */
+function dustSpots() {
+  const out = [];
+  for (const cr of save.creatures) (cr.dust || []).forEach(([u, v], i) => {
+    const x = lerp(N.x0, N.x1, 0.06 + u * 0.88), y = lerp(N.y0, N.y1, 0.2 + v * 0.75);
+    out.push({ cr, i, x, y, r: N.base * 0.26 * depth(y) });
+  });
+  return out;
+}
+
+function drawDust() {
+  for (const { x, y, r, i } of dustSpots()) {
+    const b = Math.abs(Math.sin(game.time * 0.003 + i * 2 + x)) * r * 0.12;
+    ctx.fillStyle = "rgba(5,0,20,.35)";
+    ctx.beginPath(); ctx.ellipse(x, y, r * 1.1, r * 0.3, 0, 0, TAU); ctx.fill();
+    cutSprite(ctx, x, y - r * 0.4, r * 1.3, ctx => {
+      for (const [dx, h] of [[-0.45, 0.9], [0.45, 0.8]]) {
+        ctx.fillStyle = "#8a8494"; ctx.beginPath(); ctx.ellipse(x + dx * r, y - r * (1.2 + h * 0.5) - b, r * 0.2, r * 0.45 * h, dx * 0.6, 0, TAU); ctx.fill();
+      }
+      const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.9 - b, r * 0.1, x, y - r * 0.6 - b, r * 1.1);
+      g.addColorStop(0, "#e4dfe8"); g.addColorStop(0.5, "#b9b3c0"); g.addColorStop(1, "#5d5666");
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.ellipse(x, y - r * 0.6 - b, r * 1.05, r * 0.75, 0, 0, TAU); ctx.fill();
+      ctx.fillStyle = "#160c26";
+      for (const dx of [-0.32, 0.32]) ctx.fillRect(x + dx * r - r * 0.12, y - r * 0.75 - b, r * 0.24, r * 0.3);
+    });
+  }
+}
+
+/** A tap on a dust bunny sweeps it away: a puff, a shard, and a happier glowling. */
+function sweepDust(x, y) {
+  const hit = dustSpots().find(s => Math.hypot(x - s.x, y - (s.y - s.r * 0.6)) < Math.max(s.r * 1.6, 22));
+  if (!hit) return false;
+  hit.cr.dust.splice(hit.i, 1);
+  hit.cr.joy = clamp(hit.cr.joy + 4, 0, 100);
+  save.shards += 1;
+  burst(hit.x, hit.y - hit.r * 0.6, 14, ["#e4dfe8", "#b9b3c0", "#8a8494"], 0.7);
+  floatText("+1 ✦", hit.x, hit.y - hit.r * 2, "#fff0b5");
+  sfx.tick();
+  if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.08, 3000, 0.6, 0.12);
+  if (navigator.vibrate) navigator.vibrate(8);
+  persist();
+  updateTopbar();
+  renderNest();
+  return true;
+}
+
 function drawNest() {
   drawRoom();
+  drawDust();
   const act = activeCreature();
   for (const a of [...actors.values()].sort((p, q) => p.y - q.y)) {
     const cr = save.creatures.find(c => c.id === a.id);
@@ -3331,7 +3767,7 @@ function drawNest() {
     }
     const asleep = a.state === "sleep" || a.state === "nap";
     const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || a.state === "visit" || (a.emote && a.emote.text === "♥") ? "happy" : moodOf(cr);
-    drawCreature(ctx, v.x, v.y, v.size, sp, { level: cr.level, shiny: cr.shiny, mood, hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 });
+    drawSprite(v.x, v.y, v.size, sp, { level: cr.level, shiny: cr.shiny, mood, hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 });
     if (asleep) {
       ctx.font = `800 ${Math.round(v.size * 0.18)}px ui-rounded, system-ui, sans-serif`;
       ctx.fillStyle = "#e6e0ff";
@@ -3666,7 +4102,7 @@ function drawCatch() {
     }
     ctx.restore();
   }
-  drawCreature(ctx, g.x, y, s, specOf(cr), { level: cr.level, shiny: cr.shiny, mood: g.flinch > 0 ? "sad" : "happy" });
+  drawSprite(g.x, y, s, specOf(cr), { level: cr.level, shiny: cr.shiny, mood: g.flinch > 0 ? "sad" : "happy" });
 }
 
 // ---------- co-op transport and authoritative round state ----------
@@ -3958,6 +4394,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "crack" && game.egg.state === "cracking") hitEgg(x, y);
   if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = now; }
   if (game.scene === "catch" && game.catch) game.catch.tx = x;
+  if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
   if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
   else if (game.scene === "nest" && !actorAt(x, y) && (pointer.decor = decorAt(x, y))) {
     if (pointer.decor.id === "lights") playDecor(pointer.decor);
@@ -4299,7 +4736,7 @@ $("play").addEventListener("click", () => {
 });
 $$(".mute").forEach(b => b.addEventListener("click", () => {
   sfx.setMuted(!sfx.muted);
-  $$(".mute").forEach(m => { m.textContent = sfx.muted ? "🔇" : "🔊"; });
+  $$(".mute").forEach(m => { m.innerHTML = ic(sfx.muted ? "mute" : "sound"); });
 }));
 $$("#tabs button").forEach(b => b.addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
@@ -4326,6 +4763,9 @@ $("polishDone").addEventListener("click", coopFinishPolish);
 $("decorBtn").addEventListener("click", openShop);
 $("incClose").addEventListener("click", () => show("incubator", false));
 $("shopClose").addEventListener("click", () => show("shop", false));
+setInterval(updateCalls, 20000);
+$("forgeClose").addEventListener("click", () => { show("forge", false); if (game.scene === "map") renderMap(); });
+$("foundForge").addEventListener("click", openForge);
 $("foundMap").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("map"); });
 $("feedBtn").addEventListener("click", openSnacks);
 $("snackClose").addEventListener("click", () => show("snacks", false));
@@ -4465,7 +4905,7 @@ function nudgeBackup() {
   if (backupNudged || save.creatures.length < 3) return;
   if (save.backupAt && Date.now() - save.backupAt < 7 * 864e5) return;
   backupNudged = true;
-  setTimeout(() => toast("Tip: tap 💾 to back up your nest"), 2800);
+  setTimeout(() => toast("Tip: tap backup (top right) to keep your nest safe"), 2800);
 }
 
 // ---------- the glowpedia: glowlings and geodes ----------
@@ -4793,7 +5233,7 @@ function updateClock() {
   const shown = Math.min(game.gemsShown || 0, e.gems), key = shown + "/" + e.taps;
   if (updateClock.last !== key) {
     updateClock.last = key;
-    $("clock").innerHTML = `<b>✦ ${shown}</b><small>${e.taps} tap${e.taps === 1 ? "" : "s"}${save.stars[e.conf.n] ? ` · ★ ${e.par}` : ""}</small>`;
+    $("clock").innerHTML = `<b>${ic("shard")}${shown}</b><small>${e.taps} tap${e.taps === 1 ? "" : "s"}${save.stars[e.conf.n] ? ` · ★ ${e.par}` : ""}</small>`;
   }
 }
 
@@ -4859,7 +5299,7 @@ function drawEgg() {
     if (e.state === "gleam" || e.state === "open") drawGleam(e, x, y, w, h);
     // it pops up once, while the shell flies apart
     const k = e.state === "opening" ? clamp((e.t - 0.35) / 0.5, 0, 1) : 1;
-    if (k > 0) drawCreature(ctx, L.ecx, L.ecy + L.eh * 0.04, L.ew * 0.34 * easeOutBack(k), e.species, { mood: "happy", hop: e.hop, shiny: e.shiny });
+    if (k > 0) drawSprite(L.ecx, L.ecy + L.eh * 0.04, L.ew * 0.34 * easeOutBack(k), e.species, { mood: "happy", hop: e.hop, shiny: e.shiny });
   } else {
     ctx.drawImage(e.shell.canvas, x, y, w, h);
     // a dark pixel outline, like every sprite in the game
@@ -4890,7 +5330,7 @@ function drawCrackLight(e, prog) {
 
 /** The weak spot: a soft glow on easy stone, fainter on harder stone, and gone deep in the grotto. */
 function drawSpot(e) {
-  const a = e.conf.spotGlow;
+  const a = Math.max(e.conf.spotGlow, e.conf.coop ? 0 : [0, 0.15, 0.25, 0.35][forgeLvl("eye")]);
   if (!a || e.state !== "cracking") return;
   const [x, y] = fromEgg(...e.spot), k = 0.5 + 0.5 * Math.sin(game.time * 0.004), r = (18 + k * 6) * L.k;
   const g = ctx.createRadialGradient(x, y, 1, x, y, r);
@@ -5109,7 +5549,7 @@ function drawCoopCursor() {
 function drawIdle() {
   const sp = SPECIES[Math.floor(game.time / 4000) % SPECIES.length];
   ctx.globalAlpha = game.scene === "menu" ? 0.9 : 0.3;
-  drawCreature(ctx, W / 2, H * 0.5 + Math.sin(game.time * 0.001) * 10, Math.min(W, H) * 0.32, sp, { mood: save.seen[sp.id] ? "happy" : "asleep" });
+  drawSprite(W / 2, H * 0.5 + Math.sin(game.time * 0.001) * 10, Math.min(W, H) * 0.32, sp, { mood: save.seen[sp.id] ? "happy" : "asleep" });
   ctx.globalAlpha = 1;
 }
 
@@ -5285,6 +5725,7 @@ requestAnimationFrame(frame);
     el.src = c.toDataURL();
   }
 })();
+for (const el of $$("[data-ic]")) el.style.backgroundImage = `url(${pxIcon(el.dataset.ic)})`;
 </script>
 </body>
 </html>

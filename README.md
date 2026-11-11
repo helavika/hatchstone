@@ -14,6 +14,10 @@ what's glowing inside. 🎧 Best with headphones.
 - The nest: feed, pet, play a sparkle-catch mini-game and put them to sleep; needs drift
   in real time (nobody ever dies), and glowlings level up to 20 and grow Baby → Young →
   Grown → Radiant
+- The Forge: spend shards on hammer upgrades that last forever (heavier taps, a keener
+  eye for the weak spot, echoing knocks, more shards from weak-spot hits)
+- Like an old handheld pet, glowlings call for you when they're hungry, sleepy or lonely,
+  and dust bunnies gather in the nest until you tap them away
 - Knock on the stone to find its hollow spot, and polish each opened geode to a shine
 - The nest is a little cave room where all your glowlings roam, nap, dance, visit each
   other and come when you call; decorate it with shards (lamp, mushrooms, cloud cushion,
