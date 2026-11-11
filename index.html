@@ -47,6 +47,8 @@
   #fx { position: fixed; inset: 0; pointer-events: none; z-index: 1; }
   @font-face { font-family: "Jersey 15"; src: url(fonts/jersey15-latin.woff2) format("woff2"); font-weight: 400; font-display: swap; }
   @font-face { font-family: "Jersey 10"; src: url(fonts/jersey10-latin.woff2) format("woff2"); font-weight: 400; font-display: swap; }
+  @font-face { font-family: "Jersey 15"; src: url(fonts/handjet700-cyrillic.woff2) format("woff2"); font-weight: 400; font-display: swap; size-adjust: 112%; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
+  @font-face { font-family: "Jersey 10"; src: url(fonts/handjet800-cyrillic.woff2) format("woff2"); font-weight: 400; font-display: swap; size-adjust: 112%; unicode-range: U+0301, U+0400-045F, U+0490-0491, U+04B0-04B1, U+2116; }
   button { font: inherit; color: inherit; }
   [hidden] { display: none !important; }
 
@@ -402,6 +404,7 @@
   #startBack .lead { font-size: 20px; margin-bottom: 4px; }
   #startCoop { display: flex; width: fit-content; align-items: center; gap: 8px; }
   #startCoop img { width: 28px; height: 28px; image-rendering: pixelated; margin: -4px 0; }
+  #start .lang-btn { display: flex; width: fit-content; margin: 4px auto 0; font-size: 16px; opacity: .85; }
   .lvl:disabled span { letter-spacing: 0; filter: grayscale(1); }
 
   /* ---------- pixel UI: square frames, chunky bevels, pixel fonts, no glass ---------- */
@@ -580,6 +583,19 @@
   #crackTab:active { transform: translateY(-11px); }
   body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; }
   .subtitle { margin: -8px 0 12px; font-size: 20px; color: var(--px-gold); letter-spacing: 2px; }
+  /* dialog: an old RPG text box with a face, typed out letter by letter */
+  #talk { position: fixed; inset: 0; z-index: 9; background: rgba(8, 5, 26, .35); cursor: pointer; touch-action: none; }
+  #talk[hidden] { display: none; }
+  .talk-box { position: absolute; left: 50%; bottom: calc(var(--bottom) + 18px); transform: translateX(-50%); width: min(520px, calc(100% - 32px));
+    display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: start; padding: 14px 16px 18px; text-align: left; animation: pxPop .18s steps(3); }
+  .talk-face { margin: 0; width: 72px; height: 72px; display: grid; place-items: center; background: var(--px-deep); box-shadow: 0 0 0 3px var(--px-gold), 0 0 0 6px var(--px-ink); }
+  .talk-face img { width: 64px; height: 64px; image-rendering: pixelated; }
+  .talk-name { display: block; color: var(--px-gold); font-size: 20px; letter-spacing: 1px; margin-bottom: 2px; }
+  .talk-text { margin: 0; font-size: 21px; line-height: 1.25; min-height: 3.75em; white-space: pre-wrap; }
+  .talk-more { position: absolute; right: 14px; bottom: 6px; font-style: normal; color: var(--px-gold); visibility: hidden; animation: pxBlink 1s steps(2) infinite; }
+  #talk.done .talk-more { visibility: visible; }
+  #talkSkip { position: absolute; right: 0; bottom: calc(100% + 10px); margin: 0; padding: 4px 12px; font-size: 16px; }
+  @keyframes pxPop { from { transform: translateX(-50%) translateY(12px); opacity: 0; } }
   /* today's tasks */
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
@@ -653,6 +669,7 @@
       <button class="act" id="mapCoop"><i class="ic" data-ic="duo"></i>Play together</button>
       <button class="act" id="backupBtn" aria-label="Back up your nest"><i class="ic" data-ic="scroll"></i>Back up nest</button>
       <button class="act mute" data-label="1" aria-label="Mute sound"><i class="ic" data-ic="sound"></i>Sound on</button>
+      <button class="act lang-btn" data-lang></button>
     </div>
   </div>
 </div>
@@ -689,6 +706,7 @@
     </div>
     <button class="cta breathe" id="play">Begin</button>
     <button class="ghost" id="startCoop"><img data-icon="duo" alt="">Play together</button>
+    <button class="ghost lang-btn" data-lang></button>
   </div>
 </div>
 
@@ -723,6 +741,15 @@
       <button class="pillbtn" id="nextLvl">Next level</button>
     </div>
     <div class="row center" style="margin-top:12px"><button class="pillbtn" id="foundMap"><i class="ic" data-ic="grotto"></i>Grotto</button><button class="pillbtn" id="foundForge"><i class="ic" data-ic="hammer"></i>Forge</button><button class="pillbtn" id="foundShare"><i class="ic" data-ic="postcard"></i>Share</button></div>
+  </div>
+</div>
+
+<div id="talk" hidden>
+  <div class="talk-box glass dark" role="dialog" aria-live="polite">
+    <figure class="talk-face"><img alt=""></figure>
+    <div class="talk-body"><b class="talk-name"></b><p class="talk-text"></p></div>
+    <i class="talk-more" aria-hidden="true">▼</i>
+    <button class="ghost" id="talkSkip">skip ▸▸</button>
   </div>
 </div>
 
@@ -928,6 +955,536 @@
 <script src="coop-state.js"></script>
 <script>
 "use strict";
+
+// ---------- languages: English, and Ukrainian for anyone whose browser speaks it (or who picks it in the menu) ----------
+const LANG = (() => {
+  try { const l = localStorage.getItem("hatchstone.lang"); if (l === "en" || l === "uk") return l; } catch (e) {}
+  return (navigator.languages || [navigator.language || ""]).some(l => /^uk\b/i.test(l)) ? "uk" : "en";
+})();
+const LOCALE = LANG === "uk" ? "uk-UA" : undefined;
+/** A line of text in the player's language; {0}, {1}… are filled in from the arguments. */
+function tr(s, ...a) {
+  const r = (LANG === "uk" && typeof UK[s] === "string" && UK[s]) || s;
+  return a.length ? r.replace(/\{(\d)\}/g, (_, i) => a[i]) : r;
+}
+/** A counted word: English has one and many, Ukrainian one, few and many (1 осколок, 3 осколки, 5 осколків). */
+function pl(n, one, many) {
+  const f = LANG === "uk" && UK[one + "|" + many];
+  if (!f) return n === 1 ? one : many;
+  const a = Math.abs(n) % 100, b = a % 10;
+  return f[b === 1 && a !== 11 ? 0 : b >= 2 && b <= 4 && (a < 10 || a >= 20) ? 1 : 2];
+}
+const rar = r => LANG === "uk" ? UK_DATA.rarity[r] || r : r;          // with a glowling (masculine)
+const rarF = r => LANG === "uk" ? UK_DATA.rarityF[r] || r : r;        // with a geode (feminine)
+const seasonName = s => LANG === "uk" ? UK_DATA.seasons[s] || s : s;
+const seasonIn = s => LANG === "uk" ? UK_DATA.seasonsIn[s] || s : s;
+function setLang(l) { try { localStorage.setItem("hatchstone.lang", l); } catch (e) {} location.reload(); }
+
+/** The words on the page itself, swapped once at start (labels too). */
+function translatePage() {
+  document.documentElement.lang = LANG;
+  if (LANG !== "uk") return;
+  document.title = "Hatchstone: жеоди й глоулінги";
+  const w = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  for (let n; (n = w.nextNode());) {
+    const k = n.nodeValue.trim();
+    if (k && typeof UK[k] === "string") n.nodeValue = n.nodeValue.replace(k, UK[k]);
+  }
+  for (const el of document.querySelectorAll("[aria-label], [alt], [title], [placeholder]"))
+    for (const a of ["aria-label", "alt", "title", "placeholder"]) { const v = el.getAttribute(a); if (v && typeof UK[v] === "string") el.setAttribute(a, UK[v]); }
+}
+
+const UK = {
+  "Back to the grotto": "Назад до гроту",
+  "Level 1": "Рівень 1",
+  "How cracked the egg is": "Наскільки тріснуло яйце",
+  "crack": "тріщини",
+  "Shards caught and taps": "Зібрані осколки й удари",
+  "0 taps": "0 ударів",
+  "Mute sound": "Вимкнути звук",
+  "Shards: spend them on snacks, decor and the forge": "Осколки: витрачай їх на смаколики, декор і кузню",
+  "shards": "осколки",
+  "Stars from the grotto levels": "Зірки з рівнів гроту",
+  "stars": "зірки",
+  "Today's little tasks": "Маленькі завдання на сьогодні",
+  "tasks": "завдання",
+  "Menu": "Меню",
+  "Play together": "Грати разом",
+  "Back up your nest": "Зберегти копію гніздечка",
+  "Back up nest": "Копія гніздечка",
+  "Sound on": "Звук увімк.",
+  "Sound off": "Звук вимк.",
+  "Turn your phone upright": "Поверни телефон вертикально",
+  "Hatchstone is made to be played standing tall": "Hatchstone створено для вертикального екрана",
+  "✨ Shiny enough": "✨ Досить блищить",
+  "Nest": "Гніздо",
+  "Grotto": "Грот",
+  "Crack the next egg": "Розбити наступне яйце",
+  "Crack": "Розбити",
+  "Forge": "Кузня",
+  "Book": "Книга",
+  "A pixel-art grotto by moonlight, a stone egg glowing on a ledge": "Піксельний грот у місячному сяйві, на виступі світиться кам'яне яйце",
+  "Geodes & Glowlings": "Жеоди й глоулінги",
+  "Crack open stone eggs.": "Розбивай кам'яні яйця.",
+  "Meet who's glowing inside.": "Знайомся з тими, хто світиться всередині.",
+  "tap to crack": "тапай, щоб розбити",
+  "open real geodes": "відкривай справжні жеоди",
+  "raise glowlings": "вирощуй глоулінгів",
+  "Welcome back": "З поверненням",
+  "Begin": "Почати",
+  "Continue": "Продовжити",
+  "The Grotto": "Грот",
+  "geode opened": "жеоду відкрито",
+  "The glowling you hatched": "Глоулінг, який вилупився",
+  "✦ new in your Glowpedia ✦": "✦ новий у Глоупедії ✦",
+  "taps": "ударів",
+  "shine": "блиск",
+  "weak-spot hits": "влучань у слабке місце",
+  "Go to the nest": "До гніздечка",
+  "Next level": "Наступний рівень",
+  "Share": "Поділитися",
+  "Share a postcard": "Надіслати листівку",
+  "Your nest is empty": "Твоє гніздечко порожнє",
+  "Glowlings sleep inside stone eggs. Crack one open and whoever's inside moves in here: you feed it, play with it and watch it grow.": "Глоулінги сплять у кам'яних яйцях. Розбий одне — і той, хто всередині, оселиться тут: ти годуватимеш його, гратимешся з ним і дивитимешся, як він росте.",
+  "Crack your first egg": "Розбий перше яйце",
+  "Tummy": "Животик",
+  "Joy": "Радість",
+  "Energy": "Енергія",
+  "Feed": "Годувати",
+  "Play": "Гратися",
+  "Sleep": "Спати",
+  "Wake": "Розбудити",
+  "Decor": "Декор",
+  "The incubator": "Інкубатор",
+  "close": "закрити",
+  "Close": "Закрити",
+  "Leave this egg?": "Покинути це яйце?",
+  "The cracks you've made so far will be lost.": "Усі тріщини на ньому зникнуть.",
+  "Keep cracking": "Розбивати далі",
+  "Leave": "Піти",
+  "Snack time": "Час смаколиків",
+  "not now": "не зараз",
+  "Decorate the nest": "Прикрась гніздечко",
+  "done": "готово",
+  "Today's tasks": "Завдання на сьогодні",
+  "The Forge": "Кузня",
+  "Sparkle catch!": "Лови іскорки!",
+  "joy": "радість",
+  "xp": "досвід",
+  "Back to the nest": "Назад до гніздечка",
+  "Glowpedia": "Глоупедія",
+  "Glowlings": "Глоулінги",
+  "Geodes": "Жеоди",
+  "Hybrids": "Гібриди",
+  "Keep your nest safe": "Збережи своє гніздечко",
+  "Your glowlings live in this browser. Keep this code somewhere safe, like your notes or a message to yourself, and paste it here on any device to bring your nest back.": "Твої глоулінги живуть у цьому браузері. Збережи цей код у надійному місці, наприклад у нотатках чи в повідомленні собі, і встав його тут на будь-якому пристрої, щоб повернути гніздечко.",
+  "Your backup code": "Твій код копії",
+  "📋 Copy": "📋 Копіювати",
+  "📤 Share": "📤 Поділитися",
+  "💾 Save as file": "💾 Зберегти файлом",
+  "📱 Tip: on iPhone, Safari can clear a website's data if you don't visit for a week. Add Hatchstone to your Home Screen (Share → Add to Home Screen) to keep your nest.": "📱 Порада: на iPhone Safari може стерти дані сайту, якщо не заходити тиждень. Додай Hatchstone на початковий екран (Поділитися → На початковий екран), щоб не втратити гніздечко.",
+  "Restore a nest": "Відновити гніздечко",
+  "Paste a backup code here": "Встав сюди код копії",
+  "↩︎ Restore": "↩︎ Відновити",
+  "📂 Load a file": "📂 Завантажити файл",
+  "Crack an egg together with a friend 🥚": "Розбийте яйце разом із другом 🥚",
+  "Joining leaves your current room and ends any unfinished shared egg. Saved hatchlings stay safe.": "Приєднання закриє твою поточну кімнату й завершить незакінчене спільне яйце. Збережені малюки в безпеці.",
+  "Leave room & join friend": "Вийти й приєднатися до друга",
+  "Keep current room": "Лишитися в цій кімнаті",
+  "Join the shared egg ✦": "Приєднатися до спільного яйця ✦",
+  "📋 Copy reply": "📋 Копіювати відповідь",
+  "Invite a friend ✦": "Запроси друга ✦",
+  "Invite link": "Посилання-запрошення",
+  "📤 Send link": "📤 Надіслати посилання",
+  "Copy link": "Копіювати посилання",
+  "Got a link from a friend? Tap it, or paste it here": "Маєш посилання від друга? Тапни його або встав сюди",
+  "Friend's invite link": "Посилання від друга",
+  "Paste link": "Встав посилання",
+  "Join friend": "Приєднатися",
+  "Egg": "Яйце",
+  "Shared egg difficulty": "Складність спільного яйця",
+  "Gentle · 3 cracks": "Легке · 3 тріщини",
+  "Knotted · 3 cracks": "Вузлувате · 3 тріщини",
+  "Hard stone · 4 cracks": "Твердий камінь · 4 тріщини",
+  "Start shared egg ✦": "Почати спільне яйце ✦",
+  "Trouble connecting?": "Не вдається з'єднатися?",
+  "Links connect through the free PeerJS service, then straight between your two devices. Your friend can see your network address; there's no camera or microphone. Some networks block direct connections. Invites expire after 10 minutes.": "Посилання з'єднуються через безкоштовний сервіс PeerJS, а далі напряму між вашими пристроями. Друг може бачити твою мережеву адресу; камери й мікрофона немає. Деякі мережі блокують прямі з'єднання. Запрошення діють 10 хвилин.",
+  "If links don't work, swap codes by hand instead. This skips PeerJS.": "Якщо посилання не працюють, обміняйтеся кодами вручну. Так можна обійтися без PeerJS.",
+  "Host with codes": "Створити з кодами",
+  "Or paste a friend's invite code": "Або встав код запрошення від друга",
+  "Paste host invite": "Встав запрошення",
+  "Join": "Приєднатися",
+  "1 · Send your invite to your friend": "1 · Надішли запрошення другові",
+  "Host invite": "Запрошення",
+  "📤 Send invite link": "📤 Надіслати запрошення",
+  "Copy code": "Копіювати код",
+  "2 · Tap the reply link they send back, or paste it here": "2 · Тапни посилання-відповідь від друга або встав його сюди",
+  "Paste guest reply": "Встав відповідь",
+  "Connect": "З'єднати",
+  "Send this reply back to your friend": "Надішли цю відповідь другові",
+  "Guest reply": "Відповідь",
+  "📤 Send reply link": "📤 Надіслати відповідь",
+  "Open shared room": "Відкрити спільну кімнату",
+  "👯 Shared room": "👯 Спільна кімната",
+  "Leave shared room": "Вийти зі спільної кімнати",
+  "Couldn't save: tap backup and keep a backup code": "Не вдалося зберегти: зроби копію гніздечка в меню ⚙",
+  "tap the egg to crack it · aim for the glow ✦": "тапай по яйцю, щоб розбити · цілься в сяйво ✦",
+  "the weak spot hides now: knocks sound higher near it": "тепер слабке місце ховається: біля нього стукіт звучить вище",
+  "hard stone: find the weak spot by ear": "твердий камінь: шукай слабке місце на слух",
+  "Heavy head": "Важкий боєк",
+  "Owl's eye": "Совине око",
+  "Bell echo": "Дзвінке відлуння",
+  "Magpie pouch": "Сорочина торбинка",
+  "a faint glow shows the weak spot on hard stone": "ледь помітне сяйво показує слабке місце на твердому камені",
+  "the weak spot glows brighter": "слабке місце світиться яскравіше",
+  "the weak spot glows even in the deepest caves": "слабке місце світиться навіть у найглибших печерах",
+  "next: ": "далі: ",
+  "rub the geode to polish it ✦": "потри жеоду, щоб відполірувати ✦",
+  "A shiny one! It sparkles in your nest now ✦": "Блискучий! Тепер він сяє у твоєму гніздечку ✦",
+  "Shared egg · ": "Спільне яйце · ",
+  "Another shared egg": "Ще одне спільне яйце",
+  "Waiting for host": "Чекаємо на господаря",
+  "Another egg": "Ще одне яйце",
+  "Wander on": "Мандрувати далі",
+  "your glowling": "свого глоулінга",
+  "dust bunnies! tap them to sweep the nest": "пилові зайчики! тапай по них, щоб прибрати гніздечко",
+  "tip: hold a finger on the floor to call everyone": "порада: затримай палець на підлозі, щоб покликати всіх",
+  "tip: tap your decorations to play with them ✦": "порада: тапай по прикрасах, щоб погратися з ними ✦",
+  "the egg is ready: tap it three times to hatch ✦": "яйце готове: тапни по ньому тричі, щоб малюк вилупився ✦",
+  "two of your glowlings could share an egg: tap the incubator 💞": "двоє твоїх глоулінгів можуть знести спільне яйце: тапни інкубатор 💞",
+  "today's moon egg: something special sleeps inside 🌙": "сьогоднішнє місячне яйце: всередині спить хтось особливий 🌙",
+  " (clear level 24)": " (пройди рівень 24)",
+  "Moon egg opened": "Місячне яйце відкрито",
+  "Today's moon egg": "Місячне яйце дня",
+  " · max": " · макс.",
+  " · favorite!": " · улюблене!",
+  "Not enough shards: crack a geode to earn more ✦": "Не вистачає осколків: розбий жеоду, щоб заробити ✦",
+  "favorite! ♥": "улюблене! ♥",
+  "yum": "ням",
+  "placed ✓": "стоїть ✓",
+  "stored": "у коморі",
+  "Keeping it warm": "Гріємо яйце",
+  "Lay a mixed egg": "Знести змішане яйце",
+  "Feed, pet and play with your glowlings to grow them up": "Годуй, гладь і грайся з глоулінгами, щоб вони підросли",
+  "Pick two glowlings": "Обери двох глоулінгів",
+  "It's as warm as it can get ✦ now it just needs time": "Тепліше вже не буде ✦ тепер потрібен лише час",
+  "drag left and right · catch sparkles, dodge pebbles": "веди ліворуч і праворуч · лови іскорки, ухиляйся від камінців",
+  "Sparkle storm! ✦": "Іскристий шторм! ✦",
+  "Great catch!": "Чудовий улов!",
+  "Fun!": "Весело!",
+  "Link": "Посилання",
+  "Code": "Код",
+  " selected — copy it using your browser.": " виділено — скопіюй засобами браузера.",
+  "Crack a Hatchstone egg with me 🥚✨ Tap to join:": "Розбиймо разом яйце в Hatchstone 🥚✨ Тапни, щоб приєднатися:",
+  "Here's my Hatchstone reply, tap it to let me in:": "Ось моя відповідь у Hatchstone, тапни, щоб мене впустити:",
+  "Go back to the Hatchstone tab where you made the invite. It connects by itself.": "Повернися на вкладку Hatchstone, де створено запрошення. З'єднання встановиться саме.",
+  "If it doesn't, copy this reply and paste it there.": "Якщо ні, скопіюй цю відповідь і встав її там.",
+  "Waiting for your friend to start the egg…": "Чекаємо, поки друг почне яйце…",
+  "Connecting…": "З'єднуємося…",
+  "Friend disconnected. Your nest is safe; create a fresh invite to reconnect.": "Друг від'єднався. Твоє гніздечко в безпеці; створи нове запрошення, щоб з'єднатися знову.",
+  "Could not connect. Exchange fresh codes, or try another network.": "Не вдалося з'єднатися. Обміняйтеся новими кодами або спробуйте іншу мережу.",
+  "The shared egg was invalid.": "Спільне яйце виявилося хибним.",
+  "Shared egg ready — trace together ✦": "Спільне яйце готове — розбивайте разом ✦",
+  "The connection is congested. Create a fresh invite to reconnect.": "З'єднання перевантажене. Створи нове запрошення.",
+  "You're invited to a shared egg 🥚": "Тебе запрошують до спільного яйця 🥚",
+  "Join your friend's room instead?": "Приєднатися натомість до кімнати друга?",
+  "Your friend's reply is here": "Відповідь друга тут",
+  "Send this link to your friend": "Надішли це посилання другові",
+  "Your friend is here ✦ Pick an egg": "Друг тут ✦ Обери яйце",
+  "You're in 🥚": "Ти в грі 🥚",
+  "Connect with codes": "З'єднатися кодами",
+  "Shared room ended": "Спільну кімнату закрито",
+  "Online co-op needs WebRTC over HTTPS or localhost. From Telegram, try opening this link in Chrome or Safari. Solo play still works.": "Для гри онлайн потрібен WebRTC через HTTPS або localhost. Із Telegram спробуй відкрити посилання в Chrome чи Safari. Одиночна гра працює й так.",
+  "Making your link…": "Створюємо посилання…",
+  "Keep this tab open until they join.": "Не закривай цю вкладку, доки друг не приєднається.",
+  "Could not create an invite link. Try Advanced or another network.": "Не вдалося створити запрошення. Спробуй коди вручну або іншу мережу.",
+  "Open or paste a complete invite link first.": "Спершу відкрий або встав повне посилання-запрошення.",
+  "Could not join. Ask for a fresh invite or try another network.": "Не вдалося приєднатися. Попроси нове запрошення або спробуй іншу мережу.",
+  "This invite link is incomplete. Ask your friend for a fresh link.": "Посилання неповне. Попроси в друга нове.",
+  "This invite link is incomplete or invalid. Ask your friend for a fresh link; your current room is still open.": "Посилання неповне або хибне. Попроси в друга нове; твоя кімната досі відкрита.",
+  "This is your own invite. Send it to your friend and keep this tab open.": "Це твоє власне запрошення. Надішли його другові й не закривай вкладку.",
+  "You're already in this room. Your friend can start the shared egg.": "Ти вже в цій кімнаті. Друг може починати спільне яйце.",
+  "Making a private manual invite…": "Створюємо приватне запрошення…",
+  "Could not create an invite": "Не вдалося створити запрошення",
+  "Paste the host invite first.": "Спершу встав запрошення.",
+  "Joining with manual codes…": "Приєднуємося за кодами…",
+  "Then wait here for the shared egg.": "Потім чекай тут на спільне яйце.",
+  "Could not join that invite": "Не вдалося приєднатися за цим запрошенням",
+  "Paste the guest reply first.": "Спершу встав відповідь гостя.",
+  "Connection timed out. Try fresh codes or a different network; this game has no TURN relay.": "Час з'єднання вичерпано. Спробуйте нові коди або іншу мережу; у грі немає TURN-ретранслятора.",
+  "Guest accepted ✓ Waiting for the direct connection…": "Гостя прийнято ✓ Чекаємо на пряме з'єднання…",
+  "That reply does not match this invite": "Ця відповідь не підходить до запрошення",
+  "Finish this shared egg before starting another.": "Спершу завершіть це спільне яйце.",
+  "Could not make a valid shared egg.": "Не вдалося створити спільне яйце.",
+  "The shared egg could not be sent.": "Не вдалося надіслати спільне яйце.",
+  "Shared egg started — trace together ✦": "Спільне яйце почалося — розбивайте разом ✦",
+  "This browser is too old to read compressed codes": "Цей браузер застарий для стиснених кодів",
+  "Copied ✓ Paste it somewhere safe.": "Скопійовано ✓ Встав у надійне місце.",
+  "My Hatchstone nest": "Моє гніздечко в Hatchstone",
+  "Shared ✓": "Надіслано ✓",
+  "Saved ✓ Look for it in your downloads.": "Збережено ✓ Шукай у завантаженнях.",
+  "That doesn't look like a Hatchstone backup code.": "Це не схоже на код копії Hatchstone.",
+  "Tip: tap backup (top right) to keep your nest safe": "Порада: збережи копію гніздечка в меню ⚙ угорі праворуч",
+  "crack open real geodes · ": "розбивай справжні жеоди · ",
+  "Postcard saved ✓ Send it to a friend": "Листівку збережено ✓ Надішли її другові",
+  "just hatched in my nest": "щойно вилупився в моєму гніздечку",
+  "A geode you haven't opened yet.": "Цю жеоду ще не відкрито.",
+  "Wander": "Мандри",
+  "New backdrop: {0} · choose it in Decor ✦": "Нове тло: {0} · обери його в «Декорі» ✦",
+  "{0} grew up: now {1}! ✦": "{0} підріс: тепер {1}! ✦",
+  "{0} reached level {1} ✦": "{0} досяг рівня {1} ✦",
+  "Lv {0}": "Рів. {0}",
+  "taps hit {0}% harder": "удари на {0}% сильніші",
+  "{0}% of taps ring twice, for 60% more": "{0}% ударів дзвенять двічі, на 60% сильніше",
+  "+{0} {1} from every weak-spot hit": "+{0} {1} за кожне влучання в слабке місце",
+  "shard|shards": [
+  "осколок",
+  "осколки",
+  "осколків"
+],
+  "All of today's tasks done! +{0} ✦": "Усі завдання на сьогодні виконано! +{0} ✦",
+  "Task done: {0} · +{1} ✦": "Виконано: {0} · +{1} ✦",
+  "Each one gives {0} shards, and all three another {1}. New ones tomorrow.": "За кожне — {0} осколків, а за всі три ще {1}. Нові будуть завтра.",
+  "Go": "Вперед",
+  "You have {0}. Upgrades last forever.": "У тебе {0}. Покращення назавжди.",
+  "{0} · level {1} ✦": "{0} · рівень {1} ✦",
+  "Your {0} met a sibling: +40 XP and lots of joy ✦": "Твій {0} зустрів родича: +40 досвіду й море радості ✦",
+  "{0} moved into your nest": "{0} оселився у твоєму гніздечку",
+  "{0} moon glowling": "{0} місячний глоулінг",
+  "{0} geode · {1}": "жеода «{0}» · {1}",
+  " · moon streak {0} 🔥": " · місячна серія {0} 🔥",
+  "taps · ★ in {0}": "ударів · ★ за {0}",
+  "{0} is waiting for you": "{0} чекає на тебе",
+  "stroke {0} to pet it ♥": "погладь {0} пальцем ♥",
+  "{0} is hungry: give it a snack": "{0} зголоднів: дай йому смаколик",
+  "{0} is sleepy: tuck it in": "{0} хоче спати: вклади його",
+  "{0} feels lonely: pet it or play": "{0} сумує: погладь його або пограйся",
+  "{0} of {1} stars · tap a level to crack its geode": "{0} з {1} зірок · тапни рівень, щоб розбити його жеоду",
+  "Chapter {0}": "Розділ {0}",
+  "🌌 Wander: endless geodes from the deepest caves": "🌌 Мандри: безкінечні жеоди з найглибших печер",
+  "next one in {0}": "наступне через {0}",
+  " · streak {0} 🔥": " · серія {0} 🔥",
+  "{0} sleeps inside ✦ +25 shards": "{0} спить усередині ✦ +25 осколків",
+  "an {0} moon glowling": "{0} місячний глоулінг",
+  "a {0} moon glowling": "{0} місячний глоулінг",
+  "a {0} glowling": "{0} глоулінг",
+  "upgrade ready": "можна покращити",
+  "spend shards on your hammer: harder taps, keener eyes": "витрачай осколки на молот: сильніші удари, гостріше око",
+  "Level {0} · {1} {2}": "Рівень {0} · {1} {2}",
+  "You have ✦ {0} shards. {1}s love {2}s.": "Осколків: ✦ {0}. {1} найбільше любить: {2}.",
+  "tummy +{0}": "животик +{0}",
+  "{0} is too full right now": "{0} уже наївся",
+  "You have {0}. Glowlings visit the things they love.": "У тебе {0}. Глоулінги навідуються до того, що люблять.",
+  "Backdrop": "Тло",
+  "Decorations": "Прикраси",
+  " and ": " і ",
+  "{0} love it": "{0} в захваті",
+  "{0} placed in the nest ✦": "{0} — тепер у гніздечку ✦",
+  "Sweet dreams, {0} 🌙": "Солодких снів, {0} 🌙",
+  "level {0}/{1}": "рівень {0}/{1}",
+  "resting {0}": "відпочиває {0}",
+  "Stroke the egg in the incubator to keep it warm: it hatches faster. Time keeps going even when the game is closed.": "Гладь яйце в інкубаторі, щоб воно не вистигало: так малюк вилупиться швидше. Час іде, навіть коли гру закрито.",
+  "✨ Hatch now · ✦ {0}": "✨ Вилупити зараз · ✦ {0}",
+  "Two happy glowlings at level {0}+ can share an egg. The baby mixes their parts and colors and hatches in about 3 hours.": "Двоє щасливих глоулінгів від рівня {0} можуть знести спільне яйце. Малюк візьме від обох риси й кольори та вилупиться приблизно за 3 години.",
+  "💞 Lay the egg": "💞 Знести яйце",
+  "{0} and {1} laid an egg ♥ Keep it warm!": "{0} і {1} знесли яйце ♥ Грій його!",
+  "{0} hatched, with a surprise trait! ✦": "{0} вилупився, ще й з несподіваною рисою! ✦",
+  "{0} hatched! ✦": "{0} вилупився! ✦",
+  "{0} is too sleepy to play. Try a nap 🌙": "{0} надто сонний, щоб гратися. Хай подрімає 🌙",
+  "{0} caught {1} {2}.": "{0} спіймав {1} {2}.",
+  "sparkle|sparkles": [
+  "іскорку",
+  "іскорки",
+  "іскорок"
+],
+  " copied ✓": " скопійовано ✓",
+  "Reply": "Відповідь",
+  "Invite": "Запрошення",
+  "Reply link": "Посилання-відповідь",
+  "Connection: {0}": "З'єднання: {0}",
+  "👯 {0} · {1}": "👯 {0} · {1}",
+  "Host": "Господар",
+  "Guest": "Гість",
+  "connected": "з'єднано",
+  "connecting": "з'єднуємося",
+  "{0} and {1} more are waiting in your nest ✦": "{0} та ще {1} чекають у гніздечку ✦",
+  "{0} is waiting in your nest ✦": "{0} чекає в гніздечку ✦",
+  "{0} waiting in a pixel-art grotto by moonlight": "{0} чекає в піксельному гроті під місяцем",
+  "A new name for your {0}?": "Нове ім'я для твого {0}?",
+  "Last backup: {0}": "Остання копія: {0}",
+  "Replace your current nest ({0} {1}) with the one in this code ({2} {3})?": "Замінити твоє гніздечко ({0} {1}) на те, що в коді ({2} {3})?",
+  "glowling|glowlings": [
+  "глоулінг",
+  "глоулінги",
+  "глоулінгів"
+],
+  "Welcome back, {0} {1} ✦": "З поверненням, {0} {1} ✦",
+  "{0} of {1} glowlings · {2} of {3} geodes": "{0} з {1} глоулінгів · {2} з {3} жеод",
+  "hybrid|hybrids": [
+  "гібрид",
+  "гібриди",
+  "гібридів"
+],
+  " · {0} in your nest": " · {0} у гніздечку",
+  "No. {0}": "№ {0}",
+  "Look who hatched in my Hatchstone nest: {0} ✦ {1}": "Глянь, хто вилупився в моєму гніздечку в Hatchstone: {0} ✦ {1}",
+  "from a {0} geode · {1}": "із жеоди «{0}» · {1}",
+  "{0} hybrid": "гібрид {0}",
+  "level {0} · raised in my nest": "рівень {0} · виріс у моєму гніздечку",
+  "Favorite snack: {0}<br>Level {1} · hatched {2}": "Улюблений смаколик: {0}<br>Рівень {1} · вилупився {2}",
+  "Hatches only from moon eggs in {0}. Look for the 🌙 in the Grotto.": "Вилуплюється лише з місячних яєць {0}. Шукай 🌙 у Гроті.",
+  "Sleeps inside {0} geodes. Crack one to meet it.": "Спить у жеодах «{0}». Розбий одну, щоб познайомитися.",
+  "Favorite snack: {0}<br>Met {1} {2} · first on {3}": "Улюблений смаколик: {0}<br>Зустрічався {1} {2} · уперше {3}",
+  "time|times": [
+  "раз",
+  "рази",
+  "разів"
+],
+  "<br>In your nest: {0}": "<br>У твоєму гніздечку: {0}",
+  "{0} (level {1})": "{0} (рівень {1})",
+  "Only in 🌙 moon eggs, in {0}.": "Лише в 🌙 місячних яйцях {0}.",
+  "Found anywhere in the grotto.": "Трапляється будь-де в гроті.",
+  "Found deeper in the grotto.": "Трапляється глибше в гроті.",
+  "Found rarely, in the deepest parts of the grotto.": "Рідко трапляється в найглибших частинах гроту.",
+  "{0} geode": "{0} жеода",
+  "Opened {0} {1}<br>Glowlings that live inside: {2}": "Відкрито {0} {1}<br>Глоулінги, що живуть усередині: {2}",
+  "Glowlings sleeping inside: {0}.": "Глоулінгів усередині: {0}.",
+  "tap|taps": [
+  "удар",
+  "удари",
+  "ударів"
+],
+  "A one-of-a-kind mix of {0}, hatched in your nest.": "Єдиний у своєму роді мікс {0}, що вилупився у твоєму гніздечку.",
+  "{0}h {1}m": "{0} год {1} хв",
+  "{0}m": "{0} хв",
+  "CRIT {0}": "КРИТ {0}",
+  "Mossa": "Мосса",
+  "skip ▸▸": "пропустити ▸▸",
+  "Oh! A visitor. Hello, hello.": "О! Гість! Привіт, привіт.",
+  "I'm Mossa. I've watched over this grotto since before the moss was green.": "Я Мосса. Доглядаю цей грот ще відтоді, як мох був зовсім не зелений.",
+  "Glowlings sleep inside the stone eggs down here. Crack one open, and whoever's inside will need a home.": "Тут, у кам'яних яйцях, сплять глоулінги. Розбий одне, і тому, хто всередині, знадобиться дім.",
+  "This empty nest is yours. Let's go and find your first one!": "Це порожнє гніздечко — твоє. Ходімо знайдемо першого мешканця!",
+  "Pip?": "Пі?",
+  "...pip-pip! ♥": "...пі-пі! ♥",
+  "Pip! Pip-pip-pip!": "Пі! Пі-пі-пі!",
+  "✦ Pip! ✦": "✦ Пі! ✦",
+  "...Pip.": "...Пі.",
+  "{0} likes you already. Glowlings remember a kind hand.": "{0} уже тебе любить. Глоулінги пам'ятають добрі руки.",
+  "Stroke it, feed it, play with it, and tuck it in when it's sleepy. That's how it grows.": "Гладь його, годуй, грайся з ним і вкладай спати, коли він позіхає. Так він і росте.",
+  "When you want another egg, the big Crack button is always right there. Your nest has room for many.": "Захочеш ще яйце — велика кнопка «Розбити» завжди під рукою. У гніздечку вистачить місця для багатьох.",
+  "Look at {0}! Not a baby anymore.": "Глянь на {0}! Уже не малюк.",
+  "Glowlings grow when they're loved. Keep it up, and one day it will be Radiant.": "Глоулінги ростуть від любові. Так тримати, і колись він стане Сяйливим.",
+  "This is the Grotto. Every level is a geode, each a little harder than the last.": "Це Грот. Кожен рівень — жеода, і кожна трохи міцніша за попередню.",
+  "Find the weak spot and you'll need fewer taps. Fewer taps, more stars.": "Знайди слабке місце, і знадобиться менше ударів. Менше ударів — більше зірок.",
+  "And look up: once a day a moon egg appears. Something special sleeps in it.": "А ще глянь угору: раз на день з'являється місячне яйце. У ньому спить хтось особливий.",
+  "Ah, the Forge. My old hammer is still here somewhere.": "О, Кузня. Десь тут досі лежить мій старий молот.",
+  "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it.": "Витрачай тут осколки, і удари стануть сильнішими, а око гострішим. Глибокий камінь цього вимагатиме.",
+  "Did you feel that? The {0} has opened up.": "Відчуваєш? Відкрилося нове місце: {0}.",
+  "The stone gets harder from here on. The Forge can help.": "Далі камінь міцнішає. Кузня допоможе.",
+  "Down there you find the weak spot by ear. Listen for the knocks that ring higher.": "Там слабке місце шукають на слух. Прислухайся, де стукіт дзвенить вище.",
+  "The oldest, toughest stone. And the rarest glowlings sleep in it.": "Найдавніший, найміцніший камінь. І в ньому сплять найрідкісніші глоулінги.",
+  "Oh my. A shiny one! I've only seen a handful in all my years.": "Ох! Блискучий! За всі мої роки я бачила таких лише кількох.",
+  "A legendary glowling... They say {0} only wakes for someone kind. Well done, you.": "Легендарний глоулінг... Кажуть, {0} прокидається лише для добрих сердець. Молодчина.",
+  "Every geode in the grotto, opened. I'm so proud of you.": "Усі жеоди в гроті відкрито. Я так тобою пишаюся.",
+  "But the deep caves never end. Wander down whenever you like. I'll keep the moss warm.": "Але глибокі печери не мають кінця. Мандруй униз, коли захочеш. А я берегтиму мох теплим."
+};
+
+const UK_DATA = {
+  crystals: {
+    amethyst: { name: "Аметист", fact: "Фіолетовий кварц — класична «підкладка» жеоди. Колір йому дарують домішки заліза." },
+    quartz: { name: "Гірський кришталь", fact: "Найчастіший гість у жеодах: шестигранні вершинки, прозорі, як лід." },
+    citrine: { name: "Цитрин", fact: "Золотистий кварц. Природний цитрин — рідкість; здебільшого це прогрітий аметист." },
+    smoky: { name: "Димчастий кварц", fact: "Кварц, що потемнів від природної радіації глибоко під землею." },
+    calcite: { name: "Кальцит", fact: "Медового кольору й такий м'який, що його дряпає монетка. Часто трапляється у вапнякових жеодах." },
+    rose: { name: "Рожевий кварц", fact: "Рожевий кварц зазвичай знаходять великими брилами, а не окремими кристалами." },
+    agate: { name: "Блакитний мереживний агат", fact: "Шар за шаром халцедон заповнює порожнину й малює тонкі хвилясті смужки." },
+    celestite: { name: "Целестин", fact: "Кристали кольору неба. Мадагаскар славиться своїми целестиновими жеодами." },
+    aqua: { name: "Аквамарин", fact: "Блакитно-зелений берил, родич смарагду. Назва означає «морська вода»." },
+    moonstone: { name: "Місячний камінь", fact: "Польовий шпат із плаваючим блакитним сяйвом, яке називають адуляресценцією." },
+    peridot: { name: "Перидот", fact: "Олівін із глибин мантії, винесений на поверхню вулканами." },
+    fluorite: { name: "Флюорит", fact: "Фіолетові й зелені кубики. Світиться в ультрафіолеті — саме від нього походить слово «флуоресценція»." },
+    rhodochrosite: { name: "Родохрозит", fact: "Малиново-рожеві смуги, що утворилися в старих срібних копальнях Аргентини." },
+    malachite: { name: "Малахіт", fact: "Зелений мідний мінерал із візерунками-завитками. Колись його розтирали на зелену фарбу." },
+    opal: { name: "Опал", fact: "Крихітні кульки кремнезему розбивають світло на спалахи всіх кольорів." },
+    labradorite: { name: "Лабрадорит", fact: "Сірий камінь, що на світлі спалахує павичево-синім і золотим." },
+    lapis: { name: "Лазурит", fact: "Глибока синь із золотими цятками пириту, наче зорі. Уже 6 000 років із нього розтирають ультрамарин." }
+  },
+  species: {
+    mothlet: { lore: "Летить на будь-яке світло — навіть на екран твого телефона. Лишає бузковий пилок на всьому, що любить." },
+    dozeling: { lore: "Ще жодного разу не прокидався до кінця. Сниться йому все в ідеальних шестикутниках, а хропе він у мінорі." },
+    glassling: { lore: "Такий прозорий, що видно, про що він думає. А думає він здебільшого про тебе." },
+    sunnub: { lore: "Завжди теплий на дотик. Холодними ночами доглядачі гротів позичають їх замість маленьких грілок." },
+    honeybop: { lore: "Мугикає за роботою. Над чим працює — ніхто не знає. Але вигляд у нього дуже заклопотаний." },
+    smudgekin: { lore: "Ледь чутно пахне вогнищами, яких ніколи не було. Обожнює ковдри, ранкам не довіряє." },
+    ambercub: { lore: "Світиться, як мед у світлі лампи, і цілий день ходить печерою за теплими плямками." },
+    blushbun: { lore: "Від компліментів рожевіє ще дужче. Спробуй! Він сховається за власними вухами." },
+    petalpuff: { lore: "Щоразу, як сміється, його пелюстки розкриваються трохи ширше. Повністю розквітлі — велика рідкість і страшенні задаваки." },
+    ringlet: { lore: "Щодня народження відростає нове кільце — як в агату, з якого він вилупився. Рахує їх уголос і часто збивається." },
+    skyfin: { lore: "Пливе повітрям, ніби це вода. І ніхто йому досі не сказав, що це не так." },
+    ripplet: { lore: "Зліплений здебільшого з печерної води та добрих намірів. Як злякається — хлюпає, а потім перепрошує." },
+    bubblequill: { lore: "Видуває одну ідеальну бульбашку на день і стереже її, доки та не лусне. А тоді дується рівно хвилину." },
+    lunaroo: { lore: "У повню стрибає вище. Носить на голові півмісяць — про всяк випадок, якщо загубиться." },
+    hushowl: { lore: "Нічого не каже. Усе помічає. Пам'ятає точнісінько ту мить, коли хтось схибив." },
+    sproutle: { lore: "Що кілька рівнів відрощує новий листочок. Поливай його увагою — до решти він не вибагливий." },
+    mossmew: { lore: "М'який, як мох, і вдвічі впертіший. Муркоче, наче крихітний привітний зсув." },
+    flutterite: { lore: "Під місячним світлом змінює колір — точнісінько як його камінь. Дуже цим пишається. І частенько про це нагадує." },
+    rosettle: { lore: "Його пелюстки зберегли малинові смужки рідного каменя. Червоніє смужками." },
+    swirlhorn: { lore: "Зелені завитки кружляють і кружляють його шерсткою. Подивишся на них — і хилить на сон, що йому страшенно смішно." },
+    prismpip: { lore: "Ніколи не буває двічі одного кольору. Для кожного настрою — своя веселка." },
+    dreamwisp: { lore: "Наполовину істота, наполовину мрія. Трохи відпливає, щойно ти відвернешся, і вдає, що нічого не було." },
+    auroray: { lore: "Коли танцює, його хвіст-стрічка спалахує павичевою синню. Склепіння печери пам'ятає кожен колір." },
+    glimmerfox: { lore: "Збирає все блискуче: уламки, відблиски, твою увагу. Нічого з того не повертає." },
+    nebbit: { lore: "Шматочок ночі із золотими цятками замість зірок. Носить сузір'я, якому ще ніхто не дав імені." },
+    cometail: { lore: "Мчить. Постійно. Його хвіст ти бачиш останнім, а згадуєш першим." },
+    emberleaf: { lore: "Вилуплюється лише тоді, коли жовтіє листя. Пахне підсмаженим маршмелоу й хрумким осіннім ранком." },
+    frostpuff: { lore: "Пухнастик із зимового місячного яйця. Кожен його чих — крихітний снігопад." },
+    bloomkit: { lore: "Кошеня з весняного місячного яйця. Нишком підкидає квіти тобі в кишені, поки ти не дивишся." },
+    sunsplash: { lore: "Ельф із літнього місячного яйця. Де подрімає — там лишає теплі калюжки світла." }
+  },
+  rarity: { common: "звичайний", rare: "рідкісний", legendary: "легендарний", moon: "місячний" },
+  snacks: { dew: "Росинка", cookie: "Печиво із зоряного пилу", berry: "Місячна ягідка" },
+  decor: {
+    lamp: { name: "Кришталева лампа", verb: "гріється біля лампи" },
+    mushrooms: { name: "Сяйні грибочки", verb: "стрибає на грибочках" },
+    cushion: { name: "Подушка-хмаринка", verb: "дрімає на хмаринці" },
+    rug: { name: "Зоряний килимок", verb: "танцює на килимку" },
+    shelf: { name: "Полиця для жеод", verb: "милується твоїми жеодами" },
+    spring: { name: "Місячне джерельце", verb: "хлюпається в джерельці" },
+    swing: { name: "Місячна гойдалка", verb: "гойдається на місяці" },
+    lights: { name: "Чарівні вогники", verb: "ганяється за вогниками" }
+  },
+  behaviors: { flutter: "пурхалки", hop: "стрибунці", nap: "сплюхи", dance: "танцюристи", curious: "цікавинки", swim: "плавунці" },
+  stages: ["Малюк", "Юний", "Дорослий", "Сяйливий"],
+  caves: ["Аметистова западина", "Целестиновий грот", "Малахітові глибини", "Лабрадоритове склепіння"],
+  caveNotes: ["М'який камінь · з 4 рівня слабке місце ховається", "Твердіший камінь · рідкісні кристали", "Шукай слабке місце на слух · є шанс на легендарне", "Найміцніший камінь і найрідкісніші жеоди"],
+  themes: {
+    amethyst: { name: "Аметистова западина", how: "" },
+    celestite: { name: "Целестиновий грот", how: "дійди до розділу II" },
+    malachite: { name: "Малахітові глибини", how: "дійди до розділу III" },
+    labradorite: { name: "Лабрадоритове склепіння", how: "дійди до розділу IV" },
+    churchyard: { name: "Цвинтар у місячному сяйві", how: "відкрий місячне яйце" },
+    glowcap: { name: "Ліс сяйних шапинок", how: "збери 30 зірок" },
+    abbey: { name: "Абатство зорепаду", how: "пройди всі 24 рівні" }
+  },
+  tasks: {
+    crack: "Розколи жеоду",
+    polish: "Відполіруй жеоду до 80% блиску",
+    feed: "Почастуй глоулінга смаколиком",
+    pet: "Погладь глоулінга пальцем",
+    catch: "Пограй у ловлю іскорок",
+    sweep: "Змети пилового зайчика",
+    forge: "Купи покращення молота в Кузні",
+    decor: "Прикрась гніздечко або зміни його тло",
+    moon: "Відкрий сьогоднішнє місячне яйце",
+    book: "Знайди когось у Глоупедії",
+    breed: "Поклади змішане яйце в інкубатор",
+    share: "Надішли листівку з глоулінгом"
+  },
+  seasons: { spring: "весняний", summer: "літній", autumn: "осінній", winter: "зимовий" },
+  seasonsIn: { spring: "навесні", summer: "влітку", autumn: "восени", winter: "взимку" },
+  rarityF: { common: "звичайна", rare: "рідкісна", legendary: "легендарна", moon: "місячна" }
+};
+translatePage();
 
 // ---------- helpers ----------
 
@@ -1179,6 +1736,13 @@ const sfx = {
     o.connect(g).connect(this.master);
     if (echo) g.connect(this.echo);
     o.start(t); o.stop(t + decay + 0.05);
+  },
+
+  /** One syllable of a speaking voice: a short blip, a little higher or lower each time, like the voices in old RPGs. */
+  voice(v) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime, f = v.f * (1 + (Math.random() - 0.5) * v.spread);
+    this.tone(t, f, v.gain || 0.05, v.len || 0.055, v.wave, f * v.glide);
   },
 
   /** The stone giving way under your finger: dry little crackles. */
@@ -1481,7 +2045,7 @@ function specOf(cr) {
   if (!h) {
     const m = cr.mix;
     h = { id: "h" + cr.id, name: m.name, crystal: m.crystal, pal: m.pal, snack: m.snack, voice: m.voice, beh: m.beh, hybrid: true, parents: m.parents,
-      lore: `A one-of-a-kind mix of ${m.parents.join(" and ")}, hatched in your nest.` };
+      lore: tr("A one-of-a-kind mix of {0}, hatched in your nest.", m.parents.join(tr(" and "))) };
     for (const k of PARTS) h[k] = m[k];
     hybridCache.set(cr.id, h);
   }
@@ -1540,7 +2104,7 @@ const pxFbm = (x, y) => pxNoise(x, y) * .55 + pxNoise(x * 2.1, y * 2.1) * .3 + p
 function pxSmooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
 // ---------- pixel icons: little sprites for buttons and labels, drawn from text maps ----------
-const PX_ICON_COLORS = { w: "#efe6ff", W: "#ffffff", l: "#ad91e6", L: "#d2bfff", p: "#6b4fa8", d: "#3d2866", k: "#160c26", g: "#eec26a", G: "#fff0b5", o: "#c98f3a", b: "#946027", B: "#5e3a1c", r: "#e88bb1", R: "#c25586", s: "#e4dfe8", S: "#8a8494", z: "#5d5666", t: "#69b7d6", T: "#3383a8", m: "#57ad6a", e: "#e0634f", E: "#b8323b" };
+const PX_ICON_COLORS = { K: "#3a2440", w: "#efe6ff", W: "#ffffff", l: "#ad91e6", L: "#d2bfff", p: "#6b4fa8", d: "#3d2866", k: "#160c26", g: "#eec26a", G: "#fff0b5", o: "#c98f3a", b: "#946027", B: "#5e3a1c", r: "#e88bb1", R: "#c25586", s: "#e4dfe8", S: "#8a8494", z: "#5d5666", t: "#69b7d6", T: "#3383a8", m: "#57ad6a", e: "#e0634f", E: "#b8323b" };
 const PX_ICON_MAPS = {
   hammer: ["............", ".zSSSSSSSSz.", ".SswssssssS.", ".SsssssssSS.", ".zSSSSSSSSz.", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....bB.....", "............"],
   eye: ["............", "............", "....ssss....", "..ssssssss..", ".sssTTTTsss.", "ssssTkkTssss", "ssssTkWTssss", ".sssTTTTsss.", "..ssssssss..", "....ssss....", "............", "............"],
@@ -1567,6 +2131,24 @@ const PX_ICON_MAPS = {
   egg: ["....ssss....", "...swwsss...", "..swwsssss..", "..swssssSs..", ".ssssksssSs.", ".sssskksSSs.", ".ssssssksSs.", ".sssssksSSs.", ".sssssSSSSs.", "..sssSSSSs..", "...SSSSSS...", "............"],
   tasks: ["............", "..wwwwwww...", "..wSSSSSw...", "..wwwwwww...", "..wSSSSSw...", "..wwwwwww..m", "..wSSSSSw.mm", "..wwwwwwwmm.", "..wSSSSmmm..", "..wwwwwwmw..", "............", "............"],
   gear: ["............", ".....ss.....", "..s.sSSs.s..", "..sSSSSSSs..", "...SSzzSS...", ".sSSz..zSSs.", ".sSSz..zSSs.", "...SSzzSS...", "..sSSSSSSs..", "..s.sSSs.s..", ".....ss.....", "............"],
+  mossa: [
+    "....mmmmmmmm....",
+    "..mmmmmmmGmmmm..",
+    ".mmmmmmmGgGmmmm.",
+    ".mmsmmmmmGmmsmm.",
+    "mmsssmmmmmmsssmm",
+    "sWsssssssssssssS",
+    "sWsssssssssssssS",
+    "sssskksssskksssS",
+    "ssskssksskssksSS",
+    "ssrrssssssssrrSS",
+    "ssssssksskssssSS",
+    "sssssssKKsssssSS",
+    "SsssssssssssssSz",
+    ".SSssssssssssSz.",
+    "..zSSSSSSSSSSz..",
+    "....zzzzzzzz....",
+  ],
   broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
 };
 const pxIconCache = {};
@@ -1575,7 +2157,7 @@ function pxIcon(name) {
   if (pxIconCache[name]) return pxIconCache[name];
   const map = PX_ICON_MAPS[name];
   if (!map) return "";
-  const S = 14, c = document.createElement("canvas"); c.width = c.height = S;
+  const S = map[0].length + 2, c = document.createElement("canvas"); c.width = c.height = S;
   const g = c.getContext("2d"), im = g.createImageData(S, S), d = im.data, solid = new Uint8Array(S * S);
   const put = (x, y, rgb) => { const i = (y * S + x) * 4; d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2]; d[i + 3] = 255; };
   map.forEach((row, y) => [...row].forEach((ch, x) => { const col = PX_ICON_COLORS[ch]; if (col) { solid[(y + 1) * S + x + 1] = 1; put(x + 1, y + 1, pxHex(col)); } }));
@@ -1860,7 +2442,7 @@ function checkThemes(quiet = false) {
   save.themesSeen.push(...fresh.map(t => t.id));
   persist();
   const shown = fresh.filter(t => t.id !== "amethyst");
-  if (!quiet && shown.length) setTimeout(() => toast(`New backdrop: ${shown.map(t => t.name).join(", ")} · choose it in Decor ✦`), 1600);
+  if (!quiet && shown.length) setTimeout(() => toast(tr("New backdrop: {0} · choose it in Decor ✦", shown.map(t => t.name).join(", "))), 1600);
 }
 
 /** How hard an egg is: tougher stone deeper in the grotto, and a weak spot that glows less and less. */
@@ -1923,7 +2505,7 @@ function persist() {
     for (const g of Object.values(save.geodes)) delete g.img;
     if (store.set(SAVE_KEY, save)) return;
     try { localStorage.removeItem(BAK_KEY); } catch {}
-    if (!store.set(SAVE_KEY, save) && !saveWarned) { saveWarned = true; toast("Couldn't save: tap backup and keep a backup code"); }
+    if (!store.set(SAVE_KEY, save) && !saveWarned) { saveWarned = true; toast(tr("Couldn't save: tap backup and keep a backup code")); }
     return;
   }
   if (Date.now() - lastBak > 30000) { lastBak = Date.now(); store.set(BAK_KEY, save); }
@@ -2011,7 +2593,8 @@ function addXP(cr, n) {
     const before = stageOf(cr.level);
     cr.level++;
     const grew = stageOf(cr.level) !== before;
-    toast(grew ? `${cr.name} grew up: now ${STAGES[stageOf(cr.level)]}! ✦` : `${cr.name} reached level ${cr.level} ✦`);
+    if (grew && stageOf(cr.level) === 1) { if (game.scene === "nest") setTimeout(() => talk("firstGrow", cr), 900); else talkLater.push(["firstGrow", cr]); }
+    toast(grew ? tr("{0} grew up: now {1}! ✦", cr.name, STAGES[stageOf(cr.level)]) : tr("{0} reached level {1} ✦", cr.name, cr.level));
     sfx.levelUp();
     const a = actors.get(cr.id);
     if (game.scene === "nest" && a) { const v = actorView(a); burst(v.x, v.y, grew ? 40 : 18, ["#fff", ...palOf(specOf(cr))], grew ? 1.6 : 1); }
@@ -2959,8 +3542,8 @@ function newEgg(conf, animate = true) {
   refitEgg(e);
   game.pieces = [];
   updateDots();
-  $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? "Wander" : `Lv ${conf.n}`;
-  setHint(conf.step === 1 ? "tap the egg to crack it · aim for the glow ✦" : conf.step === 4 ? "the weak spot hides now: knocks sound higher near it" : conf.step === 10 ? "hard stone: find the weak spot by ear" : "");
+  $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
+  setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound higher near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : "");
 }
 
 /** Fresh shell and inside for the current layout, with every crack so far drawn back on. */
@@ -3137,10 +3720,10 @@ function burst(x, y, n, colors, speed = 1) {
 
 // ---------- the forge: shards buy hammer upgrades that last forever ----------
 const FORGE = [
-  { id: "heft", name: "Heavy head", icon: "hammer", cost: [25, 50, 90, 140, 200], what: l => `taps hit ${l * 15}% harder` },
-  { id: "eye", name: "Owl's eye", icon: "eye", cost: [40, 90, 160], what: l => ["", "a faint glow shows the weak spot on hard stone", "the weak spot glows brighter", "the weak spot glows even in the deepest caves"][l] },
-  { id: "echo", name: "Bell echo", icon: "bell", cost: [60, 120, 200], what: l => `${l * 10}% of taps ring twice, for 60% more` },
-  { id: "magpie", name: "Magpie pouch", icon: "pouch", cost: [30, 70, 120, 180], what: l => `+${l} shard${l > 1 ? "s" : ""} from every weak-spot hit` },
+  { id: "heft", name: "Heavy head", icon: "hammer", cost: [25, 50, 90, 140, 200], what: l => tr("taps hit {0}% harder", l * 15) },
+  { id: "eye", name: "Owl's eye", icon: "eye", cost: [40, 90, 160], what: l => ["", tr("a faint glow shows the weak spot on hard stone"), tr("the weak spot glows brighter"), tr("the weak spot glows even in the deepest caves")][l] },
+  { id: "echo", name: "Bell echo", icon: "bell", cost: [60, 120, 200], what: l => tr("{0}% of taps ring twice, for 60% more", l * 10) },
+  { id: "magpie", name: "Magpie pouch", icon: "pouch", cost: [30, 70, 120, 180], what: l => tr("+{0} {1} from every weak-spot hit", l, pl(l, "shard", "shards")) },
 ];
 const forgeLvl = id => (save.forge && save.forge[id]) || 0;
 const canForge = () => FORGE.some(f => f.cost[forgeLvl(f.id)] <= save.shards);
@@ -3166,6 +3749,23 @@ const TASKS = {
   share: { text: "Send a postcard of a glowling", icon: "postcard", ok: hasPets, go: toNest(null, "nestShare") },
 };
 const TASK_SHARDS = 10, TASK_BONUS = 15;
+
+/** In Ukrainian, the crystals, lore, snacks, decor, caves, backdrops and tasks get their translated words (glowling names stay as they are). */
+(function localizeData() {
+  if (LANG !== "uk") return;
+  const D = UK_DATA;
+  for (const c of CRYSTALS) Object.assign(c, D.crystals[c.id]);
+  for (const s of SPECIES) if (D.species[s.id]) s.lore = D.species[s.id].lore;
+  for (const id in D.snacks) SNACKS[id].name = D.snacks[id];
+  for (const d of DECOR) Object.assign(d, D.decor[d.id]);
+  Object.assign(BEHAVIOR_NAMES, D.behaviors);
+  STAGES.splice(0, STAGES.length, ...D.stages);
+  CAVES.splice(0, CAVES.length, ...D.caves);
+  CAVE_NOTES.splice(0, CAVE_NOTES.length, ...D.caveNotes);
+  for (const t of THEMES) Object.assign(t, D.themes[t.id]);
+  for (const id in D.tasks) TASKS[id].text = D.tasks[id];
+  for (const f of FORGE) f.name = tr(f.name);
+})();
 
 /** Today's three tasks: things you've never done come first, so every part of the game gets its turn. */
 function todayTasks() {
@@ -3193,7 +3793,7 @@ function taskDone(id) {
   persist();
   updateTopbar();
   sfx.star(all ? 2 : 0);
-  toast(all ? `All of today's tasks done! +${gain} ✦` : `Task done: ${TASKS[id].text} · +${gain} ✦`);
+  toast(all ? tr("All of today's tasks done! +{0} ✦", gain) : tr("Task done: {0} · +{1} ✦", TASKS[id].text, gain));
   if (!$("tasks").classList.contains("hidden")) openTasks();
 }
 
@@ -3207,10 +3807,10 @@ function openTasks() {
   sfx.tick();
   const t = todayTasks();
   t.seen = true;
-  $("tasksSub").textContent = `Each one gives ${TASK_SHARDS} shards, and all three another ${TASK_BONUS}. New ones tomorrow.`;
+  $("tasksSub").textContent = tr("Each one gives {0} shards, and all three another {1}. New ones tomorrow.", TASK_SHARDS, TASK_BONUS);
   $("taskList").innerHTML = t.ids.map(id => {
     const k = TASKS[id], done = t.done[id];
-    return `<div class="task${done ? " done" : ""}">${ic(k.icon, "big")}<span>${k.text}</span>${done ? `<b class="tick">${ic("tasks")}done</b>` : `<button class="act go" data-go="${id}">Go</button>`}</div>`;
+    return `<div class="task${done ? " done" : ""}">${ic(k.icon, "big")}<span>${k.text}</span>${done ? `<b class="tick">${ic("tasks")}${tr("done")}</b>` : `<button class="act go" data-go="${id}">${tr("Go")}</button>`}</div>`;
   }).join("");
   $$("#taskList .go").forEach(b => b.addEventListener("click", () => { show("tasks", false); TASKS[b.dataset.go].go(); }));
   show("tasks", true);
@@ -3234,10 +3834,11 @@ function tapPower() {
 
 function openForge() {
   sfx.tick();
-  $("forgeSub").innerHTML = `You have ${ic("shard")}${save.shards}. Upgrades last forever.`;
+  setTimeout(() => talk("firstForge"), 350);
+  $("forgeSub").innerHTML = tr("You have {0}. Upgrades last forever.", ic("shard") + save.shards);
   $("forgeList").innerHTML = FORGE.map(f => {
     const l = forgeLvl(f.id), max = f.cost.length, cost = f.cost[l];
-    return `<button class="forge${l >= max ? " maxed" : ""}" data-id="${f.id}" ${l >= max || save.shards < cost ? "disabled" : ""}>${ic(f.icon, "big")}<span class="txt"><b>${f.name}</b><span class="pips">${f.cost.map((_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l < max ? (l ? "next: " : "") + f.what(l + 1) : f.what(l)}</small></span><span class="cost">${l >= max ? "max" : `${ic("shard")}${cost}`}</span></button>`;
+    return `<button class="forge${l >= max ? " maxed" : ""}" data-id="${f.id}" ${l >= max || save.shards < cost ? "disabled" : ""}>${ic(f.icon, "big")}<span class="txt"><b>${f.name}</b><span class="pips">${f.cost.map((_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l < max ? (l ? tr("next: ") : "") + f.what(l + 1) : f.what(l)}</small></span><span class="cost">${l >= max ? "max" : `${ic("shard")}${cost}`}</span></button>`;
   }).join("");
   $$("#forgeList .forge").forEach(b => b.addEventListener("click", () => buyForge(b.dataset.id)));
   show("forge", true);
@@ -3250,7 +3851,7 @@ function buyForge(id) {
   save.forge = { ...save.forge, [id]: l + 1 };
   sfx.levelUp();
   if (navigator.vibrate) navigator.vibrate([12, 30, 12]);
-  toast(`${f.name} · level ${l + 1} ✦`);
+  toast(tr("{0} · level {1} ✦", f.name, l + 1));
   taskDone("forge");
   persist();
   updateTopbar();
@@ -3285,7 +3886,7 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   e.wob = 0.02 + prog * 0.04 + (res.crit ? 0.03 : 0); e.wobT = 0; e.squash = 1;
   game.shake = Math.min(14, game.shake + (res.crit ? 7 : 3) + prog * 3) * Math.max(0.5, L.k);
   if (res.crit) game.freeze = 0.06;
-  pop(res.crit ? `CRIT ${res.dmg.toFixed(1)}` : res.dmg.toFixed(1), x, y - 14 * L.k, res.crit ? "#ffe9a8" : "#ffffff", res.crit ? 1.5 : 1);
+  pop(res.crit ? tr("CRIT {0}", res.dmg.toFixed(1)) : res.dmg.toFixed(1), x, y - 14 * L.k, res.crit ? "#ffe9a8" : "#ffffff", res.crit ? 1.5 : 1);
   if (e.combo >= 3) pop(`×${e.combo}`, x + 34 * L.k, y - 40 * L.k, "#8fd8ef", 0.9);
   if (echo) {
     // the bell echo: a second ring a beat later
@@ -3371,7 +3972,7 @@ function startPolish() {
     if (inside(eggPoly(L.ecx, L.ecy, L.ew - 24 * L.k, L.eh - 24 * L.k, 48), [x + cell / 2, y + cell / 2])) cells.push({ x: x + cell / 2, y: y + cell / 2, done: false });
   }
   e.matte = { canvas: c, ctx: o, cells, done: 0, shine: 0 };
-  setHint("rub the geode to polish it ✦");
+  setHint(tr("rub the geode to polish it ✦"));
   $("polishDone").hidden = false;
 }
 
@@ -3447,11 +4048,11 @@ function adopt(e) {
     applyTime(mine);
     addXP(mine, 40);
     mine.joy = clamp(mine.joy + 20, 0, 100);
-    note = `Your ${mine.name} met a sibling: +40 XP and lots of joy ✦`;
+    note = tr("Your {0} met a sibling: +40 XP and lots of joy ✦", mine.name);
   } else {
     mine = { id: save.nextId++, sp: sp.id, name: (e.shiny ? "✦ " : "") + sp.name, shiny: e.shiny, level: 1, xp: 0, tummy: 70, joy: 80, energy: 80, sleeping: false, last: Date.now(), born: Date.now() };
     save.creatures.push(mine);
-    note = e.shiny ? "A shiny one! It sparkles in your nest now ✦" : `${sp.name} moved into your nest`;
+    note = e.shiny ? tr("A shiny one! It sparkles in your nest now ✦") : tr("{0} moved into your nest", sp.name);
   }
   save.active = mine.id;
   return { isNew, note, mine };
@@ -3470,6 +4071,8 @@ function showFound() {
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
   save.shards += shards;
   const { isNew, note, mine } = adopt(e);
+  if (!conf.coop && e.shiny) talkLater.push(["shiny", mine]);
+  else if (!conf.coop && rarityOf(sp) === "legendary") talkLater.push(["legendary", mine]);
   persist();
   checkThemes();
   taskDone("crack");
@@ -3482,36 +4085,137 @@ function showFound() {
   imgFrom($("foundImg").src).then(im => { $("foundImg").src = pixelate(im, 66, 88).toDataURL(); });
   $("newBadge").hidden = !isNew;
   $("foundName").textContent = (e.shiny ? "✦ " : "") + sp.name;
-  $("foundRarity").textContent = sp.moon ? `${sp.moon} moon glowling` : `${cry.name} geode · ${cry.rarity}`;
+  $("foundRarity").textContent = sp.moon ? tr("{0} moon glowling", seasonName(sp.moon)) : tr("{0} geode · {1}", cry.name, rarF(cry.rarity));
   $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
-  $("foundNote").textContent = (conf.coop ? "Shared egg · " : "") + note + (conf.moon ? ` · moon streak ${save.moon.streak} 🔥` : "");
+  $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? tr(" · moon streak {0} 🔥", save.moon.streak) : "");
   $("stShine").textContent = Math.round(shine * 100) + "%";
   $("stTaps").textContent = e.taps;
-  $("stPar").textContent = `taps · ★ in ${e.par}`;
+  $("stPar").textContent = tr("taps · ★ in {0}", e.par);
   $("stCrits").textContent = e.crits;
   $("stShards").textContent = "+" + shards;
   $("foundMap").hidden = !!conf.moon;
   // the nest is the other half of the game: say who's waiting there, so it's not just egg after egg
-  $("foundNestLabel").textContent = "Go to the nest";
-  $("foundNestSub").textContent = `${mine.name} is waiting for you`;
-  $("nextLvl").textContent = conf.coop ? (coopIsHost() ? "Another shared egg" : "Waiting for host") : conf.moon ? "Back to the grotto" : conf.wander ? "Another egg" : conf.n >= LEVELS ? "Wander on" : "Next level";
+  $("foundNestLabel").textContent = tr("Go to the nest");
+  $("foundNestSub").textContent = tr("{0} is waiting for you", mine.name);
+  $("nextLvl").textContent = conf.coop ? (coopIsHost() ? tr("Another shared egg") : tr("Waiting for host")) : conf.moon ? tr("Back to the grotto") : conf.wander ? tr("Another egg") : conf.n >= LEVELS ? tr("Wander on") : tr("Next level");
   $("nextLvl").disabled = !!conf.coop && !coopIsHost();
   updateTopbar();
   show("found", true);
   if (conf.coop) coopBroadcast(true); // deliver the result before a host can send the next egg
 }
 
+// ---------- dialogs: Mossa, the old stone who keeps the grotto, talks you through the big moments ----------
+
+const MOSSA = { name: "Mossa", face: () => pxIcon("mossa"), voice: { f: 190, wave: "triangle", spread: 0.22, glide: 0.92, gain: 0.07, len: 0.07 } };
+const glowVoice = cr => ({ name: cr.name, face: () => creatureImage(specOf(cr), { size: 64, level: cr.level, shiny: cr.shiny }),
+  voice: { f: 640 * (specOf(cr).voice || 1), wave: "square", spread: 0.4, glide: 1.3, gain: 0.03, len: 0.05 } });
+const firstPet = () => save.creatures[0];
+
+/** Each one plays once. A line is [speaker, words]; words can use {0} for the event's detail. */
+const TALKS = {
+  intro: () => [[MOSSA, "Oh! A visitor. Hello, hello."], [MOSSA, "I'm Mossa. I've watched over this grotto since before the moss was green."],
+    [MOSSA, "Glowlings sleep inside the stone eggs down here. Crack one open, and whoever's inside will need a home."],
+    [MOSSA, "This empty nest is yours. Let's go and find your first one!"]],
+  firstPet: () => { const cr = firstPet(), g = glowVoice(cr); return [[g, "Pip?"], [g, "...pip-pip! ♥"],
+    [MOSSA, tr("{0} likes you already. Glowlings remember a kind hand.", cr.name)],
+    [MOSSA, "Stroke it, feed it, play with it, and tuck it in when it's sleepy. That's how it grows."],
+    [MOSSA, "When you want another egg, the big Crack button is always right there. Your nest has room for many."]]; },
+  firstGrow: cr => [[glowVoice(cr), "Pip! Pip-pip-pip!"], [MOSSA, tr("Look at {0}! Not a baby anymore.", cr.name)],
+    [MOSSA, "Glowlings grow when they're loved. Keep it up, and one day it will be Radiant."]],
+  firstGrotto: () => [[MOSSA, "This is the Grotto. Every level is a geode, each a little harder than the last."],
+    [MOSSA, "Find the weak spot and you'll need fewer taps. Fewer taps, more stars."],
+    [MOSSA, "And look up: once a day a moon egg appears. Something special sleeps in it."]],
+  firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
+    [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it."]],
+  ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])], [MOSSA, "The stone gets harder from here on. The Forge can help."]],
+  ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring higher."]],
+  ch3: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[3])], [MOSSA, "The oldest, toughest stone. And the rarest glowlings sleep in it."]],
+  shiny: cr => [[glowVoice(cr), "✦ Pip! ✦"], [MOSSA, "Oh my. A shiny one! I've only seen a handful in all my years."]],
+  legendary: cr => [[glowVoice(cr), "...Pip."], [MOSSA, tr("A legendary glowling... They say {0} only wakes for someone kind. Well done, you.", cr.name)]],
+  allClear: () => [[MOSSA, "Every geode in the grotto, opened. I'm so proud of you."],
+    [MOSSA, "But the deep caves never end. Wander down whenever you like. I'll keep the moss warm."]],
+};
+
+// people who played before the dialogs existed don't get the beginner ones (worked out from the save as it was when the page opened)
+let talkOld = null;
+function talkSeen(id) {
+  if (save.talks && save.talks[id]) return true;
+  return !!(talkOld && talkOld[id]);
+}
+const talkQueue = [];
+let talkNow = null;
+/** Play a dialog once, if it hasn't been seen (never during co-op, so a shared egg isn't interrupted). */
+function talk(id, ...args) {
+  if (game.coopTouched || coopSession || talkSeen(id) || !TALKS[id]) return false;
+  save.talks = { ...(talkOld || {}), ...save.talks, [id]: Date.now() };
+  persist();
+  talkQueue.push(TALKS[id](...args));
+  if (!talkNow) nextTalk();
+  return true;
+}
+function nextTalk() {
+  const lines = talkQueue.shift();
+  if (!lines) { talkNow = null; $("talk").hidden = true; return; }
+  talkNow = { lines, i: -1 };
+  $("talk").hidden = false;
+  nextLine();
+}
+function nextLine() {
+  const n = talkNow;
+  clearInterval(n.timer);
+  if (++n.i >= n.lines.length) return nextTalk();
+  const [who, words] = n.lines[n.i];
+  const text = tr(words), face = who.face();
+  $$("#talk .talk-face img").forEach(im => { if (im.src !== face) im.src = face; });
+  $$("#talk .talk-name").forEach(el => { el.textContent = tr(who.name); });
+  const box = $$("#talk .talk-text")[0];
+  box.textContent = "";
+  $("talk").classList.remove("done");
+  // type it out: a blip for every other letter, a breath at commas, a longer one at full stops
+  let at = 0, wait = 0, said = 0;
+  n.full = () => { clearInterval(n.timer); box.textContent = text; n.typing = false; $("talk").classList.add("done"); };
+  n.typing = true;
+  n.timer = setInterval(() => {
+    if (wait > 0) { wait--; return; }
+    const ch = text[at++];
+    box.textContent = text.slice(0, at);
+    if (/[\p{L}\p{N}]/u.test(ch) && said++ % 2 === 0) sfx.voice(who.voice);
+    if (/[.!?…♥✦]/.test(ch) && text[at] === " ") wait = 7;
+    else if (/[,:;—]/.test(ch)) wait = 3;
+    if (at >= text.length) n.full();
+  }, 32);
+}
+function tapTalk(ev) {
+  if (!talkNow) return;
+  ev && ev.preventDefault();
+  if (talkNow.typing) talkNow.full(); else { sfx.tick(); nextLine(); }
+}
+$("talk").addEventListener("pointerdown", ev => { if (ev.target.id !== "talkSkip") tapTalk(ev); });
+$("talkSkip").addEventListener("click", ev => { ev.stopPropagation(); clearInterval(talkNow && talkNow.timer); talkQueue.length = 0; nextTalk(); });
+document.addEventListener("keydown", ev => { if (talkNow && (ev.key === " " || ev.key === "Enter")) tapTalk(ev); }, true);
+
+/** The big moments that are waiting for a calm scene (the nest, the grotto or the book) to be told. */
+const talkLater = [];
+function talkMoments(scene) {
+  if (!["nest", "map", "lib"].includes(scene) || !$("found").classList.contains("hidden")) return;
+  while (talkLater.length) talk(...talkLater.shift());
+  if (scene === "nest" && save.creatures.length) talk("firstPet");
+  if (scene === "map") talk("firstGrotto");
+  for (const k of [1, 2, 3]) if (unlocked(k * 6 + 1)) talk("ch" + k);
+  if (unlocked(LEVELS + 1)) talk("allClear");
+}
+
 function nestHint() {
   if (!save.creatures.length) return "";
-  if (!tipDone("pet")) return `stroke ${activeCreature()?.name || "your glowling"} to pet it ♥`;
+  if (!tipDone("pet")) return tr("stroke {0} to pet it ♥", activeCreature()?.name || tr("your glowling"));
   const cr = activeCreature(), call = cr && callOf(cr);
-  if (call) return { hungry: `${cr.name} is hungry: give it a snack`, sleepy: `${cr.name} is sleepy: tuck it in`, messy: "dust bunnies! tap them to sweep the nest", lonely: `${cr.name} feels lonely: pet it or play` }[call];
-  if (!tipDone("call")) return "tip: hold a finger on the floor to call everyone";
-  if (!tipDone("decorTap") && DECOR.some(d => hasDecor(d.id) && d.id !== "rug")) return "tip: tap your decorations to play with them ✦";
-  if (save.incubator && Date.now() >= save.incubator.due) return "the egg is ready: tap it three times to hatch ✦";
-  if (!save.incubator && !tipDone("pair") && save.creatures.filter(c => !pairReason(c)).length >= 2) return "two of your glowlings could share an egg: tap the incubator 💞";
+  if (call) return { hungry: tr("{0} is hungry: give it a snack", cr.name), sleepy: tr("{0} is sleepy: tuck it in", cr.name), messy: tr("dust bunnies! tap them to sweep the nest"), lonely: tr("{0} feels lonely: pet it or play", cr.name) }[call];
+  if (!tipDone("call")) return tr("tip: hold a finger on the floor to call everyone");
+  if (!tipDone("decorTap") && DECOR.some(d => hasDecor(d.id) && d.id !== "rug")) return tr("tip: tap your decorations to play with them ✦");
+  if (save.incubator && Date.now() >= save.incubator.due) return tr("the egg is ready: tap it three times to hatch ✦");
+  if (!save.incubator && !tipDone("pair") && save.creatures.filter(c => !pairReason(c)).length >= 2) return tr("two of your glowlings could share an egg: tap the incubator 💞");
   return "";
 }
 
@@ -3620,13 +4324,14 @@ function setScene(scene) {
   if (scene === "lib") { renderLib(); taskDone("book"); }
   if (scene === "nest") { renderNest(true); nudgeBackup(); }
   updateTopbar();
+  talkMoments(scene);
 }
 
 function updateTopbar() {
   $("shardPill").innerHTML = `${ic("shard")}${save.shards}`;
   $("starPill").innerHTML = `${ic("star")}${totalStars()}`;
   const n = nextLevel();
-  $("crackLvl").textContent = n ? `Lv ${n}` : "Wander";
+  $("crackLvl").textContent = n ? tr("Lv {0}", n) : tr("Wander");
   renderTaskPill();
   updateCalls();
 }
@@ -3659,7 +4364,7 @@ function startMoon() {
   setScene("crack");
   const sp = moonToday();
   newEgg({ ...levelConf(6), n: "moon", moon: true, wander: true, forced: { species: sp, crystal: CRYSTAL.moonstone } }, true);
-  setHint("today's moon egg: something special sleeps inside 🌙");
+  setHint(tr("today's moon egg: something special sleeps inside 🌙"));
 }
 
 /** Called when a moon egg opens: streak and bonus shards. */
@@ -3685,10 +4390,10 @@ function startLevel(n) {
 
 function renderMap() {
   const next = Array.from({ length: LEVELS }, (_, i) => i + 1).find(n => !save.stars[n]) || 0;
-  $("mapSub").textContent = `${totalStars()} of ${LEVELS * 3} stars · tap a level to crack its geode`;
+  $("mapSub").textContent = tr("{0} of {1} stars · tap a level to crack its geode", totalStars(), LEVELS * 3);
   let html = "";
   CAVES.forEach((name, ci) => {
-    html += `${ci ? '<div class="orn sm" aria-hidden="true"></div>' : ""}<h3 class="chap"><small>Chapter ${["I", "II", "III", "IV", "V", "VI"][ci]}</small>${name}</h3><figure class="plate band${unlocked(ci * 6 + 1) ? "" : " dim"}"><img src="${chapterArt(ci)}" alt=""></figure><p class="cave-note">${CAVE_NOTES[ci]}</p><div class="lvls">`;
+    html += `${ci ? '<div class="orn sm" aria-hidden="true"></div>' : ""}<h3 class="chap"><small>${tr("Chapter {0}", ["I", "II", "III", "IV", "V", "VI"][ci])}</small>${name}</h3><figure class="plate band${unlocked(ci * 6 + 1) ? "" : " dim"}"><img src="${chapterArt(ci)}" alt=""></figure><p class="cave-note">${CAVE_NOTES[ci]}</p><div class="lvls">`;
     for (let i = 1; i <= 6; i++) {
       const n = ci * 6 + i, st = save.stars[n] || 0, open = unlocked(n);
       html += `<button class="lvl${n === next ? " next" : ""}" data-n="${n}" ${open ? "" : "disabled"}>${n}<span>${open ? (st ? "★".repeat(st) : "") : "🔒"}</span></button>`;
@@ -3696,13 +4401,13 @@ function renderMap() {
     html += "</div>";
   });
   const allDone = unlocked(LEVELS + 1);
-  html += `<button class="wander" data-n="0" ${allDone ? "" : "disabled"}>🌌 Wander: endless geodes from the deepest caves${allDone ? "" : " (clear level 24)"}</button>`;
+  html += `<button class="wander" data-n="0" ${allDone ? "" : "disabled"}>${tr("🌌 Wander: endless geodes from the deepest caves")}${allDone ? "" : tr(" (clear level 24)")}</button>`;
   const streak = moonStreak(), done = moonDone(), sp = moonToday();
-  const moonCard = `<button class="moonbtn" id="moonBtn" ${done ? "disabled" : ""}><span class="em">🌙</span><span><b>${done ? "Moon egg opened" : "Today's moon egg"}</b><small>${done
-    ? `next one in ${untilTomorrow()}${streak ? ` · streak ${streak} 🔥` : ""}`
-    : `${sp.moon && !save.seen[sp.id] ? `${/^[aeiou]/.test(sp.moon) ? "an" : "a"} ${sp.moon} moon glowling` : `a ${rarityOf(sp)} glowling`} sleeps inside ✦ +25 shards${streak ? ` · streak ${streak} 🔥` : ""}`}</small></span></button>`;
+  const moonCard = `<button class="moonbtn" id="moonBtn" ${done ? "disabled" : ""}><span class="em">🌙</span><span><b>${done ? tr("Moon egg opened") : tr("Today's moon egg")}</b><small>${done
+    ? tr("next one in {0}", untilTomorrow()) + (streak ? tr(" · streak {0} 🔥", streak) : "")
+    : tr("{0} sleeps inside ✦ +25 shards", sp.moon && !save.seen[sp.id] ? tr(/^[aeiou]/.test(sp.moon) ? "an {0} moon glowling" : "a {0} moon glowling", seasonName(sp.moon)) : tr("a {0} glowling", rar(rarityOf(sp)))) + (streak ? tr(" · streak {0} 🔥", streak) : "")}</small></span></button>`;
   const ready = canForge();
-  const forgeCard = `<button class="moonbtn forgebtn${ready ? " ready" : ""}" id="forgeBtn">${ic("hammer", "big")}<span><b>The Forge${ready ? ' <em class="tag">upgrade ready</em>' : ""}</b><small>spend shards on your hammer: harder taps, keener eyes</small></span></button>`;
+  const forgeCard = `<button class="moonbtn forgebtn${ready ? " ready" : ""}" id="forgeBtn">${ic("hammer", "big")}<span><b>${tr("The Forge")}${ready ? ` <em class="tag">${tr("upgrade ready")}</em>` : ""}</b><small>${tr("spend shards on your hammer: harder taps, keener eyes")}</small></span></button>`;
   $("mapList").innerHTML = forgeCard + moonCard + html;
   $("forgeBtn").addEventListener("click", openForge);
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
@@ -3721,7 +4426,7 @@ function renderNest(full) {
   applyTime(cr);
   const sp = specOf(cr);
   $("nestName").textContent = cr.name;
-  $("nestLvl").textContent = `Level ${cr.level} · ${STAGES[stageOf(cr.level)]} ${sp.name}${cr.level >= MAX_LEVEL ? " · max" : ""}`;
+  $("nestLvl").textContent = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name) + (cr.level >= MAX_LEVEL ? tr(" · max") : "");
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
   for (const [k, id] of [["tummy", "Tummy"], ["joy", "Joy"], ["energy", "Energy"]]) {
     // four icons per need, like an old handheld pet: full ones for what's there, faint ones for what's missing
@@ -3730,7 +4435,7 @@ function renderNest(full) {
     el.classList.toggle("low", cr[k] < 25);
     $("v" + id).textContent = Math.round(cr[k]);
   }
-  $("sleepBtn").innerHTML = cr.sleeping ? `${ic("sun")}Wake` : `${ic("moon")}Sleep`;
+  $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Sleep");
   $("feedBtn").disabled = cr.sleeping;
   // the button for what it needs lights up, the way a Tamagotchi's attention icon does
   const wants = callOf(cr);
@@ -3749,9 +4454,9 @@ function openSnacks() {
   const cr = activeCreature();
   if (!cr) return;
   const sp = specOf(cr);
-  $("snackSub").textContent = `You have ✦ ${save.shards} shards. ${sp.name}s love ${SNACKS[sp.snack].name.toLowerCase()}s.`;
+  $("snackSub").textContent = tr("You have ✦ {0} shards. {1}s love {2}s.", save.shards, sp.name, SNACKS[sp.snack].name.toLowerCase());
   $("snackList").innerHTML = Object.entries(SNACKS).map(([id, s]) =>
-    `<button class="snack" data-id="${id}" ${save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>tummy +${s.tummy}${id === sp.snack ? " · favorite!" : ""}</small></span><span class="cost">✦ ${s.cost}</span></button>`).join("");
+    `<button class="snack" data-id="${id}" ${save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>${tr("tummy +{0}", s.tummy)}${id === sp.snack ? tr(" · favorite!") : ""}</small></span><span class="cost">✦ ${s.cost}</span></button>`).join("");
   $$("#snackList .snack").forEach(b => b.addEventListener("click", () => feed(b.dataset.id)));
   show("snacks", true);
 }
@@ -3759,8 +4464,8 @@ function openSnacks() {
 function feed(id) {
   const cr = activeCreature(), s = SNACKS[id], sp = specOf(cr);
   show("snacks", false);
-  if (cr.tummy >= 95) { toast(`${cr.name} is too full right now`); return; }
-  if (save.shards < s.cost) { toast("Not enough shards: crack a geode to earn more ✦"); return; }
+  if (cr.tummy >= 95) { toast(tr("{0} is too full right now", cr.name)); return; }
+  if (save.shards < s.cost) { toast(tr("Not enough shards: crack a geode to earn more ✦")); return; }
   save.shards -= s.cost;
   const v = actorView(activeActor());
   game.nest.snack = { emoji: s.emoji, x: v.x, y: v.y - N.base * 2, ty: v.y, vy: 0, fav: id === sp.snack, s };
@@ -3777,7 +4482,7 @@ function finishSnack(sn) {
   cr.joy = clamp(cr.joy + sn.s.joy + (sn.fav ? 15 : 0), 0, 100);
   addXP(cr, sn.fav ? 12 : 6);
   spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
-  floatText(sn.fav ? "favorite! ♥" : "yum", v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
+  floatText(sn.fav ? tr("favorite! ♥") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
   if (sn.fav) for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3);
   persist();
   taskDone("feed");
@@ -3788,16 +4493,16 @@ const hasDecor = id => save.decor[id] && save.decor[id].on;
 
 function openShop() {
   sfx.tick();
-  $("shopSub").innerHTML = `You have ${ic("shard")}${save.shards}. Glowlings visit the things they love.`;
+  $("shopSub").innerHTML = tr("You have {0}. Glowlings visit the things they love.", ic("shard") + save.shards);
   const now = currentTheme();
-  const themes = `<h3>Backdrop</h3><div class="themes">${THEMES.map(t => {
+  const themes = `<h3>${tr("Backdrop")}</h3><div class="themes">${THEMES.map(t => {
     const ok = t.ok();
     return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
-  }).join("")}</div><h3>Decorations</h3>`;
+  }).join("")}</div><h3>${tr("Decorations")}</h3>`;
   $("shopList").innerHTML = themes + DECOR.map(d => {
     const owned = save.decor[d.id];
-    const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(" and ");
-    return `<button class="decor${owned ? " owned" : ""}" data-id="${d.id}" ${!owned && save.shards < d.cost ? "disabled" : ""}><span class="em">${d.emoji}</span><span><b>${d.name}</b><small>${who[0].toUpperCase() + who.slice(1)} love it</small></span><span class="cost">${owned ? (owned.on ? "placed ✓" : "stored") : "✦ " + d.cost}</span></button>`;
+    const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
+    return `<button class="decor${owned ? " owned" : ""}" data-id="${d.id}" ${!owned && save.shards < d.cost ? "disabled" : ""}><span class="em">${d.emoji}</span><span><b>${d.name}</b><small>${tr("{0} love it", who[0].toUpperCase() + who.slice(1))}</small></span><span class="cost">${owned ? (owned.on ? tr("placed ✓") : tr("stored")) : "✦ " + d.cost}</span></button>`;
   }).join("");
   $$("#shopList .decor").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
@@ -3814,7 +4519,7 @@ function buyDecor(id) {
     save.decor[id] = { on: true, at: Date.now() };
     taskDone("decor");
     sfx.levelUp();
-    toast(`${d.name} placed in the nest ✦`);
+    toast(tr("{0} placed in the nest ✦", d.name));
   }
   persist();
   updateTopbar();
@@ -3831,7 +4536,7 @@ function toggleSleep() {
   if (!cr) return;
   applyTime(cr);
   cr.sleeping = !cr.sleeping;
-  if (cr.sleeping) { sfx.lullaby(); toast(`Sweet dreams, ${cr.name} 🌙`); }
+  if (cr.sleeping) { sfx.lullaby(); toast(tr("Sweet dreams, {0} 🌙", cr.name)); }
   else { sfx.chirp(specOf(cr).voice); const a = activeActor(); if (a) a.hop = 1; }
   persist();
   renderNest();
@@ -4415,17 +5120,17 @@ const incSpot = () => [lerp(N.x0, N.x1, 0.06), lerp(N.y0, N.y1, 0.5)];
 
 /** Who can share an egg right now, and if not, why. */
 function pairReason(cr) {
-  if (cr.level < PAIR_LEVEL) return `level ${cr.level}/${PAIR_LEVEL}`;
+  if (cr.level < PAIR_LEVEL) return tr("level {0}/{1}", cr.level, PAIR_LEVEL);
   if (cr.sleeping) return "asleep";
   applyTime(cr);
   if (cr.joy < 50) return "needs joy";
-  if (cr.bredAt && Date.now() - cr.bredAt < REST_MS) return `resting ${fmtLeft(cr.bredAt + REST_MS - Date.now())}`;
+  if (cr.bredAt && Date.now() - cr.bredAt < REST_MS) return tr("resting {0}", fmtLeft(cr.bredAt + REST_MS - Date.now()));
   return "";
 }
 
 function fmtLeft(ms) {
   const m = Math.max(0, Math.ceil(ms / 60000));
-  return m >= 60 ? `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}m` : `${m}m`;
+  return m >= 60 ? tr("{0}h {1}m", Math.floor(m / 60), String(m % 60).padStart(2, "0")) : tr("{0}m", m);
 }
 
 /** Each part comes from one parent or the other, now and then a surprise; colors and names blend. */
@@ -4454,26 +5159,26 @@ function openIncubator() {
   const inc = save.incubator;
   if (inc && Date.now() >= inc.due) { show("incubator", false); return; }
   if (inc) {
-    $("incTitle").textContent = "Keeping it warm";
+    $("incTitle").textContent = tr("Keeping it warm");
     $("incSub").textContent = `${inc.mix.parents[0]} × ${inc.mix.parents[1]}`;
     const cost = hurryCost();
     $("incBody").innerHTML = `<div class="timer" id="incTimer">${fmtLeft(inc.due - Date.now())}</div>
-      <p class="sub">Stroke the egg in the incubator to keep it warm: it hatches faster. Time keeps going even when the game is closed.</p>
-      <div class="row center"><button class="act" id="hurryBtn" ${save.shards < cost ? "disabled" : ""}>✨ Hatch now · ✦ ${cost}</button></div>`;
+      <p class="sub">${tr("Stroke the egg in the incubator to keep it warm: it hatches faster. Time keeps going even when the game is closed.")}</p>
+      <div class="row center"><button class="act" id="hurryBtn" ${save.shards < cost ? "disabled" : ""}>${tr("✨ Hatch now · ✦ {0}", cost)}</button></div>`;
     $("hurryBtn").addEventListener("click", hurryEgg);
     clearInterval(openIncubator.tick);
     openIncubator.tick = setInterval(() => { if ($("incTimer") && save.incubator) $("incTimer").textContent = fmtLeft(save.incubator.due - Date.now()); else clearInterval(openIncubator.tick); }, 1000);
   } else {
     pairPick = pairPick.filter(id => save.creatures.some(c => c.id === id && !pairReason(c)));
     const ready = save.creatures.filter(c => !pairReason(c));
-    $("incTitle").textContent = "Lay a mixed egg";
-    $("incSub").textContent = `Two happy glowlings at level ${PAIR_LEVEL}+ can share an egg. The baby mixes their parts and colors and hatches in about 3 hours.`;
+    $("incTitle").textContent = tr("Lay a mixed egg");
+    $("incSub").textContent = tr("Two happy glowlings at level {0}+ can share an egg. The baby mixes their parts and colors and hatches in about 3 hours.", PAIR_LEVEL);
     $("incBody").innerHTML = `<div class="pick">${save.creatures.map(c => {
       const why = pairReason(c);
       return `<button data-id="${c.id}" class="${pairPick.includes(c.id) ? "on" : ""}" ${why ? "disabled" : ""}><img src="${creatureImage(specOf(c), { size: 64, level: c.level, shiny: c.shiny })}" alt="">${why || c.name}</button>`;
     }).join("")}</div>
-      <p id="pairPreview" class="center">${pairPick.length === 2 ? pairPick.map(id => save.creatures.find(c => c.id === id).name).join(" ♥ ") : ready.length < 2 ? "Feed, pet and play with your glowlings to grow them up" : "Pick two glowlings"}</p>
-      <div class="row center"><button class="act" id="layBtn" ${pairPick.length === 2 ? "" : "disabled"}>💞 Lay the egg</button></div>`;
+      <p id="pairPreview" class="center">${pairPick.length === 2 ? pairPick.map(id => save.creatures.find(c => c.id === id).name).join(" ♥ ") : ready.length < 2 ? tr("Feed, pet and play with your glowlings to grow them up") : tr("Pick two glowlings")}</p>
+      <div class="row center"><button class="act" id="layBtn" ${pairPick.length === 2 ? "" : "disabled"}>${tr("💞 Lay the egg")}</button></div>`;
     $$("#incBody .pick button").forEach(b => b.addEventListener("click", () => {
       const id = Number(b.dataset.id);
       pairPick = pairPick.includes(id) ? pairPick.filter(x => x !== id) : [...pairPick, id].slice(-2);
@@ -4498,7 +5203,7 @@ function layEgg() {
   persist();
   show("incubator", false);
   sfx.lullaby();
-  toast(`${a.name} and ${b.name} laid an egg ♥ Keep it warm!`);
+  toast(tr("{0} and {1} laid an egg ♥ Keep it warm!", a.name, b.name));
   const [x, y] = incSpot();
   burst(x, y - N.base * 0.5, 20, ["#fff", "#ffb3d4", mix.pal[0], mix.pal[1]]);
 }
@@ -4523,7 +5228,7 @@ function warmEgg(d) {
   if (game.nest.warmDist < 40) return;
   game.nest.warmDist = 0;
   const cut = Math.min(30e3, INCUBATE_MS / 2 - inc.warmed);
-  if (cut <= 0) { if (!game.nest.warmToldMax) { game.nest.warmToldMax = true; toast("It's as warm as it can get ✦ now it just needs time"); } return; }
+  if (cut <= 0) { if (!game.nest.warmToldMax) { game.nest.warmToldMax = true; toast(tr("It's as warm as it can get ✦ now it just needs time")); } return; }
   inc.warmed += cut; inc.due -= cut;
   const [x, y] = incSpot();
   game.sparks.push({ x: x + rand(-12, 12), y: y - N.base * 0.55, vx: rand(-15, 15), vy: -40, t: 0, life: 0.8, s: 4, color: pick(["#ffd27a", "#ffb3d4", "#fff"]) });
@@ -4554,7 +5259,7 @@ function tapIncubator() {
   burst(x, y - N.base * 0.5, 40, ["#fff", ...inc.mix.pal], 1.5);
   sfx.burst("rare");
   setTimeout(() => sfx.chirp(inc.mix.voice), 500);
-  toast(inc.surprise ? `${cr.name} hatched, with a surprise trait! ✦` : `${cr.name} hatched! ✦`);
+  toast(inc.surprise ? tr("{0} hatched, with a surprise trait! ✦", cr.name) : tr("{0} hatched! ✦", cr.name));
   renderNest(true);
 }
 
@@ -4624,12 +5329,12 @@ function startCatch() {
   const cr = activeCreature();
   if (!cr) return;
   applyTime(cr);
-  if (cr.energy < 15) { toast(`${cr.name} is too sleepy to play. Try a nap 🌙`); return; }
+  if (cr.energy < 15) { toast(tr("{0} is too sleepy to play. Try a nap 🌙", cr.name)); return; }
   cr.energy = clamp(cr.energy - 15, 0, 100);
   cr.tummy = clamp(cr.tummy - 5, 0, 100);
   persist();
   game.catch = { t: 20, intro: 3, x: W / 2, tx: W / 2, items: [], spawn: 0, score: 0, combo: 0, flinch: 0, done: false };
-  setTimeout(() => setHint("drag left and right · catch sparkles, dodge pebbles"), 50);
+  setTimeout(() => setHint(tr("drag left and right · catch sparkles, dodge pebbles")), 50);
   setScene("catch");
 }
 
@@ -4688,8 +5393,8 @@ function endCatch() {
   save.shards += shards;
   addXP(cr, xp);
   persist();
-  $("catchTitle").textContent = g.score >= 25 ? "Sparkle storm! ✦" : g.score >= 12 ? "Great catch!" : "Fun!";
-  $("catchSub").textContent = `${cr.name} caught ${g.score} sparkle${g.score === 1 ? "" : "s"}.`;
+  $("catchTitle").textContent = g.score >= 25 ? tr("Sparkle storm! ✦") : g.score >= 12 ? tr("Great catch!") : tr("Fun!");
+  $("catchSub").textContent = tr("{0} caught {1} {2}.", cr.name, g.score, pl(g.score, "sparkle", "sparkles"));
   $("cdJoy").textContent = "+" + joy;
   $("cdXp").textContent = "+" + xp;
   $("cdShards").textContent = "+" + shards;
@@ -4750,10 +5455,10 @@ function coopUiStatus(text) { $("coopStatus").textContent = text || ""; }
 function coopUiError(text) { $("coopError").textContent = text || ""; }
 function coopCopy(value, label, inputId) {
   if (!value) return;
-  const done = () => toast(label + " copied ✓");
+  const done = () => toast(tr(label) + tr(" copied ✓"));
   const select = () => {
     const input = $(inputId || (label.startsWith("Reply") ? "coopReply" : "coopInvite"));
-    input.focus(); input.select(); toast((inputId ? "Link" : "Code") + " selected — copy it using your browser.");
+    input.focus(); input.select(); toast((inputId ? tr("Link") : tr("Code")) + tr(" selected — copy it using your browser."));
   };
   if (navigator.clipboard?.writeText) navigator.clipboard.writeText(value).then(done).catch(select);
   else select();
@@ -4768,7 +5473,7 @@ function coopCodeFrom(text, kind) {
 async function coopSendLink(kind, code) {
   if (!code) return;
   const url = coopLink(kind, code);
-  const text = kind === "join" ? "Crack a Hatchstone egg with me 🥚✨ Tap to join:" : "Here's my Hatchstone reply, tap it to let me in:";
+  const text = kind === "join" ? tr("Crack a Hatchstone egg with me 🥚✨ Tap to join:") : tr("Here's my Hatchstone reply, tap it to let me in:");
   if (navigator.share) {
     try { await navigator.share({ title: "Hatchstone", text, url }); return; } catch (e) { if (e.name === "AbortError") return; }
   }
@@ -4805,8 +5510,8 @@ function coopOpenLink() {
   try { localStorage.setItem(COOP_REPLY_KEY, JSON.stringify({ code, t: Date.now() })); } catch {}
   coopOpenDialog();
   $("coopReplyIn").value = code;
-  coopUiStatus("Go back to the Hatchstone tab where you made the invite. It connects by itself.");
-  coopUiError("If it doesn't, copy this reply and paste it there.");
+  coopUiStatus(tr("Go back to the Hatchstone tab where you made the invite. It connects by itself."));
+  coopUiError(tr("If it doesn't, copy this reply and paste it there."));
   $("coopCopyPending").hidden = false; coopView();
 }
 function coopRoundCatalogValid(r) {
@@ -4929,7 +5634,7 @@ function coopSetSession(role, mode = "manual") {
   if (coopSession && coopSession.peer) coopSession.peer.close("replaced");
   const generation = ++coopGeneration;
   const session = { generation, role, mode, peer: null, round: null, rounds: new Set(), stateSeq: 0, lastStateSeq: -1, lastBroadcast: 0, inputSeq: 0, lastInputSeq: -1, inputWindow: 0, inputCount: 0, remotePointer: null, remoteCursor: null };
-  coopSession = session; game.coop = session;
+  coopSession = session; game.coop = session; game.coopTouched = true;
   const callbacks = {
     onStatus: status => {
       if (!coopLive(session)) return;
@@ -4940,7 +5645,7 @@ function coopSetSession(role, mode = "manual") {
         $("coopLinkReady").hidden = true; $("coopLinkOut").value = "";
         $("coopCopyLink").disabled = $("coopShareLink").disabled = $("coopTelegram").disabled = true;
       }
-      coopUiStatus(connected ? (role === "host" ? "" : "Waiting for your friend to start the egg…") : status === "connecting" ? "Connecting…" : `Connection: ${status}`);
+      coopUiStatus(connected ? (role === "host" ? "" : tr("Waiting for your friend to start the egg…")) : status === "connecting" ? tr("Connecting…") : tr("Connection: {0}", status));
       $("coopBegin").disabled = !(role === "host" && connected);
       $("coopBegin").hidden = !(role === "host" && connected);
       coopShowRoom();
@@ -4950,10 +5655,10 @@ function coopSetSession(role, mode = "manual") {
       if (!coopLive(session)) return;
       const started = !!session.round;
       coopEnd("disconnected", true);
-      if (started) toast("Friend disconnected. Your nest is safe; create a fresh invite to reconnect.");
+      if (started) toast(tr("Friend disconnected. Your nest is safe; create a fresh invite to reconnect."));
       else {
         coopOpenDialog();
-        coopUiError(mode === "invite" ? globalThis.HatchstoneInvite.friendlyError(reason) : "Could not connect. Exchange fresh codes, or try another network.");
+        coopUiError(mode === "invite" ? globalThis.HatchstoneInvite.friendlyError(reason) : tr("Could not connect. Exchange fresh codes, or try another network."));
       }
     },
   };
@@ -4967,8 +5672,8 @@ function coopReceive(s, packet) {
     if (s.rounds.size >= 128) { coopEnd("room-limit"); return; }
     s.rounds.add(packet.round.id);
     s.round = packet.round; s.lastStateSeq = -1;
-    if (!installCoopRound(packet.round, packet.state)) { coopUiError("The shared egg was invalid."); coopEnd("invalid-round", true); return; }
-    s.lastStateSeq = packet.state.seq; show("start", false); setScene("crack"); show("coopDialog", false); coopUiStatus("Shared egg ready — trace together ✦");
+    if (!installCoopRound(packet.round, packet.state)) { coopUiError(tr("The shared egg was invalid.")); coopEnd("invalid-round", true); return; }
+    s.lastStateSeq = packet.state.seq; show("start", false); setScene("crack"); show("coopDialog", false); coopUiStatus(tr("Shared egg ready — trace together ✦"));
     return;
   }
   if (packet.type === "state" && s.role === "guest") { if (s.round && packet.state && packet.state.round === s.round.id) coopApplySnapshot(packet.state); return; }
@@ -4980,7 +5685,7 @@ function coopSendInput(kind, x, y) {
   const p = { round: r.id, seq: ++s.inputSeq, kind };
   if (kind !== "cancel" && kind !== "finish") p.point = coopWire.normalisePoint(x, y, L);
   if (coopWire.validInput(p, r.id) && !s.peer.send({ type: "input", input: p }) && kind !== "move") {
-    queueMicrotask(() => coopReportFailure(s, "The connection is congested. Create a fresh invite to reconnect."));
+    queueMicrotask(() => coopReportFailure(s, tr("The connection is congested. Create a fresh invite to reconnect.")));
   }
 }
 function withRemotePointer(s, fn) {
@@ -5083,10 +5788,10 @@ function pet(x, y, d) {
 // ---------- buttons ----------
 
 // The dialog shows one step at a time; each [data-v] element lists the steps it belongs to.
-const COOP_LEADS = { start: "Crack an egg together with a friend 🥚", invited: "You're invited to a shared egg 🥚", invitedManual: "You're invited to a shared egg 🥚",
-  switchInvite: "Join your friend's room instead?",
-  replyTab: "Your friend's reply is here", hostWait: "Send this link to your friend", hostReady: "Your friend is here ✦ Pick an egg",
-  guest: "You're in 🥚", manual: "Connect with codes" };
+const COOP_LEADS = { start: tr("Crack an egg together with a friend 🥚"), invited: tr("You're invited to a shared egg 🥚"), invitedManual: tr("You're invited to a shared egg 🥚"),
+  switchInvite: tr("Join your friend's room instead?"),
+  replyTab: tr("Your friend's reply is here"), hostWait: tr("Send this link to your friend"), hostReady: tr("Your friend is here ✦ Pick an egg"),
+  guest: tr("You're in 🥚"), manual: tr("Connect with codes") };
 function coopView() {
   const s = coopSession;
   const view = s && coopPendingInvite ? "switchInvite" : s && s.mode === "manual" ? (s.role === "host" && s.peer?.connected ? "hostReady" : "manual")
@@ -5109,7 +5814,7 @@ function coopShowRoom() {
   coopView();
   const on = !!coopSession && !!coopSession.peer;
   $("coopRoom").classList.toggle("on", on);
-  $("coopRoomText").textContent = on ? `👯 ${coopSession.role === "host" ? "Host" : "Guest"} · ${coopSession.peer.connected ? "connected" : "connecting"}` : "👯 Shared room";
+  $("coopRoomText").textContent = on ? tr("👯 {0} · {1}", tr(coopSession.role === "host" ? "Host" : "Guest"), tr(coopSession.peer.connected ? "connected" : "connecting")) : "👯 Shared room";
 }
 function coopLockSetup(locked) {
   for (const id of ["coopQuickHost", "coopJoinLink", "coopHost", "coopJoin"]) $(id).disabled = locked;
@@ -5136,17 +5841,18 @@ function coopEnd(reason = "left", silent = false) {
   $("coopRoom").classList.remove("on"); $("polishDone").hidden = true; show("coopDialog", false); show("found", false);
   if (game.egg && game.egg.conf && game.egg.conf.coop) game.egg = null;
   if (game.scene === "crack" || game.scene === "found") setScene("map");
-  if (!silent && reason && reason !== "left") toast("Shared room ended");
+  if (!silent && reason && reason !== "left") toast(tr("Shared room ended"));
   coopResetFields();
 }
 function coopOpenDialog() {
+  game.coopTouched = true;
   sfx.tick();
   if ($("coopDialog").classList.contains("hidden")) coopReturnFocus = document.activeElement;
   if (!coopSession) coopResetFields();
   else coopShowRoom();
   if (!globalThis.HatchstoneLink || !globalThis.HatchstoneInvite || !coopWire || typeof RTCPeerConnection === "undefined" || !window.isSecureContext) {
     coopLockSetup(true);
-    coopUiError("Online co-op needs WebRTC over HTTPS or localhost. From Telegram, try opening this link in Chrome or Safari. Solo play still works.");
+    coopUiError(tr("Online co-op needs WebRTC over HTTPS or localhost. From Telegram, try opening this link in Chrome or Safari. Solo play still works."));
   }
   show("coopDialog", true);
   $("coopTitle").tabIndex = -1; $("coopTitle").focus();
@@ -5158,7 +5864,7 @@ function coopReportFailure(s, message) {
 async function coopHostLink() {
   if (coopSession) return;
   sfx.init(); if (sfx.ac?.state === "suspended") sfx.ac.resume().catch(() => {});
-  coopForgetLocationInvite(); coopUiError(""); coopUiStatus("Making your link…"); coopLockSetup(true);
+  coopForgetLocationInvite(); coopUiError(""); coopUiStatus(tr("Making your link…")); coopLockSetup(true);
   const s = coopSetSession("host", "invite");
   try {
     const token = await s.peer.host();
@@ -5166,23 +5872,23 @@ async function coopHostLink() {
     $("coopLinkOut").value = globalThis.HatchstoneInvite.inviteUrl(location.href, token);
     $("coopLinkReady").hidden = false; $("coopCopyLink").disabled = $("coopShareLink").disabled = $("coopTelegram").disabled = false;
     $("coopShareLink").hidden = !navigator.share;
-    coopUiStatus("Keep this tab open until they join.");
+    coopUiStatus(tr("Keep this tab open until they join."));
     coopShowRoom();
-  } catch (err) { coopReportFailure(s, err.message || "Could not create an invite link. Try Advanced or another network."); }
+  } catch (err) { coopReportFailure(s, err.message || tr("Could not create an invite link. Try Advanced or another network.")); }
 }
 async function coopJoinLink() {
   if (coopSession) { coopOfferIncomingInvite($("coopLinkIn").value.trim(), "invite"); return; }
   let token;
   try { token = globalThis.HatchstoneInvite.parseInvite($("coopLinkIn").value.trim()); }
-  catch (err) { coopUiError(err.message || "Open or paste a complete invite link first."); return; }
+  catch (err) { coopUiError(err.message || tr("Open or paste a complete invite link first.")); return; }
   sfx.init(); if (sfx.ac?.state === "suspended") sfx.ac.resume().catch(() => {});
   coopForgetLocationInvite(); coopUiError(""); coopUiStatus("Joining…"); coopLockSetup(true);
   const s = coopSetSession("guest", "invite");
   try {
     await s.peer.join(token);
     if (!coopLive(s)) return;
-    coopUiStatus("Waiting for your friend to start the egg…"); coopShowRoom();
-  } catch (err) { coopReportFailure(s, err.message || "Could not join. Ask for a fresh invite or try another network."); }
+    coopUiStatus(tr("Waiting for your friend to start the egg…")); coopShowRoom();
+  } catch (err) { coopReportFailure(s, err.message || tr("Could not join. Ask for a fresh invite or try another network.")); }
 }
 function coopImportLocationInvite() {
   if (!location.hash.startsWith("#coop=")) return;
@@ -5193,7 +5899,7 @@ function coopImportLocationInvite() {
     $("coopLinkIn").value = location.href;
     coopInvited = true; coopView();
     if (!$("coopJoinLink").disabled) $("coopJoinLink").focus();
-  } catch (err) { coopUiError(err.message || "This invite link is incomplete. Ask your friend for a fresh link."); }
+  } catch (err) { coopUiError(err.message || tr("This invite link is incomplete. Ask your friend for a fresh link.")); }
 }
 function coopOfferIncomingInvite(input, mode) {
   // Validate before offering to close anything; malformed/self links keep the existing room.
@@ -5212,13 +5918,13 @@ function coopOfferIncomingInvite(input, mode) {
       room = signal.room;
     }
   } catch {
-    coopUiError("This invite link is incomplete or invalid. Ask your friend for a fresh link; your current room is still open.");
+    coopUiError(tr("This invite link is incomplete or invalid. Ask your friend for a fresh link; your current room is still open."));
     return;
   }
   const s = coopSession;
   if (!s) return;
   if (s.mode === mode && s.peer?.room === room) {
-    coopUiError(s.role === "host" ? "This is your own invite. Send it to your friend and keep this tab open." : "You're already in this room. Your friend can start the shared egg.");
+    coopUiError(s.role === "host" ? tr("This is your own invite. Send it to your friend and keep this tab open.") : tr("You're already in this room. Your friend can start the shared egg."));
     return;
   }
   coopPendingInvite = { code, mode };
@@ -5237,43 +5943,43 @@ function coopSwitchToInvite() {
 }
 async function coopHost() {
   sfx.init(); if (sfx.ac?.state === "suspended") sfx.ac.resume().catch(() => {});
-  coopUiError(""); coopUiStatus("Making a private manual invite…"); coopLockSetup(true);
+  coopUiError(""); coopUiStatus(tr("Making a private manual invite…")); coopLockSetup(true);
   const s = coopSetSession("host");
   try {
     const invite = await s.peer.host();
     if (!coopLive(s)) return;
     $("coopInvite").value = invite; $("coopAccept").disabled = false; coopUiStatus(""); coopShowRoom();
-  } catch (err) { coopReportFailure(s, err.message || "Could not create an invite"); }
+  } catch (err) { coopReportFailure(s, err.message || tr("Could not create an invite")); }
 }
 async function coopJoin() {
   const invite = coopCodeFrom($("coopInviteIn").value, "join");
-  if (!invite) { coopUiError("Paste the host invite first."); return; }
+  if (!invite) { coopUiError(tr("Paste the host invite first.")); return; }
   sfx.init(); if (sfx.ac?.state === "suspended") sfx.ac.resume().catch(() => {});
-  coopUiError(""); coopUiStatus("Joining with manual codes…"); coopLockSetup(true); $("coopJoinNow").hidden = true;
+  coopUiError(""); coopUiStatus(tr("Joining with manual codes…")); coopLockSetup(true); $("coopJoinNow").hidden = true;
   const s = coopSetSession("guest");
   try {
     const reply = await s.peer.join(invite);
     if (!coopLive(s)) return;
-    $("coopReply").value = reply; coopUiStatus("Then wait here for the shared egg."); coopShowRoom();
+    $("coopReply").value = reply; coopUiStatus(tr("Then wait here for the shared egg.")); coopShowRoom();
     $("coopAdvanced").open = true; $("coopSendReply").scrollIntoView({ block: "center", behavior: "smooth" });
-  } catch (err) { coopReportFailure(s, err.message || "Could not join that invite"); }
+  } catch (err) { coopReportFailure(s, err.message || tr("Could not join that invite")); }
 }
 async function coopAccept() {
   const s = coopSession, reply = coopCodeFrom($("coopReplyIn").value, "reply");
-  if (!s || s.role !== "host" || !reply) { coopUiError("Paste the guest reply first."); return; }
+  if (!s || s.role !== "host" || !reply) { coopUiError(tr("Paste the guest reply first.")); return; }
   try {
     await s.peer.accept(reply); if (!coopLive(s)) return;
     if (!s.peer.connected) s.connectTimer = setTimeout(() => {
-      coopReportFailure(s, "Connection timed out. Try fresh codes or a different network; this game has no TURN relay.");
+      coopReportFailure(s, tr("Connection timed out. Try fresh codes or a different network; this game has no TURN relay."));
     }, 30000);
-    coopUiStatus("Guest accepted ✓ Waiting for the direct connection…"); $("coopBegin").disabled = !s.peer.connected; coopShowRoom();
+    coopUiStatus(tr("Guest accepted ✓ Waiting for the direct connection…")); $("coopBegin").disabled = !s.peer.connected; coopShowRoom();
   }
-  catch (err) { if (coopLive(s)) coopUiError(err.message || "That reply does not match this invite"); }
+  catch (err) { if (coopLive(s)) coopUiError(err.message || tr("That reply does not match this invite")); }
 }
 function coopStartRound() {
   const s = coopSession;
   if (!s || s.role !== "host" || !s.peer.connected) return;
-  if (s.round && game.egg?.conf.coop && !game.egg.coopRewarded) { coopUiError("Finish this shared egg before starting another."); return; }
+  if (s.round && game.egg?.conf.coop && !game.egg.coopRewarded) { coopUiError(tr("Finish this shared egg before starting another.")); return; }
   if (s.rounds.size >= 128) { coopEnd("room-limit"); return; }
   const step = Number($("coopDifficulty").value);
   if (![1, 4, 8].includes(step)) return;
@@ -5281,11 +5987,11 @@ function coopStartRound() {
   const conf = { ...levelConf(step), n: 0, wander: true, coop: true };
   game.chips = []; game.sparks = []; show("start", false); setScene("crack"); newEgg(conf, true);
   const r = coopBlueprintFromEgg(game.egg);
-  if (!r) { coopUiError("Could not make a valid shared egg."); coopEnd("invalid-round", true); return; }
+  if (!r) { coopUiError(tr("Could not make a valid shared egg.")); coopEnd("invalid-round", true); return; }
   s.round = r; s.rounds.add(r.id); game.egg.coopBlueprint = r; s.stateSeq = 0; s.lastStateSeq = -1; s.remotePointer = null; s.remoteCursor = null; pointer = null;
   const state = coopSnapshot(game.egg, 0);
-  if (!state || !s.peer.send({ type: "round", round: r, state })) { coopUiError("The shared egg could not be sent."); coopEnd("send-failed", true); return; }
-  s.lastStateSeq = 0; show("coopDialog", false); coopShowRoom(); coopUiStatus("Shared egg started — trace together ✦");
+  if (!state || !s.peer.send({ type: "round", round: r, state })) { coopUiError(tr("The shared egg could not be sent.")); coopEnd("send-failed", true); return; }
+  s.lastStateSeq = 0; show("coopDialog", false); coopShowRoom(); coopUiStatus(tr("Shared egg started — trace together ✦"));
 }
 function coopFinishPolish() {
   if (coopIsGuest()) coopSendInput("finish");
@@ -5305,7 +6011,7 @@ $("coopCopyLink").addEventListener("click", () => coopCopy($("coopLinkOut").valu
 $("coopShareLink").addEventListener("click", async () => {
   const url = $("coopLinkOut").value;
   if (!url || $("coopShareLink").disabled) return;
-  try { await navigator.share({ title: "Hatchstone", text: "Crack a Hatchstone egg with me 🥚✨ Tap to join:", url }); } catch (e) { if (e.name !== "AbortError") coopCopy(url, "Invite link", "coopLinkOut"); }
+  try { await navigator.share({ title: "Hatchstone", text: tr("Crack a Hatchstone egg with me 🥚✨ Tap to join:"), url }); } catch (e) { if (e.name !== "AbortError") coopCopy(url, "Invite link", "coopLinkOut"); }
 });
 $("coopTelegram").addEventListener("click", () => {
   if ($("coopLinkOut").value && !$("coopTelegram").disabled) window.open(globalThis.HatchstoneInvite.telegramUrl($("coopLinkOut").value), "_blank", "noopener,noreferrer");
@@ -5343,24 +6049,33 @@ $("coopDialog").addEventListener("keydown", e => {
   else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
 });
 $("coopLeave").addEventListener("click", () => coopEnd("left"));
+$$(".lang-btn").forEach(b => {
+  b.textContent = LANG === "uk" ? "🌐 English" : "🌐 Українською";
+  b.addEventListener("click", () => setLang(LANG === "uk" ? "en" : "uk"));
+});
 
 if (save.creatures.length) {
-  $("play").textContent = "Continue";
+  $("play").textContent = tr("Continue");
   const n = save.creatures.length, pet = activeCreature();
   $("startNew").hidden = true; $("startBack").hidden = false;
-  $("startBackSub").textContent = n > 1 ? `${pet.name} and ${n - 1} other${n === 2 ? "" : "s"} are waiting in your nest ✦` : `${pet.name} is waiting in your nest ✦`;
-  $("pixelGrotto").setAttribute("aria-label", `${pet.name} waiting in a pixel-art grotto by moonlight`);
+  $("startBackSub").textContent = n > 1 ? tr("{0} and {1} more are waiting in your nest ✦", pet.name, n - 1) : tr("{0} is waiting in your nest ✦", pet.name);
+  $("pixelGrotto").setAttribute("aria-label", tr("{0} waiting in a pixel-art grotto by moonlight", pet.name));
 }
+
+// what an older save had already been through, so returning players skip the beginner dialogs
+if (!save.talks && save.creatures.length) talkOld = { intro: 1, firstPet: 1, firstGrotto: 1, firstForge: 1, firstGrow: save.creatures.some(c => stageOf(c.level) > 0),
+  ch1: unlocked(7), ch2: unlocked(13), ch3: unlocked(19), allClear: unlocked(LEVELS + 1), shiny: save.creatures.some(c => c.shiny), legendary: save.creatures.some(c => rarityOf(specOf(c)) === "legendary") };
 
 $("play").addEventListener("click", () => {
   sfx.init();
   if (sfx.ac && sfx.ac.state === "suspended") sfx.ac.resume();
   show("start", false);
   setScene("nest");
+  if (!save.creatures.length) talk("intro");
 });
 $$(".mute").forEach(b => b.addEventListener("click", () => {
   sfx.setMuted(!sfx.muted);
-  $$(".mute").forEach(m => { m.innerHTML = ic(sfx.muted ? "mute" : "sound") + (m.dataset.label ? (sfx.muted ? "Sound off" : "Sound on") : ""); });
+  $$(".mute").forEach(m => { m.innerHTML = ic(sfx.muted ? "mute" : "sound") + (m.dataset.label ? (sfx.muted ? tr("Sound off") : tr("Sound on")) : ""); });
 }));
 $$("#tabs [data-tab]").forEach(b => b.addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
@@ -5430,7 +6145,7 @@ $("catchBack").addEventListener("click", () => { show("catchDone", false); game.
 $("nestName").addEventListener("click", () => {
   const cr = activeCreature();
   if (!cr) return;
-  const name = (prompt(`A new name for your ${specOf(cr).name}?`, cr.name) || "").trim().slice(0, 18);
+  const name = (prompt(tr("A new name for your {0}?", specOf(cr).name), cr.name) || "").trim().slice(0, 18);
   if (name) { cr.name = name; persist(); renderNest(true); }
 });
 $("spClose").addEventListener("click", () => show("spCard", false));
@@ -5479,7 +6194,7 @@ async function readBackupCode(code) {
   if (!m) throw new Error("shape");
   let bytes = fromB64(m[2]);
   if (m[1] === "1") {
-    if (!window.DecompressionStream) throw new Error("This browser is too old to read compressed codes");
+    if (!window.DecompressionStream) throw new Error(tr("This browser is too old to read compressed codes"));
     bytes = await pipe(bytes, new DecompressionStream("deflate-raw"));
   }
   const data = JSON.parse(new TextDecoder().decode(bytes));
@@ -5490,7 +6205,7 @@ async function readBackupCode(code) {
 async function openBackup() {
   sfx.tick();
   $("backupCode").value = "…";
-  $("backupMsg").textContent = save.backupAt ? `Last backup: ${new Date(save.backupAt).toLocaleDateString()}` : "";
+  $("backupMsg").textContent = save.backupAt ? tr("Last backup: {0}", new Date(save.backupAt).toLocaleDateString(LOCALE)) : "";
   $("restoreMsg").textContent = ""; $("restoreMsg").className = "";
   $("shareCode").hidden = !navigator.share;
   const standalone = matchMedia("(display-mode: standalone)").matches || navigator.standalone;
@@ -5509,11 +6224,11 @@ async function copyCode() {
   const code = $("backupCode").value;
   try { await navigator.clipboard.writeText(code); }
   catch { $("backupCode").select(); document.execCommand("copy"); }
-  markBackedUp("Copied ✓ Paste it somewhere safe.");
+  markBackedUp(tr("Copied ✓ Paste it somewhere safe."));
 }
 
 async function shareCode() {
-  try { await navigator.share({ title: "My Hatchstone nest", text: $("backupCode").value }); markBackedUp("Shared ✓"); } catch {}
+  try { await navigator.share({ title: tr("My Hatchstone nest"), text: $("backupCode").value }); markBackedUp(tr("Shared ✓")); } catch {}
 }
 
 function saveCodeFile() {
@@ -5522,23 +6237,23 @@ function saveCodeFile() {
   a.download = `hatchstone-nest-${new Date().toISOString().slice(0, 10)}.txt`;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  markBackedUp("Saved ✓ Look for it in your downloads.");
+  markBackedUp(tr("Saved ✓ Look for it in your downloads."));
 }
 
 async function restoreFromCode() {
   const msg = $("restoreMsg");
   let data;
   try { data = await readBackupCode($("restoreCode").value); }
-  catch (err) { msg.className = "bad"; msg.textContent = err.message === "shape" ? "That doesn't look like a Hatchstone backup code." : err.message; return; }
+  catch (err) { msg.className = "bad"; msg.textContent = err.message === "shape" ? tr("That doesn't look like a Hatchstone backup code.") : err.message; return; }
   const n = data.creatures.length, mine = save.creatures.length;
-  if (mine && !confirm(`Replace your current nest (${mine} glowling${mine === 1 ? "" : "s"}) with the one in this code (${n} glowling${n === 1 ? "" : "s"})?`)) return;
+  if (mine && !confirm(tr("Replace your current nest ({0} {1}) with the one in this code ({2} {3})?", mine, pl(mine, "glowling", "glowlings"), n, pl(n, "glowling", "glowlings")))) return;
   const rev = Math.max(save.rev || 0, data.rev || 0) + 1;
   for (const k of Object.keys(save)) delete save[k];
   Object.assign(save, migrate(Object.assign(freshSave(), data)), { backupAt: Date.now(), rev });
   // time doesn't pass while a nest is in a code
   for (const cr of save.creatures) cr.last = Date.now();
   persist();
-  msg.className = ""; msg.textContent = `Welcome back, ${n} glowling${n === 1 ? "" : "s"} ✦`;
+  msg.className = ""; msg.textContent = tr("Welcome back, {0} {1} ✦", n, pl(n, "glowling", "glowlings"));
   setTimeout(() => location.reload(), 900);
 }
 
@@ -5560,7 +6275,7 @@ function nudgeBackup() {
   if (backupNudged || save.creatures.length < 3) return;
   if (save.backupAt && Date.now() - save.backupAt < 7 * 864e5) return;
   backupNudged = true;
-  setTimeout(() => toast("Tip: tap backup (top right) to keep your nest safe"), 2800);
+  setTimeout(() => toast(tr("Tip: tap backup (top right) to keep your nest safe")), 2800);
 }
 
 // ---------- the glowpedia: glowlings and geodes ----------
@@ -5569,7 +6284,7 @@ function renderLib() {
   const found = SPECIES.filter(s => save.seen[s.id]).length;
   const geos = CRYSTALS.filter(c => save.geodes[c.id]).length;
   const hyN = save.creatures.filter(c => c.mix).length;
-  $("libSub").textContent = `${found} of ${SPECIES.length} glowlings · ${geos} of ${CRYSTALS.length} geodes${hyN ? ` · ${hyN} hybrid${hyN === 1 ? "" : "s"}` : ""} · ${save.creatures.length} in your nest`;
+  $("libSub").textContent = tr("{0} of {1} glowlings · {2} of {3} geodes", found, SPECIES.length, geos, CRYSTALS.length) + (hyN ? ` · ${hyN} ${pl(hyN, "hybrid", "hybrids")}` : "") + tr(" · {0} in your nest", save.creatures.length);
   if (game.libTab === "hy") {
     const hy = save.creatures.filter(c => c.mix);
     $("libGrid").innerHTML = hy.length ? hy.map((c, i) => `<button data-hy="${c.id}" style="animation-delay:${i * 20}ms"><span class="pg"><img src="${creatureImage(specOf(c), { size: 96, level: c.level, shiny: c.shiny })}" alt=""></span><b>${c.name}</b><small>${c.mix.parents.join(" × ")}</small></button>`).join("")
@@ -5577,13 +6292,13 @@ function renderLib() {
   } else if (game.libTab === "sp") {
     $("libGrid").innerHTML = SPECIES.map((s, i) => {
       const seen = save.seen[s.id];
-      return `<button data-sp="${s.id}" class="${seen ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">No. ${i + 1}</i><span class="pg"><img src="${creatureImage(s, { size: 96, sil: !seen })}" alt=""></span><b>${seen ? s.name : "???"}</b><small>${rarityOf(s)}</small></button>`;
+      return `<button data-sp="${s.id}" class="${seen ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img src="${creatureImage(s, { size: 96, sil: !seen })}" alt=""></span><b>${seen ? s.name : "???"}</b><small>${rar(rarityOf(s))}</small></button>`;
     }).join("");
   } else {
     for (const c of CRYSTALS) if (save.geodes[c.id] && !save.geodes[c.id].img) { save.geodes[c.id].img = crystalThumb(c.id); persist(); }
     $("libGrid").innerHTML = CRYSTALS.map((c, i) => {
       const geo = save.geodes[c.id];
-      return `<button data-cr="${c.id}" class="${geo ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">No. ${i + 1}</i><span class="pg"><img src="${geo ? geo.img : mysteryGeode()}" alt=""></span><b>${geo ? c.name : "???"}</b><small>${c.rarity}</small></button>`;
+      return `<button data-cr="${c.id}" class="${geo ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img src="${geo ? geo.img : mysteryGeode()}" alt=""></span><b>${geo ? c.name : "???"}</b><small>${rarF(c.rarity)}</small></button>`;
     }).join("");
   }
   $$("#libGrid [data-sp]").forEach(b => b.addEventListener("click", () => openSpecies(SP[b.dataset.sp])));
@@ -5643,7 +6358,7 @@ function makePostcard({ art, name, line, note, pal }) {
   if (note) { g.fillStyle = "rgba(236,230,255,.85)"; g.font = "500 32px ui-rounded, system-ui, sans-serif"; g.fillText(note, c.width / 2, 1210); }
   g.fillStyle = "rgba(236,230,255,.7)";
   g.font = "600 28px ui-rounded, system-ui, sans-serif";
-  g.fillText("crack open real geodes · " + GAME_URL.replace("https://", "").replace(/\/$/, ""), c.width / 2, 1268);
+  g.fillText(tr("crack open real geodes · ") + GAME_URL.replace("https://", "").replace(/\/$/, ""), c.width / 2, 1268);
   return c;
 }
 
@@ -5703,7 +6418,7 @@ async function sharePostcard(card, name) {
   taskDone("share");
   const blob = await new Promise(r => card.toBlob(r, "image/jpeg", 0.9));
   const file = new File([blob], `hatchstone-${name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.jpg`, { type: "image/jpeg" });
-  const text = `Look who hatched in my Hatchstone nest: ${name} ✦ ${GAME_URL}`;
+  const text = tr("Look who hatched in my Hatchstone nest: {0} ✦ {1}", name, GAME_URL);
   if (navigator.canShare && navigator.canShare({ files: [file] })) {
     try { await navigator.share({ files: [file], title: "Hatchstone", text }); return; } catch (e) { if (e.name === "AbortError") return; }
   }
@@ -5712,7 +6427,7 @@ async function sharePostcard(card, name) {
   a.download = file.name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-  toast("Postcard saved ✓ Send it to a friend");
+  toast(tr("Postcard saved ✓ Send it to a friend"));
 }
 
 const imgFrom = url => new Promise(r => { const im = new Image(); im.onload = () => r(im); im.src = url; });
@@ -5721,15 +6436,15 @@ const imgFrom = url => new Promise(r => { const im = new Image(); im.onload = ()
 async function shareFound() {
   const e = game.egg, sp = e.species;
   const art = await imgFrom(creatureImage(sp, { size: 360, shiny: e.shiny, mood: "happy" }));
-  sharePostcard(makePostcard({ art, pal: palOf(sp), name: (e.shiny ? "✦ " : "") + sp.name, line: sp.moon ? `${sp.moon} moon glowling` : `from a ${e.crystal.name} geode · ${rarityOf(sp)}`, note: "just hatched in my nest" }), sp.name);
+  sharePostcard(makePostcard({ art, pal: palOf(sp), name: (e.shiny ? "✦ " : "") + sp.name, line: sp.moon ? tr("{0} moon glowling", seasonName(sp.moon)) : tr("from a {0} geode · {1}", e.crystal.name, rar(rarityOf(sp))), note: tr("just hatched in my nest") }), sp.name);
 }
 
 /** The postcard of a glowling from the nest. */
 async function shareCreature(cr) {
   const sp = specOf(cr);
   const art = await imgFrom(creatureImage(sp, { size: 360, level: cr.level, shiny: cr.shiny, mood: "happy" }));
-  const what = sp.hybrid ? `${sp.parents.join(" × ")} hybrid` : sp.moon ? `${sp.moon} moon glowling` : `${STAGES[stageOf(cr.level)].toLowerCase()} ${sp.name} · ${rarityOf(sp)}`;
-  sharePostcard(makePostcard({ art, pal: palOf(sp), name: cr.name, line: what, note: `level ${cr.level} · raised in my nest` }), cr.name);
+  const what = sp.hybrid ? tr("{0} hybrid", sp.parents.join(" × ")) : sp.moon ? tr("{0} moon glowling", seasonName(sp.moon)) : `${STAGES[stageOf(cr.level)].toLowerCase()} ${sp.name} · ${rar(rarityOf(sp))}`;
+  sharePostcard(makePostcard({ art, pal: palOf(sp), name: cr.name, line: what, note: tr("level {0} · raised in my nest", cr.level) }), cr.name);
 }
 
 function openHybrid(cr) {
@@ -5740,7 +6455,7 @@ function openHybrid(cr) {
   $("spRarity").textContent = "one of a kind";
   $("spRarity").className = "rarity r-legendary";
   $("spLore").textContent = sp.lore;
-  $("spFacts").innerHTML = `Favorite snack: ${SNACKS[sp.snack].emoji} ${SNACKS[sp.snack].name}<br>Level ${cr.level} · hatched ${new Date(cr.born).toLocaleDateString()}`;
+  $("spFacts").innerHTML = tr("Favorite snack: {0}<br>Level {1} · hatched {2}", SNACKS[sp.snack].emoji + " " + SNACKS[sp.snack].name, cr.level, new Date(cr.born).toLocaleDateString(LOCALE));
   show("spCard", true);
   sfx.chirp(sp.voice);
 }
@@ -5764,13 +6479,13 @@ function openSpecies(sp) {
   sfx.tick();
   $("spImg").src = creatureImage(sp, { size: 200, sil: !seen, level: mine.length ? Math.max(...mine.map(c => c.level)) : 1 });
   $("spName").textContent = seen ? sp.name : "???";
-  $("spRarity").textContent = sp.moon ? `${sp.moon} moon glowling` : `${cry.name} · ${cry.rarity}`;
+  $("spRarity").textContent = sp.moon ? tr("{0} moon glowling", seasonName(sp.moon)) : `${cry.name} · ${rar(cry.rarity)}`;
   $("spRarity").className = `rarity r-${rarityOf(sp)}`;
-  $("spLore").textContent = seen ? sp.lore : sp.moon ? `Hatches only from moon eggs in ${sp.moon}. Look for the 🌙 in the Grotto.` : `Sleeps inside ${cry.name.toLowerCase()} geodes. Crack one to meet it.`;
+  $("spLore").textContent = seen ? sp.lore : sp.moon ? tr("Hatches only from moon eggs in {0}. Look for the 🌙 in the Grotto.", seasonIn(sp.moon)) : tr("Sleeps inside {0} geodes. Crack one to meet it.", LANG === "uk" ? cry.name : cry.name.toLowerCase());
   $("spFacts").innerHTML = seen
-    ? `Favorite snack: ${SNACKS[sp.snack].emoji} ${SNACKS[sp.snack].name}<br>Met ${seen.count} time${seen.count === 1 ? "" : "s"} · first on ${new Date(seen.first).toLocaleDateString()}` +
-      (mine.length ? `<br>In your nest: ${mine.map(c => `${c.name} (level ${c.level})`).join(", ")}` : "")
-    : sp.moon ? `Only in 🌙 moon eggs, in ${sp.moon}.` : `Found ${cry.rarity === "common" ? "anywhere in" : cry.rarity === "rare" ? "deeper in" : "rarely, in the deepest parts of"} the grotto.`;
+    ? tr("Favorite snack: {0}<br>Met {1} {2} · first on {3}", SNACKS[sp.snack].emoji + " " + SNACKS[sp.snack].name, seen.count, pl(seen.count, "time", "times"), new Date(seen.first).toLocaleDateString(LOCALE)) +
+      (mine.length ? tr("<br>In your nest: {0}", mine.map(c => tr("{0} (level {1})", c.name, c.level)).join(", ")) : "")
+    : sp.moon ? tr("Only in 🌙 moon eggs, in {0}.", seasonIn(sp.moon)) : tr(cry.rarity === "common" ? "Found anywhere in the grotto." : cry.rarity === "rare" ? "Found deeper in the grotto." : "Found rarely, in the deepest parts of the grotto.");
   show("spCard", true);
   if (seen) sfx.chirp(sp.voice);
 }
@@ -5782,12 +6497,12 @@ function openCrystal(cry) {
   sfx.tick();
   $("spImg").src = geo ? geo.img : mysteryGeode();
   $("spName").textContent = geo ? cry.name : "???";
-  $("spRarity").textContent = `${cry.rarity} geode`;
+  $("spRarity").textContent = tr("{0} geode", rarF(cry.rarity));
   $("spRarity").className = `rarity r-${cry.rarity}`;
-  $("spLore").textContent = geo ? cry.fact : "A geode you haven't opened yet.";
+  $("spLore").textContent = geo ? cry.fact : tr("A geode you haven't opened yet.");
   $("spFacts").innerHTML = geo
-    ? `Opened ${geo.count} time${geo.count === 1 ? "" : "s"}<br>Glowlings that live inside: ${who.map(s => save.seen[s.id] ? s.name : "???").join(", ")}`
-    : `${who.length} kind${who.length === 1 ? "" : "s"} of glowling sleep${who.length === 1 ? "s" : ""} inside.`;
+    ? tr("Opened {0} {1}<br>Glowlings that live inside: {2}", geo.count, pl(geo.count, "time", "times"), who.map(s => save.seen[s.id] ? s.name : "???").join(", "))
+    : tr("Glowlings sleeping inside: {0}.", who.length);
   show("spCard", true);
 }
 
@@ -5889,7 +6604,7 @@ function updateClock() {
   const shown = Math.min(game.gemsShown || 0, e.gems), key = shown + "/" + e.taps;
   if (updateClock.last !== key) {
     updateClock.last = key;
-    $("clock").innerHTML = `<b>${ic("shard")}${shown}</b><small>${e.taps} tap${e.taps === 1 ? "" : "s"}${save.stars[e.conf.n] ? ` · ★ ${e.par}` : ""}</small>`;
+    $("clock").innerHTML = `<b>${ic("shard")}${shown}</b><small>${e.taps} ${pl(e.taps, "tap", "taps")}${save.stars[e.conf.n] ? ` · ★ ${e.par}` : ""}</small>`;
   }
 }
 
