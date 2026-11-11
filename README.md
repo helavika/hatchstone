@@ -1,4 +1,4 @@
-# Hatchstone
+# Hatchstone: Geodes & Glowlings
 
 A tiny ASMR game for the browser and phones: crack open glossy stone eggs and find
 what's glowing inside. 🎧 Best with headphones.

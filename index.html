@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#16123a">
-<title>Hatchstone — crack open stone eggs</title>
+<title>Hatchstone: Geodes &amp; Glowlings</title>
 <meta name="description" content="A tiny cozy ASMR game: crack open real geodes, hatch the glowlings inside and raise them in your nest. Every sound is made live in your browser.">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-title" content="Hatchstone">
 <!-- share previews: these URLs assume GitHub Pages at helavika.github.io/hatchstone -->
 <meta property="og:type" content="website">
-<meta property="og:title" content="Hatchstone — crack open real geodes">
+<meta property="og:title" content="Hatchstone: Geodes &amp; Glowlings">
 <meta property="og:description" content="Crack open real geodes. Hatch the glowlings inside. A tiny cozy ASMR game for your phone or browser.">
 <meta property="og:url" content="https://helavika.github.io/hatchstone/">
 <meta property="og:image" content="https://helavika.github.io/hatchstone/og-image.jpg">
@@ -555,6 +555,34 @@
   #tabs button.on { transform: translateY(-9px); padding-top: 9px; padding-bottom: 9px; }
   #tabs button.on .ic { width: 36px; height: 36px; margin: -9px 0; }
 
+  /* five tabs, icon over label, with the big Crack button standing up in the middle */
+  #tabs { gap: 3px; padding: 5px; width: min(100vw - 16px, 470px); justify-content: space-between; }
+  #tabs button { flex: 1; flex-direction: column; gap: 0; padding: 6px 2px; font-size: 15px; min-width: 0; }
+  #tabs button .ic { width: 28px; height: 28px; margin: 0; }
+  #tabs button.on { transform: translateY(-6px); padding: 6px 2px; color: var(--ink); background: var(--px-edge) !important; box-shadow: inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep) !important; }
+  /* the taller tab bar needs more room under the nest controls and the scrolling screens */
+  #nestBottom { bottom: calc(var(--bottom) + 106px); }
+  .overlay.screen { padding-bottom: calc(var(--bottom) + 104px); }
+  body.scene-nest #hint { top: calc(var(--top) + 132px); }
+  #tabs button.on .ic { width: 28px; height: 28px; margin: 0; }
+  #crackTab { flex: 1.25 !important; color: var(--px-ink) !important; background: var(--px-gold) !important; transform: translateY(-14px); padding: 9px 2px !important;
+    box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -4px 0 0 var(--px-gold-lo), 0 6px 0 0 rgba(11, 6, 20, .6) !important; font-size: 18px !important; }
+  #crackTab .ic { width: 36px !important; height: 36px !important; }
+  #crackTab small { font-size: 13px; line-height: 1; }
+  #crackTab:active { transform: translateY(-11px); }
+  body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; }
+  .subtitle { margin: -8px 0 12px; font-size: 20px; color: var(--px-gold); letter-spacing: 2px; }
+  /* today's tasks */
+  #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
+  #taskPill { position: relative; }
+  .task { display: flex; align-items: center; gap: 12px; padding: 12px 0; text-align: left; border-top: 3px solid var(--px-raise); }
+  .task span { flex: 1; font-size: 18px; }
+  .task .go { padding: 8px 18px; }
+  .task.done span { color: var(--soft); text-decoration: line-through; }
+  .task .tick { display: inline-flex; align-items: center; gap: 2px; color: #a3dd9b; font-weight: 400; }
+  .point { animation: pxPoint .5s steps(2) 8 !important; box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -3px 0 0 var(--px-gold-lo), 0 0 0 6px var(--px-gold) !important; }
+  @keyframes pxPoint { 50% { transform: translateY(-6px); } }
+
   /* the forge: upgrade cards with level pips */
   .forge { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; margin-top: 12px; cursor: pointer; text-align: left; }
   .forge .txt { flex: 1; }
@@ -608,6 +636,7 @@
   <div class="row">
     <div class="pill glass stack" title="Shards: spend them on snacks, decor and the forge"><b id="shardPill">✦ 0</b><small>shards</small></div>
     <div class="pill glass stack" title="Stars from the grotto levels"><b id="starPill">★ 0</b><small>stars</small></div>
+    <button class="pill glass btn stack" id="taskPill" title="Today's little tasks"><b id="taskCount">0/3</b><small>tasks</small></button>
   </div>
   <div class="row menu-wrap">
     <button class="pill glass btn round" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="menuSheet"><i class="ic" data-ic="gear"></i></button>
@@ -625,15 +654,18 @@
 <div id="toast" class="glass"></div>
 
 <nav id="tabs" class="glass" inert aria-hidden="true">
-  <button data-tab="map"><i class="ic" data-ic="grotto"></i>Grotto</button>
   <button data-tab="nest"><i class="ic" data-ic="nest"></i>Nest</button>
-  <button data-tab="lib"><i class="ic" data-ic="book"></i>Glowpedia</button>
+  <button data-tab="map"><i class="ic" data-ic="grotto"></i>Grotto</button>
+  <button id="crackTab" aria-label="Crack the next egg"><i class="ic" data-ic="egg"></i>Crack<small id="crackLvl">Lv 1</small></button>
+  <button id="forgeTab"><i class="ic" data-ic="hammer"></i>Forge</button>
+  <button data-tab="lib"><i class="ic" data-ic="book"></i>Book</button>
 </nav>
 
 <div id="start" class="overlay">
   <div class="card glass dark">
     <figure class="plate"><canvas id="pixelGrotto" width="128" height="72" role="img" aria-label="A pixel-art grotto by moonlight, a stone egg glowing on a ledge"></canvas></figure>
     <h1>Hatchstone</h1>
+    <p class="subtitle">Geodes &amp; Glowlings</p>
     <div id="startNew">
       <p class="lead">Crack open stone eggs.<br>Meet who's glowing inside.</p>
       <ul class="howto">
@@ -735,6 +767,15 @@
     <p class="sub" id="shopSub"></p>
     <div class="scroll" id="shopList"></div>
     <button class="ghost" id="shopClose">done</button>
+  </div>
+</div>
+
+<div id="tasks" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Today's tasks</h2>
+    <p class="sub" id="tasksSub"></p>
+    <div id="taskList"></div>
+    <button class="ghost" id="tasksClose">close</button>
   </div>
 </div>
 
@@ -1505,6 +1546,8 @@ const PX_ICON_MAPS = {
   duo: ["............", "...r....t...", "..rrr..ttt..", ".rrrrrtttt..", ".rkrkrtktkt.", ".rrrrrtttt..", "..rrr..ttt..", "............", "............", "............", "............", "............"],
   postcard: ["............", "............", ".wwwwwwwwww.", ".Swwwwwwwws.", ".sSwwwwwwSs.", ".ssSwwwwSss.", ".sssSRRSsss.", ".ssssRRssss.", ".ssssssssss.", "............", "............", "............"],
   lock: ["............", "....SSSS....", "...S....S...", "...S....S...", "..gggggggg..", "..gGGGGGgo..", "..gGGkkGgo..", "..gGGkkGgo..", "..ggggggoo..", "..oooooooo..", "............", "............"],
+  egg: ["....ssss....", "...swwsss...", "..swwsssss..", "..swssssSs..", ".ssssksssSs.", ".sssskksSSs.", ".ssssssksSs.", ".sssssksSSs.", ".sssssSSSSs.", "..sssSSSSs..", "...SSSSSS...", "............"],
+  tasks: ["............", "..wwwwwww...", "..wSSSSSw...", "..wwwwwww...", "..wSSSSSw...", "..wwwwwww..m", "..wSSSSSw.mm", "..wwwwwwwmm.", "..wSSSSmmm..", "..wwwwwwmw..", "............", "............"],
   gear: ["............", ".....ss.....", "..s.sSSs.s..", "..sSSSSSSs..", "...SSzzSS...", ".sSSz..zSSs.", ".sSSz..zSSs.", "...SSzzSS...", "..sSSSSSSs..", "..s.sSSs.s..", ".....ss.....", "............"],
   broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
 };
@@ -3084,6 +3127,85 @@ const FORGE = [
 const forgeLvl = id => (save.forge && save.forge[id]) || 0;
 const canForge = () => FORGE.some(f => f.cost[forgeLvl(f.id)] <= save.shards);
 
+/** The first level without stars yet (0 = wander, once everything is cleared). */
+const nextLevel = () => { for (let n = 1; n <= LEVELS; n++) if (!save.stars[n] && unlocked(n)) return n; return 0; };
+
+// ---------- today's little tasks: three small goals a day that walk you through everything the game has ----------
+const toNest = (then, glow) => () => { setScene("nest"); if (then) then(); if (glow) flashButton(glow); };
+const hasPets = () => save.creatures.length > 0;
+const TASKS = {
+  crack: { text: "Crack open a geode", icon: "egg", ok: () => true, go: () => startLevel(nextLevel()) },
+  polish: { text: "Polish a geode to 80% shine", icon: "sparkle", ok: () => true, go: () => startLevel(nextLevel()) },
+  feed: { text: "Give a glowling a snack", icon: "cookie", ok: hasPets, go: toNest(null, "feedBtn") },
+  pet: { text: "Pet a glowling: stroke it with your finger", icon: "heart", ok: hasPets, go: toNest() },
+  catch: { text: "Play sparkle catch", icon: "sparkle", ok: hasPets, go: toNest(null, "playBtn") },
+  sweep: { text: "Sweep away a dust bunny", icon: "broom", ok: () => save.creatures.some(c => (c.dust || []).length), go: toNest() },
+  forge: { text: "Buy a hammer upgrade at the Forge", icon: "hammer", ok: canForge, go: () => openForge() },
+  decor: { text: "Decorate the nest or change its backdrop", icon: "candle", ok: hasPets, go: toNest(null, "decorBtn") },
+  moon: { text: "Open today's moon egg", icon: "moon", ok: () => !moonDone(), go: () => startMoon() },
+  book: { text: "Look someone up in the Glowpedia", icon: "book", ok: () => true, go: () => setScene("lib") },
+  breed: { text: "Lay a mixed egg in the incubator", icon: "heart", ok: () => !save.incubator && save.creatures.filter(c => !pairReason(c)).length >= 2, go: toNest(() => openIncubator()) },
+  share: { text: "Send a postcard of a glowling", icon: "postcard", ok: hasPets, go: toNest(null, "nestShare") },
+};
+const TASK_SHARDS = 10, TASK_BONUS = 15;
+
+/** Today's three tasks: things you've never done come first, so every part of the game gets its turn. */
+function todayTasks() {
+  const day = dayKey();
+  if (save.tasks && save.tasks.day === day) return save.tasks;
+  const ever = save.tasksEver || {}, R = seeded("tasks" + day);
+  const pool = Object.keys(TASKS).filter(id => TASKS[id].ok()).map(id => [id, (ever[id] ? 1 : 0) + R() * 0.9]);
+  pool.sort((a, b) => a[1] - b[1]);
+  save.tasks = { day, ids: pool.slice(0, 3).map(([id]) => id), done: {} };
+  persist();
+  return save.tasks;
+}
+
+/** Something happened that a task might be waiting for. */
+function taskDone(id) {
+  const t = todayTasks();
+  save.tasksEver = { ...save.tasksEver, [id]: true };
+  if (!t.ids.includes(id) || t.done[id]) return;
+  t.done[id] = true;
+  let gain = TASK_SHARDS;
+  const all = t.ids.every(i => t.done[i]);
+  if (all) gain += TASK_BONUS;
+  save.shards += gain;
+  persist();
+  updateTopbar();
+  sfx.star(all ? 2 : 0);
+  toast(all ? `All of today's tasks done! +${gain} ✦` : `Task done: ${TASKS[id].text} · +${gain} ✦`);
+  if (!$("tasks").classList.contains("hidden")) openTasks();
+}
+
+function renderTaskPill() {
+  const t = todayTasks(), n = t.ids.filter(i => t.done[i]).length;
+  $("taskCount").innerHTML = `${ic("tasks")}${n}/${t.ids.length}`;
+  $("taskPill").classList.toggle("fresh", n === 0 && !t.seen);
+}
+
+function openTasks() {
+  sfx.tick();
+  const t = todayTasks();
+  t.seen = true;
+  $("tasksSub").textContent = `Each one gives ${TASK_SHARDS} shards, and all three another ${TASK_BONUS}. New ones tomorrow.`;
+  $("taskList").innerHTML = t.ids.map(id => {
+    const k = TASKS[id], done = t.done[id];
+    return `<div class="task${done ? " done" : ""}">${ic(k.icon, "big")}<span>${k.text}</span>${done ? `<b class="tick">${ic("tasks")}done</b>` : `<button class="act go" data-go="${id}">Go</button>`}</div>`;
+  }).join("");
+  $$("#taskList .go").forEach(b => b.addEventListener("click", () => { show("tasks", false); TASKS[b.dataset.go].go(); }));
+  show("tasks", true);
+  renderTaskPill();
+}
+
+/** Point at a button for a few seconds: "this one". */
+function flashButton(id) {
+  const el = $(id);
+  if (!el) return;
+  el.classList.add("point");
+  setTimeout(() => el.classList.remove("point"), 4000);
+}
+
 /** How hard a tap hits: the hammer plus its upgrades. Shared eggs use the plain hammer, so both friends are even. */
 function tapPower() {
   if (game.egg && game.egg.conf.coop) return { power: 1, echo: false };
@@ -3110,6 +3232,7 @@ function buyForge(id) {
   sfx.levelUp();
   if (navigator.vibrate) navigator.vibrate([12, 30, 12]);
   toast(`${f.name} · level ${l + 1} ✦`);
+  taskDone("forge");
   persist();
   updateTopbar();
   openForge();
@@ -3330,6 +3453,8 @@ function showFound() {
   const { isNew, note } = adopt(e);
   persist();
   checkThemes();
+  taskDone("crack");
+  if (shine >= 0.8) taskDone("polish");
 
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
@@ -3470,7 +3595,7 @@ function setScene(scene) {
   if (scene !== "crack") setHint(scene === "nest" ? nestHint() : "");
   $("nestEmpty").hidden = !(scene === "nest" && !save.creatures.length);
   if (scene === "map") renderMap();
-  if (scene === "lib") renderLib();
+  if (scene === "lib") { renderLib(); taskDone("book"); }
   if (scene === "nest") { renderNest(true); nudgeBackup(); }
   updateTopbar();
 }
@@ -3478,6 +3603,9 @@ function setScene(scene) {
 function updateTopbar() {
   $("shardPill").innerHTML = `${ic("shard")}${save.shards}`;
   $("starPill").innerHTML = `${ic("star")}${totalStars()}`;
+  const n = nextLevel();
+  $("crackLvl").textContent = n ? `Lv ${n}` : "Wander";
+  renderTaskPill();
   updateCalls();
 }
 
@@ -3517,6 +3645,7 @@ function finishMoon() {
   const y = new Date(); y.setDate(y.getDate() - 1);
   const streak = save.moon && save.moon.last === dayKey(y) ? save.moon.streak + 1 : 1;
   save.moon = { last: dayKey(), streak };
+  taskDone("moon");
   return 25 + Math.min(50, (streak - 1) * 5);
 }
 
@@ -3629,6 +3758,7 @@ function finishSnack(sn) {
   floatText(sn.fav ? "favorite! ♥" : "yum", v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
   if (sn.fav) for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3);
   persist();
+  taskDone("feed");
   renderNest();
 }
 
@@ -3648,7 +3778,7 @@ function openShop() {
     return `<button class="decor${owned ? " owned" : ""}" data-id="${d.id}" ${!owned && save.shards < d.cost ? "disabled" : ""}><span class="em">${d.emoji}</span><span><b>${d.name}</b><small>${who[0].toUpperCase() + who.slice(1)} love it</small></span><span class="cost">${owned ? (owned.on ? "placed ✓" : "stored") : "✦ " + d.cost}</span></button>`;
   }).join("");
   $$("#shopList .decor").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
-  $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); openShop(); }));
+  $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
   show("shop", true);
 }
 
@@ -3660,6 +3790,7 @@ function buyDecor(id) {
     if (save.shards < d.cost) return;
     save.shards -= d.cost;
     save.decor[id] = { on: true, at: Date.now() };
+    taskDone("decor");
     sfx.levelUp();
     toast(`${d.name} placed in the nest ✦`);
   }
@@ -4205,6 +4336,7 @@ function sweepDust(x, y) {
   const hit = dustSpots().find(s => Math.hypot(x - s.x, y - (s.y - s.r * 0.6)) < Math.max(s.r * 1.6, 22));
   if (!hit) return false;
   hit.cr.dust.splice(hit.i, 1);
+  taskDone("sweep");
   hit.cr.joy = clamp(hit.cr.joy + 4, 0, 100);
   save.shards += 1;
   burst(hit.x, hit.y - hit.r * 0.6, 14, ["#e4dfe8", "#b9b3c0", "#8a8494"], 0.7);
@@ -4336,6 +4468,7 @@ function layEgg() {
   const [a, b] = pairPick.map(id => save.creatures.find(c => c.id === id));
   if (!a || !b || pairReason(a) || pairReason(b)) return;
   const { mix, surprise, shiny } = mixGlowling(a, b);
+  taskDone("breed");
   const now = Date.now();
   save.incubator = { mix, surprise, shiny, laid: now, due: now + INCUBATE_MS, warmed: 0 };
   for (const p of [a, b]) { p.bredAt = now; p.joy = clamp(p.joy + 15, 0, 100); const ac = actors.get(p.id); if (ac) { emote(ac, "♥", 2.5); ac.hop = 1; } }
@@ -4540,6 +4673,7 @@ function endCatch() {
   $("cdShards").textContent = "+" + shards;
   sfx.levelUp();
   show("catchDone", true);
+  taskDone("catch");
 }
 
 function drawCatch() {
@@ -4918,6 +5052,7 @@ function pet(x, y, d) {
     n.petDist = 0;
     heart(x, y - 10);
     if (!tipDone("pet")) { markTip("pet"); setHint(nestHint()); }
+    if (!pointer || !pointer.petted) { if (pointer) pointer.petted = true; taskDone("pet"); }
     cr.joy = clamp(cr.joy + 1.2, 0, 100);
     if (performance.now() - n.petXpT > 1500) { n.petXpT = performance.now(); addXP(cr, 1); persist(); renderNest(); }
   }
@@ -5206,10 +5341,17 @@ $$(".mute").forEach(b => b.addEventListener("click", () => {
   sfx.setMuted(!sfx.muted);
   $$(".mute").forEach(m => { m.innerHTML = ic(sfx.muted ? "mute" : "sound") + (m.dataset.label ? (sfx.muted ? "Sound off" : "Sound on") : ""); });
 }));
-$$("#tabs button").forEach(b => b.addEventListener("click", () => {
+$$("#tabs [data-tab]").forEach(b => b.addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
   sfx.tick(); if (coopSession) coopEnd("navigation", true); setScene(b.dataset.tab);
 }));
+// the big middle button: straight into the next egg, from anywhere
+$("crackTab").addEventListener("click", () => {
+  if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
+  if (coopSession) coopEnd("navigation", true);
+  startLevel(nextLevel());
+});
+$("forgeTab").addEventListener("click", () => { if (!$("tabs").inert) openForge(); });
 $("quit").addEventListener("click", () => {
   if (coopSession) { coopEnd("left"); return; }
   const e = game.egg;
@@ -5253,6 +5395,8 @@ document.addEventListener("pointerdown", ev => {
   sfx.press();
   if (navigator.vibrate) navigator.vibrate(6);
 }, { passive: true });
+$("taskPill").addEventListener("click", openTasks);
+$("tasksClose").addEventListener("click", () => show("tasks", false));
 $("forgeClose").addEventListener("click", () => { show("forge", false); if (game.scene === "map") renderMap(); });
 $("foundForge").addEventListener("click", openForge);
 $("foundMap").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("map"); });
@@ -5534,6 +5678,7 @@ function pixelText(text, maxW, col, shadow) {
 
 async function sharePostcard(card, name) {
   sfx.tick();
+  taskDone("share");
   const blob = await new Promise(r => card.toBlob(r, "image/jpeg", 0.9));
   const file = new File([blob], `hatchstone-${name.replace(/[^a-z0-9]+/gi, "-").toLowerCase()}.jpg`, { type: "image/jpeg" });
   const text = `Look who hatched in my Hatchstone nest: ${name} ✦ ${GAME_URL}`;
