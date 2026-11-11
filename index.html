@@ -653,6 +653,8 @@
 
   /* ---------- small phones: everything a little tighter, so the nest has room to breathe ---------- */
   .menu-only { display: none !important; }
+  .view-seg { display: flex; margin: 4px 0 8px; }
+  .view-seg button { flex: 1; }
   body.compact .card { max-width: calc(100vw - 20px); }
   body.compact .overlay { padding: 14px 10px; }
   body.compact .card { padding: 18px 16px; }
@@ -1495,7 +1497,10 @@ const UK = {
   "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best.": "Звук — у меню (⚙). Прапорець у куті перемикає мову між українською та англійською. У навушниках тріск звучить найкраще.",
   "asleep": "спить",
   "needs joy": "бракує радості",
-  "No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in your nest 💞": "Гібридів ще немає. Вирости двох глоулінгів до {0} рівня, потіш їх і тапни інкубатор у гніздечку 💞"
+  "No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in your nest 💞": "Гібридів ще немає. Вирости двох глоулінгів до {0} рівня, потіш їх і тапни інкубатор у гніздечку 💞",
+  "View": "Вигляд",
+  "Straight on": "Прямо",
+  "Isometric": "Ізометрія"
 };
 
 const UK_DATA = {
@@ -2784,11 +2789,37 @@ function computeLayout() {
   N.dk = W < 520 ? 0.82 : 1; // decorations a touch smaller on a phone, so the room doesn't feel stuffed
   const wr = Math.min(N.hb * 0.3, (N.back - N.wallTop) * 0.3);
   N.win = { x: N.cx, y: lerp(N.back, N.wallTop, 0.5), r: wr };
+  // the isometric room: a diamond of floor with two walls behind it, like a little diorama
+  N.iso = roomView() === "iso";
+  if (N.iso) {
+    const room = nBottom - nTop;
+    N.isoW = Math.min(W * 0.47, 400, room * 0.9); N.isoH = N.isoW / 2;
+    N.isoWall = clamp(room - N.isoW - 4, N.base * 1.2, N.isoW * 0.95);
+    N.isoTop = nBottom - N.isoW - 6;
+    N.y0 = N.isoTop; N.y1 = N.isoTop + N.isoW;
+    N.wallTop = N.isoTop - N.isoWall;
+    N.back = N.isoTop + N.isoH; N.front = N.y1 + 10;
+    N.x0 = N.cx - N.isoW; N.x1 = N.cx + N.isoW;
+    N.dk = W < 520 ? 0.8 : 0.92;
+  }
   [N.bedX, N.bedY] = roomSpot("bed");
 }
 
+/** Which way the room is seen: straight on (the default) or isometric. ?view=iso tries it without saving. */
+function roomView() {
+  const q = /[?&]view=(iso|front)\b/.exec(location.search);
+  return q ? q[1] : save.view === "iso" ? "iso" : "front";
+}
+/** Isometric floor coordinates: u runs from the back corner to the right corner, v from the back corner to the left one. */
+const isoAt = (u, v) => [N.cx + (u - v) * N.isoW, N.isoTop + (u + v) * N.isoH];
+const isoFrom = (x, y) => { const a = (x - N.cx) / N.isoW, b = (y - N.isoTop) / N.isoH; return [(a + b) / 2, (b - a) / 2]; };
+/** The top of the back walls above a point (they meet at the back corner). */
+const isoWallTop = x => N.isoTop + Math.min(1, Math.abs(x - N.cx) / N.isoW) * N.isoH - N.isoWall;
+const isoMargin = k => k * N.base / (1.118 * N.isoW);
+
 /** A point on the floor: u from the left wall (0) to the right (1), v from the back (0) to the front (1). */
 function floorAt(u, v) {
+  if (N.iso) { const m = isoMargin(0.5); return isoAt(lerp(m, 1 - m, u), lerp(m, 1 - m, v)); }
   const y = lerp(N.y0, N.y1, v), h = floorHalf(y) - N.base * 0.55;
   return [N.cx + (u * 2 - 1) * h, y];
 }
@@ -2807,7 +2838,17 @@ const ROOM_SLOTS = {
 };
 // a wide, shallow room (a computer screen) spreads the front pieces inward instead, so they don't stand in front of the middle ones
 const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 0.96], bed: [0.85, 0.9] };
+// isometric: [u, v] on the diamond. The left wall has the window with the cloud under it, the lamp in the back corner
+// and the incubator; the right wall has the shelf, the spring and the swing, the bed in its corner; mushrooms in front
+const ROOM_SLOTS_ISO = { lamp: [0.06, 0.08], cushion: [0.05, 0.5], incubator: [0.1, 0.86], spring: [0.36, 0.06], bed: [0.9, 0.1], mushrooms: [0.92, 0.9], rug: [0.5, 0.5] };
 function roomSpot(id) {
+  if (N.iso) {
+    if (id === "shelf") { const [x, y] = isoAt(0.22, 0); return [x, y - N.isoWall * 0.5 + N.base * 0.95 * N.dk]; }
+    if (id === "swing") { const [x, y] = floorAt(0.66, 0.04); return [x, y + N.base * 0.55]; }
+    if (id === "lights") return [N.cx, N.wallTop];
+    const [u, v] = ROOM_SLOTS_ISO[id] || [0.5, 0.5];
+    return floorAt(u, v);
+  }
   if (id === "shelf") { const [x, y] = wallAt(0.12, 0.4); return [x, y + N.base * 0.95 * N.dk]; }
   if (id === "swing") { const [x] = wallAt(0.9, 0); return [x, N.back + N.base * 0.62]; }
   if (id === "lights") return [N.cx, N.wallTop];
@@ -2816,7 +2857,8 @@ function roomSpot(id) {
   return floorAt(u, v);
 }
 /** How big things are drawn at a depth: smaller toward the back wall. */
-const depthK = y => lerp(0.78, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1)) * N.dk;
+const depthK = y => N.iso ? N.dk : lerp(0.78, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1)) * N.dk;
+const rugSize = () => N.iso ? [N.isoW * 0.36, N.isoW * 0.18] : [Math.min(N.hf * 0.4, N.base * 2.1), (N.y1 - N.y0) * 0.26];
 
 // ---------- quality: step resolution down if the device can't keep up ----------
 
@@ -4694,7 +4736,9 @@ function openShop() {
   sfx.tick();
   $("shopSub").innerHTML = tr("You have {0}. Glowlings visit the things they love.", ic("shard") + save.shards);
   const now = currentTheme();
-  const themes = `<h3>${tr("Backdrop")}</h3><div class="themes">${THEMES.map(t => {
+  const view = roomView();
+  const viewSeg = `<h3>${tr("View")}</h3><div class="seg view-seg"><button data-view="front" class="${view === "front" ? "on" : ""}">${tr("Straight on")}</button><button data-view="iso" class="${view === "iso" ? "on" : ""}">${tr("Isometric")}</button></div>`;
+  const themes = viewSeg + `<h3>${tr("Backdrop")}</h3><div class="themes">${THEMES.map(t => {
     const ok = t.ok();
     return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
   }).join("")}</div><h3>${tr("Decorations")}</h3>`;
@@ -4705,7 +4749,16 @@ function openShop() {
   }).join("");
   $$("#shopList .decor").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
+  $$("#shopList [data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
   show("shop", true);
+}
+
+/** Switch between the straight-on room and the isometric one: everything is laid out again. */
+function setView(v) {
+  save.view = v === "iso" ? "iso" : "front"; persist(); sfx.tick();
+  if (/[?&]view=/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
+  computeLayout(); actors.clear(); for (const k in roomSprites) delete roomSprites[k];
+  syncActors(); renderNest(true); openShop();
 }
 
 /** Buy a decoration, or tap one you own to put it away or bring it back. */
@@ -4763,7 +4816,7 @@ const actors = new Map();
 /** Up to a dozen glowlings fit in the room: the newest ones, always including the one you picked. */
 function roomCreatures() {
   const act = activeCreature();
-  const list = save.creatures.slice(-(H < 700 ? 6 : W < 520 ? ROOM_MAX_PHONE : ROOM_MAX));
+  const list = save.creatures.slice(-(N.iso ? (W < 520 ? 5 : 8) : H < 700 ? 6 : W < 520 ? ROOM_MAX_PHONE : ROOM_MAX));
   if (act && !list.includes(act)) list[0] = act;
   return list;
 }
@@ -4783,8 +4836,9 @@ function roomObstacles() {
 }
 /** Keep a glowling on the floor and out of the furniture (fliers pass over; the one using a thing may stand on it). */
 function keepInRoom(a) {
+  if (N.iso) { const m = isoMargin(0.42); let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m)); }
   a.y = clamp(a.y, N.y0, N.y1);
-  const h = floorHalf(a.y) - N.base * 0.42;
+  const h = N.iso ? N.isoW : floorHalf(a.y) - N.base * 0.42;
   a.x = clamp(a.x, N.cx - h, N.cx + h);
   if (a.alt > N.base * 0.3 || a.state === "sleep" || a.state === "toBed" || a.state === "visit") return;
   for (const o of game.nest.obst || []) {
@@ -4794,7 +4848,7 @@ function keepInRoom(a) {
   }
   a.y = clamp(a.y, N.y0, N.y1);
 }
-const depth = y => lerp(0.72, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1));
+const depth = y => N.iso ? (W < 520 ? 0.74 : 0.66) : lerp(0.72, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1));
 
 function syncActors() {
   const list = roomCreatures(), ids = new Set(list.map(c => c.id));
@@ -4839,7 +4893,7 @@ function chooseNext(a, list) {
   if (loved.length && Math.random() < 0.4) {
     const d = pick(loved), [x, y] = decorSpot(d.id);
     a.goal = d.id; a.state = "walk";
-    if (d.id === "rug") { const an = rand(0, TAU), r = Math.sqrt(Math.random()); a.tx = x + Math.cos(an) * r * Math.min(N.hf * 0.4, N.base * 2.1) * 0.8; a.ty = y + Math.sin(an) * r * (N.y1 - N.y0) * 0.2; return; }
+    if (d.id === "rug") { const an = rand(0, TAU), r = Math.sqrt(Math.random()), [rx, ry] = rugSize(); a.tx = x + Math.cos(an) * r * rx * 0.8; a.ty = y + Math.sin(an) * r * ry * 0.75; return; }
     a.tx = x + rand(-0.25, 0.25) * N.base; a.ty = clamp(y + rand(-0.1, 0.1) * N.base, N.y0, N.y1);
     return;
   }
@@ -4959,11 +5013,11 @@ function drawRoom() {
   const { y1 } = N, cx = N.cx, kind = ROOM_KIND[currentTheme()] || "cave";
   // the walls and floor of this backdrop, painted once in art pixels
   const rk = `${currentTheme()}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}`;
-  if (roomCanvas.key !== rk) { roomCanvas.key = rk; roomCanvas.c = paintRoom(currentTheme()); }
+  if (roomCanvas.key !== rk + N.iso) { roomCanvas.key = rk + N.iso; roomCanvas.c = N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()); }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
   // a round window onto the night sky in the cave wall (the abbey has its own arched one; outdoors the sky is already there)
   const wr = N.win.r, wy = N.win.y;
-  if (wr > 0 && kind === "cave") {
+  if (wr > 0 && kind === "cave" && !N.iso) {
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU);
     const sky = ctx.createLinearGradient(0, wy - wr, 0, wy + wr);
@@ -4987,14 +5041,14 @@ function drawRoom() {
     ctx.strokeStyle = "#523a85"; ctx.lineWidth = PX * 1.2; ctx.stroke();
   }
   // moonlight falling through the window onto the floor
-  if (kind === "cave" || kind === "hall") {
+  if ((kind === "cave" || kind === "hall") && !N.iso) {
     const ray = ctx.createLinearGradient(0, wy, 0, y1);
     ray.addColorStop(0, "rgba(230,224,255,.09)"); ray.addColorStop(1, "rgba(230,224,255,0)");
     ctx.fillStyle = ray;
     ctx.beginPath(); ctx.moveTo(cx - wr * 0.7, wy); ctx.lineTo(cx + wr * 0.7, wy); ctx.lineTo(cx + wr * 1.7, y1); ctx.lineTo(cx - wr * 1.7, y1); ctx.closePath(); ctx.fill();
   }
   // a round woven rug in solid rings, in the middle of the floor
-  const [rcx, rcy] = roomSpot("rug"), rrx = Math.min(N.hf * 0.4, N.base * 2.1), rry = (N.y1 - N.y0) * 0.26;
+  const [rcx, rcy] = roomSpot("rug"), [rrx, rry] = rugSize();
   const starry = hasDecor("rug");
   drawBaked(cachedSprite(roomSprites, "rug", `${rcx}|${rcy}|${rrx}|${rry}|${PX}|${starry ? Math.floor(game.time / 250) : ""}`, () => bakeSprite(rcx, rcy, rrx, () => {
     ["#5c1f3f", "#8f3460", "#c25586", "#8f3460", "#5c1f3f"].forEach((col, i) => {
@@ -5018,6 +5072,127 @@ function drawRoom() {
   items.sort((p, q) => p.y - q.y).forEach(it => it.draw());
 }
 const roomSprites = {}, roomCanvas = {};
+
+/** The isometric room in art pixels: a diamond floor on a thick slab, and (indoors) a lit left wall and a shaded right one.
+ *  Caves get rock, crystals and a hole onto the night; the abbey brick, tiles and an arched window;
+ *  the churchyard a lawn edged with old stones; the wood moss edged with fallen logs. */
+function paintRoomIso(id) {
+  const kind = ROOM_KIND[id] || "cave", t = THEME[id] || THEME.amethyst;
+  const art = t.art !== undefined ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
+  const wallR = (art ? art.wall : night.ground).map(pxHex), crys = art ? art.crystal.map(pxHex) : null, ground = night ? night.ground.map(pxHex) : wallR;
+  const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
+  const q = v => v / PX, cx = q(N.cx), top = q(N.isoTop), hw = q(N.isoW), hh = hw / 2, wall = q(N.isoWall), slab = Math.max(4, Math.round(hw / 16));
+  const seed = (art ? art.seed : night.seed) * 7, indoor = kind === "cave" || kind === "hall";
+  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
+  const ink = pxHex("#0b0614"), at = (u, v) => [cx + (u - v) * hw, top + (u + v) * hh];
+  const wood = [pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")], stone = [pxHex("#22143a"), pxHex("#3a3440"), pxHex("#5d5666"), pxHex("#8a8494")];
+
+  // the slab under the floor: its two front faces, the left one lit, the right one in shade
+  for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
+    const edgeY = top + hh + (hh - Math.abs(x - cx) * hh / hw) * 1, left = x < cx;
+    for (let k = 0; k < slab; k++) {
+      const y = edgeY + k, col = indoor ? pxPick(wallR, (left ? 0.45 : 0.22) - k * 0.03 + pxFbm(x * 0.2, y * 0.2) * 0.15, x, y)
+        : k < 2 ? pxPick(ground, left ? 0.6 : 0.4, x, y) : pxPick([pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")], (left ? 0.6 : 0.3) - k * 0.04 + pxFbm(x * 0.3, y * 0.3) * 0.25, x, y);
+      put(x, y, k === slab - 1 ? ink : col);
+    }
+  }
+  // the floor
+  for (let y = Math.floor(top); y <= Math.ceil(top + hw); y++) for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
+    const a = (x - cx) / hw, b = (y - top) / hh, u = (a + b) / 2, v = (b - a) / 2;
+    if (u < 0 || v < 0 || u > 1 || v > 1) continue;
+    const near = Math.min(u, v), lightK = Math.exp(-(((u - 0.35) / 0.5) ** 2) - (((v - 0.5) / 0.6) ** 2));
+    let val, col = null;
+    if (indoor) {
+      val = 0.5 + 0.15 * pxFbm(x * 0.12 + seed, y * 0.2) + 0.25 * lightK;
+      const n = kind === "hall" ? 7 : 5, fu = u * n, fv = v * n;
+      if (kind === "hall") val += (Math.floor(fu) + Math.floor(fv)) % 2 ? 0.1 : -0.08;
+      if ((Math.abs(fu - Math.round(fu)) * hw / n < 0.6 || Math.abs(fv - Math.round(fv)) * hw / n < 0.6) && (kind === "hall" || pxHash(x >> 2, y >> 1) > 0.25)) val -= 0.2;
+      if (near * hw < 2.5) val -= 0.3; // shadow at the foot of the walls
+      if (kind === "cave" && pxHash(x, y + seed) > 0.9975) col = crys[2];
+      put(x, y, col || pxPick(wallR, val, x, y));
+    } else {
+      val = 0.5 + 0.25 * pxFbm(x * 0.14 + seed, y * 0.25) + 0.2 * lightK - 0.2 * Math.max(0, Math.max(u, v) - 0.85) * 5;
+      if (pxHash(x, y + seed) > 0.965) val += 0.3;
+      if (kind === "wood") {
+        if (pxHash(x + 7, y + seed) > 0.988) col = pxHex(pxHash(x, y) > 0.5 ? "#c98f3a" : "#946027");
+        else if (pxHash(x + 3, y + seed * 2) > 0.995) col = pxHex("#8ff0d8");
+      }
+      if (Math.max(u, v) > 0.985) col = pxPick(ground, 0.85, x, y); // a lit rim at the front edges
+      put(x, y, col || pxPick(ground, val, x, y));
+    }
+  }
+  if (indoor) {
+    // the two walls: left (along v) catches the light, right (along u) is in shade; they meet at the back corner
+    for (const side of [-1, 1]) for (let x = Math.floor(side < 0 ? cx - hw : cx); x <= Math.ceil(side < 0 ? cx : cx + hw); x++) {
+      const tt = Math.abs(x - cx) / hw, base = top + tt * hh, yTop = base - wall - (kind === "cave" ? 2 * pxNoise(x * 0.2, seed) : 0);
+      for (let y = Math.floor(yTop); y < base; y++) {
+        const hgt = (base - y) / wall;
+        let val;
+        if (kind === "cave") {
+          val = (side < 0 ? 0.42 : 0.24) + 0.24 * pxFbm(x * 0.09 + seed, y * 0.09) - 0.15 * hgt;
+          if (Math.abs(pxNoise(x * 0.18 + seed, y * 0.18) - 0.5) < 0.025) val -= 0.25;
+        } else {
+          const row = Math.floor((base - y) / 4), bx = Math.floor((tt * hw + (row % 2) * 4) / 8);
+          val = (side < 0 ? 0.46 : 0.28) + 0.14 * pxHash(bx * side, row + seed);
+          if (Math.round(base - y) % 4 === 0 || Math.round(tt * hw + (row % 2) * 4) % 8 === 0) val = 0.1;
+        }
+        if (y - yTop < 2) val = side < 0 ? 0.8 : 0.6; // the lit top edge of the wall
+        if (Math.abs(x - cx) < 1) val = 0.05;          // the back corner
+        if (Math.abs(x - cx) > hw - 1) val = 0.1;      // the open ends
+        put(x, y, pxPick(wallR, val, x, y));
+      }
+    }
+    // a window in the left wall: a parallelogram that follows the wall, arched in the abbey
+    const sky = (night ? night.sky : ["#0d0a2a", "#160c33", "#2d2468", "#463592"]).map(pxHex);
+    for (let x = Math.floor(cx - hw * 0.64); x <= Math.ceil(cx - hw * 0.36); x++) {
+      const tt = (cx - x) / hw, base = top + tt * hh, lx = (tt - 0.5) / 0.14;
+      for (let y = Math.floor(base - wall * 0.84); y < base - wall * 0.3; y++) {
+        const hy = (base - y) / wall, archTop = kind === "hall" ? 0.84 - 0.12 * Math.abs(lx) ** 1.6 : 0.8 - 0.08 * lx * lx;
+        if (hy > archTop) continue;
+        const frame = hy > archTop - 0.04 || hy < 0.34 || Math.abs(lx) > 0.86;
+        let col = frame ? wallR[Math.min(4, wallR.length - 1)] : pxPick(sky, 0.2 + (archTop - hy) * 1.4, x, y);
+        if (!frame && kind === "hall" && (Math.abs(lx) < 0.1 || Math.abs(hy - 0.55) < 0.02)) col = ink;
+        if (!frame && pxHash(x, y + seed) > 0.96) col = pxHex("#ffffff");
+        if (!frame && kind === "cave" && Math.hypot(lx - 0.35, (hy - 0.66) * 4) < 0.28) col = pxHex("#fff8d6");
+        put(x, y, col);
+      }
+    }
+    if (kind === "cave") {
+      // crystals growing at the foot of the walls, in the back corner and at both ends
+      for (const [bx, by, n] of [[cx, top, 5], [cx - hw * 0.92, top + hh * 0.92, 3], [cx + hw * 0.92, top + hh * 0.92, 3]]) for (let k = 0; k < n; k++) {
+        const ox = bx + (k - n / 2) * 2.4, hgt = 4 + Math.round(pxHash(k + bx, seed) * 8), ww = 1.4 + pxHash(k, 3);
+        for (let yy = 0; yy < hgt; yy++) { const hw2 = ww * (1 - yy / hgt); for (let xx = -Math.ceil(hw2); xx <= Math.ceil(hw2); xx++) put(ox + xx, by + 2 - yy, yy === hgt - 1 ? crys[4] : xx < 0 ? crys[3] : crys[1]); }
+      }
+    }
+  } else {
+    // the two back edges: a low wall of old stones, or fallen mossy logs
+    for (const side of [-1, 1]) for (let x = Math.floor(side < 0 ? cx - hw : cx); x <= Math.ceil(side < 0 ? cx : cx + hw); x++) {
+      const tt = Math.abs(x - cx) / hw, base = top + tt * hh;
+      for (let yy = 0; yy < 6; yy++) {
+        let col;
+        if (kind === "yard") { const st = Math.floor(tt * hw / 5); col = yy === 5 || Math.round(tt * hw) % 5 === 0 ? ink : stone[1 + Math.min(2, Math.floor(pxHash(st, side + seed) * 2.4 + (side < 0 ? 0.6 : 0)))]; }
+        else col = yy === 5 ? ink : yy >= 3 ? pxPick([pxHex("#1e5233"), pxHex("#2f7d4a"), pxHex("#57ad6a")], 0.4 + 0.5 * pxNoise(x * 0.3, seed), x, yy) : wood[(Math.round(tt * hw) % 6 === 0 ? 0 : side < 0 ? 2 : 1)];
+        put(x, base - yy, col);
+      }
+    }
+  }
+  // what holds things up: hooks indoors, wooden posts outdoors
+  const post = (x, y0, y1) => { for (let y = Math.round(y1); y <= Math.round(y0); y++) { put(x - 1, y, wood[0]); put(x, y, wood[2]); put(x + 1, y, wood[1]); } };
+  const wallTopQ = x => q(isoWallTop(x * PX));
+  if (hasDecor("swing")) {
+    const sx = q(roomSpot("swing")[0]);
+    if (indoor) { put(sx, wallTopQ(sx) + 2, pxHex("#e4dfe8")); put(sx - 1, wallTopQ(sx) + 1, pxHex("#8a8494")); put(sx + 1, wallTopQ(sx) + 1, pxHex("#8a8494")); }
+    else { const px = sx + q(N.base * 0.5), [, fy] = at(0.7, 0.02); post(px, fy, wallTopQ(sx)); for (let x = Math.round(sx - 3); x <= px; x++) { put(x, wallTopQ(sx), wood[2]); put(x, wallTopQ(sx) + 1, wood[0]); } }
+  }
+  if (hasDecor("lights")) for (const k of [-0.94, 0, 0.94]) {
+    const x = cx + k * hw, [, fy] = k < 0 ? at(0, 0.94) : k > 0 ? at(0.94, 0) : at(0, 0);
+    if (indoor) { put(x, wallTopQ(x) + 2, pxHex("#8a8494")); } else post(Math.round(x), fy, wallTopQ(x) + 4);
+  }
+  if (hasDecor("shelf") && !indoor) { const [shx, shy] = roomSpot("shelf"), py = q(shy - N.base * 0.95 * N.dk), [, fy] = at(0.22, 0); post(Math.round(q(shx) - 3), fy, py); post(Math.round(q(shx) + 4), fy + 2, py + 3); }
+  g.putImageData(img, 0, 0);
+  return c;
+}
 let decorK = 1;
 
 /** What sort of place each backdrop is: a hollow in the cave wall, an abbey hall, or a clearing under the sky. */
@@ -5199,7 +5374,7 @@ function geodeImg(id) {
 }
 
 function swingSeat() {
-  const [x, y] = decorSpot("swing"), top = N.wallTop + 3;
+  const [x, y] = decorSpot("swing"), top = N.iso ? isoWallTop(x) + 3 : N.wallTop + 3;
   const len = y - N.base * 0.95 - top, a = Math.sin(game.time * 0.0012 * (1 + swingPush)) * (0.18 + swingPush);
   return [x + Math.sin(a) * len, top + Math.cos(a) * len, a, top];
 }
@@ -5268,6 +5443,7 @@ const DRAW_DECOR = {
   },
   shelf(x, y) {
     const b = N.base * decorK, sy = y - b * 0.95, w = b * 1.2;
+    if (N.iso) { ctx.translate(x, sy); ctx.transform(1, 0.5, 0, 1, 0, 0); ctx.translate(-x, -sy); }
     ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(x - w / 2, sy, w, 5);
     ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x - w / 2 + 6, sy + 5, 4, 10); ctx.fillRect(x + w / 2 - 10, sy + 5, 4, 10);
     // brackets under the plank
@@ -5313,10 +5489,11 @@ const DRAW_DECOR = {
     ctx.beginPath(); ctx.arc(sx, sy, b * 0.4, Math.PI * 0.05, Math.PI * 0.95); ctx.arc(sx, sy - b * 0.14, b * 0.36, Math.PI * 0.92, Math.PI * 0.08, true); ctx.closePath(); ctx.fill();
   },
   lights() {
-    const x0 = N.cx - N.hb + N.base * 0.3, x1 = N.cx + N.hb - N.base * 0.3, y = N.wallTop + 6, sag = lightsSag();
     const cols = ["#ffe9a8", "#ff9ecb", "#8fd8ef", "#b9e88a", "#c9b8ff"];
     ctx.strokeStyle = "rgba(230,224,255,.45)"; ctx.lineWidth = 1.2;
-    ctx.beginPath(); ctx.moveTo(x0, y); ctx.quadraticCurveTo((x0 + x1) / 2, y + sag * 2, x1, y); ctx.stroke();
+    ctx.beginPath();
+    for (let k = 0; k <= 40; k++) { const [px, py] = lightsLine(k / 40); k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+    ctx.stroke();
     for (let i = 1; i < 14; i++) {
       const [bx, by] = bulbPos(i);
       const col = cols[i % cols.length], rung = fxAge("bulb" + i), lit = rung < 0.7 ? 1 - rung / 0.7 : 0;
@@ -5337,9 +5514,20 @@ const fxAge = id => decorFx[id] === undefined ? 9 : (game.time - decorFx[id]) / 
 
 /** The lights droop a little, but never across the window. */
 const lightsSag = () => Math.max(4, Math.min(N.base * 0.4, (N.win.y - N.win.r * 1.25 - N.wallTop - 10) / 2));
+/** A point t (0..1) along the string of lights. */
+function lightsLine(t) {
+  if (N.iso) {
+    // from the left corner to the back corner, then on to the right corner, drooping between
+    const ends = [[N.cx - N.isoW * 0.94, isoWallTop(N.cx - N.isoW * 0.94) + 6], [N.cx, N.wallTop + 6], [N.cx + N.isoW * 0.94, isoWallTop(N.cx + N.isoW * 0.94) + 6]];
+    const seg = t < 0.5 ? 0 : 1, s = t < 0.5 ? t * 2 : t * 2 - 1, [a, b] = [ends[seg], ends[seg + 1]];
+    return [lerp(a[0], b[0], s), lerp(a[1], b[1], s) + N.base * 0.3 * 4 * s * (1 - s)];
+  }
+  const x0 = N.cx - N.hb + N.base * 0.3, x1 = N.cx + N.hb - N.base * 0.3, y = N.wallTop + 6, sag = lightsSag();
+  return [lerp(x0, x1, t), y + sag * 4 * t * (1 - t)];
+}
 function bulbPos(i) {
-  const x0 = N.cx - N.hb + N.base * 0.3, x1 = N.cx + N.hb - N.base * 0.3, y = N.wallTop + 6, sag = lightsSag(), t = i / 14;
-  return [lerp(x0, x1, t), y + sag * 4 * t * (1 - t) + 6];
+  const [x, y] = lightsLine(i / 14);
+  return [x, y + 6];
 }
 
 /** Which decoration (if any) is under a finger. The rug is left out: the floor is for calling everyone. */
