@@ -653,6 +653,9 @@
 
   /* ---------- small phones: everything a little tighter, so the nest has room to breathe ---------- */
   .menu-only { display: none !important; }
+  /* layers, bottom to top: canvas (0), canvas text (1), the nest's own panels (2), hint and tabs (3), top bar (4), cards (5), toasts (8), dialogs (9) */
+  #nestTop, #nestBottom, #catchHud { z-index: 2; }
+  #toast { z-index: 8; }
   /* the nest header: one quiet line (name, level, a thin bar), so the room isn't crowded from above */
   #nestTop { display: flex; align-items: center; justify-content: center; gap: 8px; top: calc(var(--top) + 52px) !important; }
   #nestTop #nestName { font-size: 26px; text-shadow: 0 2px 0 var(--px-ink); }
@@ -664,6 +667,17 @@
   body.compact #nestTop #nestName { font-size: 22px; }
   body.compact #nestTop { top: calc(var(--top) + 46px) !important; }
   .view-seg { display: flex; margin: 4px 0 8px; }
+  .switch-wrap { display: flex; align-items: center; gap: 4px; max-width: min(460px, 100%); }
+  .switch-wrap #switcher { flex: 1; min-width: 0; }
+  .sw-arrow { flex: 0 0 26px; height: 40px; border: 0; padding: 0; cursor: pointer; font-size: 26px; line-height: 1; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame), inset 2px 2px 0 0 var(--px-gold-hi), inset -2px -2px 0 0 var(--px-gold-lo); }
+  .sw-arrow[hidden] { visibility: hidden; display: block !important; }
+  .arrange-btn { width: 100%; margin-top: 12px; }
+  #arrangeBar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) + 84px); z-index: 3; width: min(440px, calc(100% - 20px)); padding: 10px 12px 12px; text-align: center; }
+  #arrangeBar[hidden] { display: none; }
+  #arrangeTip { display: block; color: var(--px-gold); font-size: 18px; margin-bottom: 8px; }
+  #arrangeBar .row { margin-top: 0; gap: 8px; }
+  #arrangeBar .cta { margin-top: 0; padding: 8px 18px; font-size: 18px; }
+  body.arranging #nestBottom { visibility: hidden; }
   .decor img.px-thumb { width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; flex: 0 0 48px; }
   .space-bar { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; margin: 12px 2px 0; font-size: 16px; color: var(--soft); }
   .space-bar b { color: var(--px-gold); font-weight: 400; }
@@ -847,6 +861,15 @@
   </div>
 </div>
 
+<div id="arrangeBar" class="glass" hidden>
+  <span id="arrangeTip"></span>
+  <div class="row center">
+    <button class="act" id="arrangeFlip">⇄ Turn</button>
+    <button class="act" id="arrangeStore">Put away</button>
+    <button class="cta" id="arrangeDone">Done</button>
+  </div>
+</div>
+
 <div id="nestTop">
   <button id="nestName"></button><button id="nestShare" aria-label="Share a postcard"><i class="ic" data-ic="postcard"></i></button>
   <div id="nestLvl"></div>
@@ -871,7 +894,7 @@
     <button class="act" id="sleepBtn" data-fill="energy"><i class="ic" data-ic="moon"></i>Sleep</button>
     <button class="act" id="decorBtn"><i class="ic" data-ic="candle"></i>Decor</button>
   </div>
-  <div id="switcher"></div>
+  <div class="switch-wrap"><button class="sw-arrow" id="swPrev" aria-label="Previous glowlings">‹</button><div id="switcher"></div><button class="sw-arrow" id="swNext" aria-label="More glowlings">›</button></div>
 </div>
 
 <div id="incubator" class="overlay modal hidden">
@@ -1537,7 +1560,18 @@ const UK = {
   "Frost Hollow": "Крижана западина",
   "Aurora Summit": "Вершина під сяйвом",
   "meet 12 kinds of glowling": "зустрінь 12 видів глоулінгів",
-  "raise a glowling to Radiant": "вирости Сяйливого глоулінга"
+  "raise a glowling to Radiant": "вирости Сяйливого глоулінга",
+  "Rearrange the room": "Переставити меблі",
+  "⇄ Turn": "⇄ Повернути",
+  "Put away": "Прибрати",
+  "Done": "Готово",
+  "Tap a piece, then drag it to a new spot": "Торкнись речі й перетягни її на нове місце",
+  "That spot is taken": "Це місце зайняте",
+  "No room to turn it here": "Тут не вистачає місця, щоб повернути",
+  "Bed": "Ліжечко",
+  "Incubator": "Інкубатор",
+  "Previous glowlings": "Попередні глоулінги",
+  "More glowlings": "Ще глоулінги"
 };
 
 const UK_DATA = {
@@ -3470,6 +3504,20 @@ function drawFace(c, s, sp, t, mood, eating) {
   }
 }
 
+/** A floppy striped nightcap with a pompom, in a color of its own for each kind of glowling. */
+function drawNightcap(c, s, sp, top) {
+  const caps = [["#1d5276", "#3383a8", "#b8e6f5"], ["#8f3460", "#c25586", "#ffc4da"], ["#523a85", "#8a6cc9", "#d2bfff"], ["#1e5233", "#2f7d4a", "#a3dd9b"], ["#946027", "#c98f3a", "#fff0b5"]];
+  const [dk, md, lt] = caps[[...sp.id].reduce((h, ch) => h + ch.charCodeAt(0), 0) % caps.length];
+  const y0 = top + s * 0.12;
+  c.save();
+  c.fillStyle = md; c.beginPath(); c.moveTo(-s * 0.38, y0); c.quadraticCurveTo(-s * 0.22, y0 - s * 0.66, s * 0.46, y0 - s * 0.52); c.quadraticCurveTo(s * 0.16, y0 - s * 0.32, s * 0.38, y0); c.closePath(); c.fill();
+  c.fillStyle = dk; c.beginPath(); c.moveTo(s * 0.12, y0); c.quadraticCurveTo(s * 0.22, y0 - s * 0.32, s * 0.46, y0 - s * 0.52); c.quadraticCurveTo(s * 0.22, y0 - s * 0.24, s * 0.38, y0); c.closePath(); c.fill();
+  c.strokeStyle = lt; c.lineWidth = s * 0.07; c.beginPath(); c.moveTo(-s * 0.28, y0 - s * 0.22); c.quadraticCurveTo(0, y0 - s * 0.34, s * 0.24, y0 - s * 0.28); c.stroke();
+  c.fillStyle = "#efe6ff"; c.beginPath(); c.ellipse(0, y0, s * 0.42, s * 0.1, 0, 0, TAU); c.fill();
+  c.beginPath(); c.arc(s * 0.48, y0 - s * 0.52, s * 0.1, 0, TAU); c.fill();
+  c.restore();
+}
+
 /**
  * Draw a glowling centered at (x, y), about s pixels wide.
  * o: { t, mood, hop, level, shiny, eating, sil (a dark silhouette for undiscovered species), glow }
@@ -3519,6 +3567,7 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   bodyPath(c, s, sp.body);
   c.strokeStyle = shade(pal[2], -0.25); c.globalAlpha = 0.3; c.lineWidth = 1; c.stroke(); c.globalAlpha = 1;
   drawHeadTop(c, s, sp, t, pal, top, level);
+  if (mood === "asleep" && !o.sil) drawNightcap(c, s, sp, top);
   if (faceStamp && !o.sil) {
     // inside a sprite cut, remember where the face goes; it's stamped pixel by pixel afterwards so the eyes stay crisp
     const m = c.getTransform(), at = (lx, ly) => [(m.a * lx + m.c * ly + m.e) / 2, (m.b * lx + m.d * ly + m.f) / 2];
@@ -4705,6 +4754,7 @@ function toast(text) {
 }
 
 function setScene(scene) {
+  if (scene !== "nest" && arrange.on) stopArrange();
   if (game.scene === "nest" && scene !== "nest") sfx.purrOff();
   game.scene = scene;
   document.body.className = document.body.className.replace(/\bscene-\S+/g, "").trim() + ` scene-${scene}`;
@@ -4849,7 +4899,14 @@ function renderNest(full) {
     $("switcher").innerHTML = save.creatures.map(c =>
       `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}" title="${c.name}"><img class="px2" style="width:40px;height:40px" src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt="${c.name}"></button>`).join("");
     $$("#switcher button").forEach(b => b.addEventListener("click", () => selectCreature(Number(b.dataset.id))));
+    requestAnimationFrame(switchArrows);
   }
+}
+/** The arrows beside the glowling row show only where there are more glowlings to scroll to. */
+function switchArrows() {
+  const sw = $("switcher"), more = sw.scrollWidth - sw.clientWidth > 2;
+  $("swPrev").hidden = !more || sw.scrollLeft < 4;
+  $("swNext").hidden = !more || sw.scrollLeft > sw.scrollWidth - sw.clientWidth - 4;
 }
 
 function openSnacks() {
@@ -4905,7 +4962,8 @@ function openShop() {
   }).join("")}</div><h3>${tr("Decorations")}</h3>`;
   const iso = N.iso, used = isoSpaceUsed();
   const space = iso ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "";
-  $("shopList").innerHTML = themes + space + DECOR.filter(d => iso || !d.iso).map(d => {
+  const rearr = iso ? `<button class="act arrange-btn" id="arrangeOpen">✥ ${tr("Rearrange the room")}</button>` : "";
+  $("shopList").innerHTML = themes + space + rearr + DECOR.filter(d => iso || !d.iso).map(d => {
     const owned = save.decor[d.id];
     const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
     return `<button class="decor${owned ? " owned" : ""}" data-id="${d.id}" ${!owned && save.shards < d.cost ? "disabled" : ""}>${decorThumb(d)}<span><b>${d.name}</b><small>${tr("{0} love it", who[0].toUpperCase() + who.slice(1))}</small></span><span class="cost">${owned ? (owned.on ? tr("placed ✓") : tr("stored")) : "✦ " + d.cost}</span></button>`;
@@ -4913,6 +4971,7 @@ function openShop() {
   $$("#shopList .decor").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
   $$("#shopList [data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
+  $("arrangeOpen")?.addEventListener("click", startArrange);
   show("shop", true);
 }
 
@@ -5099,7 +5158,7 @@ function updateActors(dt) {
     const base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100;
     let speed = base, target = null;
     if (cr.sleeping) {
-      target = [N.bedX + ((a.id % 3) - 1) * N.base * 0.35, N.bedY + (a.id % 2) * N.base * 0.15];
+      target = bedSpot(a.id);
       if (a.state !== "sleep") a.state = "toBed";
     } else if (a.state === "sleep" || a.state === "toBed") { a.state = "idle"; a.t = 0.5; }
     // a finger held on the floor calls everyone over
@@ -5131,6 +5190,7 @@ function updateActors(dt) {
       }
     }
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
+    if (a.state === "toBed" && d <= 8) a.state = "sleep"; // close enough: lie down (the room's edge may keep the exact spot just out of reach)
     const still = ["nap", "dance", "eat", "sleep", "visit"].includes(a.state);
     const moving = d > 3 && !still;
     if (moving) {
@@ -5150,7 +5210,7 @@ function updateActors(dt) {
       const f = a.friend && actors.get(a.friend);
       if (f) { emote(a, pick(["♥", "♪", "✦"])); emote(f, pick(["♥", "♪", "!"])); f.hop = 1; a.hop = 1; sfx.chirp(specOf(cr).voice * 1.1); }
       a.friend = null;
-    } else if (a.state === "toBed" && d <= 3) a.state = "sleep";
+    } else if (a.state === "toBed" && d <= 8) a.state = "sleep";
     keepInRoom(a);
     // fliers hover, swimmers glide, hoppers bounce
     const ease = (to, k) => { a.alt = lerp(a.alt, to, Math.min(1, dt * k)); };
@@ -5222,7 +5282,7 @@ function drawRoom() {
     ctx.fillStyle = ray;
     ctx.beginPath(); ctx.moveTo(cx - wr * 0.7, wy); ctx.lineTo(cx + wr * 0.7, wy); ctx.lineTo(cx + wr * 1.7, y1); ctx.lineTo(cx - wr * 1.7, y1); ctx.closePath(); ctx.fill();
   }
-  if (N.iso) { drawRoomIso(); return; }
+  if (N.iso) return drawRoomIso();
   // a round woven rug in solid rings, in the middle of the floor
   const [rcx, rcy] = roomSpot("rug"), [rrx, rry] = rugSize();
   const starry = hasDecor("rug");
@@ -5245,7 +5305,7 @@ function drawRoom() {
     items.push({ y: d.id === "shelf" ? -1 : y, draw: () => { decorK = k; drawBaked(cachedSprite(roomSprites, d.id, `${x}|${y}|${N.base}|${k}|${PX}|${save.decor[d.id].off}|${Math.floor(game.time / 200)}`,
       () => bakeSprite(x, y - N.base * 0.6 * k, N.base * k, () => DRAW_DECOR[d.id](x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } });
   }
-  items.sort((p, q) => p.y - q.y).forEach(it => it.draw());
+  return items;
 }
 const roomSprites = {}, roomCanvas = {};
 // ---------- isometric pixel furniture ----------
@@ -5271,7 +5331,7 @@ function isoArt(w, h, paint, { outline = true } = {}) {
   const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
   const T = {
     w, h, glowPx: new Set(),
-    px(x, y, col) { x = Math.round(x); y = Math.round(y); if (!col || x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; },
+    px(x, y, col) { x = Math.round(x); y = Math.round(y); if (!col || x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; T.glowPx.delete(y * w + x); },
     has(x, y) { return x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0; },
     /** Fill a polygon by testing each pixel's center (clean 2:1 steps on the iso edges). */
     poly(pts, col) {
@@ -5353,31 +5413,45 @@ const ISO_PLACES = {
   armchair: { fw: 1, fd: 1, at: [[0, 1], [1, 1], [0, 2]] },
   cushion: { fw: 1, fd: 1, at: [[0, 2], [0, 3], [1, 2]] },
   chest: { fw: 1, fd: 1, at: [[0, 5], [1, 5], [0, 4]] },
-  plant: { fw: 1, fd: 1, at: [[5, 1], [3, 0], [5, 2]] },
+  plant: { fw: 1, fd: 1, at: [[3, 0], [5, 2], [5, 3]] },
   table: { fw: 1, fd: 1, at: [[4, 3], [3, 4], [4, 2]] },
   mushrooms: { fw: 1, fd: 1, at: [[5, 5], [4, 5], [5, 4]] },
 };
-const ISO_FIXED = { bed: { fw: 2, fd: 1, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] } };
+const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] } };
 
-/** Which floor pieces are out, and where: worked out again only when the furniture changes. */
+/** A piece's size in tiles; turned to face the other wall, its two sides swap. */
+const pieceDims = (id, flip) => { const f = ISO_FIXED[id] || ISO_PLACES[id]; return flip ? { fw: f.fd, fd: f.fw } : { fw: f.fw, fd: f.fd }; };
+/** Which floor pieces are out, and where: the spots you chose first, then each piece's favorite free tiles. Worked out again only when something changes. */
 let isoLayoutCache = null;
 function isoLayout() {
-  const out = Object.keys(ISO_PLACES).filter(hasDecor);
-  const key = out.join(",");
+  const out = Object.keys(ISO_PLACES).filter(hasDecor), mine = save.layout || {};
+  const key = out.join(",") + JSON.stringify(mine);
   if (isoLayoutCache && isoLayoutCache.key === key) return isoLayoutCache;
   const busy = new Set(), placed = {};
   const take = (i, j, fw, fd) => { for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) busy.add(`${i + a},${j + b}`); };
-  const free = (i, j, fw, fd) => { for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) if (i + a >= ISO_G || j + b >= ISO_G || busy.has(`${i + a},${j + b}`)) return false; return true; };
-  for (const [id, f] of Object.entries(ISO_FIXED)) { take(f.at[0], f.at[1], f.fw, f.fd); placed[id] = { id, i: f.at[0], j: f.at[1], fw: f.fw, fd: f.fd }; }
-  // the rug's middle stays open: glowlings dance there
-  for (const t of ["2,2", "2,3", "3,2", "3,3"]) busy.add(t);
+  const free = (i, j, fw, fd) => { if (i < 0 || j < 0) return false; for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) if (i + a >= ISO_G || j + b >= ISO_G || busy.has(`${i + a},${j + b}`)) return false; return true; };
+  const all = [...Object.keys(ISO_FIXED), ...out];
+  for (const id of all) {
+    const m = mine[id]; if (!m) continue;
+    const d = pieceDims(id, m.flip);
+    if (free(m.i, m.j, d.fw, d.fd)) { take(m.i, m.j, d.fw, d.fd); placed[id] = { id, i: m.i, j: m.j, ...d, flip: !!m.flip }; }
+  }
+  for (const [id, f] of Object.entries(ISO_FIXED)) if (!placed[id]) {
+    const spot = [f.at, ...Array.from({ length: ISO_G * ISO_G }, (_, k) => [k % ISO_G, Math.floor(k / ISO_G)])].find(([i, j]) => free(i, j, f.fw, f.fd));
+    if (spot) { take(spot[0], spot[1], f.fw, f.fd); placed[id] = { id, i: spot[0], j: spot[1], fw: f.fw, fd: f.fd, flip: false }; }
+  }
+  // the rug's middle stays open for pieces placed on their own: glowlings dance there
+  const center = ["2,2", "2,3", "3,2", "3,3"].filter(t => !busy.has(t));
+  center.forEach(t => busy.add(t));
   for (const id of out) {
+    if (placed[id]) continue;
     const f = ISO_PLACES[id], spot = f.at.find(([i, j]) => free(i, j, f.fw, f.fd));
     if (!spot) continue;
     take(spot[0], spot[1], f.fw, f.fd);
-    placed[id] = { id, i: spot[0], j: spot[1], fw: f.fw, fd: f.fd };
+    placed[id] = { id, i: spot[0], j: spot[1], fw: f.fw, fd: f.fd, flip: false };
   }
-  return (isoLayoutCache = { key, placed });
+  center.forEach(t => busy.delete(t));
+  return (isoLayoutCache = { key, placed, busy });
 }
 /** How many furniture tiles are in use, out of the room's space. */
 const isoSpaceUsed = () => Object.keys(ISO_PLACES).filter(hasDecor).reduce((n, id) => n + ISO_PLACES[id].fw * ISO_PLACES[id].fd, 0);
@@ -5414,13 +5488,28 @@ const ISO_ART = {
     }
   },
   spring(t, T, ax, ay, o) {
-    const cx = ax, cy = ay + t / 2, rx = t * 0.62;
-    T.disc(cx, cy, rx, (x, y) => { const an = Math.atan2(y - cy, (x - cx) / 2); return Math.floor(an * 4 + 8) % 2 ? IC.s2 : IC.s3; });
-    T.disc(cx, cy - 1, rx - 2, IC.s1);
-    T.disc(cx, cy, rx - 3, IC.b2);
-    T.disc(cx - 1, cy - 1, rx - 5, IC.b1);
-    const f = o.frame || 0;
-    for (let k = 0; k < 4; k++) { const an = k * 1.7 + f * 0.6; T.px(cx + Math.cos(an) * (rx - 5), cy + Math.sin(an) * (rx - 5) / 2, IC.b0); }
+    // a little moon pond: a ring of rounded stones, water dark in the deep middle and light at the shallow rim,
+    // lily pads with a pink flower, reeds at the back and the moon shining on the water
+    const cx = ax, cy = ay + t / 2, rx = t * 0.78, ry = rx / 2, f = o.frame || 0;
+    const stones = Math.max(9, Math.round(rx / 1.6));
+    for (let k = 0; k < stones; k++) {
+      const an = k / stones * TAU, sx = cx + Math.cos(an) * (rx - 0.5), sy = cy + Math.sin(an) * (ry - 0.25), r = Math.max(1.6, rx * 0.13) + pxHash(k, 9) * Math.max(1, rx * 0.06);
+      T.ball(sx, sy - 1, r + 0.5, IC.s1, IC.s2, IC.s3, r * 0.8);
+    }
+    T.disc(cx, cy, rx - 1.5, (x, y) => { const d = Math.hypot((x - cx) / (rx - 1.5), (y - cy) / (ry - 0.75)); return d > 0.78 ? IC.b1 : d > 0.45 ? IC.b2 : IC.b3; });
+    // reeds at the back edge
+    for (const [dx, hgt] of [[-0.45, 0.8], [-0.35, 1.05], [-0.25, 0.7]]) { const rxp = cx + dx * rx * 2, ryp = cy - ry * 0.75; for (let k = 0; k < hgt * t * 0.6; k++) T.px(rxp + (k > hgt * t * 0.4 ? 1 : 0), ryp - k, k > hgt * t * 0.5 ? IC.w2 : IC.g2); }
+    // lily pads with a notch, and one pink flower
+    for (const [dx, dy, r] of [[0.2, 0.1, 0.22], [-0.15, 0.22, 0.16], [0.35, -0.15, 0.14]]) {
+      const px0 = cx + dx * rx * 2, py0 = cy + dy * ry * 2, pr = r * rx * 1.4;
+      T.disc(px0, py0, pr, (x, y) => (x > px0 && Math.abs(y - py0) < 0.8) ? IC.b2 : x < px0 - pr * 0.3 ? IC.g0 : IC.g1);
+    }
+    const fx = cx + 0.2 * rx * 2, fy = cy + 0.1 * ry * 2 - 1;
+    T.px(fx, fy - 1, IC.p0); T.px(fx - 1, fy, IC.p1); T.px(fx + 1, fy, IC.p1); T.px(fx, fy, IC.y1);
+    // the moon's reflection, and a ripple that moves
+    T.px(cx - rx * 0.3, cy - 1, IC.y0); T.px(cx - rx * 0.3 + 1, cy - 1, IC.y0); T.px(cx - rx * 0.3, cy, IC.y1);
+    const rk = (f % 6) / 6, rr = rx * (0.25 + rk * 0.5);
+    for (let k = 0; k < 16; k++) { const an = k / 16 * TAU; if (k % 2) T.px(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr / 2, IC.b0); }
   },
   armchair(t, T, ax, ay) {
     const a = t * 0.42, b = t * 0.42, x = ax + 1, y = ay + 2;
@@ -5464,40 +5553,171 @@ const ISO_ART = {
     T.px(cx - 6, ty + 1, IC.s0); T.px(cx - 5, ty + 1, IC.s0); T.px(cx - 6, ty + 2, IC.s1);
   },
   mushrooms(t, T, ax, ay, o) {
-    const cx = ax, cy = ay + t / 2;
-    for (const [dx, dy, h, r, c] of [[-0.28, 0.05, 0.55, 0.22, [IC.b0, IC.b1, IC.b2]], [0.12, -0.08, 0.85, 0.28, [IC.l0, IC.l2, IC.l3]], [0.32, 0.12, 0.45, 0.2, [IC.p0, IC.p1, IC.p2]]]) {
-      const x = cx + dx * t, y = cy + dy * t, top = y - h * t;
-      T.glow(x, top, t * 0.55, c[1], 0.3);
-      for (let k = 0; k < h * t; k++) { T.px(x - 1, y - k, IC.l0); T.px(x, y - k, IC.s1); }
-      T.ball(x, top, r * t, c[0], c[1], c[2], r * t * 0.6);
-      T.poly([[x - r * t - 0.5, top + 1], [x + r * t + 0.5, top + 1], [x + r * t, top + 2], [x - r * t, top + 2]], c[2]);
-      T.px(x - r * t * 0.4, top - 1, IC.white); T.px(x + r * t * 0.3, top - r * t * 0.3, IC.white);
+    // bioluminescent fungi: deep-colored caps that glow brightest at the rim underneath (the gills), glowing spots,
+    // pale stems with a streak of light, a pool of light on the floor and spores drifting up
+    const cx = ax, cy = ay + t / 2, f = o.frame || 0;
+    const kinds = { cyan: [IC.b3, IC.b2, IC.b1, IC.b0], violet: [IC.l4, IC.l3, IC.l2, IC.l0], pink: [IC.p3, IC.p2, IC.p1, IC.p0], amber: [IC.w2, IC.w1, IC.y1, IC.y0] };
+    // the light they cast lies on the floor as a 2:1 pool, densest under the cluster
+    for (let y = Math.floor(cy - t * 0.4); y <= cy + t * 0.4; y++) for (let x = Math.floor(cx - t * 0.8); x <= cx + t * 0.8; x++) {
+      const f = 1 - Math.hypot((x - cx) / (t * 0.8), (y - cy) / (t * 0.4));
+      if (f > 0 && !T.has(x, y) && PX_BAYER[(y & 3) * 4 + (x & 3)] < f * 0.7) { T.px(x, y, f > 0.55 ? IC.b0 : IC.b1); T.glowPx.add(y * T.w + x); }
     }
+    const shrooms = [[0.05, -0.1, 0.78, 0.36, "violet"], [-0.32, 0.04, 0.52, 0.26, "cyan"], [0.36, 0.08, 0.42, 0.24, "pink"], [-0.06, 0.24, 0.3, 0.17, "amber"]];
+    for (const [dx, dy, h, r, kind] of shrooms) {
+      const [dk, md, lt, hi] = kinds[kind], x = Math.round(cx + dx * t), y = Math.round(cy + dy * t), top = Math.round(y - h * t), rx = Math.max(2, r * t), ry = Math.max(2, rx * 0.82);
+      T.glow(x, top, rx * 1.6, lt, 0.55);
+      // a plump stem, a little wider at the foot, with a streak of light
+      const sw = Math.max(1, Math.round(rx * 0.32));
+      for (let k = 0; k < y - top; k++) { const wid = sw + (k < 2 ? 1 : 0); for (let q = -wid; q < wid; q++) T.px(x + q, y - k, q === -wid ? (k % 4 === 1 ? IC.white : IC.l0) : q < 0 ? IC.l1 : IC.l2); }
+      for (let yy = Math.floor(top - ry); yy <= top + 1; yy++) for (let xx = Math.floor(x - rx); xx <= Math.ceil(x + rx); xx++) {
+        const nx = (xx + 0.5 - x) / rx, ny = (yy + 0.5 - top) / ry;
+        if (nx * nx + ny * ny > 1 || yy > top + 1) continue;
+        const k = (yy - (top - ry)) / (ry + 1);
+        T.px(xx, yy, k > 0.8 ? hi : k > 0.55 ? lt : k > 0.25 ? md : dk);
+      }
+      // the glowing gills: a bright band right under the rim, whitest in the middle
+      for (let xx = Math.floor(x - rx + 1); xx <= Math.ceil(x + rx - 1); xx++) T.px(xx, top + 1, Math.abs(xx - x) < rx * 0.4 ? IC.white : hi);
+      // glowing spots on the cap
+      for (let i = 0; i < Math.max(2, Math.round(rx / 2)); i++) { const sx = x + Math.round((pxHash(i, top) - 0.5) * rx * 1.3), sy = top - Math.round(ry * (0.3 + 0.5 * pxHash(top, i))); T.px(sx, sy, hi); }
+    }
+    // spores, drifting and twinkling in turn
+    for (let i = 0; i < 6; i++) { if ((i + f) % 3 === 0) continue; T.px(cx + Math.round((pxHash(i, 5) - 0.5) * t * 1.4), cy - Math.round(t * (0.9 + pxHash(5, i) * 0.9)) - ((i + f) % 4), i % 2 ? IC.b0 : IC.y0); }
   },
   bed(t, T, ax, ay) {
-    const a = t - 0.5, b = t * 0.45, x = ax, y = ay + 1;
-    T.box(x, y, a, b, 3, IC.w1, IC.w2, IC.w3);                                       // frame
-    T.box(x, y - 3, a, b, 3, IC.s0, IC.s1, IC.s2, false);                             // mattress
-    T.box(x + t * 0.75, y - 6 + t * 0.375, a - t * 0.375, b, 2, IC.l1, IC.l2, IC.l3, false); // the blanket over the foot
-    T.box(x + 2, y - 6 + 1, t * 0.28, b - 1, 2, IC.white, IC.s0, IC.s1, false);         // pillow
-    T.box(x, y, 1.2, b, 10, IC.w1, IC.w2, IC.w3);                                      // headboard against the wall
+    // a big soft nest-bed, two tiles each way, all fabric: a plump base, a puffy rim against the walls,
+    // a white sheet, a row of pillows and a striped pink quilt over the front half
+    const a = t - 0.6, b = t - 0.6, x = ax, y = ay + 1, at = (du, dv, up = 0) => [x + 2 * du - 2 * dv, y + du + dv - up];
+    T.box(...at(0, 0), a, b, 4, IC.l1, IC.l2, IC.l3);
+    T.box(...at(1.4, 1.4, 4), a - 1.6, b - 1.6, 1, IC.s0, IC.s1, IC.s2, false);
+    T.box(...at(0, 0, 4), a, 1.5, 4, IC.l0, IC.l1, IC.l2);
+    T.box(...at(0, 0, 4), 1.5, b, 4, IC.l0, IC.l1, IC.l2);
+    for (const [du, dv] of [[2, 1.6], [2 + a * 0.32, 1.6], [1.6, 2 + b * 0.32]]) T.box(...at(du, dv, 5), 2.6, 1.6, 2, IC.white, IC.s0, IC.s1, false);
+    const qa = a * 0.55, qb = b - 1.8, q0 = [a - qa - 0.2, 1.6];
+    T.box(...at(q0[0], q0[1], 5), qa, qb, 2, IC.p1, IC.p2, IC.p3, false);
+    for (const k of [0.3, 0.65]) { const [sx, sy] = at(q0[0] + qa * k, q0[1], 7); T.line(sx, sy, sx - 2 * qb, sy + qb, IC.p0); }
   },
 };
 
 /** The baked picture of one placed piece, in CSS pixels ready for drawBaked. */
 function isoPiece(p, extra = {}) {
-  // one tile along either floor axis moves isoW/ISO_G across the screen
-  const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3;
-  const w = (p.fw + p.fd) * tw + pad * 2, h = (p.fw + p.fd) * tw / 2 + tw * 2 + pad;
-  const ax = p.fd * tw + pad, ay = tw * 2 + pad / 2;
-  const key = `${p.id}|${p.i},${p.j}|${tw.toFixed(2)}|${JSON.stringify(extra)}`;
+  const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3, base = pieceDims(p.id, false);
+  const w = Math.ceil((base.fw + base.fd) * tw + pad * 2), h = (base.fw + base.fd) * tw / 2 + tw * 2 + pad;
+  const ax0 = base.fd * tw + pad, ay = tw * 2 + pad / 2;
+  const key = `${p.id}|${p.i},${p.j}|${p.flip}|${tw.toFixed(2)}|${JSON.stringify(extra)}`;
   return cachedSprite(isoPieces, p.id, key, () => {
-    const c = isoArt(w, h, T => ISO_ART[p.id](tw, T, ax, ay, extra));
+    let c = isoArt(w, h, T => ISO_ART[p.id](tw, T, ax0, ay, extra)), ax = ax0;
+    if (p.flip) {
+      // turned to face the other wall: a mirror image (the back corner stays the back corner)
+      const m = document.createElement("canvas"); m.width = c.width; m.height = c.height;
+      const g = m.getContext("2d"); g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(c, 0, 0);
+      c = m; ax = c.width - ax0;
+    }
     const [bx, by] = isoAt(p.i / ISO_G, p.j / ISO_G);
     return { c, x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX };
   });
 }
+
+// ---------- rearranging the room ----------
+const arrange = { on: false, sel: null, drag: null };
+function startArrange() {
+  show("shop", false);
+  arrange.on = true; arrange.sel = null; arrange.drag = null;
+  document.body.classList.add("arranging");
+  $("arrangeBar").hidden = false; arrangeUi();
+}
+function stopArrange() {
+  arrange.on = false; arrange.sel = arrange.drag = null;
+  document.body.classList.remove("arranging");
+  $("arrangeBar").hidden = true;
+  [N.bedX, N.bedY] = roomSpot("bed");
+}
+function arrangeUi() {
+  const p = arrange.sel && isoLayout().placed[arrange.sel];
+  $("arrangeTip").textContent = p ? (DECO[p.id]?.name || tr(p.id === "bed" ? "Bed" : "Incubator")) : tr("Tap a piece, then drag it to a new spot");
+  $("arrangeFlip").disabled = !p;
+  $("arrangeStore").disabled = !p || !!ISO_FIXED[p.id];
+}
+/** The piece under a finger (the nearest one whose footprint or body is there). */
+function pieceAt(x, y) {
+  let best = null, bd = Infinity;
+  for (const p of Object.values(isoLayout().placed)) {
+    const [px, py] = isoPieceAt(p), tile = N.isoW / ISO_G, reach = tile * Math.max(p.fw, p.fd);
+    if (Math.abs(x - px) < reach && y < py + tile * 0.7 && y > py - tile * 2.2) { const d = Math.hypot(x - px, y - py); if (d < bd) { bd = d; best = p; } }
+  }
+  return best;
+}
+/** Would this piece fit with its corner on tile (i, j), turned or not, ignoring where it is now? */
+function pieceFits(id, i, j, flip) {
+  const d = pieceDims(id, flip), cur = isoLayout().placed[id];
+  if (i < 0 || j < 0 || i + d.fw > ISO_G || j + d.fd > ISO_G) return false;
+  for (const p of Object.values(isoLayout().placed)) {
+    if (p.id === id) continue;
+    if (i < p.i + p.fw && p.i < i + d.fw && j < p.j + p.fd && p.j < j + d.fd) return false;
+  }
+  return !!cur || true;
+}
+function placePiece(id, i, j, flip) {
+  save.layout = { ...save.layout, [id]: { i, j, flip: !!flip } };
+  isoLayoutCache = null; persist(); sfx.tick();
+}
+function arrangeDown(x, y) {
+  const p = pieceAt(x, y);
+  arrange.sel = p ? p.id : null; arrange.drag = null; arrangeUi();
+  if (p) { const [u, v] = isoFrom(x, y); arrange.grab = [u * ISO_G - p.i, v * ISO_G - p.j]; }
+}
+function arrangeMove(x, y) {
+  const p = arrange.sel && isoLayout().placed[arrange.sel];
+  if (!p) return;
+  const [u, v] = isoFrom(x, y), i = Math.round(u * ISO_G - arrange.grab[0]), j = Math.round(v * ISO_G - arrange.grab[1]);
+  arrange.drag = { id: p.id, i, j, ok: pieceFits(p.id, i, j, p.flip) };
+}
+function arrangeUp() {
+  const d = arrange.drag, p = d && isoLayout().placed[d.id];
+  if (d && p && d.ok && (d.i !== p.i || d.j !== p.j)) placePiece(d.id, d.i, d.j, p.flip);
+  else if (d && !d.ok) toast(tr("That spot is taken"));
+  arrange.drag = null; arrangeUi();
+}
+/** Turn the chosen piece to face the other wall, keeping it where it is if it fits, or the nearest free spot. */
+function arrangeFlip() {
+  const p = arrange.sel && isoLayout().placed[arrange.sel];
+  if (!p) return;
+  const flip = !p.flip, spots = [[p.i, p.j], ...Array.from({ length: ISO_G * ISO_G }, (_, k) => [k % ISO_G, Math.floor(k / ISO_G)]).sort((a, b) => Math.hypot(a[0] - p.i, a[1] - p.j) - Math.hypot(b[0] - p.i, b[1] - p.j))];
+  const spot = spots.find(([i, j]) => pieceFits(p.id, i, j, flip));
+  if (!spot) { toast(tr("No room to turn it here")); return; }
+  placePiece(p.id, spot[0], spot[1], flip);
+}
+function arrangeStore() {
+  const p = arrange.sel && isoLayout().placed[arrange.sel];
+  if (!p || ISO_FIXED[p.id] || !save.decor[p.id]) return;
+  save.decor[p.id].on = false; isoLayoutCache = null; persist(); sfx.tick();
+  arrange.sel = null; arrangeUi();
+}
+/** While arranging: the floor's tiles, the chosen piece's footprint, and where it would land. */
+function drawArrangeGrid() {
+  const corner = (i, j) => isoAt(i / ISO_G, j / ISO_G);
+  ctx.save();
+  ctx.strokeStyle = "rgba(230,224,255,.22)"; ctx.lineWidth = 1;
+  for (let k = 0; k <= ISO_G; k++) { let [a, b] = [corner(k, 0), corner(k, ISO_G)]; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); [a, b] = [corner(0, k), corner(ISO_G, k)]; ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...b); ctx.stroke(); }
+  const foot = (i, j, fw, fd, col) => { ctx.fillStyle = col; ctx.beginPath(); ctx.moveTo(...corner(i, j)); ctx.lineTo(...corner(i + fw, j)); ctx.lineTo(...corner(i + fw, j + fd)); ctx.lineTo(...corner(i, j + fd)); ctx.closePath(); ctx.fill(); };
+  const p = arrange.sel && isoLayout().placed[arrange.sel];
+  if (p) foot(p.i, p.j, p.fw, p.fd, "rgba(238,194,106,.35)");
+  const d = arrange.drag;
+  if (d && p) foot(d.i, d.j, p.fw, p.fd, d.ok ? "rgba(87,173,106,.5)" : "rgba(224,99,79,.5)");
+  ctx.restore();
+}
 const isoPieces = {};
+
+/** Each sleeper's own place on the bed: a 2×2 spread on the big isometric bed, side by side on the straight-on one. */
+function bedSpot(id) {
+  const sleepers = save.creatures.filter(c => c.sleeping).map(c => c.id).sort((p, q) => p - q), k = Math.max(0, sleepers.indexOf(id)), n = sleepers.length;
+  const p = N.iso && isoLayout().placed.bed;
+  if (p) {
+    // a 2×2 spread kept inside the bed (and away from the walls, where glowlings can't stand)
+    const ci = k % 2, ri = Math.floor(k / 2) % 2, extra = Math.floor(k / 4) * 0.12, m = isoMargin(0.45);
+    return isoAt(clamp((p.i + p.fw * (0.3 + 0.42 * ci + extra)) / ISO_G, m, 1 - m), clamp((p.j + p.fd * (0.32 + 0.4 * ri + extra)) / ISO_G, m, 1 - m));
+  }
+  return [N.bedX + (k - (n - 1) / 2) * N.base * 0.42, N.bedY + (k % 2) * N.base * 0.1];
+}
 
 /** A piece's own pixel picture for the Decor list (the same drawing as in the room), or its emoji if it hangs on a wall. */
 const decorThumbs = {};
@@ -5675,18 +5895,19 @@ let decorK = 1;
 /** The isometric room's furniture, back to front: the pixel pieces on the floor, then the swing and the lights on the walls. */
 function drawRoomIso() {
   drawBaked(isoRug(hasDecor("rug")));
+  if (arrange.on) drawArrangeGrid();
   const items = [];
   for (const p of Object.values(isoLayout().placed)) {
     const fy = isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1];
     if (p.id === "incubator") { items.push({ y: fy, draw: drawIncubator }); continue; }
     const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
-    const extra = p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : {};
+    const extra = p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : {};
     items.push({ y: fy, draw: () => drawBaked(isoPiece(p, extra), 0, bob) });
   }
   if (hasDecor("swing")) items.push({ y: N.back - N.isoH * 0.5, draw: () => DRAW_DECOR.swing() });
   if (hasDecor("shelf")) { const [x, y] = decorSpot("shelf"); items.push({ y: -2, draw: () => { decorK = N.dk; drawBaked(cachedSprite(roomSprites, "shelf", `${x}|${y}|${N.base}|${PX}|${Math.floor(game.time / 200)}`, () => bakeSprite(x, y - N.base * 0.6 * N.dk, N.base * N.dk, () => DRAW_DECOR.shelf(x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } }); }
   if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
-  items.sort((p, q) => p.y - q.y).forEach(it => it.draw());
+  return items;
 }
 
 /** What sort of place each backdrop is: a hollow in the cave wall, an abbey hall, or a clearing under the sky. */
@@ -6178,12 +6399,28 @@ function sweepDust(x, y) {
 }
 
 function drawNest() {
-  drawRoom();
+  // furniture and glowlings share one back-to-front order, so a glowling behind the bookcase is hidden by it
+  const items = drawRoom() || [];
   drawDust();
+  // whoever lies on the bed or sits on a piece is drawn right after it (on top), not by where their feet are
+  const frontOf = id => { const p = N.iso && isoLayout().placed[id]; return p ? isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1] : null; };
+  for (const a of actors.values()) {
+    const on = a.state === "sleep" || a.state === "toBed" ? frontOf("bed") : (a.state === "nap" || a.state === "visit") && a.decor ? frontOf(a.decor) : null;
+    items.push({ y: on != null && a.state !== "toBed" ? on + 0.5 : a.y + 0.5, draw: () => drawActor(a) });
+  }
+  items.sort((p, q) => p.y - q.y).forEach(it => it.draw());
+  const sn = game.nest.snack;
+  if (sn) {
+    fx.font = `${Math.round(N.base * 0.32)}px system-ui`; fx.textAlign = "center";
+    fx.fillText(sn.emoji, sn.x, sn.y);
+    fx.textAlign = "start";
+  }
+}
+function drawActor(a) {
   const act = activeCreature();
-  for (const a of [...actors.values()].sort((p, q) => p.y - q.y)) {
+  {
     const cr = save.creatures.find(c => c.id === a.id);
-    if (!cr) continue;
+    if (!cr) return;
     const v = actorView(a), sp = specOf(cr), mine = act && a.id === act.id;
     ctx.fillStyle = "rgba(5,0,20,.35)";
     ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.38 * clamp(1 - a.alt / (N.base * 1.4), 0.4, 1), v.size * 0.09, 0, 0, TAU); ctx.fill();
@@ -6204,12 +6441,6 @@ function drawNest() {
       }
       fx.globalAlpha = 1;
     } else if (a.emote) drawEmote(a, v);
-  }
-  const sn = game.nest.snack;
-  if (sn) {
-    fx.font = `${Math.round(N.base * 0.32)}px system-ui`; fx.textAlign = "center";
-    fx.fillText(sn.emoji, sn.x, sn.y);
-    fx.textAlign = "start";
   }
 }
 
@@ -6838,6 +7069,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "crack" && game.egg.state === "cracking") hitEgg(x, y);
   if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = now; }
   if (game.scene === "catch" && game.catch) game.catch.tx = x;
+  if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
   if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
   else if (game.scene === "nest" && !actorAt(x, y) && (pointer.decor = decorAt(x, y))) {
@@ -6854,6 +7086,7 @@ function handlePointerMove(x, y, now = performance.now(), remote = false) {
     if (game.egg.state === "polish") { const steps2 = Math.max(1, Math.ceil(d / (6 * L.k))); for (let i = 1; i <= steps2; i++) rub(lerp(pointer.lx, x, i / steps2), lerp(pointer.ly, y, i / steps2), d / steps2, (now - (pointer.lt || now)) / 1000 / steps2); pointer.lt = now; }
     if (!remote) game.trail.push({ x, y, t: now });
   }
+  if (game.scene === "nest" && pointer.arrange) { if (pointer.moved > 6) arrangeMove(x, y); pointer.lx = x; pointer.ly = y; return; }
   if (game.scene === "nest") {
     if (pointer.call) game.nest.call = { x: clamp(x, N.x0, N.x1), y: clamp(y, N.y0, N.y1), t: game.time };
     else if (pointer.warm) warmEgg(d);
@@ -6866,6 +7099,7 @@ function handlePointerMove(x, y, now = performance.now(), remote = false) {
 }
 function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (!pointer) return;
+  if (pointer.arrange) { pointer = null; arrangeUp(); return; }
   const tap = pointer.moved < 10 && now - pointer.t0 < 350, calling = pointer.call, decorHit = pointer.decor;
   if (!remote && coopIsGuest()) { coopSendInput("up", x, y); pointer = null; return; }
   pointer = null;
@@ -7233,6 +7467,11 @@ $("nextLvl").addEventListener("click", () => {
 });
 $("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
 $("foundShare").addEventListener("click", shareFound);
+$("switcher").addEventListener("scroll", switchArrows, { passive: true });
+for (const [id, dir] of [["swPrev", -1], ["swNext", 1]]) $(id).addEventListener("click", () => { sfx.tick(); const sw = $("switcher"); sw.scrollBy({ left: dir * sw.clientWidth * 0.8, behavior: "smooth" }); });
+$("arrangeFlip").addEventListener("click", arrangeFlip);
+$("arrangeStore").addEventListener("click", arrangeStore);
+$("arrangeDone").addEventListener("click", () => { sfx.tick(); stopArrange(); });
 $("firstEgg").addEventListener("click", () => startLevel(nextLevel() || 1));
 $("nestShare").addEventListener("click", () => { const cr = activeCreature(); if (cr) shareCreature(cr); });
 $("polishDone").addEventListener("click", coopFinishPolish);
