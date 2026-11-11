@@ -664,6 +664,10 @@
   body.compact #nestTop #nestName { font-size: 22px; }
   body.compact #nestTop { top: calc(var(--top) + 46px) !important; }
   .view-seg { display: flex; margin: 4px 0 8px; }
+  .decor img.px-thumb { width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; flex: 0 0 48px; }
+  .space-bar { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; margin: 12px 2px 0; font-size: 16px; color: var(--soft); }
+  .space-bar b { color: var(--px-gold); font-weight: 400; }
+  .space-bar i { grid-column: 1 / -1; height: 8px; background: linear-gradient(90deg, var(--px-gold) calc(var(--k) * 100%), var(--px-deep) 0); box-shadow: 0 0 0 3px var(--px-ink); }
   .view-seg button { flex: 1; }
   body.compact .card { max-width: calc(100vw - 20px); }
   body.compact .overlay { padding: 14px 10px; }
@@ -714,7 +718,8 @@
   /* very narrow: icons and numbers only on the top bar, ? and language live in the menu, the buttons stack their labels */
   body.narrow #topbar .faq-btn, body.narrow #topbar .lang-btn { display: none; }
   body.narrow .menu-only { display: inline-flex !important; }
-  body.narrow .pill.stack small { display: none; }
+  body.compact .pill.stack small { display: none; }
+  body.compact #topbar .pill.stack { min-width: 0; }
   body.narrow #topbar .pill:not(.round) { padding: 0 9px; }
   body.narrow .acts { width: 100%; gap: 4px; }
   body.narrow .acts .act { flex: 1; min-width: 0; flex-direction: column; gap: 0; padding: 5px 2px 13px; font-size: 14px; }
@@ -1513,7 +1518,26 @@ const UK = {
   "Isometric": "Ізометрія",
   "Your friend left · {0} is in your nest ✦": "Друг вийшов · {0} уже в твоєму гніздечку ✦",
   "{0} met a sibling: +40 XP": "{0} зустрів родича: +40 досвіду",
-  "Your friend left the shared room": "Друг вийшов зі спільної кімнати"
+  "Your friend left the shared room": "Друг вийшов зі спільної кімнати",
+  "Bookcase": "Книжкова шафа",
+  "Moss armchair": "Мохове крісло",
+  "Tea table": "Чайний столик",
+  "Toy chest": "Скриня з іграшками",
+  "Crystal plant": "Кришталева рослинка",
+  "Moon painting": "Картина з місяцем",
+  "leafs through a book": "гортає книжку",
+  "curls up in the armchair": "згорнувся в кріслі",
+  "sips moonleaf tea": "сьорбає місячний чай",
+  "digs through the toy chest": "порпається в скрині з іграшками",
+  "sniffs the crystal plant": "нюхає кришталеву рослинку",
+  "admires the painting": "милується картиною",
+  "Room space": "Місце в кімнаті",
+  "No room on the floor: put something away first": "На підлозі немає місця: спершу прибери щось",
+  "{0} is in storage: the floor is full. Put something away to place it": "{0} у коморі: підлога вже зайнята. Прибери щось, щоб поставити",
+  "Frost Hollow": "Крижана западина",
+  "Aurora Summit": "Вершина під сяйвом",
+  "meet 12 kinds of glowling": "зустрінь 12 видів глоулінгів",
+  "raise a glowling to Radiant": "вирости Сяйливого глоулінга"
 };
 
 const UK_DATA = {
@@ -1771,6 +1795,8 @@ const sfx = {
       labradorite: { root: 185, mode: MINOR, prog: [0, 5, 3, 4], bpm: 72, ...box },
       churchyard: { root: 146.83, mode: MINOR, prog: [0, 3, 5, 4], bpm: 64, lead: "triangle", shine: 0.6, decay: 2.4, arp: "triangle", arpDecay: 1.6, gain: 1.1, bells: true },
       glowcap: { root: 196, mode: MAJOR, prog: [0, 3, 4, 0], bpm: 104, lead: "triangle", shine: 0.12, decay: 0.32, arp: "triangle", arpDecay: 0.25, gain: 1.1 },
+      frost: { root: 329.63, mode: MAJOR, prog: [0, 5, 3, 4], bpm: 76, lead: "sine", shine: 0.7, decay: 1.8, arp: "sine", arpDecay: 1.2, gain: 0.95, bells: true },
+      summit: { root: 174.61, mode: DORIAN, prog: [0, 3, 6, 4], bpm: 66, lead: "triangle", shine: 0.4, decay: 2.2, arp: "sine", arpDecay: 2.4, gain: 1, pad: true },
       abbey: { root: 130.81, mode: MAJOR, prog: [0, 5, 3, 4], bpm: 58, lead: "sine", shine: 0.3, decay: 2.8, arp: "sine", arpDecay: 3, gain: 0.9, pad: true },
     };
     this.song = songs[id] || songs.amethyst;
@@ -2206,6 +2232,16 @@ const DECOR = [
   { id: "swing", name: "Moon swing", emoji: "🌙", cost: 70, lovers: ["nap", "hop"], spot: [0.9, 0.4], verb: "swings on the moon", emote: "♥" },
   { id: "lights", name: "Fairy lights", emoji: "🎐", cost: 55, lovers: ["flutter", "dance"], spot: [0.5, 0], verb: "chases the fairy lights", emote: "✦" },
 ];
+// the isometric room has space for more: these stand on the floor (or hang on the wall) only in that view
+DECOR.push(
+  { id: "bookcase", name: "Bookcase", emoji: "📚", cost: 65, lovers: ["curious"], verb: "leafs through a book", emote: "✦", iso: true },
+  { id: "armchair", name: "Moss armchair", emoji: "🛋️", cost: 50, lovers: ["nap"], verb: "curls up in the armchair", emote: "zz", iso: true },
+  { id: "table", name: "Tea table", emoji: "🫖", cost: 45, lovers: ["dance", "curious"], verb: "sips moonleaf tea", emote: "♥", iso: true },
+  { id: "chest", name: "Toy chest", emoji: "🧸", cost: 40, lovers: ["hop"], verb: "digs through the toy chest", emote: "!", iso: true },
+  { id: "plant", name: "Crystal plant", emoji: "🪴", cost: 35, lovers: ["flutter", "swim"], verb: "sniffs the crystal plant", emote: "✦", iso: true },
+  { id: "painting", name: "Moon painting", emoji: "🖼️", cost: 55, lovers: ["curious", "dance"], verb: "admires the painting", emote: "✦", iso: true, wall: true },
+);
+if (LANG === "uk") for (const d of DECOR) if (d.iso) { d.name = tr(d.name); d.verb = tr(d.verb); }
 const DECO = Object.fromEntries(DECOR.map(d => [d.id, d]));
 const BEHAVIOR_NAMES = { flutter: "flutterers", hop: "hoppers", nap: "nappers", dance: "dancers", curious: "curious ones", swim: "swimmers" };
 
@@ -2307,6 +2343,7 @@ const CHAPTER_ART = [
   { seed: 11, wall: ["#040c20", "#0b1a3a", "#142b58", "#1f4078", "#2f5a9a"], crystal: ["#1d3f75", "#3f78b8", "#7fb8e6", "#bfe4fb", "#f0fbff"], glow: "#8fd8ef", pool: ["#0b1a3a", "#1f4078", "#5d9bd0", "#bfe4fb"] },
   { seed: 23, wall: ["#020d08", "#06201a", "#0c3a29", "#16573c", "#257a52"], crystal: ["#0e3d2a", "#1f7a52", "#3fb07a", "#8fe0b0", "#e0fff0"], glow: "#7fe0a8", bands: true },
   { seed: 37, wall: ["#05060b", "#0e111c", "#1a2030", "#283247", "#3a4862"], crystal: ["#1a2433", "#2f4a66", "#4f7fa3", "#9fd0e6", "#f4f7ff"], glow: "#7fd8c0", flash: ["#1f5f8f", "#2fa3b8", "#7fd8c0", "#e8d27a"] },
+  { seed: 43, wall: ["#0b0f1e", "#0f2f4a", "#1d5276", "#3383a8", "#69b7d6"], crystal: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5", "#ffffff"], glow: "#b8e6f5", pool: ["#0f2f4a", "#1d5276", "#69b7d6", "#ffffff"] },
 ];
 const chapterArtCache = [];
 function chapterArt(ci) {
@@ -2371,6 +2408,8 @@ const THEMES = [
   { id: "churchyard", name: "Moonlit Churchyard", how: "open a moon egg", ok: () => !!save.moon },
   { id: "glowcap", name: "Glowcap Wood", how: "collect 30 stars", ok: () => totalStars() >= 30 },
   { id: "abbey", name: "Starfall Abbey", how: "clear all 24 levels", ok: () => unlocked(LEVELS + 1) },
+  { id: "frost", name: "Frost Hollow", art: 4, how: "meet 12 kinds of glowling", ok: () => Object.keys(save.seen).length >= 12 },
+  { id: "summit", name: "Aurora Summit", how: "raise a glowling to Radiant", ok: () => save.creatures.some(c => c.level >= 15) },
 ];
 const THEME = Object.fromEntries(THEMES.map(t => [t.id, t]));
 const CAVE_THEME = ["amethyst", "celestite", "malachite", "labradorite"];
@@ -2386,6 +2425,11 @@ const NIGHT = {
     seed: 53, sky: ["#0b0614", "#0f2f4a", "#1d5276", "#3383a8"], far: ["#0b0614", "#10301f", "#1e5233"],
     ground: ["#0b0614", "#10301f", "#1e5233", "#2f7d4a", "#57ad6a"], mist: "#69b7d6", hill: 0.6,
     moon: [0.22, 0.13, 0.05], moonCol: ["#69b7d6", "#b8e6f5", "#ffffff"],
+  },
+  summit: {
+    seed: 79, sky: ["#0b0614", "#0f2f4a", "#1d5276", "#3383a8"], far: ["#0f2f4a", "#1d5276", "#3383a8", "#69b7d6"],
+    ground: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5", "#ffffff"], mist: "#69b7d6", hill: 0.6,
+    moon: [0.16, 0.14, 0.04], moonCol: ["#69b7d6", "#b8e6f5", "#ffffff"],
   },
   abbey: {
     seed: 67, sky: ["#160c26", "#2e1d4f", "#5c1f3f", "#8f3460", "#c25586"], far: ["#0b0614", "#160c26", "#22143a"],
@@ -2497,6 +2541,30 @@ const NIGHT_PROPS = {
     }
     g.fillStyle = "#fff0b5";
     for (let i = 0; i < 26; i++) g.fillRect(Math.round(pxHash(i, seed + 11) * W), Math.round(H * 0.2 + pxHash(seed, i) * H * 0.6), 1, 1);
+  },
+  summit(g, W, H, fy, seed) {
+    // northern lights: curtains of green with a pink hem, rippling across the upper sky
+    for (let x = 0; x < W; x++) {
+      const base = H * (0.22 + 0.07 * Math.sin(x * 0.035 + seed)) , len = H * (0.12 + 0.08 * pxNoise(x * 0.06, seed));
+      for (let y = Math.round(base - len); y < base + 4; y++) {
+        const k = 1 - Math.abs(y - (base - len * 0.4)) / (len * 0.8);
+        if (k > 0 && PX_BAYER[(y & 3) * 4 + (x & 3)] < k * 0.6 * (0.6 + 0.4 * Math.sin(x * 0.2 + y * 0.04))) { g.fillStyle = y < base - len * 0.6 ? "#c25586" : k > 0.65 ? "#a3dd9b" : "#57ad6a"; g.fillRect(x, y, 1, 1); }
+      }
+    }
+    // sharp peaks with snow on their tops, two ranges
+    // (their feet stand on the ground line, wherever the room puts it)
+    for (const [lift, amp, cols, n] of [[0.08, 0.3, ["#1d5276", "#3383a8", "#b8e6f5", "#ffffff"], 6], [0, 0.16, ["#0f2f4a", "#1d5276", "#69b7d6", "#b8e6f5"], 8]]) {
+      const baseK = fy / H - lift;
+      const peaks = Array.from({ length: n }, (_, i) => ({ x: (i + 0.2 + pxHash(i, n + seed) * 0.6) * W / (n - 0.8) - 10, h: 0.45 + pxHash(n, i + seed) * 0.55, w: W * (0.08 + pxHash(i, 3) * 0.06) }));
+      for (let x = 0; x < W; x++) {
+        const ridge = H * baseK - H * amp * Math.max(...peaks.map(p => p.h * Math.max(0, 1 - Math.abs(x - p.x) / p.w))), slopeLeft = Math.max(...peaks.map(p => p.h * Math.max(0, 1 - Math.abs(x + 1 - p.x) / p.w))) > Math.max(...peaks.map(p => p.h * Math.max(0, 1 - Math.abs(x - p.x) / p.w)));
+        for (let y = Math.max(0, Math.round(ridge)); y < fy; y++) {
+          const snow = y - ridge < 4 + 3 * pxNoise(x * 0.3, y * 0.1) && ridge < H * (baseK - amp * 0.45);
+          g.fillStyle = snow ? (slopeLeft ? cols[2] : cols[3]) : (slopeLeft ? cols[0] : cols[1]);
+          g.fillRect(x, y, 1, 1);
+        }
+      }
+    }
   },
   abbey(g, W, H, fy, seed) {
     // ruined gothic walls with pointed windows, and a great rose window glowing in the middle
@@ -2769,9 +2837,10 @@ function eggPoly(cx, cy, w, h, n = 96) {
   return pts;
 }
 
-/** Short or narrow phones get a tighter layout (see the body.compact and body.narrow styles). */
+/** Every screen gets the tight layout now (needs on the buttons, low tabs, one-line header), so the room has the space;
+ *  the narrowest phones also move ? and language into the menu. */
 function screenFit() {
-  document.body.classList.toggle("compact", H < 740 || W < 360);
+  document.body.classList.toggle("compact", true);
   document.body.classList.toggle("narrow", W < 360);
 }
 
@@ -2788,7 +2857,7 @@ function computeLayout() {
   L.floor = L.ecy + L.eh / 2;
   L.egg = eggPoly(L.ecx, L.ecy, L.ew, L.eh);
   // the nest leaves room for the name above and the needs, buttons and tabs below
-  const compact = H < 740 || W < 360;
+  const compact = true;
   const nTop = compact ? 98 : 116, nBottom = H - (compact ? 206 : 280), roomW = Math.min(W * 0.92, 760);
   N.top = nTop;
   N.base = clamp(Math.min(W * 0.18, (nBottom - nTop) * 0.28), 56, 120);
@@ -2807,8 +2876,9 @@ function computeLayout() {
   if (N.iso) {
     const room = nBottom - nTop;
     N.isoW = Math.min(W * 0.47, 400, room * 0.9); N.isoH = N.isoW / 2;
-    N.isoWall = clamp(room - N.isoW - 4, N.base * 1.2, N.isoW * 0.95);
-    N.isoTop = nBottom - N.isoW - 6;
+    // taller walls on tall screens (more wall for the window, shelf and painting); any space left over goes above and below evenly
+    N.isoWall = clamp(room - N.isoW - 4, N.base * 1.2, N.isoW * 1.25);
+    N.isoTop = nBottom - N.isoW - 6 - Math.max(0, room - N.isoW - 4 - N.isoWall) / 2;
     N.y0 = N.isoTop; N.y1 = N.isoTop + N.isoW;
     N.wallTop = N.isoTop - N.isoWall;
     N.back = N.isoTop + N.isoH; N.front = N.y1 + 10;
@@ -2855,9 +2925,10 @@ const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 
 // and the incubator; the right wall has the shelf, the spring and the swing, the bed in its corner; mushrooms in front
 const ROOM_SLOTS_ISO = { lamp: [0.06, 0.08], cushion: [0.05, 0.5], incubator: [0.1, 0.86], spring: [0.36, 0.06], bed: [0.9, 0.1], mushrooms: [0.92, 0.9], rug: [0.5, 0.5] };
 function roomSpot(id) {
+  if (N.iso && isoLayout().placed[id]) { const p = isoLayout().placed[id]; return isoPieceAt(p, id === "bed" || id === "cushion" || id === "incubator" ? 0 : 0.55); }
   if (N.iso) {
     if (id === "shelf") { const [x, y] = isoAt(0.22, 0); return [x, y - N.isoWall * 0.5 + N.base * 0.95 * N.dk]; }
-    if (id === "swing") { const [x, y] = floorAt(0.66, 0.04); return [x, y + N.base * 0.55]; }
+    if (id === "swing") { const [x, y] = floorAt(0.42, 0.04); return [x, y + N.base * 0.55]; }
     if (id === "lights") return [N.cx, N.wallTop];
     const [u, v] = ROOM_SLOTS_ISO[id] || [0.5, 0.5];
     return floorAt(u, v);
@@ -4014,7 +4085,7 @@ const TASK_SHARDS = 10, TASK_BONUS = 15;
   STAGES.splice(0, STAGES.length, ...D.stages);
   CAVES.splice(0, CAVES.length, ...D.caves);
   CAVE_NOTES.splice(0, CAVE_NOTES.length, ...D.caveNotes);
-  for (const t of THEMES) Object.assign(t, D.themes[t.id]);
+  for (const t of THEMES) Object.assign(t, D.themes[t.id] || { name: tr(t.name), how: tr(t.how) });
   for (const id in D.tasks) TASKS[id].text = D.tasks[id];
   for (const f of FORGE) f.name = tr(f.name);
 })();
@@ -4758,10 +4829,12 @@ function openShop() {
     const ok = t.ok();
     return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
   }).join("")}</div><h3>${tr("Decorations")}</h3>`;
-  $("shopList").innerHTML = themes + DECOR.map(d => {
+  const iso = N.iso, used = isoSpaceUsed();
+  const space = iso ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "";
+  $("shopList").innerHTML = themes + space + DECOR.filter(d => iso || !d.iso).map(d => {
     const owned = save.decor[d.id];
     const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
-    return `<button class="decor${owned ? " owned" : ""}" data-id="${d.id}" ${!owned && save.shards < d.cost ? "disabled" : ""}><span class="em">${d.emoji}</span><span><b>${d.name}</b><small>${tr("{0} love it", who[0].toUpperCase() + who.slice(1))}</small></span><span class="cost">${owned ? (owned.on ? tr("placed ✓") : tr("stored")) : "✦ " + d.cost}</span></button>`;
+    return `<button class="decor${owned ? " owned" : ""}" data-id="${d.id}" ${!owned && save.shards < d.cost ? "disabled" : ""}>${decorThumb(d)}<span><b>${d.name}</b><small>${tr("{0} love it", who[0].toUpperCase() + who.slice(1))}</small></span><span class="cost">${owned ? (owned.on ? tr("placed ✓") : tr("stored")) : "✦ " + d.cost}</span></button>`;
   }).join("");
   $$("#shopList .decor").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
@@ -4778,16 +4851,23 @@ function setView(v) {
 }
 
 /** Buy a decoration, or tap one you own to put it away or bring it back. */
+/** Is there room on the floor for one more of this? (only the isometric room has a limit; wall pieces don't take floor) */
+const roomFor = id => !N.iso || !ISO_PLACES[id] || isoSpaceUsed() + ISO_PLACES[id].fw * ISO_PLACES[id].fd <= ISO_CAP;
 function buyDecor(id) {
   const d = DECO[id], owned = save.decor[id];
-  if (owned) { owned.on = !owned.on; sfx.tick(); }
+  if (owned) {
+    if (!owned.on && !roomFor(id)) { toast(tr("No room on the floor: put something away first")); sfx.tick(); return; }
+    owned.on = !owned.on; sfx.tick();
+  }
   else {
     if (save.shards < d.cost) return;
     save.shards -= d.cost;
-    save.decor[id] = { on: true, at: Date.now() };
+    const fits = roomFor(id);
+    save.decor[id] = { on: fits, at: Date.now() };
+    if (!fits) toast(tr("{0} is in storage: the floor is full. Put something away to place it", d.name));
     taskDone("decor");
     sfx.levelUp();
-    toast(tr("{0} placed in the nest ✦", d.name));
+    if (fits) toast(tr("{0} placed in the nest ✦", d.name));
   }
   persist();
   updateTopbar();
@@ -4842,6 +4922,11 @@ const roomPoint = () => floorAt(rand(0.08, 0.92), rand(0.05, 0.95));
 /** The things you can't stand inside, as flat ellipses on the floor. */
 function roomObstacles() {
   const b = N.base, out = [];
+  if (N.iso) {
+    // every placed piece is an ellipse over its tiles
+    for (const p of Object.values(isoLayout().placed)) { const [x, y] = isoPieceAt(p); out.push({ id: p.id, x, y, rx: N.isoW / ISO_G * Math.max(p.fw, p.fd) * 0.9, ry: N.isoH / ISO_G * Math.max(p.fw, p.fd) * 0.9 }); }
+    return out;
+  }
   const add = (id, rx, ry) => { const [x, y] = roomSpot(id), k = depthK(y); out.push({ id, x, y, rx: rx * b * k, ry: ry * b * k }); };
   add("incubator", 0.5, 0.2); add("bed", 0.72, 0.24);
   if (hasDecor("lamp")) add("lamp", 0.3, 0.14);
@@ -5028,7 +5113,7 @@ function updateActors(dt) {
 function drawRoom() {
   const { y1 } = N, cx = N.cx, kind = ROOM_KIND[currentTheme()] || "cave";
   // the walls and floor of this backdrop, painted once in art pixels
-  const rk = `${currentTheme()}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}`;
+  const rk = `${currentTheme()}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}`;
   if (roomCanvas.key !== rk + N.iso) { roomCanvas.key = rk + N.iso; roomCanvas.c = N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()); }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
   // a round window onto the night sky in the cave wall (the abbey has its own arched one; outdoors the sky is already there)
@@ -5063,6 +5148,7 @@ function drawRoom() {
     ctx.fillStyle = ray;
     ctx.beginPath(); ctx.moveTo(cx - wr * 0.7, wy); ctx.lineTo(cx + wr * 0.7, wy); ctx.lineTo(cx + wr * 1.7, y1); ctx.lineTo(cx - wr * 1.7, y1); ctx.closePath(); ctx.fill();
   }
+  if (N.iso) { drawRoomIso(); return; }
   // a round woven rug in solid rings, in the middle of the floor
   const [rcx, rcy] = roomSpot("rug"), [rrx, rry] = rugSize();
   const starry = hasDecor("rug");
@@ -5076,7 +5162,7 @@ function drawRoom() {
   // furniture from the back of the room to the front, so nearer things overlap farther ones
   const items = [{ y: N.bedY, draw: () => drawCushion(N.bedX, N.bedY + N.base * 0.1 * depthK(N.bedY), N.base * 0.72 * depthK(N.bedY)) },
     { y: incSpot()[1], draw: drawIncubator }];
-  for (const d of DECOR) if (hasDecor(d.id) && d.id !== "rug") {
+  for (const d of DECOR) if (hasDecor(d.id) && d.id !== "rug" && DRAW_DECOR[d.id]) {
     const [x, y] = decorSpot(d.id);
     // the swing and the lights are thin lines on the wall; the rest are baked
     if (d.id === "swing" || d.id === "lights") { items.push({ y: d.id === "lights" ? -1 : N.back, draw: () => DRAW_DECOR[d.id](x, y) }); continue; }
@@ -5088,6 +5174,292 @@ function drawRoom() {
   items.sort((p, q) => p.y - q.y).forEach(it => it.draw());
 }
 const roomSprites = {}, roomCanvas = {};
+// ---------- isometric pixel furniture ----------
+// Drawn pixel by pixel on the 2:1 grid (two pixels across for one down), the way isometric pixel art is made:
+// each piece is built from boxes, discs and cylinders on the floor's axes (the "box method"), lit from the left
+// like the room: top faces lightest, left faces middle, right faces darkest, and a dark outline around the whole.
+// Circles lying on the floor become 2:1 ellipses. Only palette colors, no smoothing.
+const IC = Object.fromEntries(Object.entries({
+  ink: "#0b0614", ink2: "#22143a",
+  w1: "#c98f3a", w2: "#946027", w3: "#5e3a1c", w0: "#eec26a",
+  s0: "#e4dfe8", s1: "#b9b3c0", s2: "#8a8494", s3: "#5d5666", s4: "#3a3440",
+  l0: "#efe6ff", l1: "#d2bfff", l2: "#ad91e6", l3: "#8a6cc9", l4: "#6b4fa8",
+  p0: "#ffc4da", p1: "#e88bb1", p2: "#c25586", p3: "#8f3460",
+  b0: "#b8e6f5", b1: "#69b7d6", b2: "#3383a8", b3: "#1d5276",
+  g0: "#a3dd9b", g1: "#57ad6a", g2: "#2f7d4a", g3: "#1e5233",
+  y0: "#fff0b5", y1: "#eec26a", r1: "#e0634f", r2: "#b8323b", r3: "#7d1e2c", white: "#ffffff",
+}).map(([k, v]) => [k, pxHex(v)]));
+
+/** A little canvas in art pixels, with tools that draw on the 2:1 grid; an ink outline goes round everything at the end. */
+function isoArt(w, h, paint, { outline = true } = {}) {
+  w = Math.ceil(w); h = Math.ceil(h);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
+  const T = {
+    w, h, glowPx: new Set(),
+    px(x, y, col) { x = Math.round(x); y = Math.round(y); if (!col || x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; },
+    has(x, y) { return x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0; },
+    /** Fill a polygon by testing each pixel's center (clean 2:1 steps on the iso edges). */
+    poly(pts, col) {
+      const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
+      for (let y = Math.floor(Math.min(...ys)); y <= Math.ceil(Math.max(...ys)); y++) for (let x = Math.floor(Math.min(...xs)); x <= Math.ceil(Math.max(...xs)); x++) {
+        const px = x + 0.5, py = y + 0.5; let inside = false;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) {
+          const [xi, yi] = pts[i], [xj, yj] = pts[j];
+          if ((yi > py) !== (yj > py) && px < (xj - xi) * (py - yi) / (yj - yi) + xi) inside = !inside;
+        }
+        if (inside) T.px(x, y, typeof col === "function" ? col(x, y) : col);
+      }
+    },
+    /** A box standing on the floor: (x, y) is its back corner, a units along the right-hand axis, b along the left-hand one, hgt pixels tall. */
+    box(x, y, a, b, hgt, top, left, right, rim = true) {
+      const Bu = [x + 2 * a, y + a], Bv = [x - 2 * b, y + b], Buv = [x + 2 * a - 2 * b, y + a + b], up = p => [p[0], p[1] - hgt];
+      T.poly([Bv, Buv, up(Buv), up(Bv)], left);
+      T.poly([Bu, Buv, up(Buv), up(Bu)], right);
+      T.poly([up([x, y]), up(Bu), up(Buv), up(Bv)], top);
+      // a lit edge along the front corner and the top's front rims
+      if (rim && hgt > 1) { const [fx, fy] = Buv; for (let k = 1; k < hgt; k++) T.px(fx - 0.5, fy - k - 0.5, top); }
+      return { Bu, Bv, Buv, top: up([x, y]) };
+    },
+    /** A flat 2:1 ellipse on the floor plane. */
+    disc(cx, cy, rx, col, ry = rx / 2) {
+      for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - rx); x <= Math.ceil(cx + rx); x++)
+        if (((x + 0.5 - cx) / rx) ** 2 + ((y + 0.5 - cy) / ry) ** 2 <= 1) T.px(x, y, typeof col === "function" ? col(x, y) : col);
+    },
+    /** A cylinder: a band of side (lighter on the left) under a 2:1 top. */
+    cyl(cx, cy, rx, hgt, top, side, dark) {
+      for (let k = 0; k <= hgt; k++) T.disc(cx, cy - k, rx, (x) => x < cx - rx * 0.3 ? side : x > cx + rx * 0.35 ? dark : side);
+      T.disc(cx, cy - hgt, rx, top);
+    },
+    /** A round blob (domes, clouds, caps), shaded from the top left. */
+    ball(cx, cy, r, light, mid, dark, ry = r) {
+      for (let y = Math.floor(cy - ry); y <= Math.ceil(cy + ry); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+        const dx = (x + 0.5 - cx) / r, dy = (y + 0.5 - cy) / ry;
+        if (dx * dx + dy * dy > 1) continue;
+        const lit = -dx * 0.6 - dy * 0.8;
+        T.px(x, y, lit > 0.45 ? light : lit > -0.35 ? mid : dark);
+      }
+    },
+    line(x0, y0, x1, y1, col) {
+      x0 = Math.round(x0); y0 = Math.round(y0); x1 = Math.round(x1); y1 = Math.round(y1);
+      const dx = Math.abs(x1 - x0), dy = -Math.abs(y1 - y0), sx = x0 < x1 ? 1 : -1, sy = y0 < y1 ? 1 : -1;
+      let e = dx + dy;
+      for (;;) { T.px(x0, y0, col); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
+    },
+    /** A soft light made of scattered pixels (dithered, so it stays crisp). */
+    glow(cx, cy, r, col, k = 0.5) {
+      for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+        const f = 1 - Math.hypot(x - cx, (y - cy) * 1.4) / r;
+        if (f > 0 && !T.has(x, y) && PX_BAYER[(y & 3) * 4 + (x & 3)] < f * k) { T.px(x, y, col); T.glowPx.add(y * w + x); }
+      }
+    },
+  };
+  paint(T);
+  if (outline) {
+    const solid = new Uint8Array(w * h);
+    for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 0 && !T.glowPx.has(i) ? 1 : 0;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      if (solid[y * w + x]) continue;
+      if ((x > 0 && solid[y * w + x - 1]) || (x < w - 1 && solid[y * w + x + 1]) || (y > 0 && solid[(y - 1) * w + x]) || (y < h - 1 && solid[(y + 1) * w + x])) {
+        const i = (y * w + x) * 4; if (d[i + 3] === 0 || T.glowPx.has(y * w + x)) { d[i] = IC.ink[0]; d[i + 1] = IC.ink[1]; d[i + 2] = IC.ink[2]; d[i + 3] = 255; }
+      }
+    }
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+const ISO_G = 6;          // the floor is a 6×6 grid of tiles
+const ISO_CAP = 7;        // how many tiles of furniture fit before the room feels stuffed (the bed and incubator come with the room)
+/** Each piece: its size in tiles, and the tiles it likes to stand on, best first (i runs along the right wall, j along the left). */
+const ISO_PLACES = {
+  lamp: { fw: 1, fd: 1, at: [[0, 0], [1, 0]] },
+  bookcase: { fw: 1, fd: 1, at: [[1, 0], [2, 0], [3, 0]] },
+  spring: { fw: 1, fd: 1, at: [[2, 0], [3, 0], [1, 0]] },
+  armchair: { fw: 1, fd: 1, at: [[0, 1], [1, 1], [0, 2]] },
+  cushion: { fw: 1, fd: 1, at: [[0, 2], [0, 3], [1, 2]] },
+  chest: { fw: 1, fd: 1, at: [[0, 5], [1, 5], [0, 4]] },
+  plant: { fw: 1, fd: 1, at: [[5, 1], [3, 0], [5, 2]] },
+  table: { fw: 1, fd: 1, at: [[4, 3], [3, 4], [4, 2]] },
+  mushrooms: { fw: 1, fd: 1, at: [[5, 5], [4, 5], [5, 4]] },
+};
+const ISO_FIXED = { bed: { fw: 2, fd: 1, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] } };
+
+/** Which floor pieces are out, and where: worked out again only when the furniture changes. */
+let isoLayoutCache = null;
+function isoLayout() {
+  const out = Object.keys(ISO_PLACES).filter(hasDecor);
+  const key = out.join(",");
+  if (isoLayoutCache && isoLayoutCache.key === key) return isoLayoutCache;
+  const busy = new Set(), placed = {};
+  const take = (i, j, fw, fd) => { for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) busy.add(`${i + a},${j + b}`); };
+  const free = (i, j, fw, fd) => { for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) if (i + a >= ISO_G || j + b >= ISO_G || busy.has(`${i + a},${j + b}`)) return false; return true; };
+  for (const [id, f] of Object.entries(ISO_FIXED)) { take(f.at[0], f.at[1], f.fw, f.fd); placed[id] = { id, i: f.at[0], j: f.at[1], fw: f.fw, fd: f.fd }; }
+  // the rug's middle stays open: glowlings dance there
+  for (const t of ["2,2", "2,3", "3,2", "3,3"]) busy.add(t);
+  for (const id of out) {
+    const f = ISO_PLACES[id], spot = f.at.find(([i, j]) => free(i, j, f.fw, f.fd));
+    if (!spot) continue;
+    take(spot[0], spot[1], f.fw, f.fd);
+    placed[id] = { id, i: spot[0], j: spot[1], fw: f.fw, fd: f.fd };
+  }
+  return (isoLayoutCache = { key, placed });
+}
+/** How many furniture tiles are in use, out of the room's space. */
+const isoSpaceUsed = () => Object.keys(ISO_PLACES).filter(hasDecor).reduce((n, id) => n + ISO_PLACES[id].fw * ISO_PLACES[id].fd, 0);
+/** The middle of a placed piece on the floor (CSS pixels), and the spot just in front of it. */
+function isoPieceAt(p, front = 0) { return isoAt((p.i + p.fw / 2 + front) / ISO_G, (p.j + p.fd / 2 + front) / ISO_G); }
+
+/** Every piece's picture: (ax, ay) inside it is the back corner of its footprint. t is one tile's width in art pixels. */
+const ISO_ART = {
+  lamp(t, T, ax, ay, o) {
+    const cx = ax, cy = ay + t / 2, top = cy - t * 1.7;
+    if (!o.off) T.glow(cx, top + 2, t * 1.1, IC.y0, 0.38);
+    T.cyl(cx, cy, t * 0.24, 2, IC.l2, IC.l3, IC.l4);
+    for (let y = Math.round(top + 4); y < cy - 1; y++) { T.px(cx - 1, y, IC.l1); T.px(cx, y, IC.l4); }
+    // the crystal shade: a little prism, lit facets left and top
+    const sh = o.off ? [IC.s2, IC.s3, IC.s4] : [IC.y0, IC.y1, IC.w1];
+    T.poly([[cx, top - 5], [cx - 4, top], [cx, top + 4]], sh[0]);
+    T.poly([[cx, top - 5], [cx + 4, top], [cx, top + 4]], sh[1]);
+    T.poly([[cx - 4, top], [cx, top + 4], [cx + 4, top], [cx, top + 2]], sh[2]);
+    if (!o.off) T.px(cx - 1, top - 2, IC.white);
+  },
+  bookcase(t, T, ax, ay) {
+    const a = t / 2 - 0.5, b = t * 0.32, hgt = Math.round(t * 1.55);
+    const B = T.box(ax, ay, a, b, hgt, IC.w1, IC.w2, IC.w3);
+    // the open front faces the room (the left-hand face): shelves and books on it
+    const at = (s, z) => [B.Bv[0] + (B.Buv[0] - B.Bv[0]) * s, B.Bv[1] + (B.Buv[1] - B.Bv[1]) * s - z];
+    const books = [IC.p1, IC.b1, IC.g1, IC.y1, IC.l2, IC.r1, IC.b2, IC.p2];
+    for (let row = 0; row < 3; row++) {
+      const z0 = 2 + row * (hgt - 3) / 3, z1 = z0 + (hgt - 3) / 3 - 1;
+      for (let s = 0.12; s < 0.9; s += 1 / (2 * a + 2 * 0)) {
+        const k = Math.floor(s * 2 * a), col = books[(k * 7 + row * 3) % books.length], tall = z1 - 1 - (k % 3 === 0 ? 1 : 0);
+        for (let z = z0; z < tall; z++) { const [x, y] = at(s, z); T.px(x, y, col); }
+      }
+      for (let s = 0; s <= 1; s += 0.5 / a) { const [x, y] = at(s, z0 - 1); T.px(x, y, IC.w3); }
+    }
+  },
+  spring(t, T, ax, ay, o) {
+    const cx = ax, cy = ay + t / 2, rx = t * 0.62;
+    T.disc(cx, cy, rx, (x, y) => { const an = Math.atan2(y - cy, (x - cx) / 2); return Math.floor(an * 4 + 8) % 2 ? IC.s2 : IC.s3; });
+    T.disc(cx, cy - 1, rx - 2, IC.s1);
+    T.disc(cx, cy, rx - 3, IC.b2);
+    T.disc(cx - 1, cy - 1, rx - 5, IC.b1);
+    const f = o.frame || 0;
+    for (let k = 0; k < 4; k++) { const an = k * 1.7 + f * 0.6; T.px(cx + Math.cos(an) * (rx - 5), cy + Math.sin(an) * (rx - 5) / 2, IC.b0); }
+  },
+  armchair(t, T, ax, ay) {
+    const a = t * 0.42, b = t * 0.42, x = ax + 1, y = ay + 2;
+    T.box(x, y, a, b, Math.round(t * 0.32), IC.g1, IC.g2, IC.g3);                    // seat
+    T.box(x, y, a, 1.6, Math.round(t * 0.85), IC.g1, IC.g2, IC.g3);                  // back, against the wall
+    T.box(x, y, 1.4, b, Math.round(t * 0.55), IC.g0, IC.g2, IC.g3);                  // left arm
+    T.box(x + 2 * a - 2.8, y + a - 1.4, 1.4, b, Math.round(t * 0.55), IC.g0, IC.g2, IC.g3); // right arm
+    T.box(x + 1, y + 2, a - 2, b - 2, Math.round(t * 0.38), IC.g0, IC.g1, IC.g2, false); // the cushion
+  },
+  cushion(t, T, ax, ay) {
+    const cx = ax, cy = ay + t / 2;
+    T.disc(cx, cy + 1, t * 0.5, IC.l3);
+    for (const [dx, dy, r] of [[-0.24, -0.08, 0.24], [0.2, -0.1, 0.26], [0, -0.26, 0.28], [-0.05, 0.02, 0.26]]) T.ball(cx + dx * t, cy + dy * t, r * t, IC.l0, IC.l1, IC.l2, r * t * 0.82);
+  },
+  chest(t, T, ax, ay) {
+    const a = t * 0.42, b = t * 0.32, hgt = Math.round(t * 0.42), x = ax, y = ay + 2;
+    const B = T.box(x, y, a, b, hgt, IC.w1, IC.w2, IC.w3);
+    // the lid, a little proud, with a pink band and a gold latch on the front
+    T.box(x, y - hgt + 1, a, b, 3, IC.p1, IC.p2, IC.p3, false);
+    const mx = (B.Bv[0] + B.Buv[0]) / 2, my = (B.Bv[1] + B.Buv[1]) / 2 - hgt + 3;
+    T.px(mx, my, IC.y0); T.px(mx, my + 1, IC.y1); T.px(mx - 1, my + 1, IC.w1);
+  },
+  plant(t, T, ax, ay) {
+    const cx = ax, cy = ay + t / 2, ph = Math.round(t * 0.3);
+    T.cyl(cx, cy, t * 0.26, ph, IC.r3, IC.r1, IC.r2);
+    T.disc(cx, cy - ph, t * 0.2, IC.w3);
+    for (const [dx, h, lean, c0, c1] of [[-2, 0.75, -0.25, IC.b0, IC.b1], [1, 1.0, 0.1, IC.l0, IC.l2], [3, 0.6, 0.35, IC.b0, IC.b2], [-4, 0.5, -0.45, IC.l1, IC.l3]]) {
+      const bx = cx + dx, by = cy - ph, hh = t * h;
+      T.poly([[bx - 1, by], [bx + lean * hh - 1, by - hh * 0.75], [bx + lean * hh, by - hh], [bx + lean * hh + 1, by - hh * 0.75], [bx + 1, by]], (x) => x < bx + lean * hh * 0.5 ? c0 : c1);
+    }
+  },
+  table(t, T, ax, ay) {
+    const cx = ax, cy = ay + t / 2, lift = Math.round(t * 0.42), rx = t * 0.4;
+    T.disc(cx, cy, rx * 0.45, IC.w3);
+    for (let k = 1; k < lift; k++) { T.px(cx - 1, cy - k, IC.w2); T.px(cx, cy - k, IC.w3); }
+    T.cyl(cx, cy - lift, rx, 2, IC.w1, IC.w2, IC.w3);
+    // a teapot and a cup
+    const ty = cy - lift - 3;
+    T.ball(cx - 1, ty - 1, 3.2, IC.p0, IC.p1, IC.p2, 2.6);
+    T.px(cx + 3, ty - 2, IC.p1); T.px(cx + 4, ty - 3, IC.p1); T.px(cx - 1, ty - 4, IC.p2);
+    T.px(cx - 6, ty + 1, IC.s0); T.px(cx - 5, ty + 1, IC.s0); T.px(cx - 6, ty + 2, IC.s1);
+  },
+  mushrooms(t, T, ax, ay, o) {
+    const cx = ax, cy = ay + t / 2;
+    for (const [dx, dy, h, r, c] of [[-0.28, 0.05, 0.55, 0.22, [IC.b0, IC.b1, IC.b2]], [0.12, -0.08, 0.85, 0.28, [IC.l0, IC.l2, IC.l3]], [0.32, 0.12, 0.45, 0.2, [IC.p0, IC.p1, IC.p2]]]) {
+      const x = cx + dx * t, y = cy + dy * t, top = y - h * t;
+      T.glow(x, top, t * 0.55, c[1], 0.3);
+      for (let k = 0; k < h * t; k++) { T.px(x - 1, y - k, IC.l0); T.px(x, y - k, IC.s1); }
+      T.ball(x, top, r * t, c[0], c[1], c[2], r * t * 0.6);
+      T.poly([[x - r * t - 0.5, top + 1], [x + r * t + 0.5, top + 1], [x + r * t, top + 2], [x - r * t, top + 2]], c[2]);
+      T.px(x - r * t * 0.4, top - 1, IC.white); T.px(x + r * t * 0.3, top - r * t * 0.3, IC.white);
+    }
+  },
+  bed(t, T, ax, ay) {
+    const a = t - 0.5, b = t * 0.45, x = ax, y = ay + 1;
+    T.box(x, y, a, b, 3, IC.w1, IC.w2, IC.w3);                                       // frame
+    T.box(x, y - 3, a, b, 3, IC.s0, IC.s1, IC.s2, false);                             // mattress
+    T.box(x + t * 0.75, y - 6 + t * 0.375, a - t * 0.375, b, 2, IC.l1, IC.l2, IC.l3, false); // the blanket over the foot
+    T.box(x + 2, y - 6 + 1, t * 0.28, b - 1, 2, IC.white, IC.s0, IC.s1, false);         // pillow
+    T.box(x, y, 1.2, b, 10, IC.w1, IC.w2, IC.w3);                                      // headboard against the wall
+  },
+};
+
+/** The baked picture of one placed piece, in CSS pixels ready for drawBaked. */
+function isoPiece(p, extra = {}) {
+  // one tile along either floor axis moves isoW/ISO_G across the screen
+  const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3;
+  const w = (p.fw + p.fd) * tw + pad * 2, h = (p.fw + p.fd) * tw / 2 + tw * 2 + pad;
+  const ax = p.fd * tw + pad, ay = tw * 2 + pad / 2;
+  const key = `${p.id}|${p.i},${p.j}|${tw.toFixed(2)}|${JSON.stringify(extra)}`;
+  return cachedSprite(isoPieces, p.id, key, () => {
+    const c = isoArt(w, h, T => ISO_ART[p.id](tw, T, ax, ay, extra));
+    const [bx, by] = isoAt(p.i / ISO_G, p.j / ISO_G);
+    return { c, x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX };
+  });
+}
+const isoPieces = {};
+
+/** A piece's own pixel picture for the Decor list (the same drawing as in the room), or its emoji if it hangs on a wall. */
+const decorThumbs = {};
+function decorThumb(d) {
+  const draw = ISO_ART[d.id];
+  if (!draw) return `<span class="em">${d.emoji}</span>`;
+  if (!decorThumbs[d.id]) {
+    const f = ISO_PLACES[d.id] || { fw: 1, fd: 1 }, t = 16, pad = 6, w = (f.fw + f.fd) * t + pad * 2, h = (f.fw + f.fd) * t / 2 + t * 2 + pad;
+    const c = isoArt(w, h, T => draw(t, T, f.fd * t + pad, t * 2 + pad / 2, {}));
+    // trimmed to the drawing, so small pieces fill their square too
+    const dd = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (dd[(y * c.width + x) * 4 + 3]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    const side = Math.max(x1 - x0, y1 - y0) + 3, o = document.createElement("canvas"); o.width = o.height = side;
+    o.getContext("2d").drawImage(c, x0, y0, x1 - x0 + 1, y1 - y0 + 1, Math.floor((side - (x1 - x0 + 1)) / 2), Math.floor((side - (y1 - y0 + 1)) / 2), x1 - x0 + 1, y1 - y0 + 1);
+    decorThumbs[d.id] = o.toDataURL();
+  }
+  return `<img class="em px-thumb" src="${decorThumbs[d.id]}" alt="">`;
+}
+
+/** The rug, in pixel rings on the floor (a 2:1 ellipse, as circles on the floor are). */
+function isoRug(starry) {
+  const [rx, ry] = rugSize(), [cx, cy] = roomSpot("rug"), art = Math.ceil(rx / PX) * 2 + 6;
+  return cachedSprite(isoPieces, "rug", `${rx}|${PX}|${starry}|${starry ? Math.floor(game.time / 400) : ""}`, () => {
+    const R = rx / PX, c = isoArt(art, art / 2 + 4, T => {
+      const ox = art / 2, oy = art / 4 + 2;
+      if (starry) {
+        T.disc(ox, oy, R, IC.b3); T.disc(ox, oy, R - 2, IC.b2 && pxHex("#0f2f4a"));
+        for (let k = 0; k < 360; k += 4) { const an = k * Math.PI / 180; T.px(ox + Math.cos(an) * (R - 1), oy + Math.sin(an) * (R - 1) / 2, IC.y1); }
+        for (let i = 0; i < 12; i++) { const an = i * 2.4, d = 0.25 + (i % 5) * 0.13, tw = Math.sin(game.time * 0.0015 + i); if (tw < -0.6) continue; T.px(ox + Math.cos(an) * R * d, oy + Math.sin(an) * R * d / 2, tw > 0.5 ? IC.y0 : IC.y1); }
+      } else [IC.p3, IC.p2, IC.p1, IC.p2, IC.p3].forEach((col, i) => T.disc(ox, oy, R * (1 - i * 0.19), col));
+    }, { outline: false });
+    return { c, x: Math.round(cx / PX - art / 2) * PX, y: Math.round(cy / PX - art / 4 - 2) * PX };
+  });
+}
+
 
 /** The isometric room in art pixels: a diamond floor on a thick slab, and (indoors) a lit left wall and a shaded right one.
  *  Caves get rock, crystals and a hole onto the night; the abbey brick, tiles and an arched window;
@@ -5206,13 +5578,45 @@ function paintRoomIso(id) {
     if (indoor) { put(x, wallTopQ(x) + 2, pxHex("#8a8494")); } else post(Math.round(x), fy, wallTopQ(x) + 4);
   }
   if (hasDecor("shelf") && !indoor) { const [shx, shy] = roomSpot("shelf"), py = q(shy - N.base * 0.95 * N.dk), [, fy] = at(0.22, 0); post(Math.round(q(shx) - 3), fy, py); post(Math.round(q(shx) + 4), fy + 2, py + 3); }
+  if (hasDecor("painting")) {
+    // a framed night with a moon, on the left wall's plane (a parallelogram that follows the wall)
+    const s0 = 0.08, s1 = 0.3, z0 = indoor ? 0.48 : 0.0, z1 = indoor ? 0.82 : 0.0;
+    if (indoor) for (let x = Math.floor(cx - hw * s1); x <= Math.ceil(cx - hw * s0); x++) {
+      const tt = (cx - x) / hw, base = top + tt * hh, lx = (tt - s0) / (s1 - s0);
+      for (let y = Math.floor(base - wall * z1); y <= base - wall * z0; y++) {
+        const hy = (base - y) / wall, ly = (hy - z0) / (z1 - z0), edge = lx < 0.09 || lx > 0.91 || ly < 0.1 || ly > 0.9;
+        let col = edge ? (lx < 0.09 || ly > 0.9 ? IC.w0 : IC.w2) : pxPick([IC.ink2, pxHex("#2e1d4f"), pxHex("#3d2866"), pxHex("#523a85")], ly * 0.9, x, y);
+        if (!edge && Math.hypot((lx - 0.65) * 2, ly - 0.7) < 0.22) col = IC.y0;
+        if (!edge && ly < 0.28) col = pxPick([IC.g3, IC.g2], 0.5 + 0.5 * Math.sin(lx * 9), x, y);
+        if (!edge && pxHash(x, y + 5) > 0.93 && ly > 0.45) col = IC.white;
+        put(x, y, col);
+      }
+    }
+  }
   g.putImageData(img, 0, 0);
   return c;
 }
 let decorK = 1;
 
+/** The isometric room's furniture, back to front: the pixel pieces on the floor, then the swing and the lights on the walls. */
+function drawRoomIso() {
+  drawBaked(isoRug(hasDecor("rug")));
+  const items = [];
+  for (const p of Object.values(isoLayout().placed)) {
+    const fy = isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1];
+    if (p.id === "incubator") { items.push({ y: fy, draw: drawIncubator }); continue; }
+    const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
+    const extra = p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : {};
+    items.push({ y: fy, draw: () => drawBaked(isoPiece(p, extra), 0, bob) });
+  }
+  if (hasDecor("swing")) items.push({ y: N.back - N.isoH * 0.5, draw: () => DRAW_DECOR.swing() });
+  if (hasDecor("shelf")) { const [x, y] = decorSpot("shelf"); items.push({ y: -2, draw: () => { decorK = N.dk; drawBaked(cachedSprite(roomSprites, "shelf", `${x}|${y}|${N.base}|${PX}|${Math.floor(game.time / 200)}`, () => bakeSprite(x, y - N.base * 0.6 * N.dk, N.base * N.dk, () => DRAW_DECOR.shelf(x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } }); }
+  if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
+  items.sort((p, q) => p.y - q.y).forEach(it => it.draw());
+}
+
 /** What sort of place each backdrop is: a hollow in the cave wall, an abbey hall, or a clearing under the sky. */
-const ROOM_KIND = { amethyst: "cave", celestite: "cave", malachite: "cave", labradorite: "cave", abbey: "hall", churchyard: "yard", glowcap: "wood" };
+const ROOM_KIND = { amethyst: "cave", celestite: "cave", malachite: "cave", labradorite: "cave", frost: "cave", abbey: "hall", churchyard: "yard", glowcap: "wood", summit: "yard" };
 
 /** The room's walls and floor in art pixels, for one backdrop: caves get rough rock with crystals in the corners and stone slabs,
  *  the abbey brick with a tall arched window and tiles, the churchyard grass behind a low stone wall, the wood moss behind a fallen log. */
@@ -5498,9 +5902,10 @@ const DRAW_DECOR = {
   },
   swing() {
     const [sx, sy, , top] = swingSeat(), b = N.base;
-    ctx.strokeStyle = "rgba(230,224,255,.6)"; ctx.lineWidth = 1.5;
+    // ropes as runs of whole pixels
+    ctx.fillStyle = "#b9b3c0";
     const px = decorSpot("swing")[0];
-    for (const d of [-1, 1]) { ctx.beginPath(); ctx.moveTo(px + d * b * 0.3, top); ctx.lineTo(sx + d * b * 0.3, sy); ctx.stroke(); }
+    for (const d of [-1, 1]) { const x0 = px + d * b * 0.3, x1 = sx + d * b * 0.3, n = Math.max(1, Math.round((sy - top) / PX)); for (let k = 0; k <= n; k++) ctx.fillRect(Math.round(lerp(x0, x1, k / n) / PX) * PX, Math.round(lerp(top, sy, k / n) / PX) * PX, PX, PX); }
     ctx.fillStyle = "#fff8d6";
     ctx.beginPath(); ctx.arc(sx, sy, b * 0.4, Math.PI * 0.05, Math.PI * 0.95); ctx.arc(sx, sy - b * 0.14, b * 0.36, Math.PI * 0.92, Math.PI * 0.08, true); ctx.closePath(); ctx.fill();
   },
@@ -5549,6 +5954,11 @@ function bulbPos(i) {
 /** Which decoration (if any) is under a finger. The rug is left out: the floor is for calling everyone. */
 function decorAt(x, y) {
   const b = N.base;
+  if (N.iso) for (const p of Object.values(isoLayout().placed)) {
+    if (p.id === "bed" || p.id === "incubator") continue;
+    const [px, py] = isoPieceAt(p), tile = N.isoW * 2 / ISO_G;
+    if (Math.abs(x - px) < tile * 0.6 && y < py + tile * 0.3 && y > py - tile * 1.6) return { id: p.id };
+  }
   for (const d of DECOR) {
     if (!hasDecor(d.id) || d.id === "rug" || d.id === "lights") continue;
     let [hx, hy] = decorSpot(d.id), r = b * 0.55;
