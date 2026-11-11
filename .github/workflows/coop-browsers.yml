@@ -1,0 +1,32 @@
+name: Co-op across browsers
+
+# Two players in different browsers (Chrome, Firefox, Safari's WebKit), each in a fresh incognito-like context,
+# play one shared egg: once with a link through public signaling, once by swapping codes by hand.
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  coop:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Browsers
+        run: |
+          npm install --no-save playwright@1.62.1
+          npx playwright install --with-deps chromium firefox webkit
+      - name: Serve the game
+        run: python3 -m http.server 8766 --bind 127.0.0.1 &
+      - name: Shared egg by link
+        run: node tests/coop-browsers.mjs chromium:firefox,firefox:webkit,webkit:chromium,chromium:chromium,firefox:firefox,webkit:webkit
+      - name: Shared egg by hand-swapped codes
+        env:
+          CODES: '1'
+        run: node tests/coop-browsers.mjs chromium:firefox,firefox:webkit,webkit:chromium

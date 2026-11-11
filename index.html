@@ -650,6 +650,65 @@
     #libGrid .pg img { height: 84px; }
     #libGrid .pg img.lib-px { width: 96px; height: 96px; }
   }
+
+  /* ---------- small phones: everything a little tighter, so the nest has room to breathe ---------- */
+  .menu-only { display: none !important; }
+  body.compact .card { max-width: calc(100vw - 20px); }
+  body.compact .overlay { padding: 14px 10px; }
+  body.compact .card { padding: 18px 16px; }
+  body.compact h2 { font-size: 34px; line-height: 1; }
+  body.compact h1 { font-size: 60px; }
+  body.compact #pixelGrotto { width: 220px; }
+  body.compact .pill { height: 38px; }
+  body.compact .pill.stack small { font-size: 9px; }
+  body.compact #nestTop { top: calc(var(--top) + 44px); }
+  body.compact #nestName { font-size: 32px; }
+  body.compact #nestLvl { font-size: 14px; margin-top: 0; }
+  body.compact #xpBar { margin-top: 3px; width: 140px; }
+  body.compact.scene-nest #hint, body.compact #hint { top: calc(var(--top) + 102px); }
+  /* the three needs move onto the buttons that fill them, like an old handheld pet */
+  body.compact #nestBottom .needs { display: none; }
+  body.compact #nestBottom { bottom: calc(var(--bottom) + 82px); gap: 7px; }
+  body.compact .acts .act { position: relative; padding: 8px 10px 15px; font-size: 16px; gap: 5px; }
+  body.compact .acts .act .ic { width: 22px; height: 22px; }
+  body.compact .acts .act[data-fill]::after { content: ""; position: absolute; left: 10px; right: 10px; bottom: 5px; height: 5px;
+    background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 2px), var(--px-ink) 0 25%), linear-gradient(90deg, var(--fillc, var(--px-gold)) calc(var(--fill, 1) * 100%), rgba(255, 255, 255, .14) 0); }
+  body.compact #feedBtn { --fillc: #eec26a; } body.compact #playBtn { --fillc: #e88bb1; } body.compact #sleepBtn { --fillc: #69b7d6; }
+  body.compact .acts .act.lowfill::after { animation: pxBlink 1s steps(2) infinite; }
+  body.compact #switcher button { width: 40px; height: 40px; }
+  body.compact #switcher button img.px2 { width: 34px !important; height: 34px !important; }
+  /* a lower tab bar */
+  body.compact #tabs { padding: 4px; gap: 4px; }
+  body.compact #tabs button { padding: 3px 2px !important; font-size: 14px !important; }
+  body.compact #tabs button .ic, body.compact #tabs button.on .ic { width: 22px; height: 22px; }
+  body.compact #tabs button.on { transform: translateY(-4px); }
+  body.compact #crackTab { transform: translateY(-9px); padding: 5px 2px !important; font-size: 16px !important; }
+  body.compact #crackTab .ic { width: 28px !important; height: 28px !important; }
+  body.compact #crackTab small { font-size: 11px; }
+  body.compact .overlay.screen { padding-bottom: calc(var(--bottom) + 84px); }
+  /* the found card keeps its buttons in view, at the bottom of the card; the rest scrolls above them */
+  #found .found-actions { padding-top: 4px; }
+  body.compact #found { padding-top: calc(var(--top) + 58px); place-items: start center; }
+  body.compact #found .card { max-height: calc(100dvh - var(--top) - 70px); }
+  body.narrow .themes { grid-template-columns: repeat(2, 1fr) !important; }
+  body.compact #found .found-actions { position: sticky; bottom: -18px; margin: 8px -16px -18px; padding: 10px 16px 14px; background: var(--px-panel, #2a1f55); box-shadow: 0 -3px 0 0 var(--px-raise), 0 -14px 16px -8px rgba(11, 6, 26, .7); }
+  body.compact #found .cta { margin-top: 0; padding-top: 10px; padding-bottom: 10px; }
+  body.compact #found .plate #foundImg { height: 96px; }
+  body.compact #found .big-name { font-size: 40px; }
+  body.compact #found .tale p { font-size: 16px; line-height: 1.3; }
+  body.compact #found .stats b { font-size: 20px; }
+  body.compact #found .stats span { font-size: 13px; }
+  body.compact #found .row.center { margin-top: 10px; }
+  /* very narrow: icons and numbers only on the top bar, ? and language live in the menu, the buttons stack their labels */
+  body.narrow #topbar .faq-btn, body.narrow #topbar .lang-btn { display: none; }
+  body.narrow .menu-only { display: inline-flex !important; }
+  body.narrow .pill.stack small { display: none; }
+  body.narrow #topbar .pill:not(.round) { padding: 0 9px; }
+  body.narrow .acts { width: 100%; gap: 4px; }
+  body.narrow .acts .act { flex: 1; min-width: 0; flex-direction: column; gap: 0; padding: 5px 2px 13px; font-size: 14px; }
+  body.narrow #startCorner { top: 8px; right: 8px; }
+  body.narrow #startCorner .pill { height: 34px; width: 34px; }
+  body.narrow h1 { font-size: 50px; }
 </style>
 </head>
 <body>
@@ -684,6 +743,8 @@
       <button class="act" id="mapCoop"><i class="ic" data-ic="duo"></i>Play together</button>
       <button class="act" id="backupBtn" aria-label="Back up your nest"><i class="ic" data-ic="scroll"></i>Back up nest</button>
       <button class="act mute" data-label="1" aria-label="Mute sound"><i class="ic" data-ic="sound"></i>Sound on</button>
+      <button class="act faq-btn menu-only"><i class="ic" data-ic="help"></i>Questions &amp; answers</button>
+      <button class="act lang-btn menu-only" data-lang></button>
     </div>
   </div>
 </div>
@@ -750,11 +811,13 @@
       <div><b id="stCrits">0</b><span>weak-spot hits</span></div>
       <div><b id="stShards">+0</b><span>shards</span></div>
     </div>
+    <div class="found-actions">
     <div class="found-go">
       <button class="cta" id="foundNest"><i class="ic" data-ic="nest"></i><span><span id="foundNestLabel">Go to the nest</span><small id="foundNestSub"></small></span></button>
       <button class="pillbtn" id="nextLvl">Next level</button>
     </div>
     <div class="row center" style="margin-top:12px"><button class="pillbtn" id="foundMap"><i class="ic" data-ic="grotto"></i>Grotto</button><button class="pillbtn" id="foundForge"><i class="ic" data-ic="hammer"></i>Forge</button><button class="pillbtn" id="foundShare"><i class="ic" data-ic="postcard"></i>Share</button></div>
+    </div>
   </div>
 </div>
 
@@ -786,9 +849,9 @@
     <div class="need"><label>Energy <span id="vEnergy"></span></label><div class="hearts" id="bEnergy" data-need="moon"></div></div>
   </div>
   <div class="acts">
-    <button class="act" id="feedBtn"><i class="ic" data-ic="cookie"></i>Feed</button>
-    <button class="act" id="playBtn"><i class="ic" data-ic="sparkle"></i>Play</button>
-    <button class="act" id="sleepBtn"><i class="ic" data-ic="moon"></i>Sleep</button>
+    <button class="act" id="feedBtn" data-fill="tummy"><i class="ic" data-ic="cookie"></i>Feed</button>
+    <button class="act" id="playBtn" data-fill="joy"><i class="ic" data-ic="sparkle"></i>Play</button>
+    <button class="act" id="sleepBtn" data-fill="energy"><i class="ic" data-ic="moon"></i>Sleep</button>
     <button class="act" id="decorBtn"><i class="ic" data-ic="candle"></i>Decor</button>
   </div>
   <div id="switcher"></div>
@@ -2578,6 +2641,17 @@ addEventListener("storage", e => {
 });
 // save when the app goes to the background (phones may close it without warning)
 addEventListener("visibilitychange", () => { if (document.hidden) { persist(); store.set(BAK_KEY, save); } });
+
+// phones pause a page's sound when the screen locks, you switch apps, a call comes in or another app plays.
+// The sound used to wake only once, on Begin; now it goes quiet while hidden and comes back on return or the next touch
+function wakeAudio() {
+  const ac = sfx.ac;
+  if (ac && !document.hidden && ac.state !== "running" && ac.state !== "closed") ac.resume().catch(() => {});
+}
+for (const ev of ["pointerdown", "touchend", "keydown"]) addEventListener(ev, wakeAudio, { capture: true, passive: true });
+addEventListener("visibilitychange", () => { if (document.hidden) sfx.ac?.state === "running" && sfx.ac.suspend().catch(() => {}); else wakeAudio(); });
+addEventListener("pageshow", wakeAudio);
+addEventListener("focus", wakeAudio);
 addEventListener("pagehide", () => persist());
 const activeCreature = () => save.creatures.find(c => c.id === save.active) || save.creatures[0] || null;
 const totalStars = () => Object.values(save.stars).reduce((s, v) => s + v, 0);
@@ -2675,7 +2749,14 @@ function eggPoly(cx, cy, w, h, n = 96) {
   return pts;
 }
 
+/** Short or narrow phones get a tighter layout (see the body.compact and body.narrow styles). */
+function screenFit() {
+  document.body.classList.toggle("compact", H < 740 || W < 360);
+  document.body.classList.toggle("narrow", W < 360);
+}
+
 function computeLayout() {
+  screenFit();
   const top = 100, bottom = 96;
   L.ew = clamp(Math.min(W * 0.62, (H - top - bottom - 40) / 1.28), 170, 400);
   L.eh = L.ew * 1.28;
@@ -2687,7 +2768,8 @@ function computeLayout() {
   L.floor = L.ecy + L.eh / 2;
   L.egg = eggPoly(L.ecx, L.ecy, L.ew, L.eh);
   // the nest leaves room for the name above and the needs, buttons and tabs below
-  const nTop = 150, nBottom = H - 280, roomW = Math.min(W * 0.92, 760);
+  const compact = H < 740 || W < 360;
+  const nTop = compact ? 112 : 150, nBottom = H - (compact ? 206 : 280), roomW = Math.min(W * 0.92, 760);
   N.top = nTop;
   N.base = clamp(Math.min(W * 0.18, (nBottom - nTop) * 0.28), 56, 120);
   N.x0 = W / 2 - roomW / 2 + N.base * 0.5; N.x1 = W / 2 + roomW / 2 - N.base * 0.5;
@@ -4543,6 +4625,8 @@ function renderNest(full) {
     const el = $("b" + id), full = Math.ceil(cr[k] / 25);
     if (el.dataset.full !== String(full)) { el.dataset.full = full; el.innerHTML = [0, 1, 2, 3].map(i => ic(el.dataset.need, i < full ? "" : "off")).join(""); }
     el.classList.toggle("low", cr[k] < 25);
+    const btn = document.querySelector(`.acts [data-fill="${k}"]`);
+    if (btn) { btn.style.setProperty("--fill", Math.ceil(cr[k] / 25) / 4); btn.classList.toggle("lowfill", cr[k] < 25); }
     $("v" + id).textContent = Math.round(cr[k]);
   }
   $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Sleep");
@@ -4674,7 +4758,7 @@ const actors = new Map();
 /** Up to a dozen glowlings fit in the room: the newest ones, always including the one you picked. */
 function roomCreatures() {
   const act = activeCreature();
-  const list = save.creatures.slice(-(W < 520 ? ROOM_MAX_PHONE : ROOM_MAX));
+  const list = save.creatures.slice(-(H < 700 ? 6 : W < 520 ? ROOM_MAX_PHONE : ROOM_MAX));
   if (act && !list.includes(act)) list[0] = act;
   return list;
 }
@@ -6374,7 +6458,7 @@ $("coopDialog").addEventListener("keydown", e => {
 $("coopLeave").addEventListener("click", () => coopEnd("left"));
 $$(".lang-btn").forEach(b => {
   const to = LANG === "uk" ? "en" : "uk";
-  b.innerHTML = ic("flag" + to);
+  b.innerHTML = ic("flag" + to) + (b.classList.contains("menu-only") ? (to === "uk" ? "Українська" : "English") : "");
   b.setAttribute("aria-label", to === "uk" ? "Українська мова" : "English language");
   b.title = to === "uk" ? "Українська" : "English";
   b.addEventListener("click", () => setLang(to));
