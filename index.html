@@ -16,12 +16,12 @@
 <!-- share previews: these URLs assume GitHub Pages at helavika.github.io/hatchstone -->
 <meta property="og:type" content="website">
 <meta property="og:title" content="Hatchstone: Geodes &amp; Glowlings">
-<meta property="og:description" content="Crack open real geodes. Hatch the glowlings inside. A tiny cozy ASMR game for your phone or browser.">
+<meta property="og:description" content="Crack open stone eggs, meet the glowling inside and raise it in your nest. A tiny cozy pixel game, free in your browser.">
 <meta property="og:url" content="https://helavika.github.io/hatchstone/">
-<meta property="og:image" content="https://helavika.github.io/hatchstone/og-image.jpg">
+<meta property="og:image" content="https://helavika.github.io/hatchstone/og-image.jpg?v=2">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="A cracked-open amethyst geode with a smiling glowling inside, next to the word Hatchstone">
+<meta property="og:image:alt" content="Hatchstone: Geodes &amp; Glowlings in pixel art. A cracked amethyst geode in front of a nest full of smiling glowlings.">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   :root {
@@ -238,7 +238,15 @@
   #switcher button { flex: 0 0 auto; width: 46px; height: 46px; border-radius: 14px; border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .08); padding: 2px; cursor: pointer; }
   #switcher button.on { background: rgba(255, 255, 255, .32); }
   #switcher img { width: 100%; height: 100%; object-fit: contain; }
-  #nestEmpty { position: fixed; left: 24px; right: 24px; top: 40%; text-align: center; color: var(--soft); pointer-events: none; }
+  #nestEmpty { position: fixed; left: 16px; right: 16px; top: 30%; display: flex; justify-content: center; z-index: 2; }
+  #nestEmpty[hidden] { display: none; }
+  #nestEmpty .card { width: min(340px, 100%); text-align: center; }
+  #firstEgg, #foundNest { display: inline-flex; align-items: center; gap: 8px; }
+  .found-go { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 4px; }
+  .found-go #nextLvl { min-width: 200px; }
+  #foundNest { padding-left: 26px; padding-right: 26px; text-align: left; }
+  #foundNest small { display: block; font-size: 15px; line-height: 1; opacity: .8; }
+  #found .plate { display: table; }
 
   .snack { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .08); border-radius: 16px; padding: 10px 14px; margin-top: 8px; cursor: pointer; text-align: left; }
   .snack:disabled { opacity: .4; cursor: default; }
@@ -599,9 +607,10 @@
   .forgebtn { border: 0; }
   .forgebtn.ready .tag { font-style: normal; font-size: 12px; color: var(--px-ink); background: var(--px-gold); padding: 0 6px; margin-left: 6px; animation: pxBlink 1.2s steps(2) infinite; }
   .moonbtn .ic.big { margin: -4px 0; }
-  #foundForge, #foundShare, #foundNest, #foundMap { gap: 4px; }
-  #found .row.center { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: min(300px, 100%); margin: 16px auto 0; }
-  #found .row.center .pillbtn { padding: 8px 10px; font-size: 15px; }
+  #foundForge, #foundShare, #foundMap { gap: 4px; }
+  #found .row.center { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px; width: min(300px, 100%); margin: 16px auto 0; }
+  #found .row.center .pillbtn { padding: 8px 6px; font-size: 15px; }
+  #found .row.center:has(#foundMap[hidden]) { grid-template-columns: 1fr 1fr; }
   #foundImg, #spImg { image-rendering: pixelated; }
   /* on big screens the cards grow with the room */
   @media (min-width: 900px) and (min-height: 760px) {
@@ -709,8 +718,11 @@
       <div><b id="stCrits">0</b><span>weak-spot hits</span></div>
       <div><b id="stShards">+0</b><span>shards</span></div>
     </div>
-    <button class="cta" id="nextLvl">Next level</button><br>
-    <div class="row center" style="margin-top:12px"><button class="pillbtn" id="foundNest"><i class="ic" data-ic="nest"></i>Nest</button><button class="pillbtn" id="foundMap"><i class="ic" data-ic="grotto"></i>Grotto</button><button class="pillbtn" id="foundForge"><i class="ic" data-ic="hammer"></i>Forge</button><button class="pillbtn" id="foundShare"><i class="ic" data-ic="postcard"></i>Share</button></div>
+    <div class="found-go">
+      <button class="cta" id="foundNest"><i class="ic" data-ic="nest"></i><span><span id="foundNestLabel">Go to the nest</span><small id="foundNestSub"></small></span></button>
+      <button class="pillbtn" id="nextLvl">Next level</button>
+    </div>
+    <div class="row center" style="margin-top:12px"><button class="pillbtn" id="foundMap"><i class="ic" data-ic="grotto"></i>Grotto</button><button class="pillbtn" id="foundForge"><i class="ic" data-ic="hammer"></i>Forge</button><button class="pillbtn" id="foundShare"><i class="ic" data-ic="postcard"></i>Share</button></div>
   </div>
 </div>
 
@@ -719,7 +731,13 @@
   <div id="nestLvl"></div>
   <div class="bar" id="xpBar"><i></i></div>
 </div>
-<div id="nestEmpty" hidden>Your nest is empty.<br>Hatch your first egg in the Grotto ✦</div>
+<div id="nestEmpty" hidden>
+  <div class="card glass dark">
+    <h2>Your nest is empty</h2>
+    <p class="sub">Glowlings sleep inside stone eggs. Crack one open and whoever's inside moves in here: you feed it, play with it and watch it grow.</p>
+    <button class="cta breathe" id="firstEgg"><i class="ic" data-ic="egg"></i>Crack your first egg</button>
+  </div>
+</div>
 <div id="nestBottom">
   <div class="needs glass">
     <div class="need"><label>Tummy <span id="vTummy"></span></label><div class="hearts" id="bTummy" data-need="cookie"></div></div>
@@ -3451,7 +3469,7 @@ function showFound() {
   const shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + e.gems + Math.round(shine * 10) + moonBonus;
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
   save.shards += shards;
-  const { isNew, note } = adopt(e);
+  const { isNew, note, mine } = adopt(e);
   persist();
   checkThemes();
   taskDone("crack");
@@ -3475,6 +3493,9 @@ function showFound() {
   $("stCrits").textContent = e.crits;
   $("stShards").textContent = "+" + shards;
   $("foundMap").hidden = !!conf.moon;
+  // the nest is the other half of the game: say who's waiting there, so it's not just egg after egg
+  $("foundNestLabel").textContent = "Go to the nest";
+  $("foundNestSub").textContent = `${mine.name} is waiting for you`;
   $("nextLvl").textContent = conf.coop ? (coopIsHost() ? "Another shared egg" : "Waiting for host") : conf.moon ? "Back to the grotto" : conf.wander ? "Another egg" : conf.n >= LEVELS ? "Wander on" : "Next level";
   $("nextLvl").disabled = !!conf.coop && !coopIsHost();
   updateTopbar();
@@ -4004,7 +4025,7 @@ function drawRoom() {
   const { x0, x1, y0, y1 } = N, cx = (x0 + x1) / 2;
   // a round window onto the night sky, high on the back wall (only in the caves: outdoors the sky is already there)
   const wr = Math.min((x1 - x0) * 0.22, (y0 - N.top) * 0.45), wy = y0 - wr * 1.08;
-  if (THEME[currentTheme()].art !== undefined) {
+  if (wr > 0 && THEME[currentTheme()].art !== undefined) {
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU);
     const sky = ctx.createLinearGradient(0, wy - wr, 0, wy + wr);
@@ -5335,8 +5356,7 @@ $("play").addEventListener("click", () => {
   sfx.init();
   if (sfx.ac && sfx.ac.state === "suspended") sfx.ac.resume();
   show("start", false);
-  if (save.creatures.length) setScene("nest");
-  else startLevel(1);
+  setScene("nest");
 });
 $$(".mute").forEach(b => b.addEventListener("click", () => {
   sfx.setMuted(!sfx.muted);
@@ -5369,6 +5389,7 @@ $("nextLvl").addEventListener("click", () => {
 });
 $("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
 $("foundShare").addEventListener("click", shareFound);
+$("firstEgg").addEventListener("click", () => startLevel(nextLevel() || 1));
 $("nestShare").addEventListener("click", () => { const cr = activeCreature(); if (cr) shareCreature(cr); });
 $("polishDone").addEventListener("click", coopFinishPolish);
 $("decorBtn").addEventListener("click", openShop);
