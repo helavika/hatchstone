@@ -404,7 +404,15 @@
   #startBack .lead { font-size: 20px; margin-bottom: 4px; }
   #startCoop { display: flex; width: fit-content; align-items: center; gap: 8px; }
   #startCoop img { width: 28px; height: 28px; image-rendering: pixelated; margin: -4px 0; }
-  #start .lang-btn { display: flex; width: fit-content; margin: 4px auto 0; font-size: 16px; opacity: .85; }
+  #startCorner { position: absolute; top: calc(var(--top) + 12px); right: 16px; z-index: 1; display: flex; gap: 8px; }
+  #faqList { text-align: left; max-height: min(62vh, 560px); }
+  #faqList details { border-top: 3px solid var(--px-raise); padding: 10px 2px; }
+  #faqList summary { cursor: pointer; color: var(--px-gold); font-size: 19px; list-style: none; }
+  #faqList summary::-webkit-details-marker { display: none; }
+  #faqList summary::before { content: "▸ "; }
+  #faqList details[open] summary::before { content: "▾ "; }
+  #faqList p { margin: 8px 0 2px; font-size: 18px; line-height: 1.35; }
+  .lang-btn .ic { width: 28px; height: 28px; }
   .lvl:disabled span { letter-spacing: 0; filter: grayscale(1); }
 
   /* ---------- pixel UI: square frames, chunky bevels, pixel fonts, no glass ---------- */
@@ -664,12 +672,13 @@
     <button class="pill glass btn stack" id="taskPill" title="Today's little tasks"><b id="taskCount">0/3</b><small>tasks</small></button>
   </div>
   <div class="row menu-wrap">
+    <button class="pill glass btn round faq-btn" aria-label="Questions &amp; answers"><i class="ic" data-ic="help"></i></button>
+    <button class="pill glass btn round lang-btn" data-lang></button>
     <button class="pill glass btn round" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="menuSheet"><i class="ic" data-ic="gear"></i></button>
     <div id="menuSheet" class="glass" hidden>
       <button class="act" id="mapCoop"><i class="ic" data-ic="duo"></i>Play together</button>
       <button class="act" id="backupBtn" aria-label="Back up your nest"><i class="ic" data-ic="scroll"></i>Back up nest</button>
       <button class="act mute" data-label="1" aria-label="Mute sound"><i class="ic" data-ic="sound"></i>Sound on</button>
-      <button class="act lang-btn" data-lang></button>
     </div>
   </div>
 </div>
@@ -688,6 +697,7 @@
 </nav>
 
 <div id="start" class="overlay">
+  <div id="startCorner"><button class="pill glass btn round faq-btn" aria-label="Questions &amp; answers"><i class="ic" data-ic="help"></i></button><button class="pill glass btn round lang-btn" id="startLang" data-lang></button></div>
   <div class="card glass dark">
     <figure class="plate"><canvas id="pixelGrotto" width="128" height="72" role="img" aria-label="A pixel-art grotto by moonlight, a stone egg glowing on a ledge"></canvas></figure>
     <h1>Hatchstone</h1>
@@ -706,7 +716,6 @@
     </div>
     <button class="cta breathe" id="play">Begin</button>
     <button class="ghost" id="startCoop"><img data-icon="duo" alt="">Play together</button>
-    <button class="ghost lang-btn" data-lang></button>
   </div>
 </div>
 
@@ -812,6 +821,14 @@
     <p class="sub" id="shopSub"></p>
     <div class="scroll" id="shopList"></div>
     <button class="ghost" id="shopClose">done</button>
+  </div>
+</div>
+
+<div id="faq" class="overlay modal hidden">
+  <div class="card glass dark wide">
+    <h2>Questions &amp; answers</h2>
+    <div class="scroll" id="faqList"></div>
+    <button class="ghost" id="faqClose">close</button>
   </div>
 </div>
 
@@ -1386,7 +1403,28 @@ const UK = {
   "Oh my. A shiny one! I've only seen a handful in all my years.": "Ох! Блискучий! За всі мої роки я бачила таких лише кількох.",
   "A legendary glowling... They say {0} only wakes for someone kind. Well done, you.": "Легендарний глоулінг... Кажуть, {0} прокидається лише для добрих сердець. Молодчина.",
   "Every geode in the grotto, opened. I'm so proud of you.": "Усі жеоди в гроті відкрито. Я так тобою пишаюся.",
-  "But the deep caves never end. Wander down whenever you like. I'll keep the moss warm.": "Але глибокі печери не мають кінця. Мандруй униз, коли захочеш. А я берегтиму мох теплим."
+  "But the deep caves never end. Wander down whenever you like. I'll keep the moss warm.": "Але глибокі печери не мають кінця. Мандруй униз, коли захочеш. А я берегтиму мох теплим.",
+  "Questions & answers": "Питання й відповіді",
+  "What do I do in this game?": "Що робити в цій грі?",
+  "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow.": "Розбивай кам'яні яйця, знайомся з глоулінгом усередині й вирощуй його в гніздечку. За яйця отримуєш осколки й зірки, а в гніздечку твої глоулінги живуть, граються й ростуть.",
+  "How do I get three stars?": "Як отримати три зірки?",
+  "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars.": "Шукай слабке місце: цілься в сяйво, а з 4 рівня прислухайся, де стукіт дзвенить вище. Влучиш — яйце трісне за менше ударів, а менше ударів — більше зірок.",
+  "How do I look after my glowling?": "Як доглядати глоулінга?",
+  "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now.": "Гладь його пальцем, годуй смаколиками, грай у ловлю іскорок і вкладай спати, коли він сонний. Щасливий глоулінг отримує досвід і росте до 20 рівня. Кнопка, що світиться, підкаже, чого йому хочеться зараз.",
+  "What are shards for?": "Навіщо осколки?",
+  "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg.": "На смаколики, прикраси для гніздечка й покращення молота в Кузні. Їх дають жеоди, щоденні завдання й місячне яйце.",
+  "What is the moon egg?": "Що таке місячне яйце?",
+  "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards.": "Одне особливе яйце на день у Гроті. Відкривай його щодня, щоб тримати серію: що довша серія, то більше осколків.",
+  "Can my glowlings have a baby?": "Чи можуть глоулінги мати малюка?",
+  "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up.": "Так. Двоє щасливих глоулінгів від 5 рівня можуть знести змішане яйце в інкубаторі (скляний ковпак у гніздечку). Малюк візьме риси обох батьків і вилупиться приблизно за 3 години; гладь яйце, щоб пришвидшити.",
+  "Can I play with a friend?": "Чи можна грати з другом?",
+  "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone.": "Так: відкрий меню (⚙) і натисни «Грати разом». Надішли посилання, друг його відкриє, і ви разом розбиватимете одне яйце, кожен на своєму телефоні.",
+  "Where is my progress saved?": "Де зберігається мій прогрес?",
+  "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it.": "У цьому браузері, на цьому пристрої. Зроби код копії в меню (⚙ → «Копія гніздечка») і збережи його в надійному місці: з ним гніздечко повернеться на будь-якому пристрої. На iPhone додай гру на початковий екран, щоб Safari її не стер.",
+  "Is it free? Are there ads?": "Це безкоштовно? Є реклама?",
+  "Free, with no ads, no account and no purchases. Everything stays on your device.": "Безкоштовно, без реклами, без акаунта й без покупок. Усе лишається на твоєму пристрої.",
+  "How do I turn the sound off, or change the language?": "Як вимкнути звук або змінити мову?",
+  "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best.": "Звук — у меню (⚙). Прапорець у куті перемикає мову між українською та англійською. У навушниках тріск звучить найкраще."
 };
 
 const UK_DATA = {
@@ -2104,7 +2142,7 @@ const pxFbm = (x, y) => pxNoise(x, y) * .55 + pxNoise(x * 2.1, y * 2.1) * .3 + p
 function pxSmooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
 // ---------- pixel icons: little sprites for buttons and labels, drawn from text maps ----------
-const PX_ICON_COLORS = { K: "#3a2440", w: "#efe6ff", W: "#ffffff", l: "#ad91e6", L: "#d2bfff", p: "#6b4fa8", d: "#3d2866", k: "#160c26", g: "#eec26a", G: "#fff0b5", o: "#c98f3a", b: "#946027", B: "#5e3a1c", r: "#e88bb1", R: "#c25586", s: "#e4dfe8", S: "#8a8494", z: "#5d5666", t: "#69b7d6", T: "#3383a8", m: "#57ad6a", e: "#e0634f", E: "#b8323b" };
+const PX_ICON_COLORS = { U: "#2f68c8", K: "#3a2440", w: "#efe6ff", W: "#ffffff", l: "#ad91e6", L: "#d2bfff", p: "#6b4fa8", d: "#3d2866", k: "#160c26", g: "#eec26a", G: "#fff0b5", o: "#c98f3a", b: "#946027", B: "#5e3a1c", r: "#e88bb1", R: "#c25586", s: "#e4dfe8", S: "#8a8494", z: "#5d5666", t: "#69b7d6", T: "#3383a8", m: "#57ad6a", e: "#e0634f", E: "#b8323b" };
 const PX_ICON_MAPS = {
   hammer: ["............", ".zSSSSSSSSz.", ".SswssssssS.", ".SsssssssSS.", ".zSSSSSSSSz.", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....bB.....", "............"],
   eye: ["............", "............", "....ssss....", "..ssssssss..", ".sssTTTTsss.", "ssssTkkTssss", "ssssTkWTssss", ".sssTTTTsss.", "..ssssssss..", "....ssss....", "............", "............"],
@@ -2131,6 +2169,9 @@ const PX_ICON_MAPS = {
   egg: ["....ssss....", "...swwsss...", "..swwsssss..", "..swssssSs..", ".ssssksssSs.", ".sssskksSSs.", ".ssssssksSs.", ".sssssksSSs.", ".sssssSSSSs.", "..sssSSSSs..", "...SSSSSS...", "............"],
   tasks: ["............", "..wwwwwww...", "..wSSSSSw...", "..wwwwwww...", "..wSSSSSw...", "..wwwwwww..m", "..wSSSSSw.mm", "..wwwwwwwmm.", "..wSSSSmmm..", "..wwwwwwmw..", "............", "............"],
   gear: ["............", ".....ss.....", "..s.sSSs.s..", "..sSSSSSSs..", "...SSzzSS...", ".sSSz..zSSs.", ".sSSz..zSSs.", "...SSzzSS...", "..sSSSSSSs..", "..s.sSSs.s..", ".....ss.....", "............"],
+  flaguk: ["............", "............", "UUUUUUUUUUUU", "UUUUUUUUUUUU", "UUUUUUUUUUUU", "UUUUUUUUUUUU", "gggggggggggg", "gggggggggggg", "gggggggggggg", "gggggggggggg", "............", "............"],
+  flagen: ["............", "............", "wwTTwEEwTTww", "TwwTwEEwTwwT", "wwwwwEEwwwww", "EEEEEEEEEEEE", "EEEEEEEEEEEE", "wwwwwEEwwwww", "TwwTwEEwTwwT", "wwTTwEEwTTww", "............", "............"],
+  help: ["............", "....gggg....", "...gGGGGg...", "..gGo..oGg..", "..oo...gGo..", "......gGo...", ".....gGo....", ".....gGo....", "......o.....", ".....gg.....", ".....oo.....", "............"],
   mossa: [
     "....mmmmmmmm....",
     "..mmmmmmmGmmmm..",
@@ -6050,8 +6091,11 @@ $("coopDialog").addEventListener("keydown", e => {
 });
 $("coopLeave").addEventListener("click", () => coopEnd("left"));
 $$(".lang-btn").forEach(b => {
-  b.textContent = LANG === "uk" ? "🌐 English" : "🌐 Українською";
-  b.addEventListener("click", () => setLang(LANG === "uk" ? "en" : "uk"));
+  const to = LANG === "uk" ? "en" : "uk";
+  b.innerHTML = ic("flag" + to);
+  b.setAttribute("aria-label", to === "uk" ? "Українська мова" : "English language");
+  b.title = to === "uk" ? "Українська" : "English";
+  b.addEventListener("click", () => setLang(to));
 });
 
 if (save.creatures.length) {
@@ -6133,6 +6177,15 @@ document.addEventListener("pointerdown", ev => {
   if (navigator.vibrate) navigator.vibrate(6);
 }, { passive: true });
 $("taskPill").addEventListener("click", openTasks);
+const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."]];
+function openFaq() {
+  sfx.tick();
+  const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+  $("faqList").innerHTML = FAQ.map(([q, a], i) => `<details${i ? "" : " open"}><summary>${esc(tr(q))}</summary><p>${esc(tr(a))}</p></details>`).join("");
+  show("faq", true);
+}
+$$(".faq-btn").forEach(b => b.addEventListener("click", ev => { ev.stopPropagation(); setMenu(false); openFaq(); }));
+$("faqClose").addEventListener("click", () => show("faq", false));
 $("tasksClose").addEventListener("click", () => show("tasks", false));
 $("forgeClose").addEventListener("click", () => { show("forge", false); if (game.scene === "map") renderMap(); });
 $("foundForge").addEventListener("click", openForge);
