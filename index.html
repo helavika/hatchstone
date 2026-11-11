@@ -18,10 +18,10 @@
 <meta property="og:title" content="Hatchstone: Geodes &amp; Glowlings">
 <meta property="og:description" content="Crack open stone eggs, meet the glowling inside and raise it in your nest. A tiny cozy pixel game, free in your browser.">
 <meta property="og:url" content="https://helavika.github.io/hatchstone/">
-<meta property="og:image" content="https://helavika.github.io/hatchstone/og-image.jpg?v=2">
+<meta property="og:image" content="https://helavika.github.io/hatchstone/og-image.jpg?v=3">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Hatchstone: Geodes &amp; Glowlings in pixel art. A cracked amethyst geode in front of a nest full of smiling glowlings.">
+<meta property="og:image:alt" content="Hatchstone: Geodes &amp; Glowlings in pixel art. Snowy mountains under the northern lights, glowing geodes cracked open on a meadow, and smiling glowlings around them.">
 <meta name="twitter:card" content="summary_large_image">
 <style>
   :root {
@@ -544,6 +544,10 @@
   #nestLvl { color: var(--soft); text-shadow: 0 2px 0 var(--px-ink); font-size: 14px; }
   #nestShare .ic { width: 28px; height: 28px; }
   #switcher button img { image-rendering: pixelated; }
+  /* native-pixel pictures: always a whole number of screen pixels per art pixel */
+  img.px2 { object-fit: fill; image-rendering: pixelated; }
+  #libGrid .pg img.lib-px { width: 64px; height: 64px; object-fit: fill; image-rendering: pixelated; }
+  #switcher button img.px2 { display: block; margin: auto; }
   #switcher button.on { background: var(--px-gold-lo) !important; }
 
   /* backdrops in the decor shop */
@@ -644,6 +648,7 @@
     #pixelGrotto { width: 320px; }
     #libGrid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
     #libGrid .pg img { height: 84px; }
+    #libGrid .pg img.lib-px { width: 96px; height: 96px; }
   }
 </style>
 </head>
@@ -1424,7 +1429,10 @@ const UK = {
   "Is it free? Are there ads?": "Це безкоштовно? Є реклама?",
   "Free, with no ads, no account and no purchases. Everything stays on your device.": "Безкоштовно, без реклами, без акаунта й без покупок. Усе лишається на твоєму пристрої.",
   "How do I turn the sound off, or change the language?": "Як вимкнути звук або змінити мову?",
-  "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best.": "Звук — у меню (⚙). Прапорець у куті перемикає мову між українською та англійською. У навушниках тріск звучить найкраще."
+  "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best.": "Звук — у меню (⚙). Прапорець у куті перемикає мову між українською та англійською. У навушниках тріск звучить найкраще.",
+  "asleep": "спить",
+  "needs joy": "бракує радості",
+  "No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in your nest 💞": "Гібридів ще немає. Вирости двох глоулінгів до {0} рівня, потіш їх і тапни інкубатор у гніздечку 💞"
 };
 
 const UK_DATA = {
@@ -2679,13 +2687,52 @@ function computeLayout() {
   L.floor = L.ecy + L.eh / 2;
   L.egg = eggPoly(L.ecx, L.ecy, L.ew, L.eh);
   // the nest leaves room for the name above and the needs, buttons and tabs below
-  const nTop = 150, nBottom = H - 260, roomW = Math.min(W * 0.92, 760);
+  const nTop = 150, nBottom = H - 280, roomW = Math.min(W * 0.92, 760);
   N.top = nTop;
   N.base = clamp(Math.min(W * 0.18, (nBottom - nTop) * 0.28), 56, 120);
   N.x0 = W / 2 - roomW / 2 + N.base * 0.5; N.x1 = W / 2 + roomW / 2 - N.base * 0.5;
-  N.y0 = nTop + (nBottom - nTop) * 0.45; N.y1 = nBottom - 10;
-  N.bedX = N.x1 - N.base * 0.55; N.bedY = N.y0 + (N.y1 - N.y0) * 0.2;
+  N.y0 = nTop + (nBottom - nTop) * 0.45; N.y1 = nBottom - 24;
+  // the room around them: the floor widens toward you, the back wall stands behind it
+  N.cx = W / 2;
+  N.back = N.y0 - N.base * 0.3; N.front = N.y1 + N.base * 0.5;
+  N.hf = roomW / 2; N.hb = roomW / 2 * 0.84;
+  N.wallTop = Math.max(64, nTop - 56);
+  N.dk = W < 520 ? 0.82 : 1; // decorations a touch smaller on a phone, so the room doesn't feel stuffed
+  const wr = Math.min(N.hb * 0.3, (N.back - N.wallTop) * 0.3);
+  N.win = { x: N.cx, y: lerp(N.back, N.wallTop, 0.5), r: wr };
+  [N.bedX, N.bedY] = roomSpot("bed");
 }
+
+/** A point on the floor: u from the left wall (0) to the right (1), v from the back (0) to the front (1). */
+function floorAt(u, v) {
+  const y = lerp(N.y0, N.y1, v), h = floorHalf(y) - N.base * 0.55;
+  return [N.cx + (u * 2 - 1) * h, y];
+}
+const floorHalf = y => lerp(N.hb, N.hf, clamp((y - N.back) / (N.front - N.back), 0, 1));
+/** A point on the back wall: u across, h from the floor line (0) up to the top (1). */
+const wallAt = (u, h) => [N.cx + (u * 2 - 1) * (N.hb - N.base * 0.55), lerp(N.back, N.wallTop, h)];
+
+/** Every piece of furniture has its own place, so nothing stands on top of anything else:
+ *  the left side has the lamp (under the shelf), the incubator and the mushrooms (back to front), the right side the spring and the bed,
+ *  the cloud cushion sits under the window for naps in the moonlight, the rug lies in the middle,
+ *  and the shelf, window, lights and swing are on the back wall. */
+const ROOM_SLOTS = {
+  lamp: [0, 0.02], incubator: [0.02, 0.5], mushrooms: [0.1, 0.94],
+  spring: [0.98, 0.06], cushion: [0.5, 0], bed: [0.97, 0.94],
+  rug: [0.5, 0.56],
+};
+// a wide, shallow room (a computer screen) spreads the front pieces inward instead, so they don't stand in front of the middle ones
+const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 0.96], bed: [0.85, 0.9] };
+function roomSpot(id) {
+  if (id === "shelf") { const [x, y] = wallAt(0.12, 0.4); return [x, y + N.base * 0.95 * N.dk]; }
+  if (id === "swing") { const [x] = wallAt(0.9, 0); return [x, N.back + N.base * 0.62]; }
+  if (id === "lights") return [N.cx, N.wallTop];
+  const slots = N.hf * 2 / (N.y1 - N.y0) > 2.6 ? ROOM_SLOTS_WIDE : ROOM_SLOTS;
+  const [u, v] = slots[id] || [0.5, 0.5];
+  return floorAt(u, v);
+}
+/** How big things are drawn at a depth: smaller toward the back wall. */
+const depthK = y => lerp(0.78, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1)) * N.dk;
 
 // ---------- quality: step resolution down if the device can't keep up ----------
 
@@ -3224,11 +3271,14 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   drawBehindHead(c, s, sp, t, pal, top);
   bodyPath(c, s, sp.body);
   const galaxy = sp.pattern === "galaxy";
-  const g = c.createRadialGradient(-s * 0.15, top * 0.45, s * 0.04, 0, 0, s * 0.62);
-  g.addColorStop(0, galaxy ? shade(pal[0], 0.15) : "#ffffff");
-  g.addColorStop(galaxy ? 0.3 : 0.35, galaxy ? pal[0] : pal[1]);
+  const g = c.createRadialGradient(-s * 0.3, top * 0.75, s * 0.02, -s * 0.05, top * 0.15, s * 0.72);
+  // lit from the top left with a lighter tint of its own color (a pure white middle turned into a big flat blob once snapped to pixels)
+  g.addColorStop(0, galaxy ? shade(pal[0], 0.15) : shade(pal[1], 0.25));
+  g.addColorStop(galaxy ? 0.3 : 0.22, galaxy ? pal[0] : pal[1]);
   g.addColorStop(1, galaxy ? pal[2] : pal[0]);
   c.fillStyle = g; c.fill();
+  // and one small hard glint, a few pixels across
+  if (!galaxy && !o.sil) { c.fillStyle = "rgba(255,255,255,.75)"; c.beginPath(); c.ellipse(-s * 0.36, top * 0.8, s * 0.04, s * 0.028, -0.5, 0, TAU); c.fill(); }
   c.save(); c.clip();
   drawPattern(c, s, sp, t, pal, R);
   c.restore();
@@ -3397,22 +3447,41 @@ function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down
 
 const thumbCache = new Map();
 /** A glowling as a small picture: for the nest switcher, the glowpedia and the found card. */
-function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, mood = "ok" } = {}) {
-  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}`;
+function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, mood = "ok", art = 0 } = {}) {
+  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}|${art}`;
   if (thumbCache.has(key)) return thumbCache.get(key);
-  // a real pixel sprite (about one art pixel per three of yours), scaled up with hard edges
-  const n = Math.max(16, Math.round(size / 3)), small = document.createElement("canvas");
+  // a real pixel sprite (about one art pixel per three of yours), scaled up with hard edges.
+  // With `art`, it stays at exactly that many pixels, for the page to blow up by a whole number (2× or 3×) so every pixel is the same size
+  if (art) size = art * 3;
+  const n = art || Math.max(16, Math.round(size / 3)), small = document.createElement("canvas");
   small.width = small.height = n;
   const o = small.getContext("2d");
   o.setTransform(n / size, 0, 0, n / size, 0, 0);
   const grow = [0.82, 1, 1.12, 1.22][stageOf(level)];
-  cutSprite(o, size / 2, size * 0.56, size * 0.5, g => drawCreature(g, size / 2, size * 0.56, size * 0.5 / grow, sp, { t: 1000, sil, level, shiny, mood, glow: false }));
+  const paint = () => cutSprite(o, size / 2, size * 0.56, size * 0.5, g => drawCreature(g, size / 2, size * 0.56, size * 0.5 / grow, sp, { t: 1000, sil, level, shiny, mood, glow: false }));
+  paint();
+  if (art) {
+    // a small picture should be all glowling: find its edges, then draw it again filling the frame (more pixels for the eyes and ears)
+    const d = o.getImageData(0, 0, n, n).data;
+    let x0 = n, y0 = n, x1 = -1, y1 = -1;
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (d[(y * n + x) * 4 + 3] > 0) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+    if (x1 >= x0) {
+      const f = Math.min(2, (n - 1) / Math.max(x1 - x0 + 1, y1 - y0 + 1));
+      if (f > 1.05) {
+        o.setTransform(1, 0, 0, 1, 0, 0); o.clearRect(0, 0, n, n);
+        const k = n / size * f;
+        o.setTransform(k, 0, 0, k, Math.round(n / 2 - (x0 + x1 + 1) / 2 * f), Math.round(n - 0.5 - (y1 + 1) * f));
+        paint();
+      }
+    }
+  }
   if (sil) {
     o.setTransform(1, 0, 0, 1, 0, 0);
     o.globalCompositeOperation = "source-atop";
     o.fillStyle = "#523a85";
     o.fillRect(0, 0, n, n);
   }
+  if (art) { const url = small.toDataURL("image/png"); thumbCache.set(key, url); return url; }
   const c = document.createElement("canvas");
   c.width = c.height = n * Math.max(1, Math.round(size * 2 / n));
   const big = c.getContext("2d");
@@ -4150,7 +4219,7 @@ function showFound() {
 // ---------- dialogs: Mossa, the old stone who keeps the grotto, talks you through the big moments ----------
 
 const MOSSA = { name: "Mossa", face: () => pxIcon("mossa"), voice: { f: 190, wave: "triangle", spread: 0.22, glide: 0.92, gain: 0.07, len: 0.07 } };
-const glowVoice = cr => ({ name: cr.name, face: () => creatureImage(specOf(cr), { size: 64, level: cr.level, shiny: cr.shiny }),
+const glowVoice = cr => ({ name: cr.name, face: () => creatureImage(specOf(cr), { art: 32, level: cr.level, shiny: cr.shiny }),
   voice: { f: 640 * (specOf(cr).voice || 1), wave: "square", spread: 0.4, glide: 1.3, gain: 0.03, len: 0.05 } });
 const firstPet = () => save.creatures[0];
 
@@ -4486,7 +4555,7 @@ function renderNest(full) {
   $("playBtn").disabled = cr.sleeping;
   if (full) {
     $("switcher").innerHTML = save.creatures.map(c =>
-      `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}" title="${c.name}"><img src="${creatureImage(specOf(c), { size: 64, level: c.level, shiny: c.shiny })}" alt="${c.name}"></button>`).join("");
+      `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}" title="${c.name}"><img class="px2" style="width:40px;height:40px" src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt="${c.name}"></button>`).join("");
     $$("#switcher button").forEach(b => b.addEventListener("click", () => selectCreature(Number(b.dataset.id))));
   }
 }
@@ -4567,10 +4636,7 @@ function buyDecor(id) {
   openShop();
 }
 
-function decorSpot(id) {
-  const [u, v] = DECO[id].spot;
-  return [lerp(N.x0, N.x1, u), lerp(N.y0, N.y1, v)];
-}
+function decorSpot(id) { return roomSpot(id); }
 
 function toggleSleep() {
   const cr = activeCreature();
@@ -4602,18 +4668,43 @@ const BEHAVIOR = {
   glimmerfox: "curious", ambercub: "curious", mossmew: "curious", nebbit: "curious",
   petalpuff: "dance", rosettle: "dance", sunnub: "dance", glassling: "dance", prismpip: "dance", swirlhorn: "dance",
 };
-const ROOM_MAX = 12;
+const ROOM_MAX = 12, ROOM_MAX_PHONE = 8;
 const actors = new Map();
 
 /** Up to a dozen glowlings fit in the room: the newest ones, always including the one you picked. */
 function roomCreatures() {
   const act = activeCreature();
-  const list = save.creatures.slice(-ROOM_MAX);
+  const list = save.creatures.slice(-(W < 520 ? ROOM_MAX_PHONE : ROOM_MAX));
   if (act && !list.includes(act)) list[0] = act;
   return list;
 }
 
-const roomPoint = () => [rand(N.x0, N.x1), rand(N.y0, N.y1)];
+const roomPoint = () => floorAt(rand(0.08, 0.92), rand(0.05, 0.95));
+
+/** The things you can't stand inside, as flat ellipses on the floor. */
+function roomObstacles() {
+  const b = N.base, out = [];
+  const add = (id, rx, ry) => { const [x, y] = roomSpot(id), k = depthK(y); out.push({ id, x, y, rx: rx * b * k, ry: ry * b * k }); };
+  add("incubator", 0.5, 0.2); add("bed", 0.72, 0.24);
+  if (hasDecor("lamp")) add("lamp", 0.3, 0.14);
+  if (hasDecor("mushrooms")) add("mushrooms", 0.6, 0.2);
+  if (hasDecor("cushion")) add("cushion", 0.6, 0.18);
+  if (hasDecor("spring")) add("spring", 0.75, 0.22);
+  return out;
+}
+/** Keep a glowling on the floor and out of the furniture (fliers pass over; the one using a thing may stand on it). */
+function keepInRoom(a) {
+  a.y = clamp(a.y, N.y0, N.y1);
+  const h = floorHalf(a.y) - N.base * 0.42;
+  a.x = clamp(a.x, N.cx - h, N.cx + h);
+  if (a.alt > N.base * 0.3 || a.state === "sleep" || a.state === "toBed" || a.state === "visit") return;
+  for (const o of game.nest.obst || []) {
+    if (o.id === a.decor || o.id === a.goal || (o.id === "bed" && a.state === "nap")) continue;
+    const dx = (a.x - o.x) / o.rx, dy = (a.y - o.y) / o.ry, d = Math.hypot(dx, dy);
+    if (d < 1) { const k = d > 0.01 ? 1 / d : 1; a.x = o.x + dx * k * o.rx; a.y = o.y + (d > 0.01 ? dy * k : 1) * o.ry; }
+  }
+  a.y = clamp(a.y, N.y0, N.y1);
+}
 const depth = y => lerp(0.72, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1));
 
 function syncActors() {
@@ -4659,7 +4750,8 @@ function chooseNext(a, list) {
   if (loved.length && Math.random() < 0.4) {
     const d = pick(loved), [x, y] = decorSpot(d.id);
     a.goal = d.id; a.state = "walk";
-    a.tx = clamp(x + rand(-0.25, 0.25) * N.base, N.x0, N.x1); a.ty = clamp(y + rand(-0.1, 0.1) * N.base, N.y0, N.y1);
+    if (d.id === "rug") { const an = rand(0, TAU), r = Math.sqrt(Math.random()); a.tx = x + Math.cos(an) * r * Math.min(N.hf * 0.4, N.base * 2.1) * 0.8; a.ty = y + Math.sin(an) * r * (N.y1 - N.y0) * 0.2; return; }
+    a.tx = x + rand(-0.25, 0.25) * N.base; a.ty = clamp(y + rand(-0.1, 0.1) * N.base, N.y0, N.y1);
     return;
   }
   if (b === "nap" && r < 0.35) { a.state = "nap"; a.t = rand(5, 10); emote(a, "zz", 2.5); return; }
@@ -4678,6 +4770,7 @@ function chooseNext(a, list) {
 
 function updateActors(dt) {
   syncActors();
+  game.nest.obst = roomObstacles();
   const list = [...actors.values()], call = game.nest.call;
   for (const a of list) {
     const cr = save.creatures.find(c => c.id === a.id);
@@ -4711,8 +4804,13 @@ function updateActors(dt) {
     // a little personal space: glowlings gently push apart instead of piling up
     if (a.state !== "sleep" && a.state !== "visit") for (const o of list) {
       if (o === a || o.state === "sleep" || o.state === "visit") continue;
-      const ox = a.x - o.x, oy = (a.y - o.y) * 1.6, od = Math.hypot(ox, oy), min = N.base * 0.75;
-      if (od > 0.01 && od < min) { const push = (min - od) * dt * 2.5; a.x = clamp(a.x + ox / od * push, N.x0, N.x1); a.y = clamp(a.y + oy / od * push * 0.6, N.y0, N.y1); }
+      const ox = a.x - o.x, oy = (a.y - o.y) * 1.6, od = Math.hypot(ox, oy), min = N.base * 0.95;
+      if (od > 0.01 && od < min) {
+        // step aside, and move where you were heading too, or you'd walk straight back into them
+        const push = (min - od) * dt * 4, px = ox / od * push, py = oy / od * push * 0.6;
+        a.x += px; a.y += py;
+        if (a.state !== "walk" && a.state !== "called" && a.state !== "toBed") { a.tx += px; a.ty += py; }
+      }
     }
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
     const still = ["nap", "dance", "eat", "sleep", "visit"].includes(a.state);
@@ -4735,6 +4833,7 @@ function updateActors(dt) {
       if (f) { emote(a, pick(["♥", "♪", "✦"])); emote(f, pick(["♥", "♪", "!"])); f.hop = 1; a.hop = 1; sfx.chirp(specOf(cr).voice * 1.1); }
       a.friend = null;
     } else if (a.state === "toBed" && d <= 3) a.state = "sleep";
+    keepInRoom(a);
     // fliers hover, swimmers glide, hoppers bounce
     const ease = (to, k) => { a.alt = lerp(a.alt, to, Math.min(1, dt * k)); };
     if (a.state === "sleep") ease(0, 4);
@@ -4768,10 +4867,14 @@ function updateActors(dt) {
 }
 
 function drawRoom() {
-  const { x0, x1, y0, y1 } = N, cx = (x0 + x1) / 2;
-  // a round window onto the night sky, high on the back wall (only in the caves: outdoors the sky is already there)
-  const wr = Math.min((x1 - x0) * 0.22, (y0 - N.top) * 0.45), wy = y0 - wr * 1.08;
-  if (wr > 0 && THEME[currentTheme()].art !== undefined) {
+  const { y1 } = N, cx = N.cx, kind = ROOM_KIND[currentTheme()] || "cave";
+  // the walls and floor of this backdrop, painted once in art pixels
+  const rk = `${currentTheme()}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}`;
+  if (roomCanvas.key !== rk) { roomCanvas.key = rk; roomCanvas.c = paintRoom(currentTheme()); }
+  ctx.drawImage(roomCanvas.c, 0, 0, W, H);
+  // a round window onto the night sky in the cave wall (the abbey has its own arched one; outdoors the sky is already there)
+  const wr = N.win.r, wy = N.win.y;
+  if (wr > 0 && kind === "cave") {
     ctx.save();
     ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU);
     const sky = ctx.createLinearGradient(0, wy - wr, 0, wy + wr);
@@ -4794,19 +4897,15 @@ function drawRoom() {
     ctx.strokeStyle = "#160c26"; ctx.lineWidth = PX * 3.2; ctx.stroke();
     ctx.strokeStyle = "#523a85"; ctx.lineWidth = PX * 1.2; ctx.stroke();
   }
-  // moonlight falling on the floor
-  const ray = ctx.createLinearGradient(0, wy, 0, y1);
-  ray.addColorStop(0, "rgba(230,224,255,.1)"); ray.addColorStop(1, "rgba(230,224,255,0)");
-  ctx.fillStyle = ray;
-  ctx.beginPath(); ctx.moveTo(cx - wr * 0.7, wy); ctx.lineTo(cx + wr * 0.7, wy); ctx.lineTo(cx + wr * 1.6, y1); ctx.lineTo(cx - wr * 1.6, y1); ctx.closePath(); ctx.fill();
-  // the cave floor and a round woven rug
-  const fy = (y0 + y1) / 2, rx = (x1 - x0) * 0.62, ry = (y1 - y0) * 0.8;
-  const floor = ctx.createRadialGradient(cx, fy, 4, cx, fy, rx);
-  floor.addColorStop(0, "rgba(91,74,168,.55)"); floor.addColorStop(1, "rgba(44,34,102,0)");
-  ctx.fillStyle = floor;
-  ctx.beginPath(); ctx.ellipse(cx, fy + ry * 0.1, rx, ry, 0, 0, TAU); ctx.fill();
-  // a round woven rug in solid rings
-  const rcx = cx - rx * 0.1, rcy = fy + ry * 0.15, rrx = rx * 0.42, rry = ry * 0.42;
+  // moonlight falling through the window onto the floor
+  if (kind === "cave" || kind === "hall") {
+    const ray = ctx.createLinearGradient(0, wy, 0, y1);
+    ray.addColorStop(0, "rgba(230,224,255,.09)"); ray.addColorStop(1, "rgba(230,224,255,0)");
+    ctx.fillStyle = ray;
+    ctx.beginPath(); ctx.moveTo(cx - wr * 0.7, wy); ctx.lineTo(cx + wr * 0.7, wy); ctx.lineTo(cx + wr * 1.7, y1); ctx.lineTo(cx - wr * 1.7, y1); ctx.closePath(); ctx.fill();
+  }
+  // a round woven rug in solid rings, in the middle of the floor
+  const [rcx, rcy] = roomSpot("rug"), rrx = Math.min(N.hf * 0.4, N.base * 2.1), rry = (N.y1 - N.y0) * 0.26;
   const starry = hasDecor("rug");
   drawBaked(cachedSprite(roomSprites, "rug", `${rcx}|${rcy}|${rrx}|${rry}|${PX}|${starry ? Math.floor(game.time / 250) : ""}`, () => bakeSprite(rcx, rcy, rrx, () => {
     ["#5c1f3f", "#8f3460", "#c25586", "#8f3460", "#5c1f3f"].forEach((col, i) => {
@@ -4815,18 +4914,190 @@ function drawRoom() {
     });
     if (starry) drawStarryRug(rcx, rcy, rrx, rry);
   }, { up: rry / rrx + 0.08, down: rry / rrx + 0.08, side: 1.06 })));
-  drawCushion(N.bedX, N.bedY + N.base * 0.12, N.base * 0.85);
-  drawIncubator();
+  // furniture from the back of the room to the front, so nearer things overlap farther ones
+  const items = [{ y: N.bedY, draw: () => drawCushion(N.bedX, N.bedY + N.base * 0.1 * depthK(N.bedY), N.base * 0.72 * depthK(N.bedY)) },
+    { y: incSpot()[1], draw: drawIncubator }];
   for (const d of DECOR) if (hasDecor(d.id) && d.id !== "rug") {
     const [x, y] = decorSpot(d.id);
-    // the swing hangs from the ceiling and the lights span the room: those stay plain thin lines
-    if (d.id === "swing" || d.id === "lights") DRAW_DECOR[d.id](x, y);
+    // the swing and the lights are thin lines on the wall; the rest are baked
+    if (d.id === "swing" || d.id === "lights") { items.push({ y: d.id === "lights" ? -1 : N.back, draw: () => DRAW_DECOR[d.id](x, y) }); continue; }
+    const k = d.id === "shelf" ? N.dk : depthK(y);
     // decorations animate gently, so a new frame five times a second is plenty
-    else drawBaked(cachedSprite(roomSprites, d.id, `${x}|${y}|${N.base}|${PX}|${save.decor[d.id].off}|${Math.floor(game.time / 200)}`,
-      () => bakeSprite(x, y - N.base * 0.6, N.base, () => DRAW_DECOR[d.id](x, y), { up: 2.4, down: 1.1, side: 1.8 })));
+    items.push({ y: d.id === "shelf" ? -1 : y, draw: () => { decorK = k; drawBaked(cachedSprite(roomSprites, d.id, `${x}|${y}|${N.base}|${k}|${PX}|${save.decor[d.id].off}|${Math.floor(game.time / 200)}`,
+      () => bakeSprite(x, y - N.base * 0.6 * k, N.base * k, () => DRAW_DECOR[d.id](x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } });
   }
+  items.sort((p, q) => p.y - q.y).forEach(it => it.draw());
 }
-const roomSprites = {};
+const roomSprites = {}, roomCanvas = {};
+let decorK = 1;
+
+/** What sort of place each backdrop is: a hollow in the cave wall, an abbey hall, or a clearing under the sky. */
+const ROOM_KIND = { amethyst: "cave", celestite: "cave", malachite: "cave", labradorite: "cave", abbey: "hall", churchyard: "yard", glowcap: "wood" };
+
+/** The room's walls and floor in art pixels, for one backdrop: caves get rough rock with crystals in the corners and stone slabs,
+ *  the abbey brick with a tall arched window and tiles, the churchyard grass behind a low stone wall, the wood moss behind a fallen log. */
+function paintRoom(id) {
+  const kind = ROOM_KIND[id] || "cave", t = THEME[id] || THEME.amethyst;
+  const art = t.art !== undefined ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
+  const wallR = (art ? art.wall : night.ground).map(pxHex), crys = art ? art.crystal.map(pxHex) : null;
+  const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
+  const q = v => v / PX, cx = q(N.cx), back = Math.round(q(N.back)), front = Math.round(q(N.front)), hb = q(N.hb), hf = q(N.hf), top = Math.round(q(N.wallTop));
+  const win = { x: q(N.win.x), y: q(N.win.y), r: q(N.win.r) }, seed = (art ? art.seed : night.seed) * 7;
+  const half = y => lerp(hb, hf, clamp((y - back) / (front - back), 0, 1));
+  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
+  const ink = pxHex("#0b0614"), indoor = kind === "cave" || kind === "hall";
+  const lightAt = (x, y) => Math.exp(-(((x - cx) / (hb * 0.55)) ** 2) - (((y - back) / ((front - back) * 0.9)) ** 2));
+
+  if (indoor) {
+    // side walls first: they lean out from the back corners to the front, a little darker
+    for (const side of [-1, 1]) for (let y = top - 8; y <= front; y++) {
+      const inner = cx + side * (y < back ? hb : half(y)), outer = cx + side * (hf + 2);
+      const lo = Math.min(inner, outer), hi = Math.max(inner, outer);
+      const ceil = top - 8 + (Math.abs(inner - cx) - hb) * 0.6;
+      if (y < ceil) continue;
+      for (let x = Math.floor(lo); x <= Math.ceil(hi); x++) {
+        const fade = Math.abs(x - inner) / Math.max(1, hi - lo);
+        if (PX_BAYER[(y & 3) * 4 + (x & 3)] < fade - 0.45) continue;
+        put(x, y, pxPick(wallR, 0.06 + 0.16 * pxFbm(x * 0.11 + seed, y * 0.11) - fade * 0.12, x, y));
+      }
+    }
+    // the back wall
+    for (let y = top - 6; y < back; y++) for (let x = Math.floor(cx - hb); x <= Math.ceil(cx + hb); x++) {
+      const du = (x - cx) / hb, yt = kind === "cave" ? top + du * du * (back - top) * 0.18 + 3 * pxNoise(x * 0.14, seed) - 2 : top;
+      if (y < yt) continue;
+      let v;
+      if (kind === "cave") {
+        v = 0.22 + 0.26 * pxFbm(x * 0.08 + seed, y * 0.08) - 0.18 * (1 - (y - top) / (back - top)) - 0.14 * du * du;
+        if (Math.abs(pxNoise(x * 0.18 + seed, y * 0.18) - 0.5) < 0.025) v -= 0.25; // cracks in the rock
+        if (y - yt < 2) v -= 0.2;
+      } else {
+        // dressed stone: rows of bricks, each a slightly different shade
+        const row = Math.floor((y - top) / 4), bx = Math.floor((x - cx + 400 + (row % 2) * 4) / 8);
+        v = 0.32 + 0.16 * pxHash(bx, row + seed) - 0.12 * du * du;
+        if ((y - top) % 4 === 0 || (x - cx + 400 + (row % 2) * 4) % 8 === 0) v = 0.12;
+        if (y - top < 3) v = 0.62; // a lighter cornice along the top
+      }
+      v += 0.22 * Math.exp(-((Math.hypot(x - win.x, y - win.y) / (win.r * 2.4)) ** 2)); // light around the window
+      if (back - y < 3) v -= 0.25; // shadow where wall meets floor
+      if (Math.abs(du) > 0.985) v = 0.02; // the corner edges
+      put(x, y, pxPick(wallR, v, x, y));
+    }
+    if (kind === "cave") {
+      // crystal clusters growing in the corners where the wall meets the floor
+      for (const side of [-1, 1]) for (let k = 0; k < 6; k++) {
+        const bx = cx + side * (hb - 2 - k * 2.6 - pxHash(k, seed) * 2), hgt = 5 + Math.round(pxHash(k + 9, seed) * 9) - k, ww = 1.6 + pxHash(k, 3) * 1.2;
+        for (let yy = 0; yy < hgt; yy++) {
+          const hw = ww * (1 - yy / hgt), lean = side * yy * 0.18;
+          for (let xx = -Math.ceil(hw); xx <= Math.ceil(hw); xx++) put(bx + xx - lean, back - yy, yy === hgt - 1 ? crys[4] : xx < 0 ? crys[3] : crys[1]);
+        }
+      }
+    } else {
+      // a tall arched window with a stone frame and two panes of pink dusk
+      const sky = night.sky.map(pxHex), ww = Math.max(5, Math.round(win.r * 0.62)), wb = Math.round(win.y + win.r * 1.1), wt = Math.round(win.y - win.r * 1.1);
+      for (let y = wt - ww - 2; y <= wb + 2; y++) for (let x = Math.round(win.x - ww - 2); x <= Math.round(win.x + ww + 2); x++) {
+        const dx = Math.abs(x - win.x), arch = y < wt ? Math.hypot(dx, (wt - y) * 1.0) : dx;
+        if (arch > ww + 2) continue;
+        if (arch > ww || y > wb) { put(x, y, wallR[3]); continue; }
+        if (dx < 1 || (y - wt) % 9 === 0 && y > wt) { put(x, y, ink); continue; }
+        put(x, y, pxPick(sky, 0.15 + 0.85 * (y - (wt - ww)) / (wb - wt + ww), x, y));
+        if (pxHash(x, y + seed) > 0.97 && y < wt + 4) put(x, y, pxHex("#fff0b5"));
+      }
+    }
+  }
+
+  // the floor
+  const ground = night ? night.ground.map(pxHex) : wallR;
+  for (let y = back; y <= front + 6; y++) {
+    const hw = half(Math.min(y, front)), dv = (y - back) / (front - back);
+    for (let x = Math.floor(cx - hw - 3); x <= Math.ceil(cx + hw + 3); x++) {
+      const du = (x - cx) / hw;
+      let v, col = null;
+      if (indoor) {
+        if (Math.abs(du) > 1) continue;
+        if (y > front) { if (y - front > 4) continue; put(x, y, pxPick(wallR, 0.18 - (y - front) * 0.04, x, y)); continue; } // the front lip of the ledge
+        v = 0.56 + 0.14 * pxFbm(x * 0.1 + seed, y * 0.2) + 0.3 * lightAt(x, y) - 0.22 * du * du;
+        if (y - back < 1) v = 0.95; // a lit edge where the floor meets the wall
+        else if (y - back < 3) v -= 0.3; // and the shadow just in front of it
+        if (Math.abs(du) > 0.975) v -= 0.35; // the floor's side edges
+        if (kind === "cave") {
+          // big flat slabs: seams across and seams running toward the back
+          if ([0.34, 0.68].some(r => Math.abs(dv - r) * (front - back) < 0.5) && pxHash(x >> 2, y) > 0.15) v -= 0.22;
+          const col6 = (du + 1) * 3; if (Math.abs(col6 - Math.round(col6)) * hw / 3 < 0.5 && pxHash(x, y >> 2) > 0.3) v -= 0.18;
+          if (pxHash(x, y + seed) > 0.9975) col = crys[2];
+        } else {
+          const ti = Math.floor((du + 1) * 4), tj = Math.floor(dv * 5);
+          v += (ti + tj) % 2 ? 0.1 : -0.06;
+          if (Math.abs((du + 1) * 4 - Math.round((du + 1) * 4)) * hw / 4 < 0.5 || Math.abs(dv * 5 - Math.round(dv * 5)) * (front - back) / 5 < 0.5) v -= 0.18;
+        }
+        if (dv > 0.85) v -= (dv - 0.85) * 1.6;
+        put(x, y, col || pxPick(wallR, v, x, y));
+      } else {
+        // a clearing: the grass or moss thins out at a ragged edge
+        if (y > front) continue;
+        const edge = 1 - 0.1 * pxNoise(y * 0.2 + seed, 1) - 0.04 * pxNoise(x * 0.3, 5);
+        const dist = Math.max(Math.abs(du) / edge, (dv - 0.88) / 0.12);
+        if (dist > 1) continue;
+        if (dist > 0.9 && PX_BAYER[(y & 3) * 4 + (x & 3)] < (dist - 0.9) * 10) continue;
+        v = 0.5 + 0.25 * pxFbm(x * 0.14 + seed, y * 0.25) + 0.2 * lightAt(x, y) - 0.3 * du * du - 0.35 * Math.max(0, dist - 0.7);
+        if (pxHash(x, y + seed) > 0.965) v += 0.3; // tufts
+        if (kind === "wood") {
+          if (pxHash(x + 7, y + seed) > 0.988) col = pxHex(pxHash(x, y) > 0.5 ? "#c98f3a" : "#946027"); // fallen leaves
+          else if (pxHash(x + 3, y + seed * 2) > 0.995) col = pxHex("#8ff0d8"); // a glowing speck
+        }
+        put(x, y, col || pxPick(ground, v, x, y));
+      }
+    }
+  }
+  if (kind === "yard") {
+    // stepping stones winding from the front to the back
+    for (let i = 0; i < 5; i++) {
+      const v = 0.12 + i * 0.19, y = lerp(back, front, v), x = cx + Math.sin(i * 1.3 + 0.6) * half(y) * 0.28;
+      const rx = 2.6 + v * 2.2, ry = 1.2 + v;
+      for (let yy = -Math.ceil(ry); yy <= Math.ceil(ry); yy++) for (let xx = -Math.ceil(rx); xx <= Math.ceil(rx); xx++) {
+        const e = (xx / rx) ** 2 + (yy / ry) ** 2;
+        if (e <= 1) put(x + xx, y + yy, e > 0.7 ? pxHex("#22143a") : yy < 0 ? pxHex("#8a8494") : pxHex("#5d5666"));
+      }
+    }
+    // a low wall of old stones along the back of the clearing
+    for (let x = Math.floor(cx - hb - 2); x <= Math.ceil(cx + hb + 2); x++) {
+      const st = Math.floor((x - cx + 300) / 6), sh = 4 + Math.round(pxHash(st, seed) * 2);
+      for (let yy = 0; yy < sh; yy++) {
+        const edge = (x - cx + 300) % 6 === 0 || yy === sh - 1;
+        put(x, back - yy, edge ? ink : pxPick([pxHex("#3a3440"), pxHex("#5d5666"), pxHex("#8a8494")], 0.3 + 0.4 * (yy / sh) + 0.2 * pxHash(st, 2), x, back - yy));
+      }
+      if (pxHash(x, seed) > 0.8) put(x, back - sh, pxHex("#2f7d4a")); // moss on top
+    }
+  }
+  if (kind === "wood") {
+    // a fallen mossy log along the back
+    for (let x = Math.floor(cx - hb - 3); x <= Math.ceil(cx + hb + 3); x++) for (let yy = 0; yy < 7; yy++) {
+      const end = Math.abs(x - cx) > hb + 1;
+      put(x, back - yy, yy === 6 ? ink : yy >= 4 ? pxPick([pxHex("#1e5233"), pxHex("#2f7d4a"), pxHex("#57ad6a")], 0.4 + 0.5 * pxNoise(x * 0.3, seed), x, yy)
+        : end ? pxHex(yy % 2 ? "#c98f3a" : "#946027") : pxPick([pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")], 0.3 + 0.3 * (yy / 4) + (x % 5 === 0 ? -0.2 : 0), x, yy));
+    }
+  }
+
+  // what holds things up: a hook for the swing and pegs for the lights on a wall; outdoors, wooden posts
+  const wood = [pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")];
+  const post = (x, y0, y1) => { for (let y = Math.round(y1); y <= Math.round(y0); y++) { put(x - 1, y, wood[0]); put(x, y, wood[2]); put(x + 1, y, wood[1]); } };
+  const sx = q(wallAt(0.9, 0)[0]), lx0 = q(N.cx - N.hb + N.base * 0.3), lx1 = q(N.cx + N.hb - N.base * 0.3);
+  if (hasDecor("swing")) {
+    if (indoor) for (const dx of [-1, 0, 1]) { put(sx + dx, top + 1, pxHex("#8a8494")); put(sx, top + 2, pxHex("#e4dfe8")); }
+    else { const px = sx + q(N.base * 0.55); post(px, back - 1, top); for (let x = Math.round(sx - q(N.base * 0.4)); x <= px; x++) { put(x, top, wood[2]); put(x, top + 1, wood[0]); } }
+  }
+  if (hasDecor("lights")) {
+    if (indoor) for (const x of [lx0, lx1]) { put(x, top + 2, pxHex("#8a8494")); put(x, top + 3, pxHex("#5d5666")); }
+    else for (const x of [lx0, lx1]) post(x, back - 1, top + 2);
+  }
+  if (hasDecor("shelf") && !indoor) {
+    // outdoors the shelf stands on two legs
+    const [shx, shy] = roomSpot("shelf"), sw = q(N.base * 1.2 * N.dk) / 2, py = q(shy - N.base * 0.95 * N.dk);
+    for (const x of [q(shx) - sw + 2, q(shx) + sw - 2]) post(Math.round(x), back - 1, py);
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
 
 const geodeImgs = new Map();
 function geodeImg(id) {
@@ -4839,7 +5110,7 @@ function geodeImg(id) {
 }
 
 function swingSeat() {
-  const [x, y] = decorSpot("swing"), top = N.top - 20;
+  const [x, y] = decorSpot("swing"), top = N.wallTop + 3;
   const len = y - N.base * 0.95 - top, a = Math.sin(game.time * 0.0012 * (1 + swingPush)) * (0.18 + swingPush);
   return [x + Math.sin(a) * len, top + Math.cos(a) * len, a, top];
 }
@@ -4864,7 +5135,7 @@ function drawStarryRug(x, y, rx, ry) {
 
 const DRAW_DECOR = {
   lamp(x, y) {
-    const b = N.base, top = y - b * 1.25, pulse = 0.85 + 0.15 * Math.sin(game.time * 0.002), off = save.decor.lamp.off;
+    const b = N.base * decorK, top = y - b * 1.25, pulse = 0.85 + 0.15 * Math.sin(game.time * 0.002), off = save.decor.lamp.off;
     if (!off) {
       const glow = ctx.createRadialGradient(x, top, 2, x, top, b * 1.6);
       glow.addColorStop(0, `rgba(255,233,168,${0.35 * pulse})`); glow.addColorStop(1, "rgba(255,233,168,0)");
@@ -4881,7 +5152,7 @@ const DRAW_DECOR = {
     ctx.globalAlpha = 1;
   },
   mushrooms(x, y) {
-    const b = N.base;
+    const b = N.base * decorK;
     const k = fxAge("mushrooms"), boing = k < 0.7 ? Math.sin(k * Math.PI * 6) * (1 - k / 0.7) : 0;
     [[-0.3, 0.55, "#8ff0d8"], [0.15, 0.8, "#c9b8ff"], [0.42, 0.45, "#ff9ecb"]].forEach(([dx, h, col], i) => {
       const mx = x + dx * b, cap = b * (0.18 + h * 0.18) * (1 + boing * 0.12), top = y - b * h * (1 - boing * 0.15 * (i % 2 ? -1 : 1));
@@ -4895,7 +5166,7 @@ const DRAW_DECOR = {
     });
   },
   cushion(x, y) {
-    const b = N.base, k = fxAge("cushion"), squish = k < 0.6 ? Math.sin(k * Math.PI * 4) * (1 - k / 0.6) : 0;
+    const b = N.base * decorK, k = fxAge("cushion"), squish = k < 0.6 ? Math.sin(k * Math.PI * 4) * (1 - k / 0.6) : 0;
     ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + b * 0.05, b * 0.62, b * 0.12, 0, 0, TAU); ctx.fill();
     ctx.save(); ctx.translate(x, y); ctx.scale(1 + squish * 0.12, 1 - squish * 0.2); ctx.translate(-x, -y);
     ctx.fillStyle = "#e6e0ff";
@@ -4907,10 +5178,18 @@ const DRAW_DECOR = {
     ctx.restore();
   },
   shelf(x, y) {
-    const b = N.base, sy = y - b * 0.95, w = b * 1.5;
+    const b = N.base * decorK, sy = y - b * 0.95, w = b * 1.2;
     ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(x - w / 2, sy, w, 5);
     ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x - w / 2 + 6, sy + 5, 4, 10); ctx.fillRect(x + w / 2 - 10, sy + 5, 4, 10);
+    // brackets under the plank
+    ctx.fillStyle = "rgba(255,255,255,.18)";
+    for (const dx of [-0.36, 0.36]) { ctx.beginPath(); ctx.moveTo(x + dx * w - 3, sy + 5); ctx.lineTo(x + dx * w + 3, sy + 5); ctx.lineTo(x + dx * w, sy + b * 0.22); ctx.fill(); }
     const best = Object.entries(save.geodes).filter(([, g]) => g.img).sort((p, q) => (q[1].shine || 0) - (p[1].shine || 0)).slice(0, 3);
+    if (!best.length) for (let i = 0; i < 3; i++) {
+      const gx = x - w / 2 + w * (0.2 + i * 0.3), hh = b * (0.2 + (i % 2) * 0.12);
+      ctx.fillStyle = ["#c9b8ff", "#8fd8ef", "#ff9ecb"][i];
+      ctx.beginPath(); ctx.moveTo(gx - hh * 0.3, sy); ctx.lineTo(gx - hh * 0.2, sy - hh * 0.75); ctx.lineTo(gx, sy - hh); ctx.lineTo(gx + hh * 0.2, sy - hh * 0.75); ctx.lineTo(gx + hh * 0.3, sy); ctx.fill();
+    }
     best.forEach(([id], i) => {
       const im = geodeImg(id);
       if (!im) return;
@@ -4922,7 +5201,7 @@ const DRAW_DECOR = {
     });
   },
   spring(x, y) {
-    const b = N.base, rx = b * 0.75, ry = b * 0.22;
+    const b = N.base * decorK, rx = b * 0.75, ry = b * 0.22;
     const g = ctx.createRadialGradient(x, y, 2, x, y, rx);
     g.addColorStop(0, "#9fe3e0"); g.addColorStop(1, "#3a6fa8");
     ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill();
@@ -4945,7 +5224,7 @@ const DRAW_DECOR = {
     ctx.beginPath(); ctx.arc(sx, sy, b * 0.4, Math.PI * 0.05, Math.PI * 0.95); ctx.arc(sx, sy - b * 0.14, b * 0.36, Math.PI * 0.92, Math.PI * 0.08, true); ctx.closePath(); ctx.fill();
   },
   lights() {
-    const x0 = N.x0 - N.base * 0.3, x1 = N.x1 + N.base * 0.3, y = N.top + 18, sag = N.base * 0.45;
+    const x0 = N.cx - N.hb + N.base * 0.3, x1 = N.cx + N.hb - N.base * 0.3, y = N.wallTop + 6, sag = lightsSag();
     const cols = ["#ffe9a8", "#ff9ecb", "#8fd8ef", "#b9e88a", "#c9b8ff"];
     ctx.strokeStyle = "rgba(230,224,255,.45)"; ctx.lineWidth = 1.2;
     ctx.beginPath(); ctx.moveTo(x0, y); ctx.quadraticCurveTo((x0 + x1) / 2, y + sag * 2, x1, y); ctx.stroke();
@@ -4967,8 +5246,10 @@ const decorFx = {};
 let swingPush = 0;
 const fxAge = id => decorFx[id] === undefined ? 9 : (game.time - decorFx[id]) / 1000;
 
+/** The lights droop a little, but never across the window. */
+const lightsSag = () => Math.max(4, Math.min(N.base * 0.4, (N.win.y - N.win.r * 1.25 - N.wallTop - 10) / 2));
 function bulbPos(i) {
-  const x0 = N.x0 - N.base * 0.3, x1 = N.x1 + N.base * 0.3, y = N.top + 18, sag = N.base * 0.45, t = i / 14;
+  const x0 = N.cx - N.hb + N.base * 0.3, x1 = N.cx + N.hb - N.base * 0.3, y = N.wallTop + 6, sag = lightsSag(), t = i / 14;
   return [lerp(x0, x1, t), y + sag * 4 * t * (1 - t) + 6];
 }
 
@@ -4978,10 +5259,11 @@ function decorAt(x, y) {
   for (const d of DECOR) {
     if (!hasDecor(d.id) || d.id === "rug" || d.id === "lights") continue;
     let [hx, hy] = decorSpot(d.id), r = b * 0.55;
-    if (d.id === "lamp") { hy -= b * 0.75; r = b * 0.5; }
-    else if (d.id === "mushrooms") { hy -= b * 0.35; r = b * 0.6; }
+    const k = d.id === "shelf" ? N.dk : depthK(hy); r *= k;
+    if (d.id === "lamp") { hy -= b * 0.75 * k; r = b * 0.5 * k; }
+    else if (d.id === "mushrooms") { hy -= b * 0.35 * k; r = b * 0.6 * k; }
     else if (d.id === "cushion") hy -= b * 0.1;
-    else if (d.id === "shelf") { hy -= b * 1.15; r = b * 0.7; }
+    else if (d.id === "shelf") { hy -= b * 1.15 * k; r = b * 0.7 * k; }
     else if (d.id === "spring") r = b * 0.7;
     else if (d.id === "swing") { const s2 = swingSeat(); hx = s2[0]; hy = s2[1] + b * 0.18; r = b * 0.5; }
     if (Math.hypot(x - hx, y - hy) < r) return { id: d.id };
@@ -5157,14 +5439,14 @@ function drawNest() {
 // ---------- breeding and incubation ----------
 
 const INCUBATE_MS = 3 * 3600e3, REST_MS = 6 * 3600e3, PAIR_LEVEL = 5;
-const incSpot = () => [lerp(N.x0, N.x1, 0.06), lerp(N.y0, N.y1, 0.5)];
+const incSpot = () => roomSpot("incubator");
 
 /** Who can share an egg right now, and if not, why. */
 function pairReason(cr) {
   if (cr.level < PAIR_LEVEL) return tr("level {0}/{1}", cr.level, PAIR_LEVEL);
-  if (cr.sleeping) return "asleep";
+  if (cr.sleeping) return tr("asleep");
   applyTime(cr);
-  if (cr.joy < 50) return "needs joy";
+  if (cr.joy < 50) return tr("needs joy");
   if (cr.bredAt && Date.now() - cr.bredAt < REST_MS) return tr("resting {0}", fmtLeft(cr.bredAt + REST_MS - Date.now()));
   return "";
 }
@@ -5216,7 +5498,7 @@ function openIncubator() {
     $("incSub").textContent = tr("Two happy glowlings at level {0}+ can share an egg. The baby mixes their parts and colors and hatches in about 3 hours.", PAIR_LEVEL);
     $("incBody").innerHTML = `<div class="pick">${save.creatures.map(c => {
       const why = pairReason(c);
-      return `<button data-id="${c.id}" class="${pairPick.includes(c.id) ? "on" : ""}" ${why ? "disabled" : ""}><img src="${creatureImage(specOf(c), { size: 64, level: c.level, shiny: c.shiny })}" alt="">${why || c.name}</button>`;
+      return `<button data-id="${c.id}" class="${pairPick.includes(c.id) ? "on" : ""}" ${why ? "disabled" : ""}><img class="px2" style="width:52px;height:52px" src="${creatureImage(specOf(c), { art: 26, level: c.level, shiny: c.shiny })}" alt="">${why || c.name}</button>`;
     }).join("")}</div>
       <p id="pairPreview" class="center">${pairPick.length === 2 ? pairPick.map(id => save.creatures.find(c => c.id === id).name).join(" ♥ ") : ready.length < 2 ? tr("Feed, pet and play with your glowlings to grow them up") : tr("Pick two glowlings")}</p>
       <div class="row center"><button class="act" id="layBtn" ${pairPick.length === 2 ? "" : "disabled"}>${tr("💞 Lay the egg")}</button></div>`;
@@ -5305,7 +5587,7 @@ function tapIncubator() {
 }
 
 function drawIncubator() {
-  const [x, y] = incSpot(), b = N.base, inc = save.incubator, n = game.nest;
+  const [x, y] = incSpot(), b = N.base * depthK(incSpot()[1]), inc = save.incubator, n = game.nest;
   const ready = inc && Date.now() >= inc.due;
   // woven stand
   ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + 4, b * 0.5, b * 0.1, 0, 0, TAU); ctx.fill();
@@ -6340,12 +6622,12 @@ function renderLib() {
   $("libSub").textContent = tr("{0} of {1} glowlings · {2} of {3} geodes", found, SPECIES.length, geos, CRYSTALS.length) + (hyN ? ` · ${hyN} ${pl(hyN, "hybrid", "hybrids")}` : "") + tr(" · {0} in your nest", save.creatures.length);
   if (game.libTab === "hy") {
     const hy = save.creatures.filter(c => c.mix);
-    $("libGrid").innerHTML = hy.length ? hy.map((c, i) => `<button data-hy="${c.id}" style="animation-delay:${i * 20}ms"><span class="pg"><img src="${creatureImage(specOf(c), { size: 96, level: c.level, shiny: c.shiny })}" alt=""></span><b>${c.name}</b><small>${c.mix.parents.join(" × ")}</small></button>`).join("")
-      : `<p class="sub" style="grid-column:1/-1;padding:20px 0">No hybrids yet. Grow two glowlings to level ${PAIR_LEVEL}, keep them happy, and tap the incubator in your nest 💞</p>`;
+    $("libGrid").innerHTML = hy.length ? hy.map((c, i) => `<button data-hy="${c.id}" style="animation-delay:${i * 20}ms"><span class="pg"><img class="lib-px" src="${creatureImage(specOf(c), { art: 32, level: c.level, shiny: c.shiny })}" alt=""></span><b>${c.name}</b><small>${c.mix.parents.join(" × ")}</small></button>`).join("")
+      : `<p class="sub" style="grid-column:1/-1;padding:20px 0">${tr("No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in your nest 💞", PAIR_LEVEL)}</p>`;
   } else if (game.libTab === "sp") {
     $("libGrid").innerHTML = SPECIES.map((s, i) => {
       const seen = save.seen[s.id];
-      return `<button data-sp="${s.id}" class="${seen ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img src="${creatureImage(s, { size: 96, sil: !seen })}" alt=""></span><b>${seen ? s.name : "???"}</b><small>${rar(rarityOf(s))}</small></button>`;
+      return `<button data-sp="${s.id}" class="${seen ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${creatureImage(s, { art: 32, sil: !seen })}" alt=""></span><b>${seen ? s.name : "???"}</b><small>${rar(rarityOf(s))}</small></button>`;
     }).join("");
   } else {
     for (const c of CRYSTALS) if (save.geodes[c.id] && !save.geodes[c.id].img) { save.geodes[c.id].img = crystalThumb(c.id); persist(); }
