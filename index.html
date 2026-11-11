@@ -2994,7 +2994,7 @@ const quality = {
     this.acc = this.n = 0;
     if (avg < 22) return;
     // first, coarser art pixels (a quarter of the work per step); then a lower screen resolution
-    if (this.pxStep < 1 && !/[?&]px=/.test(location.search)) { this.pxStep++; refit(); return; }
+    if (this.pxStep < (this.pxLevels || 2) - 1 && !/[?&]px=/.test(location.search)) { this.pxStep++; refit(); return; }
     if (this.dpr > 1) { this.dpr = Math.max(1, this.dpr - 0.5); sizeCanvas(); }
     else if (!this.low) { this.low = true; document.body.classList.add("low"); }
   },
@@ -3002,9 +3002,14 @@ const quality = {
 
 function sizeCanvas() {
   // about 195 art pixels across a phone (2 screen pixels each): small enough for detail, big enough to read as pixels
-  const pxTry = /[?&]px=([1-5])\b/.exec(location.search);
-  // finer pixels (more detail in faces and furniture); a device that can't keep up steps back to coarser ones (see quality)
-  PX = pxTry ? +pxTry[1] : clamp(Math.ceil(Math.min(W, H * 0.6) / 400), 1, 4) + quality.pxStep;
+  const pxTry = /[?&]px=(0\.5|[1-5])(?![\d.])/.exec(location.search);
+  // fine pixels: on sharp screens half a CSS pixel (one or two real screen pixels each), so every sprite has twice the detail;
+  // a device that can't keep up steps back to coarser ones, a level at a time (see quality)
+  // (the egg is drawn live every frame and fills the screen, so cracking keeps the regular pixel size)
+  const base = clamp(Math.ceil(Math.min(W, H * 0.6) / 400), 1, 4), fine = (window.devicePixelRatio || 1) >= 2 && game.scene !== "crack" ? base / 2 : base;
+  const levels = [...new Set([fine, base, base + 1])];
+  quality.pxLevels = levels.length;
+  PX = pxTry ? +pxTry[1] : levels[Math.min(quality.pxStep, levels.length - 1)];
   low.width = cvs.width = Math.ceil(W / PX); low.height = cvs.height = Math.ceil(H / PX);
   cvs.style.width = cvs.width * PX + "px"; cvs.style.height = cvs.height * PX + "px";
   ctx.setTransform(1 / PX, 0, 0, 1 / PX, 0, 0);
@@ -3062,6 +3067,9 @@ const PIXEL_EXACT = (() => {
 /** Snap the finished frame to the palette with ordered dithering and show it. Works on whole pixels (32 bits) at once. */
 const PIXEL_PAL32 = new Uint32Array(PIXEL_PALETTE.map(([r, g, b]) => (255 << 24 | b << 16 | g << 8 | r) >>> 0));
 function present() {
+  // everywhere but the egg, everything on screen is already drawn in palette pixels (backdrops, rooms, furniture, sprites are baked),
+  // so the frame is copied straight across; only the egg (cracks and polish drawn live) is snapped to the palette here
+  if (game.scene !== "crack") { screen.drawImage(low, 0, 0); return; }
   const w = low.width, h = low.height, img = ctx.getImageData(0, 0, w, h), d = new Uint32Array(img.data.buffer);
   for (let y = 0, i = 0; y < h; y++) {
     const row = (y & 3) * 4;
@@ -4759,8 +4767,11 @@ function toast(text) {
 
 function setScene(scene) {
   if (scene !== "nest" && arrange.on) stopArrange();
+  // into or out of cracking: the pixel size changes (finer everywhere else), so everything is laid out again
+  const wasCrack = game.scene === "crack";
   if (game.scene === "nest" && scene !== "nest") sfx.purrOff();
   game.scene = scene;
+  if (wasCrack !== (scene === "crack") && W) refit();
   document.body.className = document.body.className.replace(/\bscene-\S+/g, "").trim() + ` scene-${scene}`;
   for (const [id, active] of [["hud", scene === "crack"], ["topbar", ["map", "nest", "lib"].includes(scene)], ["tabs", ["map", "nest", "lib"].includes(scene)]]) {
     $(id).classList.toggle("on", active); $(id).inert = !active; $(id).setAttribute("aria-hidden", String(!active));
@@ -5557,35 +5568,42 @@ const ISO_ART = {
     T.px(cx - 6, ty + 1, IC.s0); T.px(cx - 5, ty + 1, IC.s0); T.px(cx - 6, ty + 2, IC.s1);
   },
   mushrooms(t, T, ax, ay, o) {
-    // bioluminescent fungi: deep-colored caps that glow brightest at the rim underneath (the gills), glowing spots,
-    // pale stems with a streak of light, a pool of light on the floor and spores drifting up
+    // a cluster of luminous blue mushrooms on a mossy mound (after the reference photo): tall thin stems glowing from inside,
+    // wide flat parasol caps lit brightest at the rim, radial gills underneath, and a strong blue glow all round
     const cx = ax, cy = ay + t / 2, f = o.frame || 0;
-    const kinds = { cyan: [IC.b3, IC.b2, IC.b1, IC.b0], violet: [IC.l4, IC.l3, IC.l2, IC.l0], pink: [IC.p3, IC.p2, IC.p1, IC.p0], amber: [IC.w2, IC.w1, IC.y1, IC.y0] };
-    // the light they cast lies on the floor as a 2:1 pool, densest under the cluster
-    for (let y = Math.floor(cy - t * 0.4); y <= cy + t * 0.4; y++) for (let x = Math.floor(cx - t * 0.8); x <= cx + t * 0.8; x++) {
-      const f = 1 - Math.hypot((x - cx) / (t * 0.8), (y - cy) / (t * 0.4));
-      if (f > 0 && !T.has(x, y) && PX_BAYER[(y & 3) * 4 + (x & 3)] < f * 0.7) { T.px(x, y, f > 0.55 ? IC.b0 : IC.b1); T.glowPx.add(y * T.w + x); }
+    const B = { deep: IC.b3, mid: IC.b2, lit: IC.b1, pale: IC.b0, white: IC.white };
+    // the mossy mound they grow from, catching their light on its top
+    for (let y = Math.floor(cy - t * 0.22); y <= cy + t * 0.3; y++) for (let x = Math.floor(cx - t * 0.62); x <= cx + t * 0.62; x++) {
+      const d = Math.hypot((x - cx) / (t * 0.62), (y - cy - t * 0.04) / (t * 0.26));
+      if (d > 1) continue;
+      const top = y < cy - t * 0.02 + Math.abs(x - cx) * 0.18;
+      T.px(x, y, top ? (pxHash(x, y) > 0.78 ? B.mid : pxHash(x + 1, y) > 0.9 ? B.lit : IC.g2) : (d > 0.8 ? IC.ink2 : IC.g3));
     }
-    const shrooms = [[0.05, -0.1, 0.78, 0.36, "violet"], [-0.32, 0.04, 0.52, 0.26, "cyan"], [0.36, 0.08, 0.42, 0.24, "pink"], [-0.06, 0.24, 0.3, 0.17, "amber"]];
-    for (const [dx, dy, h, r, kind] of shrooms) {
-      const [dk, md, lt, hi] = kinds[kind], x = Math.round(cx + dx * t), y = Math.round(cy + dy * t), top = Math.round(y - h * t), rx = Math.max(2, r * t), ry = Math.max(2, rx * 0.82);
-      T.glow(x, top, rx * 1.6, lt, 0.55);
-      // a plump stem, a little wider at the foot, with a streak of light
-      const sw = Math.max(1, Math.round(rx * 0.32));
-      for (let k = 0; k < y - top; k++) { const wid = sw + (k < 2 ? 1 : 0); for (let q = -wid; q < wid; q++) T.px(x + q, y - k, q === -wid ? (k % 4 === 1 ? IC.white : IC.l0) : q < 0 ? IC.l1 : IC.l2); }
-      for (let yy = Math.floor(top - ry); yy <= top + 1; yy++) for (let xx = Math.floor(x - rx); xx <= Math.ceil(x + rx); xx++) {
-        const nx = (xx + 0.5 - x) / rx, ny = (yy + 0.5 - top) / ry;
-        if (nx * nx + ny * ny > 1 || yy > top + 1) continue;
-        const k = (yy - (top - ry)) / (ry + 1);
-        T.px(xx, yy, k > 0.8 ? hi : k > 0.55 ? lt : k > 0.25 ? md : dk);
+    // a wide blue halo first, so the mushrooms sit inside their own light
+    T.glow(cx, cy - t * 0.8, t * 1.45, B.deep, 0.5);
+    T.glow(cx, cy - t * 0.75, t * 0.95, B.mid, 0.45);
+    const shrooms = [[-0.36, 0.0, 0.95, 0.27], [0.12, -0.08, 1.35, 0.32], [0.38, 0.06, 0.7, 0.22], [-0.12, 0.12, 0.55, 0.18], [0.22, 0.16, 0.36, 0.13], [-0.45, 0.16, 0.32, 0.11], [0.5, -0.04, 0.48, 0.14]]
+      .sort((p, q) => p[1] - q[1]);
+    for (const [dx, dy, h, r] of shrooms) {
+      const x = Math.round(cx + dx * t), y = Math.round(cy + dy * t), top = Math.round(y - h * t * 1.35), rx = Math.max(2, r * t * 1.3), ry = Math.max(1, Math.round(rx * 0.36));
+      const lean = Math.round(dx * 2);
+      // a thin stem with a bright core
+      for (let k = 0; k <= y - top; k++) { const sx = x + Math.round(lean * k / (y - top + 1)); T.px(sx, y - k, k % 4 === 0 ? B.white : B.pale); if (rx > 5) T.px(sx + 1, y - k, B.mid); }
+      const tx = x + lean;
+      // the cap: a flat parasol, its top glowing pale, its rim the brightest of all
+      for (let yy = top - ry; yy <= top; yy++) for (let xx = Math.floor(tx - rx); xx <= Math.ceil(tx + rx); xx++) {
+        const nx = (xx + 0.5 - tx) / rx, ny = (yy + 0.5 - top) / (ry + 0.5);
+        if (nx * nx + ny * ny > 1) continue;
+        T.px(xx, yy, Math.abs(nx) > 0.86 ? B.pale : yy === top - ry ? B.mid : ny > -0.35 ? B.lit : B.mid);
       }
-      // the glowing gills: a bright band right under the rim, whitest in the middle
-      for (let xx = Math.floor(x - rx + 1); xx <= Math.ceil(x + rx - 1); xx++) T.px(xx, top + 1, Math.abs(xx - x) < rx * 0.4 ? IC.white : hi);
-      // glowing spots on the cap
-      for (let i = 0; i < Math.max(2, Math.round(rx / 2)); i++) { const sx = x + Math.round((pxHash(i, top) - 0.5) * rx * 1.3), sy = top - Math.round(ry * (0.3 + 0.5 * pxHash(top, i))); T.px(sx, sy, hi); }
+      // the gills underneath: thin lines fanning out from the stem
+      const gy = top + 1;
+      for (let xx = Math.floor(tx - rx + 1); xx <= Math.ceil(tx + rx - 1); xx++) T.px(xx, gy, Math.abs(xx - tx) > rx - 2 ? B.white : (xx - tx) % 2 === 0 ? B.deep : B.pale);
+      if (rx > 4) for (let xx = Math.floor(tx - rx * 0.6); xx <= Math.ceil(tx + rx * 0.6); xx += 2) T.px(xx, gy + 1, B.mid);
+      T.px(tx, top - ry, B.white);
     }
-    // spores, drifting and twinkling in turn
-    for (let i = 0; i < 6; i++) { if ((i + f) % 3 === 0) continue; T.px(cx + Math.round((pxHash(i, 5) - 0.5) * t * 1.4), cy - Math.round(t * (0.9 + pxHash(5, i) * 0.9)) - ((i + f) % 4), i % 2 ? IC.b0 : IC.y0); }
+    // spores drifting up through the light
+    for (let i = 0; i < 7; i++) { if ((i + f) % 3 === 0) continue; T.px(cx + Math.round((pxHash(i, 5) - 0.5) * t * 1.5), cy - Math.round(t * (1.1 + pxHash(5, i) * 1.0)) - ((i + f) % 4), i % 2 ? B.white : B.pale); }
   },
   bed(t, T, ax, ay) {
     // a big round, puffy nest-bed over two tiles each way, all fabric: an oval base, a plump rim of cushions all round
@@ -5944,16 +5962,18 @@ function drawRoomIso() {
   const items = [];
   for (const p of Object.values(isoLayout().placed)) {
     const fy = isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1];
-    if (p.id === "incubator") { items.push({ y: fy, draw: drawIncubator }); continue; }
+    const box = { u0: p.i, u1: p.i + p.fw, v0: p.j, v1: p.j + p.fd, id: p.id };
+    if (p.id === "incubator") { items.push({ y: fy, box, draw: drawIncubator }); continue; }
     const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
     const extra = p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : {};
-    items.push({ y: fy, draw: () => drawBaked(isoPiece(p, extra), 0, bob) });
+    items.push({ y: fy, box, draw: () => drawBaked(isoPiece(p, extra), 0, bob) });
   }
   // the swing hangs out over the first row of the floor: it sorts by the ground under its seat, so pieces by the wall stay behind it
-  if (hasDecor("swing")) items.push({ y: isoAt(0.42, 1.3 / ISO_G)[1], draw: () => DRAW_DECOR.swing() });
+  // the swing hangs out over the first row of tiles: in front of pieces by the wall, behind anything further into the room
+  if (hasDecor("swing")) { const su = 0.42 * ISO_G; items.push({ y: isoAt(0.42, 1.3 / ISO_G)[1], box: { u0: su - 0.45, u1: su + 0.45, v0: 1.0, v1: 1.05, id: "swing" }, draw: () => DRAW_DECOR.swing() }); }
   if (hasDecor("shelf")) { const [x, y] = decorSpot("shelf"); items.push({ y: -2, draw: () => { decorK = N.dk; drawBaked(cachedSprite(roomSprites, "shelf", `${x}|${y}|${N.base}|${PX}|${Math.floor(game.time / 200)}`, () => bakeSprite(x, y - N.base * 0.6 * N.dk, N.base * N.dk, () => DRAW_DECOR.shelf(x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } }); }
   if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
-  if (hasDecor("cushion")) items.push({ y: 1e6, draw: drawCloud });
+  if (hasDecor("cushion")) items.push({ y: 1e6, top: true, id: "cushion", draw: drawCloud });
   return items;
 }
 
@@ -6453,9 +6473,17 @@ function drawNest() {
   const frontOf = id => { const p = N.iso && isoLayout().placed[id]; return p ? isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1] : null; };
   for (const a of actors.values()) {
     const on = a.state === "sleep" || a.state === "toBed" ? frontOf("bed") : N.iso && a.state === "nap" && a.decor === "cushion" ? 1e6 : (a.state === "nap" || a.state === "visit") && a.decor ? frontOf(a.decor) : null;
-    items.push({ y: on != null && a.state !== "toBed" ? on + 0.5 : a.y + 0.5, draw: () => drawActor(a) });
+    const item = { y: on != null && a.state !== "toBed" ? on + 0.5 : a.y + 0.5, draw: () => drawActor(a) };
+    if (N.iso) {
+      const [u, v] = isoFrom(a.x, a.y);
+      item.box = { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G };
+      // lying on the bed, napping on the cloud or sitting on the swing or a piece: drawn right after it
+      item.after = a.state === "sleep" ? "bed" : a.state === "nap" && a.decor === "cushion" ? "cushion" : (a.state === "visit" || a.state === "nap") && a.decor ? a.decor : null;
+      if (item.after === "cushion") item.top = true;
+    }
+    items.push(item);
   }
-  items.sort((p, q) => p.y - q.y).forEach(it => it.draw());
+  (N.iso ? isoOrder(items) : items.sort((p, q) => p.y - q.y)).forEach(it => it.draw());
   const sn = game.nest.snack;
   if (sn) {
     fx.font = `${Math.round(N.base * 0.32)}px system-ui`; fx.textAlign = "center";
@@ -6463,6 +6491,39 @@ function drawNest() {
     fx.textAlign = "start";
   }
 }
+/**
+ * Back-to-front order for the isometric room, the way isometric games sort: compare places on the floor grid, not screen height.
+ * A thing is in front of another when it lies wholly in front along either floor axis; wall pieces come first, the cloud and
+ * whoever naps on it last, and anyone on a piece right after that piece. (A small topological sort; ties go by depth u + v.)
+ */
+function isoOrder(items) {
+  const back = items.filter(it => !it.box && !it.top && it.y < 0), top = items.filter(it => it.top), mid = items.filter(it => it.box && !it.top);
+  const loose = items.filter(it => !it.box && !it.top && it.y >= 0);
+  const depth = it => (it.box.u0 + it.box.u1 + it.box.v0 + it.box.v1) / 2;
+  const front = (a, b) => {
+    // is a in front of b?
+    if (a.after && a.after === b.box?.id) return true;
+    if (b.after && b.after === a.box?.id) return false;
+    const A = a.box, B = b.box, e = 0.001;
+    const aU = A.u0 >= B.u1 - e, aV = A.v0 >= B.v1 - e, bU = B.u0 >= A.u1 - e, bV = B.v0 >= A.v1 - e;
+    if ((aU || aV) && !(bU || bV)) return true;
+    if ((bU || bV) && !(aU || aV)) return false;
+    return depth(a) > depth(b);
+  };
+  const n = mid.length, before = mid.map(() => []), indeg = new Array(n).fill(0);
+  for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+    if (front(mid[i], mid[j])) { before[j].push(i); indeg[i]++; } else { before[i].push(j); indeg[j]++; }
+  }
+  const out = [], ready = mid.map((_, i) => i).filter(i => !indeg[i]);
+  while (ready.length) {
+    ready.sort((p, q) => depth(mid[q]) - depth(mid[p]));
+    const i = ready.pop(); out.push(mid[i]);
+    for (const j of before[i]) if (--indeg[j] === 0) ready.push(j);
+  }
+  if (out.length < n) for (const it of mid) if (!out.includes(it)) out.push(it); // a cycle (shouldn't happen): append the rest
+  return [...back.sort((p, q) => p.y - q.y), ...loose, ...out, ...top.sort((p, q) => (p.after ? 1 : 0) - (q.after ? 1 : 0))];
+}
+
 function drawActor(a) {
   const act = activeCreature();
   {
