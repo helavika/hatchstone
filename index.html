@@ -538,6 +538,23 @@
   .theme.on { background: var(--px-gold-lo); box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -3px 0 0 #946027; }
   .theme.locked img { filter: brightness(.35) saturate(.4); }
   .theme:disabled { cursor: default; }
+  /* experiment: the top bar keeps only shards, stars and a menu button */
+  .menu-wrap { position: relative; }
+  #menuSheet { position: absolute; right: 0; top: calc(100% + 12px); display: flex; flex-direction: column; gap: 12px; padding: 12px; min-width: 220px; }
+  #menuSheet .act { justify-content: flex-start; width: 100%; }
+  .bar-top.on #menuSheet, .bar-top.on #menuSheet button { pointer-events: auto; }
+  /* need icons in fours */
+  .hearts { display: flex; gap: 2px; }
+  .hearts .ic { width: 21px; height: 21px; }
+  .ic.off { filter: grayscale(1) brightness(.5); opacity: .55; }
+  .hearts.low .ic:not(.off) { animation: pxBlink 1s steps(2) infinite; }
+  .need label { justify-content: flex-start; }
+  /* the button for what your glowling needs glows gold, like a handheld's attention light */
+  .acts .act.want { box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -3px 0 0 var(--px-gold-lo), 0 0 0 6px var(--px-gold) !important; animation: pxBob 1s steps(2) infinite; }
+  /* the open tab stands up out of the bar */
+  #tabs button.on { transform: translateY(-9px); padding-top: 9px; padding-bottom: 9px; }
+  #tabs button.on .ic { width: 36px; height: 36px; margin: -9px 0; }
+
   /* the forge: upgrade cards with level pips */
   .forge { display: flex; align-items: center; gap: 12px; width: 100%; padding: 12px 14px; margin-top: 12px; cursor: pointer; text-align: left; }
   .forge .txt { flex: 1; }
@@ -588,12 +605,17 @@
 
 <!-- grotto, nest, glowpedia -->
 <div id="topbar" class="bar-top" inert aria-hidden="true">
-  <div class="pill glass stack" title="Shards: spend them on snacks and decor"><b id="shardPill">✦ 0</b><small>shards</small></div>
   <div class="row">
+    <div class="pill glass stack" title="Shards: spend them on snacks, decor and the forge"><b id="shardPill">✦ 0</b><small>shards</small></div>
     <div class="pill glass stack" title="Stars from the grotto levels"><b id="starPill">★ 0</b><small>stars</small></div>
-    <button class="pill glass btn" id="mapCoop"><i class="ic" data-ic="duo"></i>Co-op</button>
-    <button class="pill glass btn round stack" id="backupBtn" aria-label="Back up your nest" title="Back up your nest"><i class="ic" data-ic="scroll"></i><small>backup</small></button>
-    <button class="pill glass btn round mute" aria-label="Mute sound"><i class="ic" data-ic="sound"></i></button>
+  </div>
+  <div class="row menu-wrap">
+    <button class="pill glass btn round" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="menuSheet"><i class="ic" data-ic="gear"></i></button>
+    <div id="menuSheet" class="glass" hidden>
+      <button class="act" id="mapCoop"><i class="ic" data-ic="duo"></i>Play together</button>
+      <button class="act" id="backupBtn" aria-label="Back up your nest"><i class="ic" data-ic="scroll"></i>Back up nest</button>
+      <button class="act mute" data-label="1" aria-label="Mute sound"><i class="ic" data-ic="sound"></i>Sound on</button>
+    </div>
   </div>
 </div>
 
@@ -668,9 +690,9 @@
 <div id="nestEmpty" hidden>Your nest is empty.<br>Hatch your first egg in the Grotto ✦</div>
 <div id="nestBottom">
   <div class="needs glass">
-    <div class="need"><label><i class="ic" data-ic="cookie"></i>Tummy <span id="vTummy"></span></label><div class="bar" id="bTummy"><i></i></div></div>
-    <div class="need"><label><i class="ic" data-ic="heart"></i>Joy <span id="vJoy"></span></label><div class="bar" id="bJoy"><i></i></div></div>
-    <div class="need"><label><i class="ic" data-ic="moon"></i>Energy <span id="vEnergy"></span></label><div class="bar" id="bEnergy"><i></i></div></div>
+    <div class="need"><label>Tummy <span id="vTummy"></span></label><div class="hearts" id="bTummy" data-need="cookie"></div></div>
+    <div class="need"><label>Joy <span id="vJoy"></span></label><div class="hearts" id="bJoy" data-need="heart"></div></div>
+    <div class="need"><label>Energy <span id="vEnergy"></span></label><div class="hearts" id="bEnergy" data-need="moon"></div></div>
   </div>
   <div class="acts">
     <button class="act" id="feedBtn"><i class="ic" data-ic="cookie"></i>Feed</button>
@@ -961,7 +983,7 @@ const sfx = {
     const ac = this.ac, t = ac.currentTime;
     const g = ac.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.06, t + 5);
+    g.gain.linearRampToValueAtTime(0.035, t + 5); // quieter now that each backdrop has a song
     const lp = ac.createBiquadFilter();
     lp.type = "lowpass"; lp.frequency.value = 600;
     const lfo = ac.createOscillator(), lfoGain = ac.createGain();
@@ -992,38 +1014,74 @@ const sfx = {
   },
 
   /**
-   * A quiet tune that never quite repeats, in each backdrop's own voice: a music box in the caves, slow bells in the
-   * churchyard, a kalimba in the mushroom wood, an organ breath in the abbey. Notes wander a scale with rests between.
+   * The backdrop's song: a chord progression with a soft arpeggio and a bass note, and a melody made of little motifs
+   * in A A B A form, so it's hummable but keeps changing (a fresh pair of motifs every 16 bars).
+   * Each backdrop has its own key, mode, tempo and instrument: music box, bells, kalimba or organ.
    */
   music(id) {
-    const caves = { root: 523.25, scale: [0, 2, 4, 7, 9], beat: 0.45, rest: 0.45, type: "sine", gain: 0.03, decay: 1.4, shine: 0.35, bass: 0.5 };
-    this.tune = {
-      amethyst: caves, celestite: { ...caves, root: 587.33 }, malachite: { ...caves, root: 493.88, scale: [0, 2, 3, 7, 9] },
-      labradorite: { ...caves, root: 440, scale: [0, 3, 5, 7, 10], beat: 0.55 },
-      churchyard: { root: 293.66, scale: [0, 2, 3, 7, 8], beat: 0.8, rest: 0.4, type: "triangle", gain: 0.045, decay: 2.6, shine: 0.5, bass: 0.6 },
-      glowcap: { root: 392, scale: [0, 2, 4, 7, 9], beat: 0.28, rest: 0.5, type: "triangle", gain: 0.04, decay: 0.35, shine: 0.15, bass: 0.35 },
-      abbey: { root: 261.63, scale: [0, 2, 4, 5, 7, 9, 11], beat: 1.1, rest: 0.25, type: "sine", gain: 0.03, decay: 3.2, shine: 0.6, bass: 0.7, chord: true },
-    }[id] || caves;
-    if (this.tuneOn) return;
-    this.tuneOn = true;
-    let step = 0, at = 5;
+    const MAJOR = [0, 2, 4, 5, 7, 9, 11], MINOR = [0, 2, 3, 5, 7, 8, 10], DORIAN = [0, 2, 3, 5, 7, 9, 10];
+    const box = { lead: "sine", shine: 0.45, decay: 1.1, arp: "sine", arpDecay: 0.7, gain: 1 };
+    const songs = {
+      amethyst: { root: 220, mode: MINOR, prog: [0, 5, 2, 6], bpm: 84, ...box },
+      celestite: { root: 293.66, mode: MAJOR, prog: [0, 4, 5, 3], bpm: 80, ...box },
+      malachite: { root: 246.94, mode: DORIAN, prog: [0, 3, 0, 4], bpm: 88, ...box },
+      labradorite: { root: 185, mode: MINOR, prog: [0, 5, 3, 4], bpm: 72, ...box },
+      churchyard: { root: 146.83, mode: MINOR, prog: [0, 3, 5, 4], bpm: 64, lead: "triangle", shine: 0.6, decay: 2.4, arp: "triangle", arpDecay: 1.6, gain: 1.1, bells: true },
+      glowcap: { root: 196, mode: MAJOR, prog: [0, 3, 4, 0], bpm: 104, lead: "triangle", shine: 0.12, decay: 0.32, arp: "triangle", arpDecay: 0.25, gain: 1.1 },
+      abbey: { root: 130.81, mode: MAJOR, prog: [0, 5, 3, 4], bpm: 58, lead: "sine", shine: 0.3, decay: 2.8, arp: "sine", arpDecay: 3, gain: 0.9, pad: true },
+    };
+    this.song = songs[id] || songs.amethyst;
+    this.motifs = null;
+    if (this.songOn) return;
+    this.songOn = true;
+    let step = 0;
+    const RHYTHMS = [[1, 0, 1, 0, 1, 0, 0, 0], [1, 0, 0, 1, 0, 0, 1, 0], [1, 0, 1, 1, 0, 0, 1, 0], [1, 0, 0, 0, 1, 0, 1, 0], [0, 0, 1, 0, 1, 0, 1, 1]];
+    // a motif is two bars of rhythm and melody steps; notes land on chord tones on strong beats, step between them
+    const motif = () => {
+      const bars = [pick(RHYTHMS), pick(RHYTHMS)], moves = [];
+      let at = 0;
+      for (let b = 0; b < 2; b++) for (let k = 0; k < 8; k++) if (bars[b][k]) { at = clamp(at + pick([-2, -1, -1, 0, 1, 1, 2]), -2, 5); moves.push(at); }
+      return { bars, moves };
+    };
     const tick = () => {
-      const m = this.tune;
-      setTimeout(tick, m.beat * 1000);
-      if (!this.ready() || document.hidden) return;
-      const t = this.ac.currentTime + 0.05, n = m.scale.length, f = i => m.root * Math.pow(2, (m.scale[((i % n) + n) % n] + 12 * Math.floor(i / n)) / 12);
-      // a low note at the start of every bar
-      if (step % 8 === 0) this.tone(t, f(0) / 2, m.gain * m.bass, m.decay * 2, "sine");
-      if (m.chord && step % 8 === 0) for (const k of [2, 4]) this.tone(t, f(k) / 2, m.gain * 0.5, m.decay * 2, "sine");
-      if (Math.random() > m.rest) {
-        at = clamp(at + pick([-2, -1, -1, 1, 1, 2, 3]), 0, n * 2 - 1);
-        this.tone(t, f(at), m.gain, m.decay, m.type, null, true);
-        // the bright little partial that makes a music box or a bell
-        if (m.shine) this.tone(t, f(at) * 2.01, m.gain * m.shine * 0.4, m.decay * 0.4, "sine");
+      const m = this.song, eighth = 30 / m.bpm;
+      setTimeout(tick, eighth * 1000);
+      if (!this.ready() || document.hidden) { step++; return; }
+      if (!this.motifs || step % 128 === 0) { const a = motif(); this.motifs = [a, a, motif(), a]; }
+      const t = this.ac.currentTime + 0.05, bar = Math.floor(step / 8) % 16, beat = step % 8;
+      const chord = m.prog[bar % 4], g = m.gain;
+      const note = (deg, oct = 0) => { const n = m.mode.length, d = ((deg % n) + n) % n; return m.root * Math.pow(2, (m.mode[d] + 12 * (Math.floor(deg / n) + oct)) / 12); };
+      // bass on the bar, and a soft pad or bell chord in the slow songs
+      if (beat === 0) {
+        this.tone(t, note(chord, -1), 0.05 * g, eighth * 7, "sine");
+        if (m.pad) for (const k of [0, 2, 4]) this.tone(t, note(chord + k), 0.018 * g, eighth * 8, "sine");
+      }
+      if (beat === 4 && !m.pad) this.tone(t, note(chord + 4, -1), 0.03 * g, eighth * 3, "sine");
+      // a gentle arpeggio up and down the chord
+      const arp = [0, 2, 4, 2, 0, 2, 4, 7][beat];
+      if (!m.bells || beat % 2 === 0) this.tone(t, note(chord + arp), 0.016 * g, m.arpDecay, m.arp);
+      // the melody: phrase A A B A over 8 bars of 2-bar motifs
+      const mo = this.motifs[Math.floor(bar / 2) % 4], half = bar % 2;
+      if (mo.bars[half][beat]) {
+        const idx = mo.bars[0].slice(0, half ? 8 : beat).reduce((s, v) => s + v, 0) + (half ? mo.bars[1].slice(0, beat).reduce((s, v) => s + v, 0) : 0);
+        let deg = chord + (mo.moves[idx] ?? 0);
+        // strong beats lean onto the nearest chord tone
+        if (beat % 4 === 0) { const r = (((deg - chord) % 7) + 7) % 7; if (r === 1 || r === 3) deg -= 1; else if (r === 5 || r === 6) deg += 7 - r; }
+        const f = note(deg, 1);
+        this.tone(t, f, 0.04 * g, m.decay, m.lead, null, true);
+        if (m.shine) this.tone(t, f * 2.01, 0.014 * g * m.shine, m.decay * 0.35, "sine");
       }
       step++;
     };
     setTimeout(tick, 1200);
+  },
+
+  /** The soft wooden click of a button going down. */
+  press() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.tone(t, 1400, 0.025, 0.035, "triangle", 900);
+    this.grain(t, 0.01, 2500, 2, 0.04);
   },
 
   /** An 8-bit blip for a shard landing; it climbs while a run of shards keeps coming. */
@@ -1447,6 +1505,7 @@ const PX_ICON_MAPS = {
   duo: ["............", "...r....t...", "..rrr..ttt..", ".rrrrrtttt..", ".rkrkrtktkt.", ".rrrrrtttt..", "..rrr..ttt..", "............", "............", "............", "............", "............"],
   postcard: ["............", "............", ".wwwwwwwwww.", ".Swwwwwwwws.", ".sSwwwwwwSs.", ".ssSwwwwSss.", ".sssSRRSsss.", ".ssssRRssss.", ".ssssssssss.", "............", "............", "............"],
   lock: ["............", "....SSSS....", "...S....S...", "...S....S...", "..gggggggg..", "..gGGGGGgo..", "..gGGkkGgo..", "..gGGkkGgo..", "..ggggggoo..", "..oooooooo..", "............", "............"],
+  gear: ["............", ".....ss.....", "..s.sSSs.s..", "..sSSSSSSs..", "...SSzzSS...", ".sSSz..zSSs.", ".sSSz..zSSs.", "...SSzzSS...", "..sSSSSSSs..", "..s.sSSs.s..", ".....ss.....", "............"],
   broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
 };
 const pxIconCache = {};
@@ -1906,7 +1965,7 @@ const screen = cvs.getContext("2d");
 // The world is drawn small, then every frame is snapped to one cute-gothic palette with ordered dithering and
 // blown up with hard edges: eggs, glowlings, the nest and every effect come out as the same pixel art.
 const low = document.createElement("canvas");
-let ctx = low.getContext("2d", { willReadFrequently: true }); // let: asSprite() lends it out for a moment
+let ctx = low.getContext("2d", { willReadFrequently: true }); // let: bakeSprite() lends it out for a moment
 const fxCanvas = $("fx"), fx = fxCanvas.getContext("2d");
 const PIXEL_FONT = '"Jersey 15", ui-rounded, system-ui, sans-serif';
 let W = 0, H = 0, DPR = 1, PX = 3;
@@ -2016,18 +2075,20 @@ const PIXEL_EXACT = (() => {
   return t;
 })();
 
-/** Snap the finished frame to the palette with ordered dithering and show it. */
+/** Snap the finished frame to the palette with ordered dithering and show it. Works on whole pixels (32 bits) at once. */
+const PIXEL_PAL32 = new Uint32Array(PIXEL_PALETTE.map(([r, g, b]) => (255 << 24 | b << 16 | g << 8 | r) >>> 0));
 function present() {
-  const w = low.width, h = low.height, img = ctx.getImageData(0, 0, w, h), d = img.data;
+  const w = low.width, h = low.height, img = ctx.getImageData(0, 0, w, h), d = new Uint32Array(img.data.buffer);
   for (let y = 0, i = 0; y < h; y++) {
     const row = (y & 3) * 4;
-    for (let x = 0; x < w; x++, i += 4) {
-      const ex = PIXEL_EXACT[(d[i] >> 3 << 10) | (d[i + 1] >> 3 << 5) | (d[i + 2] >> 3)];
-      if (ex >= 0) { const c = PIXEL_PALETTE[ex]; if (c[0] === d[i] && c[1] === d[i + 1] && c[2] === d[i + 2]) { d[i + 3] = 255; continue; } }
+    for (let x = 0; x < w; x++, i++) {
+      const v = d[i], r = v & 255, g = (v >>> 8) & 255, b = (v >>> 16) & 255;
+      // colors already in the palette stay exactly as they are (sprites, outlines): no dither noise on them
+      const ex = PIXEL_EXACT[(r >> 3 << 10) | (g >> 3 << 5) | (b >> 3)];
+      if (ex >= 0 && PIXEL_PAL32[ex] === ((v | 0xff000000) >>> 0)) { d[i] = PIXEL_PAL32[ex]; continue; }
       const o = PIXEL_DITHER[row + (x & 3)];
-      const r = clamp(d[i] + o, 0, 255) >> 3, g = clamp(d[i + 1] + o, 0, 255) >> 3, b = clamp(d[i + 2] + o, 0, 255) >> 3;
-      const c = PIXEL_PALETTE[PIXEL_LUT[(r << 10) | (g << 5) | b]];
-      d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; d[i + 3] = 255;
+      const rr = r + o, gg = g + o, bb = b + o;
+      d[i] = PIXEL_PAL32[PIXEL_LUT[((rr < 0 ? 0 : rr > 255 ? 255 : rr) >> 3 << 10) | ((gg < 0 ? 0 : gg > 255 ? 255 : gg) >> 3 << 5) | ((bb < 0 ? 0 : bb > 255 ? 255 : bb) >> 3)]];
     }
   }
   screen.putImageData(img, 0, 0);
@@ -2534,7 +2595,50 @@ function drawSprite(x, y, s, sp, o = {}) {
     g.addColorStop(1, "rgba(138,108,201,0)");
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, gr, 0, TAU); ctx.fill();
   }
-  cutSprite(ctx, x, y, s * grow, g => drawCreature(g, x, y, s, sp, { ...o, glow: false }));
+  // pixel-art pace: a new frame every 100 ms, drawn once and reused, placed on whole pixels so it never shimmers
+  const t = Math.floor((o.t ?? game.time) / 100) * 100;
+  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${t}|${PX}`;
+  let f = spriteFrames.get(key);
+  if (!f) {
+    if (spriteFrames.size > 400) spriteFrames.clear();
+    f = bakeSprite(0, 0, s * grow, () => drawCreature(ctx, 0, 0, s, sp, { ...o, t, glow: false }), { lut: SPRITE_LUT, soft: false });
+    spriteFrames.set(key, f);
+  }
+  drawBaked(f, x, y);
+}
+const spriteFrames = new Map();
+
+/**
+ * Draw something once as a crisp sprite and keep it: returns { c, x, y } (top-left in screen units, on the pixel grid).
+ * Drawing it again costs one image copy, so sprites only get redrawn when they really change.
+ */
+function bakeSprite(cx, cy, half, draw, opts = {}) {
+  const side = opts.side ?? 1.25, up = opts.up ?? 1.75, down = opts.down ?? 1;
+  const x0 = (Math.floor((cx - half * side) / PX) - 2) * PX, y0 = (Math.floor((cy - half * up) / PX) - 2) * PX;
+  const c = document.createElement("canvas");
+  c.width = Math.ceil(half * side * 2 / PX) + 7; c.height = Math.ceil(half * (up + down) / PX) + 7;
+  const g = c.getContext("2d");
+  g.setTransform(1 / PX, 0, 0, 1 / PX, -x0 / PX, -y0 / PX);
+  const real = ctx;
+  cutSprite(g, cx, cy, half, gg => { ctx = gg; try { draw(); } finally { ctx = real; } }, { lut: PIXEL_LUT, soft: true, ...opts });
+  return { c, x: x0, y: y0 };
+}
+
+/** Put a baked sprite down, optionally moved by (dx, dy) snapped to whole art pixels. */
+function drawBaked(f, dx = 0, dy = 0) {
+  const was = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(f.c, f.x + Math.round(dx / PX) * PX, f.y + Math.round(dy / PX) * PX, f.c.width * PX, f.c.height * PX);
+  ctx.imageSmoothingEnabled = was;
+}
+
+/** A baked sprite kept on an object, redrawn only when its key changes. */
+function cachedSprite(owner, slot, key, make) {
+  const k = owner[slot];
+  if (k && k.key === key) return k.f;
+  const f = make();
+  owner[slot] = { key, f };
+  return f;
 }
 
 /** Draw something as a crisp sprite onto a canvas whose transform maps to its pixels: see drawSprite. */
@@ -2604,12 +2708,6 @@ function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down
   target.save(); target.setTransform(1, 0, 0, 1, 0, 0);
   target.drawImage(oc, 0, 0, w, h, ox, oy, w, h);
   target.restore();
-}
-
-/** Draw with the usual drawing code (it paints on ctx) and have it come out as a crisp, outlined sprite. */
-function asSprite(x, y, size, draw, opts) {
-  const real = ctx;
-  cutSprite(real, x, y, size, g => { ctx = g; try { draw(); } finally { ctx = real; } }, { lut: PIXEL_LUT, soft: true, ...opts });
 }
 
 const thumbCache = new Map();
@@ -2808,7 +2906,7 @@ function newEgg(conf, animate = true) {
 function refitEgg(e) {
   e.shell = makeShell(e.stone);
   e.interior = makeInterior(e.crystal, e.stone);
-  e.painted = 0;
+  e.painted = 0; e.dentsPainted = 0;
   paintNet(e);
 }
 
@@ -2831,65 +2929,101 @@ function nearSeg(net, x, y, skip, r) {
 }
 
 /**
- * One tap: the stone takes the hit and the cracks grow. Near the tap, live crack tips push on; with none close by,
- * a fresh star of cracks bursts out of the impact. Tips wander a little, sometimes fork, stop at the rim and end in a
- * T where they meet an older crack, the way an eggshell breaks. Everything comes from rng, so a replay is identical.
+ * One tap, the way a real eggshell breaks: where the blow lands the shell is crushed into a little cone, straight
+ * cracks run out from it like spokes, and as the blows go on, rings of cracks join the spokes into a spider web.
+ * Tapping near an impact pushes its spokes further and adds the next ring; tapping somewhere new starts a new web.
+ * Spokes stop at the rim and end in a T where they meet an older crack. Everything comes from rng, so a replay is
+ * identical on every device.
  */
 function crackHit(e, p, power, rng) {
   const net = e.net, [u, v] = p;
+  net.impacts = net.impacts || []; net.dents = net.dents || [];
   const weak = clamp(1 - Math.hypot(u - e.spot[0], v - e.spot[1]) / 0.2, 0, 1);
   const crit = weak > 0.45, dmg = power * (1 + weak * 2.2);
-  let budget = dmg * 0.18, grown = 0;
-  // the blow travels along the cracks already there and pushes their nearest ends on
-  const dist = t => Math.hypot(t.x - u, t.y - v);
-  const near = net.tips.slice().sort((a, b) => dist(a) - dist(b)).slice(0, 3).filter(t => dist(t) < 0.45);
-  const fresh = [];
-  if (!near.length || dist(near[0]) > 0.16 || rng() < 0.3) {
-    const n = near.length ? 2 : 3 + Math.floor(rng() * 3), a0 = rng() * TAU;
-    for (let i = 0; i < n; i++) fresh.push({ x: u, y: v, a: a0 + i * TAU / n + (rng() - 0.5) * 0.9, w: 1 });
-    net.tips.push(...fresh);
-  }
-  const active = [...near, ...fresh];
-  for (let guard = 0; budget > 0 && guard < 600; guard++) {
-    if (!active.length) {
-      // every end is stuck: a new crack splits off the side of the one closest to the blow
-      if (!net.segs.length) break;
-      let best = 0, bd = Infinity;
-      net.segs.forEach((g, i) => { const d = Math.hypot((g[0] + g[2]) / 2 - u, (g[1] + g[3]) / 2 - v) + rng() * 0.08; if (d < bd) { bd = d; best = i; } });
-      const [ax, ay, bx, by, w] = net.segs[best], side = rng() < 0.5 ? -1 : 1;
-      const f = { x: (ax + bx) / 2, y: (ay + by) / 2, a: Math.atan2(by - ay, bx - ax) + side * (0.9 + rng() * 0.6), w: Math.max(0.5, w * 0.8), last: best };
-      net.tips.push(f); active.push(f);
+  let budget = dmg * 0.2, grown = 0;
+  let m = net.impacts.find(m => Math.hypot(m.x - u, m.y - v) < 0.1);
+  if (!m) {
+    const n = 4 + Math.floor(rng() * 3), a0 = rng() * TAU;
+    m = { x: u, y: v, rings: 0, rays: [] };
+    for (let i = 0; i < n; i++) {
+      // spokes are uneven: some run long, some stop short
+      const t = { x: u, y: v, a: a0 + i * TAU / n + (rng() - 0.5) * 0.9, w: 1, len: 0, pull: 0.35 + rng() * 0.9, path: [[u, v, 0]] };
+      m.rays.push(t); net.tips.push(t);
     }
-    const t = active[guard % active.length];
-    if (t.dead) { active.splice(active.indexOf(t), 1); continue; }
-    const step = 0.016 + rng() * 0.008;
-    t.a += (rng() - 0.5) * 0.32;
-    let nx = t.x + Math.cos(t.a) * step, ny = t.y + Math.sin(t.a) * step;
-    if (!inside(EGG_UNIT, [nx, ny])) { t.dead = true; continue; }
-    const hitAt = net.segs.length > 2 ? nearSeg(net, nx, ny, t.last ?? -1, 0.007) : null;
-    if (hitAt && Math.hypot(t.x - u, t.y - v) > 0.02) { [nx, ny] = hitAt; t.dead = true; }
+    net.impacts.push(m);
+    net.dents.push([u, v, 0.02 + rng() * 0.012, Math.floor(rng() * 1e6)]);
+  } else net.dents.push([u, v, 0.01 + rng() * 0.008, Math.floor(rng() * 1e6)]);
+  // the blow drives the spokes outward, almost straight, one short step at a time
+  const step = (t, size) => {
+    // straight on the whole, with small sharp kinks: shell breaks along its grain, not in curves
+    t.a += (rng() - 0.5) * 0.22 + (rng() < 0.18 ? (rng() - 0.5) * 0.9 : 0);
+    let nx = t.x + Math.cos(t.a) * size, ny = t.y + Math.sin(t.a) * size;
+    if (!inside(EGG_UNIT, [nx, ny])) { t.dead = true; return 0; }
+    const hitAt = net.segs.length > 2 ? nearSeg(net, nx, ny, t.last ?? -1, 0.006) : null;
+    if (hitAt && t.len > 0.02) { [nx, ny] = hitAt; t.dead = true; }
     net.segs.push([t.x, t.y, nx, ny, t.w]);
-    t.last = net.segs.length - 1; t.x = nx; t.y = ny;
-    budget -= step; grown++;
-    if (!t.dead && rng() < 0.09 && active.length < 6) {
-      const side = rng() < 0.5 ? -1 : 1, f = { x: nx, y: ny, a: t.a + side * (0.45 + rng() * 0.5), w: t.w * 0.7, last: t.last };
-      net.tips.push(f); active.push(f);
+    t.last = net.segs.length - 1; t.x = nx; t.y = ny; t.len += size;
+    if (t.path) t.path.push([nx, ny, t.len]);
+    grown++;
+    return size;
+  };
+  for (let guard = 0; budget > 0 && guard < 400; guard++) {
+    let live = m.rays.filter(t => !t.dead);
+    if (!live.length) live = net.tips.filter(t => !t.dead).sort((a, b) => Math.hypot(a.x - u, a.y - v) - Math.hypot(b.x - u, b.y - v)).slice(0, 3);
+    if (!live.length) break;
+    // the spoke furthest behind its own reach grows next, so lengths stay uneven but none is left a stub
+    const t = live.reduce((a, b) => (a.len / (a.pull || 1) <= b.len / (b.pull || 1) ? a : b));
+    budget -= step(t, 0.012 + rng() * 0.006) || 0.01;
+    // now and then a spoke splits off a thinner branch
+    if (!t.dead && t.len > 0.05 && rng() < 0.035) net.tips.push({ x: t.x, y: t.y, a: t.a + (rng() < 0.5 ? -1 : 1) * (0.5 + rng() * 0.4), w: 0.7, len: 0, last: t.last });
+  }
+  // a ring of cracks joins the spokes once they reach past it (at most one new ring per blow)
+  const ringR = 0.045 * Math.pow(1.9, m.rings);
+  const reach = m.rays.filter(t => t.len >= ringR * 1.1);
+  if (reach.length >= 3) {
+    // rings are broken and uneven: each joins two spokes at its own distance, and most gaps stay open
+    const at = t => { const r = ringR * (0.75 + rng() * 0.55); return t.path.find(pt => pt[2] >= r) || t.path[t.path.length - 1]; };
+    for (let i = 0; i < m.rays.length; i++) {
+      const a = m.rays[i], b = m.rays[(i + 1) % m.rays.length];
+      if (a.len < ringR || b.len < ringR || rng() < 0.55) continue;
+      const pa = at(a), pb = at(b), dx = pb[0] - pa[0], dy = pb[1] - pa[1];
+      // a slight outward bow and a kink, so it reads as a broken ring and not a drawn polygon
+      const mx = (pa[0] + pb[0]) / 2 + (pa[0] + pb[0] - 2 * m.x) * 0.04 + (rng() - 0.5) * 0.02, my = (pa[1] + pb[1]) / 2 + (pa[1] + pb[1] - 2 * m.y) * 0.04 + (rng() - 0.5) * 0.02;
+      if (Math.hypot(dx, dy) > 0.25) continue;
+      net.segs.push([pa[0], pa[1], mx, my, 0.65], [mx, my, pb[0], pb[1], 0.65]);
+      grown += 2;
     }
+    m.rings++;
   }
   net.tips = net.tips.filter(t => !t.dead);
   e.damage += dmg;
   return { dmg, crit, weak, grown };
 }
 
-/** Draw the new crack segments onto the shell: a dark fracture with a pale lit edge beside it. */
+/** Draw what's new on the shell: crushed spots where blows landed, then the cracks (dark, with a pale lit lip). */
 function paintNet(e) {
+  const o = e.shell.ctx, k = L.k, scale = L.ew;
+  const dents = (e.net.dents || []).slice(e.dentsPainted || 0);
+  e.dentsPainted = (e.net.dents || []).length;
+  for (const [du, dv, dr, seed] of dents) {
+    const [cx, cy] = toShell(...fromEgg(du, dv)), r = dr * scale, R = seeded("dent" + seed);
+    const pts = Array.from({ length: 7 }, (_, i) => { const a = i / 7 * TAU + (R() - 0.5) * 0.6, rr = r * (0.7 + R() * 0.45); return [cx + Math.cos(a) * rr, cy + Math.sin(a) * rr]; });
+    o.save();
+    // the crushed cone sits a little lower than the shell: shaded, with the light catching its far rim
+    tracePoly(o, pts); o.fillStyle = "rgba(40,24,30,.32)"; o.fill();
+    o.lineWidth = 1.1 * k; o.strokeStyle = "rgba(255,250,240,.45)";
+    o.beginPath(); pts.slice(3, 7).forEach(([x, y], i) => (i ? o.lineTo(x, y) : o.moveTo(x, y))); o.stroke();
+    // tiny flakes of crushed shell inside it
+    o.strokeStyle = "rgba(40,22,28,.8)"; o.lineWidth = 0.9 * k;
+    for (let i = 0; i < 4; i++) { const a = R() * TAU, q = r * (0.2 + R() * 0.5); o.beginPath(); o.moveTo(cx, cy); o.lineTo(cx + Math.cos(a) * q, cy + Math.sin(a) * q); o.stroke(); }
+    o.restore();
+  }
   const segs = e.net.segs.slice(e.painted);
   if (!segs.length) return;
   e.painted = e.net.segs.length;
-  const o = e.shell.ctx, k = L.k;
   o.save();
   o.lineCap = "round"; o.lineJoin = "round";
-  for (const [col, wk, off] of [["rgba(255,250,240,.55)", 1.8, 1.4], ["rgba(40,22,28,.95)", 3.2, 0]]) {
+  for (const [col, wk, off] of [["rgba(255,250,240,.5)", 1.4, 1.2], ["rgba(40,22,28,.95)", 2.2, 0]]) {
     o.strokeStyle = col;
     for (const [ax, ay, bx, by, w] of segs) {
       const [x1, y1] = toShell(...fromEgg(ax, ay)), [x2, y2] = toShell(...fromEgg(bx, by));
@@ -2902,6 +3036,7 @@ function paintNet(e) {
 
 function carveChip(x, y, r, sides = 0) {
   const o = game.egg.shell.ctx, [sx, sy] = toShell(x, y);
+  game.egg.chips = (game.egg.chips || 0) + 1;
   o.save();
   o.globalCompositeOperation = "destination-out";
   o.beginPath();
@@ -3109,6 +3244,7 @@ function rub(x, y, d, dt) {
   m.ctx.fillStyle = g;
   m.ctx.beginPath(); m.ctx.arc(sx, sy, r, 0, TAU); m.ctx.fill();
   m.ctx.restore();
+  m.rev = (m.rev || 0) + 1;
   for (const c of m.cells) {
     if (c.done || (c.x - x) ** 2 + (c.y - y) ** 2 > (r * 0.8) ** 2) continue;
     c.hits = (c.hits || 0) + 1;
@@ -3437,12 +3573,19 @@ function renderNest(full) {
   $("nestLvl").textContent = `Level ${cr.level} · ${STAGES[stageOf(cr.level)]} ${sp.name}${cr.level >= MAX_LEVEL ? " · max" : ""}`;
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
   for (const [k, id] of [["tummy", "Tummy"], ["joy", "Joy"], ["energy", "Energy"]]) {
-    $("b" + id).firstElementChild.style.width = Math.ceil(cr[k] / 20) * 20 + "%";
-    $("b" + id).classList.toggle("low", cr[k] < 25);
+    // four icons per need, like an old handheld pet: full ones for what's there, faint ones for what's missing
+    const el = $("b" + id), full = Math.ceil(cr[k] / 25);
+    if (el.dataset.full !== String(full)) { el.dataset.full = full; el.innerHTML = [0, 1, 2, 3].map(i => ic(el.dataset.need, i < full ? "" : "off")).join(""); }
+    el.classList.toggle("low", cr[k] < 25);
     $("v" + id).textContent = Math.round(cr[k]);
   }
   $("sleepBtn").innerHTML = cr.sleeping ? `${ic("sun")}Wake` : `${ic("moon")}Sleep`;
   $("feedBtn").disabled = cr.sleeping;
+  // the button for what it needs lights up, the way a Tamagotchi's attention icon does
+  const wants = callOf(cr);
+  $("feedBtn").classList.toggle("want", wants === "hungry");
+  $("playBtn").classList.toggle("want", wants === "lonely");
+  $("sleepBtn").classList.toggle("want", wants === "sleepy");
   $("playBtn").disabled = cr.sleeping;
   if (full) {
     $("switcher").innerHTML = save.creatures.map(c =>
@@ -3765,22 +3908,26 @@ function drawRoom() {
   ctx.beginPath(); ctx.ellipse(cx, fy + ry * 0.1, rx, ry, 0, 0, TAU); ctx.fill();
   // a round woven rug in solid rings
   const rcx = cx - rx * 0.1, rcy = fy + ry * 0.15, rrx = rx * 0.42, rry = ry * 0.42;
-  asSprite(rcx, rcy, rrx, () => {
+  const starry = hasDecor("rug");
+  drawBaked(cachedSprite(roomSprites, "rug", `${rcx}|${rcy}|${rrx}|${rry}|${PX}|${starry ? Math.floor(game.time / 250) : ""}`, () => bakeSprite(rcx, rcy, rrx, () => {
     ["#5c1f3f", "#8f3460", "#c25586", "#8f3460", "#5c1f3f"].forEach((col, i) => {
       ctx.fillStyle = col;
       ctx.beginPath(); ctx.ellipse(rcx, rcy, rrx * (1 - i * 0.19), rry * (1 - i * 0.19), 0, 0, TAU); ctx.fill();
     });
-    if (hasDecor("rug")) drawStarryRug(rcx, rcy, rrx, rry);
-  }, { up: rry / rrx + 0.08, down: rry / rrx + 0.08, side: 1.06 });
+    if (starry) drawStarryRug(rcx, rcy, rrx, rry);
+  }, { up: rry / rrx + 0.08, down: rry / rrx + 0.08, side: 1.06 })));
   drawCushion(N.bedX, N.bedY + N.base * 0.12, N.base * 0.85);
   drawIncubator();
   for (const d of DECOR) if (hasDecor(d.id) && d.id !== "rug") {
     const [x, y] = decorSpot(d.id);
     // the swing hangs from the ceiling and the lights span the room: those stay plain thin lines
     if (d.id === "swing" || d.id === "lights") DRAW_DECOR[d.id](x, y);
-    else asSprite(x, y - N.base * 0.6, N.base, () => DRAW_DECOR[d.id](x, y), { up: 2.4, down: 1.1, side: 1.8 });
+    // decorations animate gently, so a new frame five times a second is plenty
+    else drawBaked(cachedSprite(roomSprites, d.id, `${x}|${y}|${N.base}|${PX}|${save.decor[d.id].off}|${Math.floor(game.time / 200)}`,
+      () => bakeSprite(x, y - N.base * 0.6, N.base, () => DRAW_DECOR[d.id](x, y), { up: 2.4, down: 1.1, side: 1.8 })));
   }
 }
+const roomSprites = {};
 
 const geodeImgs = new Map();
 function geodeImg(id) {
@@ -4009,11 +4156,12 @@ function drawEmote(a, v) {
   const fade = Math.min(1, (e.life - e.t) / 0.3, e.t / 0.12);
   if (fade < 0.3) return;
   // a pixel speech bubble on the art layer, its word in crisp pixel type on top
-  asSprite(bx, by, r, () => {
+  const rr = Math.round(r);
+  drawBaked(cachedSprite(roomSprites, "bubble" + rr, `${rr}|${PX}`, () => bakeSprite(0, 0, rr, () => {
     ctx.fillStyle = "#efe6ff";
-    ctx.beginPath(); ctx.arc(bx, by, r, 0, TAU); ctx.fill();
-    ctx.beginPath(); ctx.arc(bx - r * 0.85, by + r * 0.9, r * 0.25, 0, TAU); ctx.fill();
-  }, { up: 1.2, down: 1.35, side: 1.3, soft: false });
+    ctx.beginPath(); ctx.arc(0, 0, rr, 0, TAU); ctx.fill();
+    ctx.beginPath(); ctx.arc(-rr * 0.85, rr * 0.9, rr * 0.25, 0, TAU); ctx.fill();
+  }, { up: 1.2, down: 1.35, side: 1.3, soft: false })), bx, by);
   fx.save();
   fx.globalAlpha = fade;
   fx.fillStyle = e.text === "♥" ? "#c25586" : "#3d2866";
@@ -5056,7 +5204,7 @@ $("play").addEventListener("click", () => {
 });
 $$(".mute").forEach(b => b.addEventListener("click", () => {
   sfx.setMuted(!sfx.muted);
-  $$(".mute").forEach(m => { m.innerHTML = ic(sfx.muted ? "mute" : "sound"); });
+  $$(".mute").forEach(m => { m.innerHTML = ic(sfx.muted ? "mute" : "sound") + (m.dataset.label ? (sfx.muted ? "Sound off" : "Sound on") : ""); });
 }));
 $$("#tabs button").forEach(b => b.addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
@@ -5084,6 +5232,27 @@ $("decorBtn").addEventListener("click", openShop);
 $("incClose").addEventListener("click", () => show("incubator", false));
 $("shopClose").addEventListener("click", () => show("shop", false));
 setInterval(updateCalls, 20000);
+
+// the menu: rarely used things (co-op, backup, sound) live behind one button, so the top bar stays calm
+function setMenu(open) {
+  $("menuSheet").hidden = !open;
+  $("menuBtn").setAttribute("aria-expanded", String(open));
+}
+$("menuBtn").addEventListener("click", ev => { ev.stopPropagation(); sfx.tick(); setMenu($("menuSheet").hidden); });
+$("menuSheet").addEventListener("click", ev => { if (ev.target.closest("#mapCoop, #backupBtn")) setMenu(false); });
+document.addEventListener("click", ev => { if (!ev.target.closest(".menu-wrap")) setMenu(false); });
+
+// tapping the dimmed space around a card closes it (not for questions that need an answer)
+$$(".overlay.modal").forEach(o => o.addEventListener("click", ev => {
+  if (ev.target === o && !["coopDialog", "confirmLeave", "incubator"].includes(o.id)) { sfx.tick(); show(o.id, false); if (o.id === "forge" && game.scene === "map") renderMap(); }
+}));
+
+// every button answers your finger: a soft click and, where the phone can, the lightest buzz
+document.addEventListener("pointerdown", ev => {
+  if (!ev.target.closest("button:not(:disabled), .btn")) return;
+  sfx.press();
+  if (navigator.vibrate) navigator.vibrate(6);
+}, { passive: true });
 $("forgeClose").addEventListener("click", () => { show("forge", false); if (game.scene === "map") renderMap(); });
 $("foundForge").addEventListener("click", openForge);
 $("foundMap").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("map"); });
@@ -5571,7 +5740,7 @@ function drawCushion(cx, y, w) {
   ctx.fillStyle = sh;
   ctx.fillRect(cx - w * 1.2, y - 20, w * 2.4, 60);
   const ry = 18 * Math.max(1, w / 150);
-  asSprite(cx, y + 4, w, () => {
+  drawBaked(cachedSprite(roomSprites, "cushion" + Math.round(w), `${cx}|${y}|${w}|${PX}`, () => bakeSprite(cx, y + 4, w, () => {
     // a velvet cushion: a lit top, a darker rim, a sheen where the light falls
     ctx.fillStyle = "#2e1d4f";
     ctx.beginPath(); ctx.ellipse(cx, y + 4 + ry * 0.25, w, ry, 0, 0, TAU); ctx.fill();
@@ -5579,7 +5748,7 @@ function drawCushion(cx, y, w) {
     ctx.beginPath(); ctx.ellipse(cx, y + 4, w * 0.96, ry * 0.8, 0, 0, TAU); ctx.fill();
     ctx.fillStyle = "#6b4fa8";
     ctx.beginPath(); ctx.ellipse(cx - w * 0.2, y + 4 - ry * 0.25, w * 0.5, ry * 0.32, 0, 0, TAU); ctx.fill();
-  }, { up: (ry * 1.3) / w + 0.04, down: (ry * 1.5) / w + 0.04, side: 1.04 });
+  }, { up: (ry * 1.3) / w + 0.04, down: (ry * 1.5) / w + 0.04, side: 1.04 })));
 }
 
 function drawGloss(c, cx, cy, a = 1) {
@@ -5615,18 +5784,22 @@ function drawEgg() {
   // the inside and its glowling stay hidden until the shell bursts
   const opened = e.state === "opening" || e.state === "polish" || e.state === "gleam" || e.state === "open";
   const box = { up: 1.08, down: 1.08, side: 1.08 }, half = Math.max(w, h) / 2;
+  const size = `${L.ew}|${L.eh}|${PX}`;
   if (opened) {
     drawRays(e);
-    asSprite(L.ecx, L.ecy, half, () => {
+    // the polished face changes as you rub: redraw its sprite at most about 12 times a second
+    const m = e.matte, rev = m ? (game.time - (e.innerAt || 0) > 80 ? m.rev || 0 : e.innerRev) : 0;
+    if (rev !== e.innerRev) { e.innerRev = rev; e.innerAt = game.time; }
+    drawBaked(cachedSprite(e, "innerSprite", `${size}|${e.innerRev}`, () => bakeSprite(L.ecx, L.ecy, half, () => {
       ctx.drawImage(e.interior, x, y, w, h);
       if (e.matte) ctx.drawImage(e.matte.canvas, x, y, w, h);
-      if (e.state === "gleam" || e.state === "open") drawGleam(e, x, y, w, h);
-    }, box);
+    }, box)));
+    if (e.state === "gleam" || e.state === "open") drawGleam(e, x, y, w, h);
     // it pops up once, while the shell flies apart
     const k = e.state === "opening" ? clamp((e.t - 0.35) / 0.5, 0, 1) : 1;
     if (k > 0) drawSprite(L.ecx, L.ecy + L.eh * 0.04, L.ew * 0.34 * easeOutBack(k), e.species, { mood: "happy", hop: e.hop, shiny: e.shiny });
   } else {
-    asSprite(L.ecx, L.ecy, half, () => ctx.drawImage(e.shell.canvas, x, y, w, h), box);
+    drawBaked(cachedSprite(e, "shellSprite", `${size}|${e.painted}|${e.dentsPainted}|${e.chips || 0}|${e.shell.canvas.width}`, () => bakeSprite(L.ecx, L.ecy, half, () => ctx.drawImage(e.shell.canvas, x, y, w, h), box)));
     drawCrackLight(e, prog);
     drawGloss(ctx, L.ecx, L.ecy);
     if (e.state !== "entering") drawSpot(e);
@@ -5712,26 +5885,36 @@ function drawPieces() {
   const e = game.egg;
   if (!game.pieces.length) return;
   const x = L.ex0 - PAD, y = L.ey0 - PAD, w = L.ew + PAD * 2, h = L.eh + PAD * 2;
-  for (const p of game.pieces) asSprite(p.c[0] + p.dx, p.c[1] + p.dy, L.eh * 0.62, () => {
+  for (const p of game.pieces) {
+    // each shard of shell is cut as a sprite once, then just moved and turned
+    if (!p.sprite) {
+      const r = Math.max(...p.poly.map(([px, py]) => Math.hypot(px - p.c[0], py - p.c[1])), 4) + 4 * L.k;
+      p.sprite = bakeSprite(p.c[0], p.c[1], r, () => drawPiece(p, e, x, y, w, h), { up: 1.05, down: 1.05, side: 1.05 });
+    }
     ctx.save();
     ctx.globalAlpha = clamp(1 - (p.t - 1.1) / 1.1, 0, 1);
     ctx.translate(p.c[0] + p.dx, p.c[1] + p.dy);
     ctx.rotate(p.rot);
     ctx.translate(-p.c[0], -p.c[1]);
-    tracePoly(ctx, p.poly);
-    ctx.save();
-    ctx.clip();
-    ctx.drawImage(e.shell.canvas, x, y, w, h);
-    // the broken edge shows the shell's pale thickness, with a thin shadow under it
-    if (p.edge) {
-      ctx.lineJoin = "miter"; ctx.lineCap = "butt";
-      ctx.beginPath(); p.edge.forEach(([ex, ey], i) => (i ? ctx.lineTo(ex, ey) : ctx.moveTo(ex, ey)));
-      ctx.strokeStyle = "#f6efe4"; ctx.lineWidth = 4 * L.k; ctx.stroke();
-      ctx.strokeStyle = "rgba(60,40,40,.35)"; ctx.lineWidth = 1 * L.k; ctx.stroke();
-    }
+    drawBaked(p.sprite);
     ctx.restore();
-    ctx.restore();
-  }, { up: 1.3, down: 1.3, side: 1.3 });
+  }
+}
+
+/** One flying piece of shell: the shell cut along the break, its pale broken edge showing. */
+function drawPiece(p, e, x, y, w, h) {
+  tracePoly(ctx, p.poly);
+  ctx.save();
+  ctx.clip();
+  ctx.drawImage(e.shell.canvas, x, y, w, h);
+  // the broken edge shows the shell's pale thickness, with a thin shadow under it
+  if (p.edge) {
+    ctx.lineJoin = "miter"; ctx.lineCap = "butt";
+    ctx.beginPath(); p.edge.forEach(([ex, ey], i) => (i ? ctx.lineTo(ex, ey) : ctx.moveTo(ex, ey)));
+    ctx.strokeStyle = "#f6efe4"; ctx.lineWidth = 4 * L.k; ctx.stroke();
+    ctx.strokeStyle = "rgba(60,40,40,.35)"; ctx.lineWidth = 1 * L.k; ctx.stroke();
+  }
+  ctx.restore();
 }
 
 function drawChips() {
