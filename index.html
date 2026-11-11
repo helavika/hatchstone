@@ -665,7 +665,7 @@
   body.compact #nestName { font-size: 32px; }
   body.compact #nestLvl { font-size: 14px; margin-top: 0; }
   body.compact #xpBar { margin-top: 3px; width: 140px; }
-  body.compact.scene-nest #hint, body.compact #hint { top: calc(var(--top) + 102px); }
+  body.compact.scene-nest #hint { top: calc(var(--top) + 102px); bottom: auto; }
   /* the three needs move onto the buttons that fill them, like an old handheld pet */
   body.compact #nestBottom .needs { display: none; }
   body.compact #nestBottom { bottom: calc(var(--bottom) + 82px); gap: 7px; }
@@ -2377,18 +2377,19 @@ const NIGHT = {
 };
 
 /** Paint one night scene on a W×H canvas, then snap every pixel to the palette (no stray in-between colors). */
-function pixelNight(id, W, H) {
+function pixelNight(id, W, H, floor = 0.86) {
   const T = NIGHT[id], seed = T.seed, c = document.createElement("canvas"); c.width = W; c.height = H;
   const g = c.getContext("2d", { willReadFrequently: true }), img = g.createImageData(W, H), d = img.data;
   const R = k => T[k].map(pxHex), sky = R("sky"), far = R("far"), ground = R("ground"), moonCol = R("moonCol"), mist = pxHex(T.mist);
-  const floorY = Math.round(H * 0.86);
-  const hill = x => H * T.hill - H * 0.07 * pxNoise(x * 0.025, seed) - H * 0.025 * Math.sin(x * 0.03 + seed);
+  const floorY = Math.round(H * floor);
+  // the hills keep their height above the ground wherever the ground line is
+  const hill = x => H * (T.hill - 0.86 + floor) - H * 0.07 * pxNoise(x * 0.025, seed) - H * 0.025 * Math.sin(x * 0.03 + seed);
   const gnd = x => floorY - 2 * pxNoise(x * 0.08, seed + 3);
   const mx = W * T.moon[0], my = H * T.moon[1], mr = Math.max(6, Math.min(W, H) * T.moon[2] * 1.6);
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     let col;
     const gy = gnd(x), hy = hill(x), md = Math.hypot(x - mx, y - my);
-    if (y >= gy) col = pxPick(ground, 0.75 - (y - gy) / 16 + pxFbm(x * 0.3, y * 0.3) * 0.25, x, y);
+    if (y >= gy) col = pxPick(ground, 0.75 - (y - gy) / Math.max(16, (H - gy) * 0.7) + pxFbm(x * 0.3, y * 0.3) * 0.25, x, y);
     else if (y >= hy) col = pxPick(far, 0.55 - (y - hy) / (gy - hy) * 0.5 + pxFbm(x * 0.1, y * 0.1) * 0.3, x, y);
     else if (md < mr) col = pxPick(moonCol, 0.95 - 0.5 * (md / mr) ** 2 - 0.3 * pxSmooth(0.55, 0.7, pxFbm(x * 0.35 + seed, y * 0.35)), x, y);
     else {
@@ -2522,12 +2523,13 @@ const NIGHT_PROPS = {
 };
 
 /** The backdrop for a theme at the size of the screen's art grid. */
-function paintTheme(id, w, h) {
+/** A backdrop; `floor` is where its ground line sits (a share of the height), so the nest can stand on it. */
+function paintTheme(id, w, h, floor = 0.86) {
   const t = THEME[id] || THEME.amethyst;
-  if (t.art === undefined) return pixelNight(t.id, w, h);
+  if (t.art === undefined) return pixelNight(t.id, w, h, floor);
   const a = CHAPTER_ART[t.art];
   const th = { seed: 5 + t.art * 7, wall: a.wall.map(pxHex), crystal: a.crystal.map(pxHex), glow: pxHex(a.glow), pool: a.pool?.map(pxHex), flash: a.flash?.map(pxHex), bands: a.bands };
-  const c = pixelCave(th, w, h, { floorY: Math.round(h * 0.86), lx: w / 2, ly: h * 0.55, crystals: Math.round(w / 12), reach: h / 150, girth: 1.6, spill: 0.04, keepClear: Math.round(w * 0.32) });
+  const c = pixelCave(th, w, h, { floorY: Math.round(h * floor), lx: w / 2, ly: h * 0.55, crystals: Math.round(w / 12), reach: h / 150, girth: 1.6, spill: 0.04, keepClear: Math.round(w * 0.32) });
   // cobwebs in the top corners
   const o = c.getContext("2d");
   o.strokeStyle = "rgba(228,223,232,.32)"; o.lineWidth = 1;
@@ -2997,9 +2999,12 @@ function makeMotes() {
 
 function drawBackground() {
   const id = currentTheme();
-  if (!bgCache.has(id)) bgCache.set(id, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX)));
+  // in the nest, the backdrop's ground meets the room: a clearing or a ruined hall stands on the land, a cave hollow opens onto the cave floor
+  const kind = ROOM_KIND[id] || "cave", floor = game.scene === "nest" && N.back ? (kind === "cave" ? N.front : N.back + 1) / H : 0.86;
+  const key = `${id}|${floor.toFixed(3)}`;
+  if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor));
   if (id !== bgTheme) { bgTheme = id; sfx.music(id); }
-  ctx.drawImage(bgCache.get(id), 0, 0, W, H);
+  ctx.drawImage(bgCache.get(key), 0, 0, W, H);
   ctx.fillStyle = "#e6f6ff";
   for (const m of motes) {
     ctx.globalAlpha = m.a * (0.5 + 0.5 * Math.sin(game.time * 0.0012 + m.ph));
