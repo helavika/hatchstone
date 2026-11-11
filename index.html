@@ -412,6 +412,7 @@
   #faqList summary::before { content: "▸ "; }
   #faqList details[open] summary::before { content: "▾ "; }
   #faqList p { margin: 8px 0 2px; font-size: 18px; line-height: 1.35; }
+  #faqList a { color: var(--px-gold); text-decoration: underline; text-underline-offset: 3px; }
   .lang-btn .ic { width: 28px; height: 28px; }
   .lvl:disabled span { letter-spacing: 0; filter: grayscale(1); }
 
@@ -1571,7 +1572,9 @@ const UK = {
   "Bed": "Ліжечко",
   "Incubator": "Інкубатор",
   "Previous glowlings": "Попередні глоулінги",
-  "More glowlings": "Ще глоулінги"
+  "More glowlings": "Ще глоулінги",
+  "Who made Hatchstone?": "Хто зробив Hatchstone?",
+  "I'm Viktoria Shchypalkina (helavika). I make Hatchstone in my free time, pixel by pixel. The game's code is open on [GitHub](https://github.com/helavika/hatchstone), and there's more of my work in my [portfolio](https://helavika.github.io/helavika-portfolio/). Found a bug or have an idea? [Tell me on GitHub](https://github.com/helavika/hatchstone/issues/new).": "Я Вікторія Щипалкіна (helavika). Роблю Hatchstone у вільний час, піксель за пікселем. Код гри відкритий на [GitHub](https://github.com/helavika/hatchstone), а більше моїх робіт — у [портфоліо](https://helavika.github.io/helavika-portfolio/). Знайшли баг чи маєте ідею? [Напишіть мені на GitHub](https://github.com/helavika/hatchstone/issues/new)."
 };
 
 const UK_DATA = {
@@ -2959,6 +2962,7 @@ const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 
 // and the incubator; the right wall has the shelf, the spring and the swing, the bed in its corner; mushrooms in front
 const ROOM_SLOTS_ISO = { lamp: [0.06, 0.08], cushion: [0.05, 0.5], incubator: [0.1, 0.86], spring: [0.36, 0.06], bed: [0.9, 0.1], mushrooms: [0.92, 0.9], rug: [0.5, 0.5] };
 function roomSpot(id) {
+  if (N.iso && id === "cushion") { const [u, v] = cloudUV(); return isoAt(u, v); }
   if (N.iso && isoLayout().placed[id]) { const p = isoLayout().placed[id]; return isoPieceAt(p, id === "bed" || id === "cushion" || id === "incubator" ? 0 : 0.55); }
   if (N.iso) {
     if (id === "shelf") { const [x, y] = isoAt(0.22, 0); return [x, y - N.isoWall * 0.5 + N.base * 0.95 * N.dk]; }
@@ -5215,6 +5219,7 @@ function updateActors(dt) {
     // fliers hover, swimmers glide, hoppers bounce
     const ease = (to, k) => { a.alt = lerp(a.alt, to, Math.min(1, dt * k)); };
     if (a.state === "sleep") ease(0, 4);
+    else if (N.iso && a.state === "nap" && a.decor === "cushion") { const c = cloudSpot(); ease(a.y - c.bodyY + N.isoW / ISO_G * 0.75, 5); }
     else if (a.state === "visit" && (a.decor === "swing" || a.decor === "spring")) { /* set above */ }
     else if (a.beh === "flutter") ease(N.base * (0.5 + 0.14 * Math.sin(a.ph * 3)), 3);
     else if (a.beh === "swim") ease(N.base * (0.28 + 0.1 * Math.sin(a.ph * 1.6)), 3);
@@ -5411,7 +5416,6 @@ const ISO_PLACES = {
   bookcase: { fw: 1, fd: 1, at: [[1, 0], [2, 0], [3, 0]] },
   spring: { fw: 1, fd: 1, at: [[2, 0], [3, 0], [1, 0]] },
   armchair: { fw: 1, fd: 1, at: [[0, 1], [1, 1], [0, 2]] },
-  cushion: { fw: 1, fd: 1, at: [[0, 2], [0, 3], [1, 2]] },
   chest: { fw: 1, fd: 1, at: [[0, 5], [1, 5], [0, 4]] },
   plant: { fw: 1, fd: 1, at: [[3, 0], [5, 2], [5, 3]] },
   table: { fw: 1, fd: 1, at: [[4, 3], [3, 4], [4, 2]] },
@@ -5519,9 +5523,9 @@ const ISO_ART = {
     T.box(x + 2 * a - 2.8, y + a - 1.4, 1.4, b, Math.round(t * 0.55), IC.g0, IC.g2, IC.g3); // right arm
     T.box(x + 1, y + 2, a - 2, b - 2, Math.round(t * 0.38), IC.g0, IC.g1, IC.g2, false); // the cushion
   },
-  cushion(t, T, ax, ay) {
+  cushion(t, T, ax, ay, o = {}) {
     const cx = ax, cy = ay + t / 2;
-    T.disc(cx, cy + 1, t * 0.5, IC.l3);
+    if (!o.float) T.disc(cx, cy + 1, t * 0.5, IC.l3);
     for (const [dx, dy, r] of [[-0.24, -0.08, 0.24], [0.2, -0.1, 0.26], [0, -0.26, 0.28], [-0.05, 0.02, 0.26]]) T.ball(cx + dx * t, cy + dy * t, r * t, IC.l0, IC.l1, IC.l2, r * t * 0.82);
   },
   chest(t, T, ax, ay) {
@@ -5584,17 +5588,24 @@ const ISO_ART = {
     for (let i = 0; i < 6; i++) { if ((i + f) % 3 === 0) continue; T.px(cx + Math.round((pxHash(i, 5) - 0.5) * t * 1.4), cy - Math.round(t * (0.9 + pxHash(5, i) * 0.9)) - ((i + f) % 4), i % 2 ? IC.b0 : IC.y0); }
   },
   bed(t, T, ax, ay) {
-    // a big soft nest-bed, two tiles each way, all fabric: a plump base, a puffy rim against the walls,
-    // a white sheet, a row of pillows and a striped pink quilt over the front half
-    const a = t - 0.6, b = t - 0.6, x = ax, y = ay + 1, at = (du, dv, up = 0) => [x + 2 * du - 2 * dv, y + du + dv - up];
-    T.box(...at(0, 0), a, b, 4, IC.l1, IC.l2, IC.l3);
-    T.box(...at(1.4, 1.4, 4), a - 1.6, b - 1.6, 1, IC.s0, IC.s1, IC.s2, false);
-    T.box(...at(0, 0, 4), a, 1.5, 4, IC.l0, IC.l1, IC.l2);
-    T.box(...at(0, 0, 4), 1.5, b, 4, IC.l0, IC.l1, IC.l2);
-    for (const [du, dv] of [[2, 1.6], [2 + a * 0.32, 1.6], [1.6, 2 + b * 0.32]]) T.box(...at(du, dv, 5), 2.6, 1.6, 2, IC.white, IC.s0, IC.s1, false);
-    const qa = a * 0.55, qb = b - 1.8, q0 = [a - qa - 0.2, 1.6];
-    T.box(...at(q0[0], q0[1], 5), qa, qb, 2, IC.p1, IC.p2, IC.p3, false);
-    for (const k of [0.3, 0.65]) { const [sx, sy] = at(q0[0] + qa * k, q0[1], 7); T.line(sx, sy, sx - 2 * qb, sy + qb, IC.p0); }
+    // a big round, puffy nest-bed over two tiles each way, all fabric: an oval base, a plump rim of cushions all round
+    // (like a doughnut), a soft white middle with pillows, and a striped pink quilt tucked in at the front
+    const cx = ax, cy = ay + t, rx = t * 1.75, ry = rx / 2, lift = Math.max(3, Math.round(t * 0.14));
+    T.cyl(cx, cy, rx, lift, IC.l2, IC.l3, IC.l4);
+    T.disc(cx, cy - lift, rx * 0.8, (x, y) => (Math.hypot((x - cx) / (rx * 0.8), (y - cy + lift) / (ry * 0.8)) > 0.8 ? IC.s1 : IC.s0));
+    const rim = (front) => {
+      const n = 16, r = Math.max(2.5, t * 0.3);
+      for (let k = 0; k < n; k++) {
+        const an = k / n * TAU, sy = Math.sin(an);
+        if ((sy > 0.15) !== front) continue;
+        T.ball(cx + Math.cos(an) * rx * 0.86, cy - lift + sy * ry * 0.86 - r * 0.4, r, IC.l0, IC.l1, IC.l2, r * 0.82);
+      }
+    };
+    rim(false);
+    for (const [dx, dy] of [[-0.45, -0.32], [0.05, -0.42], [0.5, -0.26]]) T.ball(cx + dx * rx, cy - lift + dy * ry, t * 0.26, IC.white, IC.s0, IC.s1, t * 0.17);
+    // the quilt over the front half, with soft stripes
+    T.disc(cx + rx * 0.08, cy - lift + ry * 0.28, rx * 0.62, (x, y) => (Math.floor((x - cx) / Math.max(2, t * 0.22)) % 2 ? IC.p1 : IC.p0), ry * 0.5);
+    rim(true);
   },
 };
 
@@ -5706,6 +5717,39 @@ function drawArrangeGrid() {
   ctx.restore();
 }
 const isoPieces = {};
+
+// ---------- the floating cloud: it drifts above everything, you can drag it anywhere, and sleepy glowlings nap on top ----------
+const CLOUD_DEFAULT = [0.16, 0.5];
+const cloudUV = () => save.cloud && Number.isFinite(save.cloud[0]) ? save.cloud : CLOUD_DEFAULT;
+const cloudLift = () => N.base * 1.15;
+/** Where the cloud is: the floor point under it, and its body up in the air (with a slow bob). */
+function cloudSpot() {
+  const [u, v] = cloudUV(), [x, y] = isoAt(u, v), bob = Math.round(Math.sin(game.time * 0.0016) * 2) * PX;
+  return { x, y, bodyY: y - cloudLift() + bob };
+}
+function cloudSprite() {
+  const t = Math.round(N.isoW / ISO_G / PX * 1.9), w = t * 2 + 12, h = t + 14;
+  return cachedSprite(isoPieces, "cloud", `${t}|${PX}`, () => ({ c: isoArt(w, h, T => ISO_ART.cushion(t, T, w / 2, h / 2 - t / 2, { float: true })), w, h }));
+}
+function drawCloud() {
+  const c = cloudSpot(), f = cloudSprite();
+  drawBaked({ c: f.c, x: Math.round(c.x / PX - f.w / 2) * PX, y: Math.round(c.bodyY / PX - f.h / 2) * PX });
+}
+/** Its soft shadow on the floor (drawn with the floor, under everyone). */
+function drawCloudShadow() {
+  const c = cloudSpot(), r = N.isoW / ISO_G * 0.8;
+  ctx.fillStyle = "rgba(5,0,20,.16)"; ctx.beginPath(); ctx.ellipse(c.x, c.y, r * 1.2, r * 0.6, 0, 0, TAU); ctx.fill();
+}
+function cloudAt(x, y) {
+  if (!N.iso || !hasDecor("cushion")) return false;
+  const c = cloudSpot(), r = N.isoW / ISO_G * 1.3;
+  return Math.abs(x - c.x) < r && Math.abs(y - c.bodyY) < r * 0.6;
+}
+function moveCloud(x, y) {
+  const m = isoMargin(0.3);
+  let [u, v] = isoFrom(x, y + cloudLift());
+  save.cloud = [clamp(u, m, 1 - m), clamp(v, m, 1 - m)];
+}
 
 /** Each sleeper's own place on the bed: a 2×2 spread on the big isometric bed, side by side on the straight-on one. */
 function bedSpot(id) {
@@ -5896,6 +5940,7 @@ let decorK = 1;
 function drawRoomIso() {
   drawBaked(isoRug(hasDecor("rug")));
   if (arrange.on) drawArrangeGrid();
+  if (hasDecor("cushion")) drawCloudShadow();
   const items = [];
   for (const p of Object.values(isoLayout().placed)) {
     const fy = isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1];
@@ -5904,9 +5949,11 @@ function drawRoomIso() {
     const extra = p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : {};
     items.push({ y: fy, draw: () => drawBaked(isoPiece(p, extra), 0, bob) });
   }
-  if (hasDecor("swing")) items.push({ y: N.back - N.isoH * 0.5, draw: () => DRAW_DECOR.swing() });
+  // the swing hangs out over the first row of the floor: it sorts by the ground under its seat, so pieces by the wall stay behind it
+  if (hasDecor("swing")) items.push({ y: isoAt(0.42, 1.3 / ISO_G)[1], draw: () => DRAW_DECOR.swing() });
   if (hasDecor("shelf")) { const [x, y] = decorSpot("shelf"); items.push({ y: -2, draw: () => { decorK = N.dk; drawBaked(cachedSprite(roomSprites, "shelf", `${x}|${y}|${N.base}|${PX}|${Math.floor(game.time / 200)}`, () => bakeSprite(x, y - N.base * 0.6 * N.dk, N.base * N.dk, () => DRAW_DECOR.shelf(x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } }); }
   if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
+  if (hasDecor("cushion")) items.push({ y: 1e6, draw: drawCloud });
   return items;
 }
 
@@ -6405,7 +6452,7 @@ function drawNest() {
   // whoever lies on the bed or sits on a piece is drawn right after it (on top), not by where their feet are
   const frontOf = id => { const p = N.iso && isoLayout().placed[id]; return p ? isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1] : null; };
   for (const a of actors.values()) {
-    const on = a.state === "sleep" || a.state === "toBed" ? frontOf("bed") : (a.state === "nap" || a.state === "visit") && a.decor ? frontOf(a.decor) : null;
+    const on = a.state === "sleep" || a.state === "toBed" ? frontOf("bed") : N.iso && a.state === "nap" && a.decor === "cushion" ? 1e6 : (a.state === "nap" || a.state === "visit") && a.decor ? frontOf(a.decor) : null;
     items.push({ y: on != null && a.state !== "toBed" ? on + 0.5 : a.y + 0.5, draw: () => drawActor(a) });
   }
   items.sort((p, q) => p.y - q.y).forEach(it => it.draw());
@@ -7069,6 +7116,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "crack" && game.egg.state === "cracking") hitEgg(x, y);
   if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = now; }
   if (game.scene === "catch" && game.catch) game.catch.tx = x;
+  if (game.scene === "nest" && cloudAt(x, y)) { pointer.cloud = true; return; }
   if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
   if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
@@ -7086,6 +7134,7 @@ function handlePointerMove(x, y, now = performance.now(), remote = false) {
     if (game.egg.state === "polish") { const steps2 = Math.max(1, Math.ceil(d / (6 * L.k))); for (let i = 1; i <= steps2; i++) rub(lerp(pointer.lx, x, i / steps2), lerp(pointer.ly, y, i / steps2), d / steps2, (now - (pointer.lt || now)) / 1000 / steps2); pointer.lt = now; }
     if (!remote) game.trail.push({ x, y, t: now });
   }
+  if (game.scene === "nest" && pointer.cloud) { if (pointer.moved > 6) { moveCloud(x, y); pointer.cloudMoved = true; } pointer.lx = x; pointer.ly = y; return; }
   if (game.scene === "nest" && pointer.arrange) { if (pointer.moved > 6) arrangeMove(x, y); pointer.lx = x; pointer.ly = y; return; }
   if (game.scene === "nest") {
     if (pointer.call) game.nest.call = { x: clamp(x, N.x0, N.x1), y: clamp(y, N.y0, N.y1), t: game.time };
@@ -7099,6 +7148,7 @@ function handlePointerMove(x, y, now = performance.now(), remote = false) {
 }
 function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (!pointer) return;
+  if (pointer.cloud) { const moved = pointer.cloudMoved; pointer = null; if (moved) { persist(); sfx.tick(); } else playDecor({ id: "cushion" }); return; }
   if (pointer.arrange) { pointer = null; arrangeUp(); return; }
   const tap = pointer.moved < 10 && now - pointer.t0 < 350, calling = pointer.call, decorHit = pointer.decor;
   if (!remote && coopIsGuest()) { coopSendInput("up", x, y); pointer = null; return; }
@@ -7501,11 +7551,13 @@ document.addEventListener("pointerdown", ev => {
   if (navigator.vibrate) navigator.vibrate(6);
 }, { passive: true });
 $("taskPill").addEventListener("click", openTasks);
-const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."]];
+const FAQ = [["Who made Hatchstone?", "I'm Viktoria Shchypalkina (helavika). I make Hatchstone in my free time, pixel by pixel. The game's code is open on [GitHub](https://github.com/helavika/hatchstone), and there's more of my work in my [portfolio](https://helavika.github.io/helavika-portfolio/). Found a bug or have an idea? [Tell me on GitHub](https://github.com/helavika/hatchstone/issues/new)."],["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."]];
 function openFaq() {
   sfx.tick();
   const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
-  $("faqList").innerHTML = FAQ.map(([q, a], i) => `<details${i ? "" : " open"}><summary>${esc(tr(q))}</summary><p>${esc(tr(a))}</p></details>`).join("");
+  // [words](https://…) in an answer becomes a link that opens in a new tab
+  const links = t => t.replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, (_, w, u) => `<a href="${u}" target="_blank" rel="noopener">${w}</a>`);
+  $("faqList").innerHTML = FAQ.map(([q, a], i) => `<details${i ? "" : " open"}><summary>${esc(tr(q))}</summary><p>${links(esc(tr(a)))}</p></details>`).join("");
   show("faq", true);
 }
 $$(".faq-btn").forEach(b => b.addEventListener("click", ev => { ev.stopPropagation(); setMenu(false); openFaq(); }));
