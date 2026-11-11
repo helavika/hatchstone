@@ -2947,7 +2947,7 @@ const rugSize = () => N.iso ? [N.isoW * 0.36, N.isoW * 0.18] : [Math.min(N.hf * 
 // ---------- quality: step resolution down if the device can't keep up ----------
 
 const quality = {
-  dpr: 1, low: false, pinned: /[?&]q=high\b/.test(location.search), acc: 0, n: 0,
+  dpr: 1, low: false, pxStep: 0, pinned: /[?&]q=high\b/.test(location.search), acc: 0, n: 0,
   sample(ms) {
     if (this.pinned || game.scene === "menu" || ms > 250) return;
     this.acc += ms; this.n++;
@@ -2955,6 +2955,8 @@ const quality = {
     const avg = this.acc / this.n;
     this.acc = this.n = 0;
     if (avg < 22) return;
+    // first, coarser art pixels (a quarter of the work per step); then a lower screen resolution
+    if (this.pxStep < 1 && !/[?&]px=/.test(location.search)) { this.pxStep++; refit(); return; }
     if (this.dpr > 1) { this.dpr = Math.max(1, this.dpr - 0.5); sizeCanvas(); }
     else if (!this.low) { this.low = true; document.body.classList.add("low"); }
   },
@@ -2962,7 +2964,9 @@ const quality = {
 
 function sizeCanvas() {
   // about 195 art pixels across a phone (2 screen pixels each): small enough for detail, big enough to read as pixels
-  PX = clamp(Math.ceil(Math.min(W, H * 0.6) / 200), 2, 5);
+  const pxTry = /[?&]px=([1-5])\b/.exec(location.search);
+  // finer pixels (more detail in faces and furniture); a device that can't keep up steps back to coarser ones (see quality)
+  PX = pxTry ? +pxTry[1] : clamp(Math.ceil(Math.min(W, H * 0.6) / 400), 1, 4) + quality.pxStep;
   low.width = cvs.width = Math.ceil(W / PX); low.height = cvs.height = Math.ceil(H / PX);
   cvs.style.width = cvs.width * PX + "px"; cvs.style.height = cvs.height * PX + "px";
   ctx.setTransform(1 / PX, 0, 0, 1 / PX, 0, 0);
@@ -3034,6 +3038,16 @@ function present() {
     }
   }
   screen.putImageData(img, 0, 0);
+}
+
+/** Redraw everything for a new pixel size (the screen itself didn't change). */
+function refit() {
+  sizeCanvas(); makeBackground(); computeLayout(); makeMotes();
+  roomCanvas.key = null; spriteFrames.clear();
+  if (game.egg && game.scene === "crack") {
+    if (game.egg.conf && game.egg.conf.coop) reprojectCoopEgg();
+    else refitEgg(game.egg);
+  }
 }
 
 function resize() {
@@ -3484,12 +3498,19 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   drawBehindHead(c, s, sp, t, pal, top);
   bodyPath(c, s, sp.body);
   const galaxy = sp.pattern === "galaxy";
-  const g = c.createRadialGradient(-s * 0.3, top * 0.75, s * 0.02, -s * 0.05, top * 0.15, s * 0.72);
-  // lit from the top left with a lighter tint of its own color (a pure white middle turned into a big flat blob once snapped to pixels)
-  g.addColorStop(0, galaxy ? shade(pal[0], 0.15) : shade(pal[1], 0.25));
-  g.addColorStop(galaxy ? 0.3 : 0.22, galaxy ? pal[0] : pal[1]);
-  g.addColorStop(1, galaxy ? pal[2] : pal[0]);
-  c.fillStyle = g; c.fill();
+  if (galaxy) {
+    const g = c.createRadialGradient(-s * 0.3, top * 0.75, s * 0.02, -s * 0.05, top * 0.15, s * 0.72);
+    g.addColorStop(0, shade(pal[0], 0.15)); g.addColorStop(0.3, pal[0]); g.addColorStop(1, pal[2]);
+    c.fillStyle = g; c.fill();
+  } else {
+    // three flat tones, as pixel artists shade: the body color, a crescent of shadow low on the right, a small light high on the left
+    c.fillStyle = pal[0]; c.fill();
+    c.save(); c.clip();
+    c.translate(-s * 0.07, -s * 0.08); bodyPath(c, s, sp.body); c.fillStyle = pal[1]; c.fill();
+    c.fillStyle = shade(pal[1], 0.3); c.beginPath(); c.ellipse(-s * 0.2, top * 0.62, s * 0.18, s * 0.11, -0.4, 0, TAU); c.fill();
+    c.restore();
+    bodyPath(c, s, sp.body);
+  }
   // and one small hard glint, a few pixels across
   if (!galaxy && !o.sil) { c.fillStyle = "rgba(255,255,255,.75)"; c.beginPath(); c.ellipse(-s * 0.36, top * 0.8, s * 0.04, s * 0.028, -0.5, 0, TAU); c.fill(); }
   c.save(); c.clip();
@@ -3498,7 +3519,13 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   bodyPath(c, s, sp.body);
   c.strokeStyle = shade(pal[2], -0.25); c.globalAlpha = 0.3; c.lineWidth = 1; c.stroke(); c.globalAlpha = 1;
   drawHeadTop(c, s, sp, t, pal, top, level);
-  drawFace(c, s, sp, t, mood, o.eating);
+  if (faceStamp && !o.sil) {
+    // inside a sprite cut, remember where the face goes; it's stamped pixel by pixel afterwards so the eyes stay crisp
+    const m = c.getTransform(), at = (lx, ly) => [(m.a * lx + m.c * ly + m.e) / 2, (m.b * lx + m.d * ly + m.f) / 2];
+    const fy = BODY[sp.body].face * s, ex = s * (sp.body === "wide" ? 0.18 : 0.16);
+    faceStamp.push({ eyes: [at(-ex, fy), at(ex, fy)], mouth: at(0, fy + s * 0.1), blush: [at(-s * 0.28, fy + s * 0.08), at(s * 0.28, fy + s * 0.08)],
+      r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" ? "sleepy" : sp.eyes, eating: !!o.eating, blink: (t % 3800) < 140, t });
+  } else drawFace(c, s, sp, t, mood, o.eating);
   if (sp.back !== "wisp") {
     c.fillStyle = shade(pal[0], -0.15);
     for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * s * 0.16, B.feet * s, s * 0.09, s * 0.05, 0, 0, TAU); c.fill(); }
@@ -3590,6 +3617,50 @@ function cachedSprite(owner, slot, key, make) {
 }
 
 /** Draw something as a crisp sprite onto a canvas whose transform maps to its pixels: see drawSprite. */
+/** Faces waiting to be stamped while a sprite is being cut (drawCreature fills it in). */
+let faceStamp = null;
+const FACE = { ink: pxHex("#22143a"), hi: pxHex("#ffffff"), blush: pxHex("#e88bb1"), mouthIn: pxHex("#8f3460") };
+/**
+ * A glowling's face in whole pixels, sized to the sprite (the way small pixel faces are drawn):
+ * tiny sprites get one-pixel eyes, middle ones 2×2 eyes with a white glint, big ones 3×3; smiles are three pixels,
+ * blush is two pink pixels, closed and happy eyes are little pixel arcs.
+ */
+function stampFace(d, w, h, solid, f, ox, oy) {
+  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h || !solid[y * w + x]) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
+  const R = f.r, e = R < 8 ? 1 : R < 17 ? 2 : R < 26 ? 3 : Math.round(R * 0.13), big = f.kind === "big", tall = e + (big && e > 1 ? 1 : 0) + (e === 1 && R >= 6 ? 1 : 0) + (e >= 4 ? Math.round(e * 0.3) : 0);
+  const eyes = f.eyes.map(([x, y]) => [Math.round(x - ox - e / 2), Math.round(y - oy - tall / 2)]);
+  const arc = (x, y, up) => { for (let k = 0; k <= e; k++) put(x + k, y + (k === 0 || k === e ? (up ? 1 : 0) : (up ? 0 : 1)), FACE.ink); };
+  for (const [x, y] of eyes) {
+    if (f.mood === "happy" || f.mood === "joy") arc(x, y + Math.floor(tall / 2), true);
+    else if (f.mood === "asleep") arc(x, y + Math.floor(tall / 2) - 1, false);
+    else if (f.blink) for (let k = 0; k <= e; k++) put(x + k - (e > 1 ? 0 : 0), y + Math.floor(tall / 2), FACE.ink);
+    else if (f.kind === "sleepy") { for (let k = 0; k < e + 1; k++) put(x + k, y + Math.floor(tall / 2) - 1, FACE.ink); for (let k = 0; k < e; k++) for (let j = 0; j < Math.ceil(tall / 2); j++) put(x + k, y + Math.floor(tall / 2) + j, FACE.ink); }
+    else if (e >= 4) {
+      // big sprites: a round eye, filled pixel by pixel, with a round glint
+      const cx = x + e / 2, cy = y + tall / 2;
+      for (let j = 0; j < tall; j++) for (let k = 0; k < e; k++) if (((k + 0.5 - e / 2) / (e / 2)) ** 2 + ((j + 0.5 - tall / 2) / (tall / 2)) ** 2 <= 1) put(x + k, y + j, FACE.ink);
+      const gr = Math.max(1, e * 0.18);
+      for (let j = -2; j <= 2; j++) for (let k = -2; k <= 2; k++) if (Math.hypot(k, j) <= gr) put(cx + e * 0.18 + k, cy - tall * 0.2 + j, FACE.hi);
+    }
+    else {
+      for (let k = 0; k < e; k++) for (let j = 0; j < tall; j++) put(x + k, y + j, FACE.ink);
+      // the glint, top right; sparkly eyes get a second one low left
+      if (e > 1) { put(x + e - 1, y, FACE.hi); if (f.kind === "sparkle" && e > 2) put(x, y + tall - 1, FACE.hi); }
+    }
+  }
+  if (f.mood === "sad" || f.mood === "hungry") eyes.forEach(([x, y], i) => { const dir = i ? 1 : -1; put(x + (dir < 0 ? e : -1), y - 2, FACE.ink); put(x + (dir < 0 ? e + 1 : -2), y - 3, FACE.ink); });
+  // blush: a short pink dash under each eye, a little outside
+  if (R >= 8) for (const [x, y] of f.blush) { const bw = Math.max(1, Math.round(R * 0.07)), bh = R >= 26 ? 2 : 1; for (let k = -bw; k < bw; k++) for (let j = 0; j < bh; j++) put(x - ox + k, y - oy + j, FACE.blush); }
+  // the mouth
+  const mx = Math.round(f.mouth[0] - ox), my = Math.round(f.mouth[1] - oy);
+  if (f.eating) { const open = Math.sin(f.t * 0.03) > 0; put(mx, my, FACE.ink); put(mx + 1, my, FACE.ink); if (open) { put(mx, my + 1, FACE.mouthIn); put(mx + 1, my + 1, FACE.ink); } }
+  else if (R < 8) put(mx, my, FACE.ink);
+  else if (f.mood === "sad" || f.mood === "hungry") { put(mx - 1, my + 1, FACE.ink); put(mx, my, FACE.ink); put(mx + 1, my + 1, FACE.ink); }
+  else if (f.mood === "asleep") put(mx, my, FACE.ink);
+  else if (R >= 26) { const mw = Math.round(R * 0.11); for (let k = -mw; k <= mw; k++) put(mx + k, my + Math.round((1 - (k / mw) ** 2) * mw * 0.55), FACE.ink); }
+  else { put(mx - 1, my, FACE.ink); put(mx, my + 1, FACE.ink); put(mx + 1, my, FACE.ink); }
+}
+
 function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down = 1, side = 1.25, soft = false } = {}) {
   const M = target.getTransform(), k = Math.hypot(M.a, M.b);
   const cx = M.a * x + M.c * y + M.e, cy = M.b * x + M.d * y + M.f, r = size * k;
@@ -3601,7 +3672,8 @@ function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down
   // drawn at twice the size, then shrunk by hand so that eyes and mouths survive as solid dark pixels
   g.setTransform(1, 0, 0, 1, 0, 0); g.clearRect(0, 0, c.width, c.height);
   g.setTransform(M.a * 2, M.b * 2, M.c * 2, M.d * 2, (M.e - ox) * 2, (M.f - oy) * 2);
-  draw(g);
+  faceStamp = [];
+  try { draw(g); } finally { var faces = faceStamp; faceStamp = null; }
   const src = g.getImageData(0, 0, W2, H2).data, im = og.createImageData(w, h), d = im.data;
   const solid = new Uint8Array(w * h), idx = new Int16Array(w * h).fill(-1);
   for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
@@ -3642,6 +3714,8 @@ function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down
     const col = PIXEL_PALETTE[clean[p]];
     d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
   }
+  // faces go on last, pixel by pixel (their positions were recorded in the 2× buffer's coordinates, already halved)
+  for (const f of faces) stampFace(d, w, h, solid, f, 0, 0);
   // one-pixel outline in the darkest ink, on every side the sprite touches empty space
   const ink = PIXEL_PALETTE[1];
   for (let yy = 0; yy < h; yy++) for (let xx = 0; xx < w; xx++) {
