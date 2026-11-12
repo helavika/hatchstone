@@ -1663,7 +1663,10 @@ const UK = {
   "{0} brought back ✦ {1}": "{0} приносить ✦ {1}",
   "{0} min": "{0} хв",
   "{0} h": "{0} год",
-  "The longer they're away, the more they bring back.": "Що довше мандрують, то більше приносять."
+  "The longer they're away, the more they bring back.": "Що довше мандрують, то більше приносять.",
+  "Room for one more · ✦ {0}": "Місце ще для одного · ✦ {0}",
+  "The nest is as roomy as it gets ✦": "Гніздечко вже найпросторіше ✦",
+  "The nest grew: {0} glowlings fit at home now ✦": "Гніздечко підросло: тепер удома вміщається {0} ✦"
 };
 
 const UK_DATA = {
@@ -5292,7 +5295,9 @@ const ROOM_MAX = 12, ROOM_MAX_PHONE = 8;
 const actors = new Map();
 
 // ---------- home and exploring: the nest holds a few at a time, the others are off in the grotto ----------
-const homeCap = () => N.iso ? (W < 520 ? 5 : 8) : H < 700 ? 6 : W < 520 ? ROOM_MAX_PHONE : ROOM_MAX;
+const homeCap = () => (N.iso ? (W < 520 ? 5 : 8) : H < 700 ? 6 : W < 520 ? ROOM_MAX_PHONE : ROOM_MAX) + (save.nestUp || 0);
+/** Making the nest roomier: each step is one more place at home. */
+const NEST_UP_COST = [150, 300, 500];
 /**
  * Too many for the room: whoever has been home longest goes exploring (never the one you picked, and not a sleeper
  * if it can be helped). Room to spare: the longest-gone explorer comes back. Returns who just left.
@@ -5359,12 +5364,20 @@ function openHome() {
   $("homeSub").textContent = tr("The nest fits {0} glowlings at once. The others are exploring the grotto and need nothing while they're away. Tap an explorer to call it home: if the nest is full, the one home longest goes out instead.", cap) + " " + tr("The longer they're away, the more they bring back.");
   const card = c => `<button class="pillbtn${c.out ? " out" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt=""><small>${c.name}</small>${c.out ? `<small class="away">${awayFor(c)}</small>` : ""}</button>`;
   $("homeList").innerHTML = `<h3>${tr("At home · {0}/{1}", home.length, cap)}</h3><div class="home-grid">${home.map(card).join("")}</div>`
-    + (away.length ? `<h3>${tr("Exploring · {0}", away.length)}</h3><div class="home-grid">${away.map(card).join("")}</div>` : "");
+    + (away.length ? `<h3>${tr("Exploring · {0}", away.length)}</h3><div class="home-grid">${away.map(card).join("")}</div>` : "")
+    + ((save.nestUp || 0) < NEST_UP_COST.length ? `<button class="act" id="nestUp" ${save.shards < NEST_UP_COST[save.nestUp || 0] ? "disabled" : ""}>${ic("nest")}${tr("Room for one more · ✦ {0}", NEST_UP_COST[save.nestUp || 0])}</button>` : `<p class="sub">${tr("The nest is as roomy as it gets ✦")}</p>`);
   $$("#homeList [data-id]").forEach(b => b.addEventListener("click", () => {
     const id = Number(b.dataset.id);
     if (save.creatures.find(c => c.id === id)?.out) callHome(id); else save.active = id;
     persist(); syncActors(); renderNest(true); updateTopbar(); openHome();
   }));
+  $("nestUp")?.addEventListener("click", () => {
+    const cost = NEST_UP_COST[save.nestUp || 0];
+    if (!cost || save.shards < cost) return;
+    save.shards -= cost; save.nestUp = (save.nestUp || 0) + 1;
+    sfx.levelUp(); toast(tr("The nest grew: {0} glowlings fit at home now ✦", homeCap()));
+    settleHome(); persist(); syncActors(); renderNest(true); updateTopbar(); openHome();
+  });
   show("homeSheet", true);
 }
 /** The glowlings in the room: everyone at home. */
