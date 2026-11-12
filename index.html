@@ -1654,7 +1654,10 @@ const UK = {
   "Who's at home": "Хто вдома",
   "The nest fits {0} glowlings at once. The others are exploring the grotto and need nothing while they're away. Tap an explorer to call it home: if the nest is full, the one home longest goes out instead.": "У гніздечку вміщається {0} глоулінгів одночасно. Інші досліджують грот і, поки їх немає, нічого не потребують. Торкнись дослідника, щоб покликати додому: якщо гніздечко повне, натомість вирушить той, хто вдома найдовше.",
   "At home · {0}/{1}": "Вдома · {0}/{1}",
-  "Exploring · {0}": "Досліджують · {0}"
+  "Exploring · {0}": "Досліджують · {0}",
+  "all rested!": "доброго ранку! ☀",
+  "no thanks, I'm full": "ні, дякую, животик повний",
+  "not sleepy yet!": "ще не хочу спати!"
 };
 
 const UK_DATA = {
@@ -2139,6 +2142,28 @@ const sfx = {
     g.gain.setTargetAtTime(0, t, 0.12);
     src.stop(t + 0.6); lfo.stop(t + 0.6);
     this.purr = null;
+  },
+
+  /** "Mm-mm": two short low hums, the second lower, for a polite no. */
+  refuse() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.tone(t, 330, 0.05, 0.16, "triangle", 300);
+    this.tone(t + 0.2, 300, 0.05, 0.2, "triangle", 250);
+  },
+  /** A big sleepy yawn: a soft voice sliding down, with a breath. */
+  yawn() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.tone(t, 620, 0.04, 0.75, "sine", 300);
+    this.grain(t + 0.05, 0.6, 900, 0.6, 0.03, "lowpass");
+  },
+  /** Waking up: a little stretch going up, then a happy chirp. */
+  stretch(voice = 1) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.tone(t, 300 * voice, 0.04, 0.5, "sine", 640 * voice);
+    this.tone(t + 0.55, 880 * voice, 0.035, 0.2, "triangle", 1100 * voice);
   },
 
   lullaby() {
@@ -5094,7 +5119,7 @@ function openSnacks() {
 function feed(id) {
   const cr = activeCreature(), s = SNACKS[id], sp = specOf(cr);
   show("snacks", false);
-  if (cr.tummy >= 95) { toast(tr("{0} is too full right now", cr.name)); return; }
+  if (cr.tummy >= 88) { refuseWith(cr, tr("no thanks, I'm full")); return; }
   if (save.shards < s.cost) { toast(tr("Not enough shards: crack a geode to earn more ✦")); return; }
   save.shards -= s.cost;
   game.nest.feedCall = { t: game.time, id: cr.id };
@@ -5109,6 +5134,9 @@ function finishSnack(sn) {
   const v = a ? actorView(a) : { x: sn.x, y: sn.ty, size: N.base };
   sfx.munch();
   cr.tummy = clamp(cr.tummy + sn.s.tummy, 0, 100);
+  // a full tummy makes you drowsy: the bigger the snack, the sleepier
+  cr.energy = clamp(cr.energy - sn.s.tummy * 0.25 - (cr.tummy > 85 ? 6 : 0), 0, 100);
+  if (cr.energy < 40 && a) setTimeout(() => { emote(a, "🥱", 1.8); sfx.yawn(); }, 1500);
   cr.messT = (cr.messT || 0) + 15;
   cr.joy = clamp(cr.joy + sn.s.joy + (sn.fav ? 15 : 0), 0, 100);
   addXP(cr, sn.fav ? 12 : 6);
@@ -5226,7 +5254,9 @@ function toggleSleep() {
   const cr = activeCreature();
   if (!cr) return;
   applyTime(cr);
+  if (!cr.sleeping && cr.energy >= 85) { refuseWith(cr, tr("not sleepy yet!")); return; }
   cr.sleeping = !cr.sleeping;
+  cr.selfSlept = false;
   if (cr.sleeping) { sfx.lullaby(); toast(tr("Sweet dreams, {0} 🌙", cr.name)); }
   else { sfx.chirp(specOf(cr).voice); const a = activeActor(); if (a) a.hop = 1; }
   persist();
@@ -5455,7 +5485,7 @@ function syncActors() {
 /** Where a glowling is drawn: its center and size (smaller further back in the room). */
 function actorView(a) {
   const k = depth(a.y), size = N.base * k;
-  return { x: a.x, y: a.y - size * 0.45 - a.alt - (a.perch || 0), size, k };
+  return { x: a.x + (a.shake ? Math.sin(game.time * 0.045) * a.shake * size * 0.08 : 0), y: a.y - size * 0.45 - a.alt - (a.perch || 0), size, k };
 }
 
 const activeActor = () => { const cr = activeCreature(); return cr ? actors.get(cr.id) : null; };
@@ -5477,6 +5507,24 @@ function selectCreature(id) {
   if (a) { a.hop = 1; emote(a, "♥", 1.2); }
   sfx.chirp(specOf(cr).voice);
   renderNest(true);
+}
+
+/** Slept enough: a stretch and a yawn, and up it gets. */
+function wakeRested(cr, a) {
+  cr.sleeping = false; cr.selfSlept = false;
+  a.hop = 1; a.state = "idle"; a.t = 1.5; emote(a, "☀", 1.6);
+  sfx.stretch(specOf(cr).voice);
+  if (a.id === save.active) { const v = actorView(a); floatText(tr("all rested!"), v.x, v.y - v.size * 0.8, "#fff0b5"); renderNest(); }
+  persist();
+}
+/** A polite no: a shake of the head, a "mm-mm", and a word about why. */
+function refuseWith(cr, text) {
+  const a = actors.get(cr.id);
+  sfx.refuse();
+  if (!a) { toast(text); return; }
+  a.shake = 1; a.hop = 0.4;
+  const v = actorView(a);
+  floatText(text, v.x, v.y - v.size * 0.85, "#e6e0ff");
 }
 
 /** Pick what to do next: nap, dance, visit a friend, or wander (flutterers chase the light motes). */
@@ -5520,13 +5568,14 @@ function updateActors(dt) {
     a.ph += dt;
     if (a.emote && (a.emote.t += dt) > a.emote.life) a.emote = null;
     a.hop = Math.max(0, a.hop - dt * 2.5);
+    if (a.shake) a.shake = Math.max(0, a.shake - dt * 1.4);
     // every few seconds: real time catches up, and a very tired glowling takes itself to bed (and gets up again when rested)
     if ((a.needT = (a.needT ?? rand(0, 3)) - dt) < 0) {
       a.needT = 4;
       applyTime(cr);
       const petted = a.id === save.active && game.nest.petting;
       if (!cr.sleeping && cr.energy < 15 && !petted && a.state !== "eat") { cr.sleeping = true; cr.selfSlept = true; emote(a, "zz", 2.2); a.hop = 1; persist(); if (a.id === save.active) renderNest(); }
-      else if (cr.sleeping && cr.selfSlept && cr.energy >= 99) { cr.sleeping = false; cr.selfSlept = false; a.hop = 1; emote(a, "☀", 1.4); sfx.chirp(specOf(cr).voice); persist(); if (a.id === save.active) renderNest(); }
+      else if (cr.sleeping && cr.energy >= 99) wakeRested(cr, a);
     }
     const base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100;
     let speed = base * (a.rain ? 1.6 : 1), target = null;
@@ -7488,7 +7537,9 @@ function startCatch() {
   if (!cr) return;
   applyTime(cr);
   if (cr.energy < 15) { toast(tr("{0} is too sleepy to play. Try a nap 🌙", cr.name)); return; }
-  cr.energy = clamp(cr.energy - 15, 0, 100);
+  const now = Date.now();
+  cr.plays = (cr.plays || []).filter(t => now - t < 10 * 60e3).concat(now);
+  cr.energy = clamp(cr.energy - 15 - 6 * (cr.plays.length - 1), 0, 100);
   cr.tummy = clamp(cr.tummy - 5, 0, 100);
   persist();
   game.catch = { t: 20, intro: 3, x: W / 2, tx: W / 2, items: [], spawn: 0, score: 0, combo: 0, flinch: 0, done: false };
