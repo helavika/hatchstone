@@ -648,6 +648,16 @@
   #talk.done .talk-more { visibility: visible; }
   #talkSkip { position: absolute; right: 0; bottom: calc(100% + 10px); margin: 0; padding: 4px 12px; font-size: 16px; }
   @keyframes pxPop { from { transform: translateX(-50%) translateY(12px); opacity: 0; } }
+  /* what Mossa is talking about: a gold frame with a bouncing arrow, the rest of the screen dimmed */
+  #talkSpot { position: fixed; display: none; pointer-events: none; border-radius: 12px;
+    box-shadow: 0 0 0 3px var(--px-gold), 0 0 0 6px var(--px-ink), 0 0 0 200vmax rgba(8, 5, 26, .58); transition: left .2s, top .2s, width .2s, height .2s; animation: spotPulse 1s steps(2) infinite; }
+  #talkSpot::after { content: "▼"; position: absolute; left: 50%; top: -34px; transform: translateX(-50%); color: var(--px-gold); font-size: 24px; text-shadow: 0 3px 0 var(--px-ink); animation: spotBob .8s steps(2) infinite; }
+  #talkSpot.below::after { content: "▲"; top: auto; bottom: -34px; }
+  #talk.lit { background: none; }
+  #talk.lit #talkSpot { display: block; }
+  #talk.up .talk-box { bottom: auto; top: calc(var(--top) + 64px); }
+  @keyframes spotPulse { 50% { box-shadow: 0 0 0 5px var(--px-gold), 0 0 0 8px var(--px-ink), 0 0 0 200vmax rgba(8, 5, 26, .58); } }
+  @keyframes spotBob { 50% { margin-top: -6px; } }
   /* today's tasks */
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
@@ -904,6 +914,7 @@
 </div>
 
 <div id="talk" hidden>
+  <div id="talkSpot" aria-hidden="true"></div>
   <div class="talk-box glass dark" role="dialog" aria-live="polite">
     <figure class="talk-face"><img alt=""></figure>
     <div class="talk-body"><b class="talk-name"></b><p class="talk-text"></p></div>
@@ -5015,30 +5026,40 @@ const glowVoice = cr => ({ name: cr.name, face: () => creatureImage(specOf(cr), 
 const firstPet = () => save.creatures[0];
 
 /** Each one plays once. A line is [speaker, words]; words can use {0} for the event's detail. */
+/** Things Mossa can point at on the canvas: your glowling, and the egg you're cracking. */
+function spotActor() {
+  const a = game.scene === "nest" && activeActor();
+  if (!a) return null;
+  const v = actorView(a), r = v.size * 0.62;
+  return { x: v.x - r, y: v.y - r * 1.05, w: r * 2, h: r * 2, round: true };
+}
+const spotEgg = () => game.scene === "crack" ? { x: L.ex0 - 8, y: L.ey0 - 8, w: L.ew + 16, h: L.eh + 16, round: true } : null;
+
+/** Each line is [who, words, what to point at]: a selector for a button or panel, or one of the canvas spots above. */
 const TALKS = {
   intro: () => [[MOSSA, "Oh! A visitor. Hello, hello."], [MOSSA, "I'm Mossa. I've watched over this grotto since before the moss was green."],
-    [MOSSA, "Glowlings sleep inside the stone eggs down here. Crack one open, and whoever's inside will need a home."],
-    [MOSSA, "This empty nest is yours. Let's go and find your first one!"]],
-  firstPet: () => { const cr = firstPet(), g = glowVoice(cr); return [[g, "Pip?"], [g, "...pip-pip! ♥"],
-    [MOSSA, tr("{0} likes you already. Glowlings remember a kind hand.", cr.name)],
-    [MOSSA, "Stroke it, feed it, play with it, and tuck it in when it's sleepy. That's how it grows."],
-    [MOSSA, "When you want another egg, the big Crack button is always right there. Your nest has room for many."]]; },
-  firstGrow: cr => [[glowVoice(cr), "Pip! Pip-pip-pip!"], [MOSSA, tr("Look at {0}! Not a baby anymore.", cr.name)],
-    [MOSSA, "Glowlings grow when they're loved. Keep it up, and one day it will be Radiant."]],
-  firstGrotto: () => [[MOSSA, "This is the Grotto. Every level is a geode, each a little harder than the last."],
-    [MOSSA, "Find the weak spot and you'll need fewer taps. Fewer taps, more stars."],
-    [MOSSA, "And look up: once a day a moon egg appears. Something special sleeps in it."]],
-  firstExplore: cap => [[MOSSA, tr("The nest is cozy, but small: {0} glowlings fit at home at once.", cap)], [MOSSA, "The others are out exploring the grotto, having a lovely time. Tap one in the row below to call it home."]],
-  firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine."], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it."]],
+    [MOSSA, "Glowlings sleep inside the stone eggs down here. Crack one open, and whoever's inside will need a home.", "#crackTab"],
+    [MOSSA, "This empty nest is yours. Let's go and find your first one!", "#firstEgg"]],
+  firstPet: () => { const cr = firstPet(), g = glowVoice(cr); return [[g, "Pip?", spotActor], [g, "...pip-pip! ♥", spotActor],
+    [MOSSA, tr("{0} likes you already. Glowlings remember a kind hand.", cr.name), spotActor],
+    [MOSSA, "Stroke it, feed it, play with it, and tuck it in when it's sleepy. That's how it grows.", "#nestBottom .acts"],
+    [MOSSA, "When you want another egg, the big Crack button is always right there. Your nest has room for many.", "#crackTab"]]; },
+  firstGrow: cr => [[glowVoice(cr), "Pip! Pip-pip-pip!", spotActor], [MOSSA, tr("Look at {0}! Not a baby anymore.", cr.name), spotActor],
+    [MOSSA, "Glowlings grow when they're loved. Keep it up, and one day it will be Radiant.", "#xpBar"]],
+  firstGrotto: () => [[MOSSA, "This is the Grotto. Every level is a geode, each a little harder than the last.", "#mapList .lvl.next"],
+    [MOSSA, "Find the weak spot and you'll need fewer taps. Fewer taps, more stars.", "#mapList .lvl.next"],
+    [MOSSA, "And look up: once a day a moon egg appears. Something special sleeps in it.", "#moonBtn"]],
+  firstExplore: cap => [[MOSSA, tr("The nest is cozy, but small: {0} glowlings fit at home at once.", cap)], [MOSSA, "The others are out exploring the grotto, having a lovely time. Tap one in the row below to call it home.", "#nestBottom .switch-wrap"]],
+  firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine.", spotEgg], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.", "#polishDone"]],
   firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
-    [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it."]],
-  ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])], [MOSSA, "The stone gets harder from here on. The Forge can help."]],
+    [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it.", "#forgeList"]],
+  ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])], [MOSSA, "The stone gets harder from here on. The Forge can help.", "#forgeTab"]],
   ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring higher."]],
   ch3: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[3])], [MOSSA, "The oldest, toughest stone. And the rarest glowlings sleep in it."]],
   shiny: cr => [[glowVoice(cr), "✦ Pip! ✦"], [MOSSA, "Oh my. A shiny one! I've only seen a handful in all my years."]],
   legendary: cr => [[glowVoice(cr), "...Pip."], [MOSSA, tr("A legendary glowling... They say {0} only wakes for someone kind. Well done, you.", cr.name)]],
   allClear: () => [[MOSSA, "Every geode in the grotto, opened. I'm so proud of you."],
-    [MOSSA, "But the deep caves never end. Wander down whenever you like. I'll keep the moss warm."]],
+    [MOSSA, "But the deep caves never end. Wander down whenever you like. I'll keep the moss warm.", "#mapList .wander"]],
 };
 
 // people who played before the dialogs existed don't get the beginner ones (worked out from the save as it was when the page opened)
@@ -5058,9 +5079,29 @@ function talk(id, ...args) {
   if (!talkNow) nextTalk();
   return true;
 }
+/** Where the thing a line points at is on screen, or null if it isn't showing. */
+function spotRect(f) {
+  if (typeof f === "function") return f();
+  const el = f && document.querySelector(f);
+  if (!el || el.closest("[hidden], .hidden")) return null;
+  const r = el.getBoundingClientRect();
+  return r.width && r.height ? { x: r.left, y: r.top, w: r.width, h: r.height } : null;
+}
+/** Frame what Mossa is talking about, and keep her dialog out of its way. */
+function updateSpot() {
+  const line = talkNow && talkNow.lines[talkNow.i], r = line && spotRect(line[2]), t = $("talk");
+  t.classList.toggle("lit", !!r);
+  if (!r) { t.classList.remove("up"); return; }
+  const pad = 8, el = $("talkSpot"), low = r.y + r.h / 2 > H * 0.5;
+  Object.assign(el.style, { left: r.x - pad + "px", top: r.y - pad + "px", width: r.w + pad * 2 + "px", height: r.h + pad * 2 + "px", borderRadius: r.round ? "50%" : "12px" });
+  // the arrow points down from above, unless there's no room above it
+  el.classList.toggle("below", r.y < 70);
+  t.classList.toggle("up", low);
+}
+
 function nextTalk() {
   const lines = talkQueue.shift();
-  if (!lines) { talkNow = null; $("talk").hidden = true; return; }
+  if (!lines) { talkNow = null; $("talk").hidden = true; updateSpot(); return; }
   talkNow = { lines, i: -1 };
   $("talk").hidden = false;
   nextLine();
@@ -5069,7 +5110,10 @@ function nextLine() {
   const n = talkNow;
   clearInterval(n.timer);
   if (++n.i >= n.lines.length) return nextTalk();
-  const [who, words] = n.lines[n.i];
+  const [who, words, spot] = n.lines[n.i];
+  // a button or panel further down a list scrolls into view first
+  if (typeof spot === "string") document.querySelector(spot)?.scrollIntoView({ block: "nearest" });
+  updateSpot();
   const text = tr(words), face = who.face();
   $$("#talk .talk-face img").forEach(im => { if (im.src !== face) im.src = face; });
   $$("#talk .talk-name").forEach(el => { el.textContent = tr(who.name); });
@@ -10017,6 +10061,7 @@ function frame(now) {
   if (dt) for (let i = 0; i < steps; i++) update(dt / steps);
   updateClock();
   fx.clearRect(0, 0, W, H);
+  if (talkNow) updateSpot();
   drawBackground();
   if (game.scene !== "menu") drawBats(dt);
   if (game.scene === "crack" && game.egg) {
