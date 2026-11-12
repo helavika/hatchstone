@@ -359,6 +359,13 @@
   .plate.band { display: block; padding: 7px; margin: 2px 0 8px; }
   .plate.band img { width: 100%; height: auto; aspect-ratio: 160 / 40; image-rendering: pixelated; }
   .plate.band.dim img { filter: grayscale(.7) brightness(.55); }
+  /* each chapter is a cave on the Grotto map, its six levels on a winding trail */
+  .plate.band.cave { max-width: 460px; margin-left: auto; margin-right: auto; }
+  .biome { position: relative; aspect-ratio: 160 / 96; }
+  .plate.band .biome img { aspect-ratio: 160 / 96; height: 100%; }
+  .biome svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .biome .lvl { position: absolute; width: 48px; height: 48px; margin: -24px 0 0 -24px; font-size: 18px; }
+  .plate.band.dim .biome .lvl { filter: none; }
 
   .cta { position: relative; border: 1px solid rgba(255, 233, 168, .9); outline: 1px solid rgba(255, 233, 168, .35); outline-offset: 3px; }
   .cta::before, .cta::after { content: ""; position: absolute; top: 50%; width: 6px; height: 6px; background: #ffe9a8; opacity: .8; transform: translateY(-50%) rotate(45deg); }
@@ -2609,7 +2616,7 @@ const chapterArtCache = [];
 function chapterArt(ci) {
   if (chapterArtCache[ci]) return chapterArtCache[ci];
   const th = CHAPTER_ART[ci % CHAPTER_ART.length];
-  const c = pixelCave({ ...th, wall: th.wall.map(pxHex), crystal: th.crystal.map(pxHex), glow: pxHex(th.glow), pool: th.pool?.map(pxHex), flash: th.flash?.map(pxHex) }, 160, 40);
+  const c = pixelCave({ ...th, wall: th.wall.map(pxHex), crystal: th.crystal.map(pxHex), glow: pxHex(th.glow), pool: th.pool?.map(pxHex), flash: th.flash?.map(pxHex) }, 160, 96, { floorY: 88, crystals: 12, ly: 60 });
   return (chapterArtCache[ci] = c.toDataURL());
 }
 
@@ -5286,17 +5293,25 @@ function startLevel(n) {
   newEgg(levelConf(n), true);
 }
 
+/** Where the six levels of a chapter sit on its cave, in percent: across the top, then back along the bottom. */
+const TRAIL = [[16, 26], [50, 22], [84, 30], [80, 70], [48, 76], [16, 70]];
+
 function renderMap() {
   const next = Array.from({ length: LEVELS }, (_, i) => i + 1).find(n => !save.stars[n]) || 0;
   $("mapSub").textContent = tr("{0} of {1} stars · tap a level to crack its geode", totalStars(), LEVELS * 3);
   let html = "";
   CAVES.forEach((name, ci) => {
-    html += `${ci ? '<div class="orn sm" aria-hidden="true"></div>' : ""}<h3 class="chap"><small>${tr("Chapter {0}", ["I", "II", "III", "IV", "V", "VI"][ci])}</small>${name}</h3><figure class="plate band${unlocked(ci * 6 + 1) ? "" : " dim"}"><img src="${chapterArt(ci)}" alt=""></figure><p class="cave-note">${CAVE_NOTES[ci]}</p><div class="lvls">`;
-    for (let i = 1; i <= 6; i++) {
-      const n = ci * 6 + i, st = save.stars[n] || 0, open = unlocked(n);
-      html += `<button class="lvl${n === next ? " next" : ""}" data-n="${n}" ${open ? "" : "disabled"}>${n}<span>${open ? (st ? "★".repeat(st) : "") : "🔒"}</span></button>`;
-    }
-    html += "</div>";
+    html += `${ci ? '<div class="orn sm" aria-hidden="true"></div>' : ""}<h3 class="chap"><small>${tr("Chapter {0}", ["I", "II", "III", "IV", "V", "VI"][ci])}</small>${name}</h3><p class="cave-note">${CAVE_NOTES[ci]}</p>`;
+    // the trail snakes across the cave and leaves at the bottom left, where the next cave's trail picks it up
+    const pts = TRAIL.map(([x, y], i) => [x, y + Math.sin(ci * 3 + i * 1.7) * 4]);
+    const done = pts.filter((_, i) => save.stars[ci * 6 + i + 1]).length;
+    const line = (a, col, dash) => a.length > 1 ? `<polyline points="${a.map(p => p.join(",")).join(" ")}" fill="none" stroke="${col}" stroke-width="4" stroke-dasharray="${dash}" vector-effect="non-scaling-stroke"/>` : "";
+    html += `<figure class="plate band cave${unlocked(ci * 6 + 1) ? "" : " dim"}"><div class="biome"><img src="${chapterArt(ci)}" alt=""><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${line([[pts[0][0], -6], ...pts, [pts[5][0], 106]], "rgba(239,230,255,.35)", "2 6")}${line(pts.slice(0, Math.min(6, done + 1)), "#eec26a", "2 6")}</svg>`;
+    pts.forEach(([x, y], i) => {
+      const n = ci * 6 + i + 1, st = save.stars[n] || 0, open = unlocked(n);
+      html += `<button class="lvl${n === next ? " next" : ""}" style="left:${x}%;top:${y}%" data-n="${n}" ${open ? "" : "disabled"}>${n}<span>${open ? (st ? "★".repeat(st) : "") : "🔒"}</span></button>`;
+    });
+    html += "</div></figure>";
   });
   const allDone = unlocked(LEVELS + 1);
   html += `<button class="wander" data-n="0" ${allDone ? "" : "disabled"}>${tr("🌌 Wander: endless geodes from the deepest caves")}${allDone ? "" : tr(" (clear level 24)")}</button>`;
