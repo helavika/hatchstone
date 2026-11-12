@@ -5365,11 +5365,8 @@ function finishSnack(sn) {
   spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
   floatText(sn.fav ? tr("favorite! ♥") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
   if (sn.fav) for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3);
-  // the hungry ones who came running get a crumb
-  for (const o of actors.values()) if (o.state === "begging" && a && Math.hypot(o.x - a.x, o.y - a.y) < N.base * 1.4) {
-    const oc = save.creatures.find(c => c.id === o.id);
-    if (oc) { oc.tummy = clamp(oc.tummy + 5, 0, 100); emote(o, "♥", 1.4); o.hop = 1; }
-  }
+  // the hungry ones who came running only get to watch: they stay hungry until they get their own snack
+  for (const o of actors.values()) if (o.state === "begging" && a && Math.hypot(o.x - a.x, o.y - a.y) < N.base * 1.4) emote(o, "🥺", 1.6);
   if (game.nest.feedCall) game.nest.feedCall.t = game.time - 2000;
   persist();
   taskDone("feed");
