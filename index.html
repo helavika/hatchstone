@@ -545,6 +545,8 @@
   #nestLvl { color: var(--soft); text-shadow: 0 2px 0 var(--px-ink); font-size: 14px; }
   #nestShare .ic { width: 28px; height: 28px; }
   #switcher button img { image-rendering: pixelated; }
+  .forge-h { margin: 12px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
+  .forge .skin-img { width: 40px; height: 40px; image-rendering: pixelated; flex: 0 0 40px; }
   .decor.legend:not([disabled]) b { color: var(--px-gold); }
   #jukeList { max-height: 56vh; overflow-y: auto; }
   #jukeList h3 { margin: 10px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
@@ -1688,7 +1690,17 @@ const UK = {
   "Crystal cave": "Кришталева печера",
   "The painting now shows: {0}": "На картині тепер: {0}",
   "Tap it in the room to change the picture": "Торкнись її в кімнаті, щоб змінити сюжет",
-  " \u00b7 cheered on by {0}: +{1} \u2726": " · підтримка від {0}: +{1} ✦"
+  " \u00b7 cheered on by {0}: +{1} \u2726": " · підтримка від {0}: +{1} ✦",
+  "Old hammer": "Старий молот",
+  "Blossom mallet": "Квітковий молоточок",
+  "Crystal hammer": "Кришталевий молот",
+  "Ember mallet": "Жаркий молоточок",
+  "Moon chisel": "Місячне зубило",
+  "Hammer looks": "Вигляд молота",
+  "its own sparks on every tap": "власні іскри на кожен удар",
+  "the one you started with": "той, з якого все почалося",
+  "in hand ✓": "у руці ✓",
+  "{0} in hand ✦": "{0} у руці ✦"
 };
 
 const UK_DATA = {
@@ -3268,7 +3280,7 @@ function resize() {
 const game = {
   scene: "menu", egg: null, time: 0, libTab: "sp",
   coop: null,
-  chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], floaters: [], ripples: [], pops: [], gems: [], shake: 0, freeze: 0,
+  chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], swings: [], floaters: [], ripples: [], pops: [], gems: [], shake: 0, freeze: 0,
   nest: { snack: null, petDist: 0, petXpT: 0, petting: false, call: null },
   actors: null,
   catch: null,
@@ -4418,6 +4430,16 @@ const FORGE = [
   { id: "magpie", name: "Magpie pouch", icon: "pouch", cost: [30, 70, 120, 180], what: l => tr("+{0} {1} from every weak-spot hit", l, pl(l, "shard", "shards")) },
 ];
 const forgeLvl = id => (save.forge && save.forge[id]) || 0;
+/** Hammer looks: each shows when you tap the stone (a little hammer swings, its head bigger with Heavy head upgrades) and changes the sparks. */
+const TOOL_SKINS = [
+  { id: "classic", name: "Old hammer", cost: 0, head: ["#e4dfe8", "#b9b3c0", "#5d5666"], handle: ["#c98f3a", "#5e3a1c"] },
+  { id: "petal", name: "Blossom mallet", cost: 90, head: ["#ffd0e6", "#ff9ecb", "#c25586"], handle: ["#57ad6a", "#1e5233"], sparks: ["#ffc4da", "#ffffff", "#e88bb1"] },
+  { id: "crystal", name: "Crystal hammer", cost: 120, head: ["#ffffff", "#9fd0e6", "#4f7fa3"], handle: ["#c9b8ff", "#523a85"], sparks: ["#ffffff", "#c9b8ff", "#8fd8ef", "#ff9ecb"] },
+  { id: "ember", name: "Ember mallet", cost: 140, head: ["#ffe9a8", "#e0634f", "#7d1e2c"], handle: ["#5e3a1c", "#22143a"], sparks: ["#ffe9a8", "#f2a07b", "#e0634f"] },
+  { id: "moon", name: "Moon chisel", cost: 180, head: ["#fff8d6", "#eec26a", "#946027"], handle: ["#b8e6f5", "#1d5276"], sparks: ["#fff8d6", "#ffffff", "#b8e6f5"], chime: true },
+];
+if (LANG === "uk") for (const k of TOOL_SKINS) k.name = tr(k.name);
+const toolSkin = () => TOOL_SKINS.find(k => k.id === save.toolSkin) || TOOL_SKINS[0];
 const canForge = () => FORGE.some(f => f.cost[forgeLvl(f.id)] <= save.shards);
 
 /** The first level without stars yet (0 = wander, once everything is cleared). */
@@ -4532,8 +4554,35 @@ function openForge() {
     const l = forgeLvl(f.id), max = f.cost.length, cost = f.cost[l];
     return `<button class="forge${l >= max ? " maxed" : ""}" data-id="${f.id}" ${l >= max || save.shards < cost ? "disabled" : ""}>${ic(f.icon, "big")}<span class="txt"><b>${f.name}</b><span class="pips">${f.cost.map((_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l < max ? (l ? tr("next: ") : "") + f.what(l + 1) : f.what(l)}</small></span><span class="cost">${l >= max ? "max" : `${ic("shard")}${cost}`}</span></button>`;
   }).join("");
-  $$("#forgeList .forge").forEach(b => b.addEventListener("click", () => buyForge(b.dataset.id)));
+  $("forgeList").innerHTML += `<h3 class="forge-h">${tr("Hammer looks")}</h3>` + TOOL_SKINS.map(k => {
+    const has = !k.cost || (save.toolSkins || {})[k.id], on = toolSkin().id === k.id;
+    return `<button class="forge skin${on ? " maxed" : ""}" data-skin="${k.id}" ${!has && save.shards < k.cost ? "disabled" : ""}><img class="skin-img" src="${hammerImage(k)}" alt=""><span class="txt"><b>${k.name}</b><small>${k.sparks ? tr("its own sparks on every tap") : tr("the one you started with")}</small></span><span class="cost">${on ? tr("in hand ✓") : has ? tr("owned") : `${ic("shard")}${k.cost}`}</span></button>`;
+  }).join("");
+  $$("#forgeList .forge:not(.skin)").forEach(b => b.addEventListener("click", () => buyForge(b.dataset.id)));
+  $$("#forgeList .skin").forEach(b => b.addEventListener("click", () => pickSkin(b.dataset.skin)));
   show("forge", true);
+}
+
+/** Buy a hammer look (once), or switch to one you own. */
+function pickSkin(id) {
+  const k = TOOL_SKINS.find(x => x.id === id);
+  if (!k) return;
+  save.toolSkins = save.toolSkins || {};
+  if (k.cost && !save.toolSkins[id]) {
+    if (save.shards < k.cost) return;
+    save.shards -= k.cost; save.toolSkins[id] = true; sfx.levelUp();
+  } else sfx.tick();
+  save.toolSkin = id;
+  toast(tr("{0} in hand ✦", k.name));
+  persist(); updateTopbar(); openForge();
+}
+/** A hammer in pixels, for the Forge list (its head as big as your Heavy head level makes it). */
+function hammerImage(k, big = forgeLvl("heft")) {
+  const c = document.createElement("canvas"); c.width = c.height = 16;
+  const g = c.getContext("2d"), hw = 7 + Math.min(4, big), hx = Math.round(8 - hw / 2);
+  g.fillStyle = k.handle[1]; g.fillRect(7, 6, 3, 10); g.fillStyle = k.handle[0]; g.fillRect(7, 6, 2, 10);
+  g.fillStyle = k.head[2]; g.fillRect(hx, 1, hw, 6); g.fillStyle = k.head[1]; g.fillRect(hx, 1, hw, 5); g.fillStyle = k.head[0]; g.fillRect(hx, 1, hw, 2);
+  return c.toDataURL();
 }
 
 function buyForge(id) {
@@ -4588,6 +4637,10 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   if (Math.random() < 0.6) carveChip(x, y, rand(1.2, 2.4) * L.k, 3);
   spawnChips(x, y, 3 + Math.round(prog * 5) + (res.crit ? 4 : 0), 1 + prog);
   if (res.crit) burst(x, y, 10, ["#fff", ...e.crystal.c], 1.3);
+  const skin = toolSkin();
+  game.swings.push({ x, y, t: game.time, skin });
+  if (skin.sparks) burst(x, y, res.crit ? 8 : 5, skin.sparks, 0.9);
+  if (skin.chime && sfx.ready()) sfx.tone(sfx.ac.currentTime + 0.02, 1568 + res.weak * 400, 0.02, 0.5, "sine", null, true);
   flyGems(x, y, gems);
   sfx.knock(res.weak);
   if (res.grown) sfx.crackle(Math.min(res.grown, 12));
@@ -9527,6 +9580,23 @@ function drawFlash() {
   ctx.fillRect(0, 0, W, H);
 }
 
+/** The little hammer that swings down where you tapped: up, a quick strike, a moment's rest, gone. */
+function drawSwings() {
+  game.swings = game.swings.filter(w => game.time - w.t < 320);
+  if (game.scene !== "crack") return;
+  const u = Math.max(PX, Math.round(2.4 * L.k / PX) * PX), heft = forgeLvl("heft");
+  for (const w of game.swings) {
+    const a = (game.time - w.t) / 1000, ang = a < 0.07 ? -1.1 * (1 - a / 0.07) : 0, k = w.skin, hw = (7 + Math.min(4, heft)) * u;
+    ctx.save();
+    ctx.globalAlpha = a > 0.2 ? Math.max(0, 1 - (a - 0.2) / 0.12) : 1;
+    ctx.translate(w.x + 12 * u, w.y + 12 * u); ctx.rotate(-Math.PI / 4 + ang);
+    // handle from the pivot up to the head, then the head across the end, shaded in three tones
+    ctx.fillStyle = k.handle[1]; ctx.fillRect(-u, -16 * u, 3 * u, 16 * u); ctx.fillStyle = k.handle[0]; ctx.fillRect(-u, -16 * u, 2 * u, 16 * u);
+    ctx.fillStyle = k.head[2]; ctx.fillRect(-hw / 2, -21 * u, hw, 6 * u); ctx.fillStyle = k.head[1]; ctx.fillRect(-hw / 2, -21 * u, hw, 5 * u); ctx.fillStyle = k.head[0]; ctx.fillRect(-hw / 2, -21 * u, hw, 2 * u);
+    ctx.restore();
+  }
+}
+
 function drawTrail() {
   const now = performance.now();
   ctx.save();
@@ -9599,6 +9669,7 @@ function frame(now) {
   drawFloaters();
   drawPops();
   drawGems();
+  drawSwings();
   drawTrail();
   drawCoopCursor();
   drawCoach();
