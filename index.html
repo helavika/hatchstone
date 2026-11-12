@@ -545,6 +545,18 @@
   #nestLvl { color: var(--soft); text-shadow: 0 2px 0 var(--px-ink); font-size: 14px; }
   #nestShare .ic { width: 28px; height: 28px; }
   #switcher button img { image-rendering: pixelated; }
+  .decor.legend:not([disabled]) b { color: var(--px-gold); }
+  #jukeList { max-height: 56vh; overflow-y: auto; }
+  #jukeList h3 { margin: 10px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
+  #jukeList .snack.on { border-color: var(--px-gold) !important; background: var(--px-gold-lo) !important; }
+  #jukeList .snack img.em { width: 34px; height: 34px; object-fit: cover; image-rendering: pixelated; }
+  .juke-sounds { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
+  .juke-sounds button { padding: 8px 4px; font-size: 13px; }
+  /* explorers: dimmed, with a compass */
+  #switcher button { position: relative; }
+  #switcher button.out img { opacity: .45; filter: grayscale(.5); }
+  #switcher button.out::after { content: "🧭"; position: absolute; right: -3px; bottom: -3px; font-size: 13px; line-height: 1; }
+  #homeCount { color: var(--soft); text-shadow: 0 2px 0 var(--px-ink); font-size: 13px; white-space: nowrap; }
   /* native-pixel pictures: always a whole number of screen pixels per art pixel */
   img.px2 { object-fit: fill; image-rendering: pixelated; }
   #libGrid .pg img.lib-px { width: 64px; height: 64px; object-fit: fill; image-rendering: pixelated; }
@@ -875,6 +887,7 @@
   <button id="nestName"></button><button id="nestShare" aria-label="Share a postcard"><i class="ic" data-ic="postcard"></i></button>
   <div id="nestLvl"></div>
   <div class="bar" id="xpBar"><i></i></div>
+  <div id="homeCount" hidden></div>
 </div>
 <div id="nestEmpty" hidden>
   <div class="card glass dark">
@@ -915,6 +928,14 @@
   </div>
 </div>
 
+<div id="jukebox" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Music box</h2>
+    <p class="sub" id="jukeSub"></p>
+    <div id="jukeList"></div>
+    <button class="ghost" id="jukeClose">close</button>
+  </div>
+</div>
 <div id="snacks" class="overlay modal hidden">
   <div class="card glass dark">
     <h2>Snack time</h2>
@@ -1574,10 +1595,34 @@ const UK = {
   "Previous glowlings": "Попередні глоулінги",
   "More glowlings": "Ще глоулінги",
   "Who made Hatchstone?": "Хто зробив Hatchstone?",
-  "I'm Viktoria Shchypalkina (helavika). I make Hatchstone in my free time, pixel by pixel. The game's code is open on [GitHub](https://github.com/helavika/hatchstone), and there's more of my work in my [portfolio](https://helavika.github.io/helavika-portfolio/). Found a bug or have an idea? [Tell me on GitHub](https://github.com/helavika/hatchstone/issues/new).": "Я Вікторія Щипалкіна (helavika). Роблю Hatchstone у вільний час, піксель за пікселем. Код гри відкритий на [GitHub](https://github.com/helavika/hatchstone), а більше моїх робіт — у [портфоліо](https://helavika.github.io/helavika-portfolio/). Знайшли баг чи маєте ідею? [Напишіть мені на GitHub](https://github.com/helavika/hatchstone/issues/new).",
+  "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new).": "Зроблено з любов'ю — helavika, у вільні вечори. [Код на GitHub](https://github.com/helavika/hatchstone) · більше робіт у [портфоліо](https://helavika.github.io/helavika-portfolio/) · ідеї та баги чекаю [на GitHub](https://github.com/helavika/hatchstone/issues/new).",
   "rub the geode with your finger to polish it ✦": "потри жеоду пальцем, щоб відполірувати ✦",
   "The inside is frosty. Rub it with your finger to make it shine.": "Усередині жеода матова. Потри її пальцем, щоб заблищала.",
-  "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.": "Чим більше блиску, тим більше осколків. Натисни кнопку, коли тобі сподобається."
+  "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.": "Чим більше блиску, тим більше осколків. Натисни кнопку, коли тобі сподобається.",
+  "{0} came home, and {1} went exploring 🧭": "{0} вже вдома, а {1} вирушає в мандри 🧭",
+  "{0} came home ✦": "{0} вже вдома ✦",
+  "{0} is out exploring: tap to call it home": "{0} досліджує грот: торкнись, щоб покликати додому",
+  "The nest is cozy, but small: {0} glowlings fit at home at once.": "Гніздечко затишне, але маленьке: вдома вміщається {0} глоулінгів одночасно.",
+  "The others are out exploring the grotto, having a lovely time. Tap one in the row below to call it home.": "Інші досліджують грот і чудово проводять час. Торкнись когось у рядку внизу, щоб покликати додому.",
+  "Music box": "Музична шафа",
+  "sways to the music box": "погойдується під музику",
+  "meet a legendary glowling": "зустрінь легендарного глоулінга",
+  "Legendary · plays the songs you've unlocked": "Легендарна · грає відкриті тобою пісні",
+  "{0} of {1} songs unlocked. Find more by opening new backdrops.": "Відкрито пісень: {0} з {1}. Нові з'являються разом із новими фонами.",
+  "Songs": "Пісні",
+  "Sounds": "Звуки",
+  "The backdrop's own song": "Пісня фону",
+  "changes with the backdrop": "змінюється разом із фоном",
+  "song": "пісня",
+  "Lullaby": "Колискова",
+  "Chirp": "Щебет",
+  "Munch": "Хрум",
+  "Shimmer": "Мерехтіння",
+  "Level up": "Новий рівень",
+  "Knock": "Стук",
+  "Rare crystal": "Рідкісний кристал",
+  "Legendary crystal": "Легендарний кристал",
+  "Cracking stone": "Тріск каменю"
 };
 
 const UK_DATA = {
@@ -2279,9 +2324,12 @@ DECOR.push(
   { id: "table", name: "Tea table", emoji: "🫖", cost: 45, lovers: ["dance", "curious"], verb: "sips moonleaf tea", emote: "♥", iso: true },
   { id: "chest", name: "Toy chest", emoji: "🧸", cost: 40, lovers: ["hop"], verb: "digs through the toy chest", emote: "!", iso: true },
   { id: "plant", name: "Crystal plant", emoji: "🪴", cost: 35, lovers: ["flutter", "swim"], verb: "sniffs the crystal plant", emote: "✦", iso: true },
+  { id: "musicbox", name: "Music box", emoji: "🎼", cost: 120, lovers: ["dance", "flutter"], verb: "sways to the music box", emote: "♪", iso: true, legend: true, how: "meet a legendary glowling" },
   { id: "painting", name: "Moon painting", emoji: "🖼️", cost: 55, lovers: ["curious", "dance"], verb: "admires the painting", emote: "✦", iso: true, wall: true },
 );
-if (LANG === "uk") for (const d of DECOR) if (d.iso) { d.name = tr(d.name); d.verb = tr(d.verb); }
+if (LANG === "uk") for (const d of DECOR) if (d.iso) { d.name = tr(d.name); d.verb = tr(d.verb); if (d.how) d.how = tr(d.how); }
+/** The music box is legendary: it's for those who have met a legendary glowling. */
+const legendOk = () => Object.keys(save.seen).some(id => SP[id] && rarityOf(SP[id]) === "legendary") || save.creatures.some(c => SP[c.sp] && rarityOf(SP[c.sp]) === "legendary");
 const DECO = Object.fromEntries(DECOR.map(d => [d.id, d]));
 const BEHAVIOR_NAMES = { flutter: "flutterers", hop: "hoppers", nap: "nappers", dance: "dancers", curious: "curious ones", swim: "swimmers" };
 
@@ -2790,6 +2838,8 @@ function applyTime(cr, now = Date.now()) {
   const min = clamp((now - (cr.last || now)) / 60000, 0, 24 * 60);
   cr.last = now;
   if (min <= 0) return;
+  // out exploring: having a lovely time, needing nothing
+  if (cr.out) return;
   if (cr.sleeping) {
     cr.energy = clamp(cr.energy + min * 12, 0, 100);
     cr.tummy = clamp(cr.tummy - min * 0.25, 0, 100);
@@ -2810,7 +2860,7 @@ const MESS_MIN = 45;
 
 /** What a glowling is calling you for, if anything: gently, the way a Tamagotchi beeps. */
 function callOf(cr) {
-  if (cr.sleeping) return "";
+  if (cr.sleeping || cr.out) return "";
   if (cr.tummy < 25) return "hungry";
   if (cr.energy < 20) return "sleepy";
   if ((cr.dust || []).length >= 2) return "messy";
@@ -3202,7 +3252,9 @@ function drawBackground() {
   const kind = ROOM_KIND[id] || "cave", floor = game.scene === "nest" && N.back ? (kind === "cave" ? N.front : N.back + 1) / H : 0.86;
   const key = `${id}|${floor.toFixed(3)}`;
   if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor));
-  if (id !== bgTheme) { bgTheme = id; sfx.music(id); }
+  // the music box plays the song picked on it, in the nest; otherwise each backdrop has its own
+  const song = game.scene === "nest" && hasDecor("musicbox") && save.jukebox && THEMES.some(t => t.id === save.jukebox && t.ok()) ? save.jukebox : id;
+  if (song !== bgTheme) { bgTheme = song; sfx.music(song); }
   ctx.drawImage(bgCache.get(key), 0, 0, W, H);
   ctx.fillStyle = "#e6f6ff";
   for (const m of motes) {
@@ -3679,6 +3731,18 @@ function drawBaked(f, dx = 0, dy = 0) {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(f.c, f.x + Math.round(dx / PX) * PX, f.y + Math.round(dy / PX) * PX, f.c.width * PX, f.c.height * PX);
   ctx.imageSmoothingEnabled = was;
+}
+
+/**
+ * Is (x, y) on a baked picture's own pixels (or within pad CSS pixels of one)? Taps count on the thing itself,
+ * not on a box around it, so nothing goes off by accident.
+ */
+function spriteHit(c, x0, y0, x, y, pad = 4) {
+  const ax = Math.floor((x - x0) / PX), ay = Math.floor((y - y0) / PX), r = Math.ceil(pad / PX);
+  if (ax < -r || ay < -r || ax >= c.width + r || ay >= c.height + r) return false;
+  if (!c._alpha || c._alpha.key !== c.width * 1e5 + c.height) { const d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data, a = new Uint8Array(c.width * c.height); for (let i = 0; i < a.length; i++) a[i] = d[i * 4 + 3] > 40; c._alpha = a; c._alpha.key = c.width * 1e5 + c.height; }
+  for (let j = Math.max(0, ay - r); j <= Math.min(c.height - 1, ay + r); j++) for (let i = Math.max(0, ax - r); i <= Math.min(c.width - 1, ax + r); i++) if (c._alpha[j * c.width + i] && Math.hypot(i - ax, j - ay) <= r) return true;
+  return false;
 }
 
 /** A baked sprite kept on an object, redrawn only when its key changes. */
@@ -4609,6 +4673,7 @@ const TALKS = {
   firstGrotto: () => [[MOSSA, "This is the Grotto. Every level is a geode, each a little harder than the last."],
     [MOSSA, "Find the weak spot and you'll need fewer taps. Fewer taps, more stars."],
     [MOSSA, "And look up: once a day a moon egg appears. Something special sleeps in it."]],
+  firstExplore: cap => [[MOSSA, tr("The nest is cozy, but small: {0} glowlings fit at home at once.", cap)], [MOSSA, "The others are out exploring the grotto, having a lovely time. Tap one in the row below to call it home."]],
   firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine."], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it."]],
   firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
     [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it."]],
@@ -4926,6 +4991,10 @@ function renderNest(full) {
     if (btn) { btn.style.setProperty("--fill", Math.ceil(cr[k] / 25) / 4); btn.classList.toggle("lowfill", cr[k] < 25); }
     $("v" + id).textContent = Math.round(cr[k]);
   }
+  // how many are home and how many exploring (only once some are out)
+  const away = save.creatures.filter(c => c.out).length;
+  $("homeCount").hidden = !away;
+  if (away) $("homeCount").textContent = `🏠 ${save.creatures.length - away} · 🧭 ${away}`;
   $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Sleep");
   $("feedBtn").disabled = cr.sleeping;
   // the button for what it needs lights up, the way a Tamagotchi's attention icon does
@@ -4936,7 +5005,7 @@ function renderNest(full) {
   $("playBtn").disabled = cr.sleeping;
   if (full) {
     $("switcher").innerHTML = save.creatures.map(c =>
-      `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}" title="${c.name}"><img class="px2" style="width:40px;height:40px" src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt="${c.name}"></button>`).join("");
+      `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}${c.out ? " out" : ""}" title="${c.out ? tr("{0} is out exploring: tap to call it home", c.name) : c.name}"><img class="px2" style="width:40px;height:40px" src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt="${c.name}"></button>`).join("");
     $$("#switcher button").forEach(b => b.addEventListener("click", () => selectCreature(Number(b.dataset.id))));
     requestAnimationFrame(switchArrows);
   }
@@ -4965,6 +5034,7 @@ function feed(id) {
   if (cr.tummy >= 95) { toast(tr("{0} is too full right now", cr.name)); return; }
   if (save.shards < s.cost) { toast(tr("Not enough shards: crack a geode to earn more ✦")); return; }
   save.shards -= s.cost;
+  game.nest.feedCall = { t: game.time, id: cr.id };
   const v = actorView(activeActor());
   game.nest.snack = { emoji: s.emoji, x: v.x, y: v.y - N.base * 2, ty: v.y, vy: 0, fav: id === sp.snack, s };
   updateTopbar();
@@ -4982,6 +5052,12 @@ function finishSnack(sn) {
   spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
   floatText(sn.fav ? tr("favorite! ♥") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
   if (sn.fav) for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3);
+  // the hungry ones who came running get a crumb
+  for (const o of actors.values()) if (o.state === "begging" && a && Math.hypot(o.x - a.x, o.y - a.y) < N.base * 1.4) {
+    const oc = save.creatures.find(c => c.id === o.id);
+    if (oc) { oc.tummy = clamp(oc.tummy + 5, 0, 100); emote(o, "♥", 1.4); o.hop = 1; }
+  }
+  if (game.nest.feedCall) game.nest.feedCall.t = game.time - 2000;
   persist();
   taskDone("feed");
   renderNest();
@@ -5003,15 +5079,50 @@ function openShop() {
   const space = iso ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "";
   const rearr = iso ? `<button class="act arrange-btn" id="arrangeOpen">✥ ${tr("Rearrange the room")}</button>` : "";
   $("shopList").innerHTML = themes + space + rearr + DECOR.filter(d => iso || !d.iso).map(d => {
-    const owned = save.decor[d.id];
+    const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
     const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
-    return `<button class="decor${owned ? " owned" : ""}" data-id="${d.id}" ${!owned && save.shards < d.cost ? "disabled" : ""}>${decorThumb(d)}<span><b>${d.name}</b><small>${tr("{0} love it", who[0].toUpperCase() + who.slice(1))}</small></span><span class="cost">${owned ? (owned.on ? tr("placed ✓") : tr("stored")) : "✦ " + d.cost}</span></button>`;
+    const note = locked ? `${ic("lock")}${d.how}` : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
+    return `<button class="decor${owned ? " owned" : ""}${d.legend ? " legend" : ""}" data-id="${d.id}" ${locked || (!owned && save.shards < d.cost) ? "disabled" : ""}>${decorThumb(d)}<span><b>${d.name}</b><small>${note}</small></span><span class="cost">${owned ? (owned.on ? tr("placed ✓") : tr("stored")) : "✦ " + d.cost}</span></button>`;
   }).join("");
   $$("#shopList .decor").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
   $$("#shopList [data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
   $("arrangeOpen")?.addEventListener("click", startArrange);
   show("shop", true);
+}
+
+// ---------- the music box: pick the nest's song from the ones you've unlocked, and play the game's sounds ----------
+const JUKE_SOUNDS = [
+  { name: "Lullaby", emoji: "🌙", play: () => sfx.lullaby() },
+  { name: "Chirp", emoji: "🐣", play: () => sfx.chirp(rand(0.8, 1.3)) },
+  { name: "Munch", emoji: "🍪", play: () => sfx.munch() },
+  { name: "Shimmer", emoji: "✨", play: () => sfx.shimmer() },
+  { name: "Level up", emoji: "⭐", play: () => sfx.levelUp() },
+  { name: "Cracking stone", emoji: "🔨", play: () => sfx.crackDone(2) },
+  { name: "Knock", emoji: "🪨", play: () => sfx.knock(0.6) },
+  { name: "Rare crystal", emoji: "💎", play: () => sfx.burst("rare") },
+  { name: "Legendary crystal", emoji: "🌈", play: () => sfx.burst("legendary") },
+];
+function openJukebox() {
+  sfx.tick();
+  const cur = save.jukebox || "", open = THEMES.filter(t => t.ok()).length;
+  $("jukeSub").textContent = tr("{0} of {1} songs unlocked. Find more by opening new backdrops.", open, THEMES.length);
+  const song = (id, img, name, small, ok) => `<button class="snack song${cur === id ? " on" : ""}" data-song="${id}" ${ok ? "" : "disabled"}>${img}<span><b>${name}</b><small>${small}</small></span><span class="cost">${ok ? (cur === id ? "♪" : "") : ic("lock")}</span></button>`;
+  $("jukeList").innerHTML = `<h3>${tr("Songs")}</h3>` + song("", `<span class="em">🏞️</span>`, tr("The backdrop's own song"), tr("changes with the backdrop"), true)
+    + THEMES.map(t => song(t.id, `<img class="em" src="${themeThumb(t.id)}" alt="">`, t.name, t.ok() ? tr("song") : t.how, t.ok())).join("")
+    + `<h3>${tr("Sounds")}</h3><div class="juke-sounds">${JUKE_SOUNDS.map((x, i) => `<button class="pillbtn" data-sound="${i}">${x.emoji} ${tr(x.name)}</button>`).join("")}</div>`;
+  $$("#jukeList [data-song]").forEach(b => b.addEventListener("click", () => { save.jukebox = b.dataset.song || null; persist(); openJukebox(); }));
+  $$("#jukeList [data-sound]").forEach(b => b.addEventListener("click", () => JUKE_SOUNDS[b.dataset.sound].play()));
+  show("jukebox", true);
+}
+/** While the music box is out, little notes float up from it now and then. */
+let noteT = 0;
+function musicNotes(dt) {
+  const p = N.iso && hasDecor("musicbox") && isoLayout().placed.musicbox;
+  if (!p || save.muted || (noteT -= dt) > 0) return;
+  noteT = rand(1.1, 1.9);
+  const [x, y] = isoPieceAt(p);
+  floatText(pick(["♪", "♫", "♪"]), x + rand(-8, 8), y - N.isoW / ISO_G * 1.6, pick(["#fff0b5", "#ffc4da", "#b8e6f5", "#d2bfff"]));
 }
 
 /** Switch between the straight-on room and the isometric one: everything is laid out again. */
@@ -5032,7 +5143,7 @@ function buyDecor(id) {
     owned.on = !owned.on; sfx.tick();
   }
   else {
-    if (save.shards < d.cost) return;
+    if (save.shards < d.cost || (d.legend && !legendOk())) return;
     save.shards -= d.cost;
     const fits = roomFor(id);
     save.decor[id] = { on: fits, at: Date.now() };
@@ -5081,12 +5192,41 @@ const BEHAVIOR = {
 const ROOM_MAX = 12, ROOM_MAX_PHONE = 8;
 const actors = new Map();
 
-/** Up to a dozen glowlings fit in the room: the newest ones, always including the one you picked. */
+// ---------- home and exploring: the nest holds a few at a time, the others are off in the grotto ----------
+const homeCap = () => N.iso ? (W < 520 ? 5 : 8) : H < 700 ? 6 : W < 520 ? ROOM_MAX_PHONE : ROOM_MAX;
+/**
+ * Too many for the room: whoever has been home longest goes exploring (never the one you picked, and not a sleeper
+ * if it can be helped). Room to spare: the longest-gone explorer comes back. Returns who just left.
+ */
+function settleHome() {
+  const cap = homeCap(), sent = [];
+  let home = save.creatures.filter(c => !c.out);
+  while (home.length > cap) {
+    const free = home.filter(c => c.id !== save.active), awake = free.filter(c => !c.sleeping);
+    const c = (awake.length ? awake : free).sort((p, q) => (p.homeAt || p.born || 0) - (q.homeAt || q.born || 0))[0];
+    if (!c) break;
+    c.out = true; c.outAt = Date.now(); c.sleeping = false; c.selfSlept = false;
+    home = home.filter(h => h !== c); sent.push(c);
+  }
+  const away = save.creatures.filter(c => c.out).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
+  while (home.length < cap && away.length) { const c = away.shift(); c.out = false; c.homeAt = Date.now(); c.last = Date.now(); home.push(c); }
+  if (sent.length) persist();
+  return sent;
+}
+/** Tap an explorer in the row: it comes home (and if the nest is full, someone else heads out). */
+function callHome(id) {
+  const c = save.creatures.find(c => c.id === id);
+  if (!c || !c.out) return;
+  c.out = false; c.homeAt = Date.now(); c.last = Date.now();
+  save.active = id;
+  const sent = settleHome();
+  toast(sent.length ? tr("{0} came home, and {1} went exploring 🧭", c.name, sent[0].name) : tr("{0} came home ✦", c.name));
+  persist();
+}
+/** The glowlings in the room: everyone at home. */
 function roomCreatures() {
-  const act = activeCreature();
-  const list = save.creatures.slice(-(N.iso ? (W < 520 ? 5 : 8) : H < 700 ? 6 : W < 520 ? ROOM_MAX_PHONE : ROOM_MAX));
-  if (act && !list.includes(act)) list[0] = act;
-  return list;
+  if (settleHome().length && game.scene === "nest") talk("firstExplore", homeCap());
+  return save.creatures.filter(c => !c.out);
 }
 
 const roomPoint = () => N.iso ? freeFloorPoint() : floorAt(rand(0.08, 0.92), rand(0.05, 0.95));
@@ -5253,6 +5393,7 @@ function actorAt(x, y) {
 }
 
 function selectCreature(id) {
+  if (save.creatures.find(c => c.id === id)?.out) { callHome(id); syncActors(); }
   save.active = id; persist();
   const a = actors.get(id), cr = activeCreature();
   if (a) { a.hop = 1; emote(a, "♥", 1.2); }
@@ -5262,6 +5403,7 @@ function selectCreature(id) {
 
 /** Pick what to do next: nap, dance, visit a friend, or wander (flutterers chase the light motes). */
 function chooseNext(a, list) {
+  if (weatherOn() && Math.random() < 0.8) { playInWeather(a); return; }
   const r = Math.random(), b = a.beh;
   const loved = DECOR.filter(d => hasDecor(d.id) && d.lovers.includes(b));
   if (loved.length && Math.random() < 0.4) {
@@ -5282,7 +5424,7 @@ function chooseNext(a, list) {
   if (others.length && r < (b === "curious" ? 0.5 : 0.18)) {
     const f = pick(others);
     a.friend = f.id; a.state = "walk";
-    a.tx = clamp(f.x + (a.x < f.x ? -1 : 1) * N.base * 0.6, N.x0, N.x1); a.ty = f.y;
+    a.tx = clamp(f.x + (a.x < f.x ? -1 : 1) * N.base * 1.0, N.x0, N.x1); a.ty = f.y;
     return;
   }
   [a.tx, a.ty] = roomPoint();
@@ -5300,8 +5442,16 @@ function updateActors(dt) {
     a.ph += dt;
     if (a.emote && (a.emote.t += dt) > a.emote.life) a.emote = null;
     a.hop = Math.max(0, a.hop - dt * 2.5);
+    // every few seconds: real time catches up, and a very tired glowling takes itself to bed (and gets up again when rested)
+    if ((a.needT = (a.needT ?? rand(0, 3)) - dt) < 0) {
+      a.needT = 4;
+      applyTime(cr);
+      const petted = a.id === save.active && game.nest.petting;
+      if (!cr.sleeping && cr.energy < 15 && !petted && a.state !== "eat") { cr.sleeping = true; cr.selfSlept = true; emote(a, "zz", 2.2); a.hop = 1; persist(); if (a.id === save.active) renderNest(); }
+      else if (cr.sleeping && cr.selfSlept && cr.energy >= 99) { cr.sleeping = false; cr.selfSlept = false; a.hop = 1; emote(a, "☀", 1.4); sfx.chirp(specOf(cr).voice); persist(); if (a.id === save.active) renderNest(); }
+    }
     const base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100;
-    let speed = base, target = null;
+    let speed = base * (a.rain ? 1.6 : 1), target = null;
     if (cr.sleeping) {
       target = bedSpot(a.id);
       // asleep somewhere else (the bed moved, or someone else lay down and the places shifted): shuffle over and lie down again
@@ -5314,6 +5464,15 @@ function updateActors(dt) {
       target = [call.x + Math.cos(a.id * 2.4) * N.base * 0.55, clamp(call.y + Math.sin(a.id * 2.4) * N.base * 0.3, N.y0, N.y1)];
       speed = base * (a.beh === "curious" ? 2.4 : 1.7);
     } else if (a.state === "called") { a.state = "idle"; a.t = rand(1, 2.5); }
+    // someone is being fed: the hungry ones come running, hoping for a crumb
+    const fc = game.nest.feedCall;
+    if (!target && !cr.sleeping && fc && game.time - fc.t < 3500 && a.id !== fc.id && cr.tummy < 60 && a.state !== "eat" && actors.get(fc.id)) {
+      const f = actors.get(fc.id), an = a.id * 2.4;
+      if (a.state !== "begging") { emote(a, SNACKS[specOf(cr).snack].emoji, 1.8); a.hop = 1; }
+      a.state = "begging"; a.goal = a.friend = null; a.rain = false;
+      target = [f.x + Math.cos(an) * N.base * 0.75, f.y + Math.sin(an) * N.base * 0.4];
+      speed = base * 2;
+    } else if (a.state === "begging") { a.state = "idle"; a.t = rand(1, 2); }
     // until the first stroke, your glowling waits in the middle of the room where the hint points
     if (!target && !cr.sleeping && a.id === save.active && !tipDone("pet") && a.state !== "eat") {
       target = decorSpot("rug"); a.goal = a.friend = null;
@@ -5331,7 +5490,8 @@ function updateActors(dt) {
       const ox = a.x - o.x, oy = (a.y - o.y) * 1.6, od = Math.hypot(ox, oy), min = N.base * 0.95;
       if (od > 0.01 && od < min) {
         // step aside, and move where you were heading too, or you'd walk straight back into them
-        const push = (min - od) * dt * 4, px = ox / od * push, py = oy / od * push * 0.6;
+        // a gentle nudge, never stronger than a walk, so nobody gets shoved across the room
+        const push = Math.min((min - od) * dt * 4, N.base * 0.45 * dt), px = ox / od * push, py = oy / od * push * 0.6;
         a.x += px; a.y += py;
         if (a.state !== "walk" && a.state !== "called" && a.state !== "toBed") { a.tx += px; a.ty += py; }
       }
@@ -5340,7 +5500,7 @@ function updateActors(dt) {
     const walking = N.iso && !["nap", "dance", "eat", "sleep", "visit"].includes(a.state) && !(a.id === save.active && game.nest.petting);
     const wp = walking ? nextWaypoint(a, dt) : null;
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
-    if (a.state === "toBed" && d <= 8) a.state = "sleep"; // close enough: lie down (the room's edge may keep the exact spot just out of reach)
+    if (a.state === "toBed" && d <= 8) { a.state = "sleep"; a.hop = 1; } // close enough: lie down (the room's edge may keep the exact spot just out of reach)
     const still = ["nap", "dance", "eat", "sleep", "visit"].includes(a.state);
     const moving = d > 3 && !still;
     if (!moving) a.vx = a.vy = 0;
@@ -5355,9 +5515,10 @@ function updateActors(dt) {
       const x0 = a.x, y0 = a.y;
       if (step > 0) { a.x += a.vx * dt * gate * (lim / step); a.y += a.vy * dt * gate * (lim / step); }
       // pressed against something for a second and a half without getting anywhere: give up and think of something else
-      a.stuck = Math.hypot(a.x - (a.lastX ?? x0), a.y - (a.lastY ?? y0)) < N.base * 0.04 ? (a.stuck || 0) + dt : 0;
+      if (a.lastX === undefined) { a.lastX = x0; a.lastY = y0; }
+      a.stuck = Math.hypot(a.x - a.lastX, a.y - a.lastY) < N.base * 0.15 ? (a.stuck || 0) + dt : 0;
       if (!a.stuck) { a.lastX = a.x; a.lastY = a.y; }
-      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
+      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
     } else if (moving) {
       const hopper = a.beh === "hop";
       const step = Math.min(d, speed * dt * (hopper ? Math.max(0, Math.sin(a.ph * 7)) * 2 : 1));
@@ -5370,6 +5531,10 @@ function updateActors(dt) {
       a.t = d.id === "cushion" ? rand(6, 10) : rand(3, 6);
       emote(a, d.emote, 2);
       if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
+    } else if (a.state === "walk" && a.rain) {
+      // under the cloud: a little dance in the rain (or snow)
+      a.rain = false; a.state = "dance"; a.t = rand(0.9, 1.6); a.hop = 1;
+      emote(a, weather.kind === "snow" ? "❄" : "💧", 1.2);
     } else if (a.state === "walk") {
       a.state = "idle"; a.t = rand(1.2, 3.5);
       const f = a.friend && actors.get(a.friend);
@@ -5587,6 +5752,7 @@ const ISO_PLACES = {
   table: { fw: 1, fd: 1, at: [[4, 3], [3, 4], [4, 2]] },
   mushrooms: { fw: 1, fd: 1, at: [[5, 5], [4, 5], [5, 4]] },
   swing: { fw: 1, fd: 1, at: [[2, 0], [3, 0], [1, 0], [0, 2], [0, 3]] },
+  musicbox: { fw: 1, fd: 1, at: [[0, 3], [3, 0], [5, 2], [2, 5]] },
 };
 /** Pieces on the walls: which wall (L is the left one, along j; R the right one, along i) and the slot along it, in tiles. */
 const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.64 } };
@@ -5663,14 +5829,31 @@ const ISO_ART = {
     const B = T.box(ax, ay, a, b, hgt, IC.w1, IC.w2, IC.w3);
     // the open front faces the room (the left-hand face): shelves and books on it
     const at = (s, z) => [B.Bv[0] + (B.Buv[0] - B.Bv[0]) * s, B.Bv[1] + (B.Buv[1] - B.Bv[1]) * s - z];
-    const books = [IC.p1, IC.b1, IC.g1, IC.y1, IC.l2, IC.r1, IC.b2, IC.p2];
-    for (let row = 0; row < 3; row++) {
-      const z0 = 2 + row * (hgt - 3) / 3, z1 = z0 + (hgt - 3) / 3 - 1;
-      for (let s = 0.12; s < 0.9; s += 1 / (2 * a + 2 * 0)) {
-        const k = Math.floor(s * 2 * a), col = books[(k * 7 + row * 3) % books.length], tall = z1 - 1 - (k % 3 === 0 ? 1 : 0);
-        for (let z = z0; z < tall; z++) { const [x, y] = at(s, z); T.px(x, y, col); }
+    // real books: spines two or three pixels wide in a cloth color with a shaded edge, light bands near the top and bottom,
+    // different heights, a gap now and then, and one leaning on its neighbour
+    const BOOKS = [[IC.p1, IC.p3, IC.y0], [IC.b1, IC.b3, IC.y0], [IC.g1, IC.g3, IC.y1], [IC.r1, IC.r3, IC.y0], [IC.l2, IC.l4, IC.white], [IC.y1, IC.w3, IC.r2], [IC.b2, IC.b3, IC.y1], [IC.s1, IC.s3, IC.p2]];
+    const fw = Math.max(6, Math.abs(B.Buv[0] - B.Bv[0])), ds = 1 / fw, rowH = (hgt - 3) / 3;
+    const book = (s, w, z0, tall, col, lean = 0) => {
+      for (let z = z0; z < tall; z++) for (let c = 0; c < w; c++) {
+        const ss = s + (c + Math.round((z - z0) * lean)) * ds;
+        if (ss >= 1 - ds) continue;
+        const band = (z === z0 + 1 || z === tall - 2) && c < w - 1, [x, y] = at(ss, z);
+        T.px(x, y, band ? col[2] : c === w - 1 ? col[1] : col[0]);
       }
-      for (let s = 0; s <= 1; s += 0.5 / a) { const [x, y] = at(s, z0 - 1); T.px(x, y, IC.w3); }
+    };
+    for (let row = 0; row < 3; row++) {
+      const z0 = 2 + row * rowH, top = z0 + rowH - 1;
+      let s = 1.5 * ds, k = row * 7;
+      while (s < 1 - 4 * ds) {
+        k++;
+        if (pxHash(k, 5 + row) > 0.9) { s += 2 * ds; continue; }
+        const w = pxHash(k, row + 3) > 0.55 ? 3 : 2, col = BOOKS[Math.floor(pxHash(k, 11 + row) * BOOKS.length)];
+        const tall = Math.round(top - 1 - pxHash(k, 7) * Math.min(3, rowH * 0.3));
+        if (row === 1 && s > 0.62 && s < 0.8) { book(s, 2, z0, Math.round(tall - 1), col, 0.35); s += 5 * ds; continue; }
+        book(s, w, z0, tall, col);
+        s += w * ds;
+      }
+      for (let s2 = 0; s2 <= 1; s2 += ds / 2) { const [x, y] = at(s2, z0 - 1); T.px(x, y, IC.w3); }
     }
   },
   spring(t, T, ax, ay, o) {
@@ -5698,12 +5881,25 @@ const ISO_ART = {
     for (let k = 0; k < 16; k++) { const an = k / 16 * TAU; if (k % 2) T.px(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr / 2, IC.b0); }
   },
   armchair(t, T, ax, ay) {
-    const a = t * 0.42, b = t * 0.42, x = ax + 1, y = ay + 2;
-    T.box(x, y, a, b, Math.round(t * 0.32), IC.g1, IC.g2, IC.g3);                    // seat
-    T.box(x, y, a, 1.6, Math.round(t * 0.85), IC.g1, IC.g2, IC.g3);                  // back, against the wall
-    T.box(x, y, 1.4, b, Math.round(t * 0.55), IC.g0, IC.g2, IC.g3);                  // left arm
-    T.box(x + 2 * a - 2.8, y + a - 1.4, 1.4, b, Math.round(t * 0.55), IC.g0, IC.g2, IC.g3); // right arm
-    T.box(x + 1, y + 2, a - 2, b - 2, Math.round(t * 0.38), IC.g0, IC.g1, IC.g2, false); // the cushion
+    // a little velvet armchair: short wooden legs, a plump seat cushion with piping, a tall back with two buttons against the wall,
+    // rolled arms lit along the top, and a pink cushion tucked into the corner
+    const a = t * 0.42, b = t * 0.42, x = ax + 1, y = ay + 2, lift = Math.max(2, Math.round(t * 0.08));
+    const at = (du, dv, up = 0) => [x + 2 * du - 2 * dv, y + du + dv - up];
+    for (const [du, dv] of [[1, 1.2], [a - 0.6, 1.2], [1, b - 0.4], [a - 0.6, b - 0.4]]) { const [lx, ly] = at(du, dv); for (let k = 0; k < lift; k++) { T.px(lx, ly - k, k ? IC.w2 : IC.w3); T.px(lx + 1, ly - k, IC.w3); } }
+    const seatH = Math.round(t * 0.24), backH = Math.round(t * 0.88), armH = Math.round(t * 0.5);
+    T.box(...at(0, 0, lift), a, b, seatH, IC.g1, IC.g2, IC.g3);                                  // base
+    const back = T.box(...at(0, 0, lift), a, 2, backH, IC.g1, IC.g2, IC.g3);                    // back, against the wall
+    // two tufted buttons and a seam on the back's face
+    const onBack = (k, z) => [back.Bv[0] + (back.Buv[0] - back.Bv[0]) * k, back.Bv[1] + (back.Buv[1] - back.Bv[1]) * k - z];
+    for (let k = 0; k <= 1; k += 0.02) { const [hx, hy] = onBack(k, backH - 1); T.px(hx, hy, IC.g0); }          // the rounded top edge, lit
+    for (const k of [0.3, 0.7]) { const [bx, by] = onBack(k, backH * 0.6); T.px(bx, by, IC.g3); T.px(bx + 1, by, IC.g3); T.px(bx, by + 1, IC.g3); T.px(bx - 1, by - 1, IC.g0); }
+    T.box(...at(1, 2.2, lift + seatH), a - 2.2, b - 3.4, 2, IC.g0, IC.g1, IC.g2, false);           // the seat cushion
+    { const [p0x, p0y] = at(1, b - 1.2, lift + seatH + 1), [p1x, p1y] = at(a - 1.2, b - 1.2, lift + seatH + 1); T.line(p0x, p0y, p1x, p1y, IC.g0); } // piping
+    T.box(...at(0, 0, lift), 1.6, b, armH, IC.g1, IC.g2, IC.g3);                                  // left arm
+    T.box(...at(a - 1.6, 0, lift), 1.6, b, armH, IC.g1, IC.g2, IC.g3);                            // right arm
+    for (const du of [0.8, a - 0.8]) { const [r0x, r0y] = at(du, 1, lift + armH + 1), [r1x, r1y] = at(du, b - 0.5, lift + armH + 1); T.line(r0x, r0y, r1x, r1y, IC.g0); } // rolled tops
+    const [cx, cy] = at(2.6, 2.8, lift + seatH + t * 0.1);
+    T.ball(cx, cy, Math.max(2, t * 0.13), IC.p0, IC.p1, IC.p2, Math.max(2, t * 0.13) * 0.8);       // a pink cushion
   },
   cushion(t, T, ax, ay, o = {}) {
     const cx = ax, cy = ay + t / 2;
@@ -5728,6 +5924,32 @@ const ISO_ART = {
       for (const d of [-1, 1]) T.line(sx + d * r * 0.7, sy - 2, b0x + (b1x - b0x) * (0.5 + d * 0.3), b0y + (b1y - b0y) * (0.5 + d * 0.3) + 1, IC.s1);
       for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (Math.hypot(x, y) <= r && Math.hypot(x, y + r * 0.45) > r * 0.85 && y > -r * 0.2) T.px(sx + x, sy + y, y > r * 0.5 ? IC.y1 : IC.y0);
     }
+  },
+  musicbox(t, T, ax, ay, o = {}) {
+    // a legendary music cabinet: dark polished wood, a gold crown with a gem, a window of colored lights that glow while it plays,
+    // a gold-dotted speaker grille and little gold feet
+    const a = t * 0.4, b = t * 0.32, hgt = Math.round(t * 1.25), x = ax + 1, y = ay + 3;
+    const B = T.box(x, y, a, b, hgt, IC.p3, IC.r3, IC.ink2);
+    const at = (s, z) => [B.Bv[0] + (B.Buv[0] - B.Bv[0]) * s, B.Bv[1] + (B.Buv[1] - B.Bv[1]) * s - z];
+    const fw = Math.max(6, Math.abs(B.Buv[0] - B.Bv[0])), ds = 1 / fw;
+    // the grille: gold dots on the dark
+    for (let z = Math.round(hgt * 0.12); z < hgt * 0.5; z += 2) for (let s = 0.18; s < 0.84; s += 2 * ds) { const [px, py] = at(s, z); T.px(px, py, IC.y1); }
+    // the light window: an arch of colored bars, framed in gold
+    const bars = [IC.p0, IC.y0, IC.g0, IC.b0, IC.l1], archTop = s => hgt * 0.9 - ((s - 0.5) / 0.36) ** 2 * hgt * 0.14;
+    for (let s = 0.14; s < 0.87; s += ds) for (let z = Math.round(hgt * 0.56); z <= archTop(s) + 1; z++) {
+      const edge = s < 0.14 + ds * 1.2 || s > 0.87 - ds * 1.2 || z === Math.round(hgt * 0.56) || z > archTop(s);
+      const [px, py] = at(s, z); T.px(px, py, edge ? IC.y1 : bars[Math.floor((s - 0.16) / 0.7 * bars.length) % bars.length]);
+    }
+    // gold trim up both sides and along the top of the front
+    for (let z = 1; z < hgt - 1; z++) for (const s of [ds * 0.6, 1 - ds * 1.4]) { const [px, py] = at(s, z); T.px(px, py, IC.y1); }
+    for (let s = 0; s < 1; s += ds) { const [px, py] = at(s, hgt - 1); T.px(px, py, IC.y0); }
+    if (!o.quiet) { const [gx, gy] = at(0.5, hgt * 0.72); T.glow(gx, gy, t * 0.8, IC.y0, 0.3); }
+    // the gold crown on top, with a pink gem
+    const [cx, cy] = [x + a - b, y + (a + b) / 2 - hgt], r = Math.max(3, Math.round(t * 0.2));
+    for (let dx = -r; dx <= r; dx++) { const hh = Math.round(Math.sqrt(r * r - dx * dx) * 0.8); for (let k = 0; k <= hh; k++) T.px(cx + dx, cy - k, k === hh ? IC.y0 : IC.y1); }
+    T.px(cx, cy - Math.round(r * 0.5), IC.p1); T.px(cx, cy - Math.round(r * 0.5) - 1, IC.p0);
+    // little gold feet
+    for (const s of [0.1, 0.9]) { const [fx, fy] = at(s, 0); T.px(fx, fy + 1, IC.y1); }
   },
   chest(t, T, ax, ay) {
     const a = t * 0.42, b = t * 0.32, hgt = Math.round(t * 0.42), x = ax, y = ay + 2;
@@ -5838,7 +6060,9 @@ function isoPiece(p, extra = {}) {
 
 /** The swing in the room: its frame, then the ropes and the moon seat swinging under the bar. */
 function drawSwingIso(p) {
-  drawBaked(isoPiece(p, { room: true }));
+  const f = isoPiece(p, { room: true });
+  pieceHits.swing = { c: f.c, x: f.x, y: f.y };
+  drawBaked(f);
   const [sx, sy, , top, bar, cx] = swingSeat(), r = N.isoW / ISO_G * 0.62;
   ctx.fillStyle = "#d8d2e0";
   for (const d of [-1, 1]) {
@@ -6019,8 +6243,8 @@ function drawCloudShadow() {
 }
 function cloudAt(x, y) {
   if (!N.iso || !hasDecor("cushion")) return false;
-  const c = cloudSpot(), r = N.isoW / ISO_G * 1.3;
-  return Math.abs(x - c.x) < r && Math.abs(y - c.bodyY) < r * 0.6;
+  const c = cloudSpot(), f = cloudSprite();
+  return spriteHit(f.c, Math.round(c.x / PX - f.w / 2) * PX, Math.round(c.bodyY / PX - f.h / 2) * PX, x, y, 5);
 }
 function moveCloud(x, y) {
   const m = isoMargin(0.3);
@@ -6034,24 +6258,37 @@ const COLD_THEMES = ["frost", "summit", "celestite"];
 function startWeather() {
   // rain and snow take turns; the cold backdrops start with snow
   weather.kind = weather.last ? (weather.last === "rain" ? "snow" : "rain") : COLD_THEMES.includes(currentTheme()) ? "snow" : "rain";
-  weather.last = weather.kind; weather.until = game.time + 4000;
+  weather.last = weather.kind; weather.t0 = game.time; weather.until = game.time + WEATHER_MS;
+  // everyone awake and free runs over to play under it
+  for (const a of actors.values()) if (["idle", "walk", "dance"].includes(a.state) && !a.goal) playInWeather(a);
   if (!sfx.ready()) return;
-  const t = sfx.ac.currentTime;
-  if (weather.kind === "rain") for (let k = 0; k < 16; k++) sfx.grain(t + k * 0.25 + rand(0, 0.1), 0.35, rand(2400, 4200), 0.7, 0.05);
-  else for (let k = 0; k < 7; k++) sfx.tone(t + k * 0.5 + rand(0, 0.2), pick(NOTES) * 2, 0.018, 1.2, "sine", null, true);
+  const t = sfx.ac.currentTime, n = 9;
+  // softly in, softly out, like the shower itself
+  if (weather.kind === "rain") for (let k = 0; k < n; k++) sfx.grain(t + k * 0.28 + rand(0, 0.08), 0.35, rand(2400, 4200), 0.7, 0.045 * Math.sin(Math.PI * (k + 0.5) / n));
+  else for (let k = 0; k < 5; k++) sfx.tone(t + k * 0.55 + rand(0, 0.2), pick(NOTES) * 2, 0.015, 1.2, "sine", null, true);
+}
+const WEATHER_MS = 2800;
+const weatherOn = () => N.iso && hasDecor("cushion") && game.time < weather.until + 600;
+/** Off to a spot under the cloud, hurrying. */
+function playInWeather(a) {
+  const c = cloudSpot(), an = rand(0, TAU), r = Math.sqrt(Math.random()) * N.isoW / ISO_G * 0.9;
+  a.tx = c.x + Math.cos(an) * r; a.ty = c.y + Math.sin(an) * r / 2;
+  a.state = "walk"; a.goal = a.friend = null; a.rain = true;
 }
 function updateWeather(dt) {
   const on = N.iso && hasDecor("cushion"), c = on && cloudSpot(), tile = N.isoW / ISO_G, snow = weather.kind === "snow";
   if (on && game.time < weather.until) {
-    weather.acc += dt * (snow ? 34 : 90);
+    // a light shower that swells and fades away: fewer drops at the start and the end
+    const k = clamp((game.time - weather.t0) / WEATHER_MS, 0, 1);
+    weather.acc += dt * (snow ? 16 : 34) * Math.sin(Math.PI * k) * 1.4;
     for (; weather.acc >= 1; weather.acc--) {
       // from under the cloud, falling onto the floor beneath it (a 2:1 patch, as everything on the floor is)
       const an = rand(0, TAU), r = Math.sqrt(Math.random()) * tile * 1.1, ox = Math.cos(an) * r, oy = Math.sin(an) * r / 2;
-      weather.drops.push({ x: c.x + ox, y: c.bodyY + tile * 0.35 + rand(-2, 2), floor: c.y + oy, vy: snow ? rand(0.6, 0.9) * N.base : N.base * 3, ph: rand(0, TAU), snow });
+      weather.drops.push({ x: c.x + ox, y: c.bodyY + tile * 0.35 + rand(-2, 2), floor: c.y + oy, vy: snow ? rand(0.2, 0.32) * N.base : N.base * 2.4, ph: rand(0, TAU), snow });
     }
   }
   for (const d of weather.drops) {
-    if (d.snow) { d.y += d.vy * dt; d.x += Math.sin(game.time * 0.003 + d.ph) * dt * N.base * 0.25; }
+    if (d.snow) { d.y += d.vy * dt; d.x += Math.sin(game.time * 0.0018 + d.ph) * dt * N.base * 0.14; }
     else { d.vy += N.base * 14 * dt; d.y += d.vy * dt; }
     if (d.y < d.floor) continue;
     d.done = true;
@@ -6073,8 +6310,10 @@ function drawWeatherGround() {
   const put = (x, y, col, life) => { const X = Math.round(x / Q), Y = Math.round(y / Q); if (PX_BAYER[(Y & 3) * 4 + (X & 3)] < life * 1.15) { ctx.fillStyle = col; ctx.fillRect(X * Q, Y * Q, Q, Q); } };
   for (const g of weather.ground) {
     if (g.snow) { put(g.x, g.y, "#f4f7ff", g.life); if (g.life > 0.5) put(g.x + Q, g.y, "#c9d8ef", g.life - 0.3); continue; }
-    const R = Math.round(g.r);
-    for (let y = -Math.ceil(R / 2); y <= Math.ceil(R / 2); y++) for (let x = -R; x <= R; x++) if ((x / R) ** 2 + (y / (R / 2)) ** 2 <= 1) put(g.x + x * Q, g.y + y * Q, y < 0 && x < 0 ? "#8fc7e6" : "#3f74a8", g.life);
+    // a puddle shrinks as it soaks away
+    const R = g.r * Math.sqrt(g.life);
+    if (R < 0.6) continue;
+    for (let y = -Math.ceil(R / 2); y <= Math.ceil(R / 2); y++) for (let x = -Math.ceil(R); x <= Math.ceil(R); x++) if ((x / R) ** 2 + (y / (R / 2)) ** 2 <= 1) put(g.x + x * Q, g.y + y * Q, y < 0 && x < 0 ? "#8fc7e6" : "#3f74a8", 1);
   }
 }
 /** The drops and flakes in the air. */
@@ -6291,7 +6530,7 @@ function drawRoomIso() {
     if (p.id === "swing") { items.push({ y: fy, box, draw: () => drawSwingIso(p) }); continue; }
     const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
     const extra = p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : {};
-    items.push({ y: fy, box, draw: () => drawBaked(isoPiece(p, extra), 0, bob) });
+    items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); } });
   }
   if (hasDecor("shelf")) { const [x, y] = decorSpot("shelf"); items.push({ y: -2, draw: () => { decorK = N.dk; drawBaked(cachedSprite(roomSprites, "shelf", `${x}|${y}|${wallSlot("shelf").wall}|${N.base}|${PX}|${Math.floor(game.time / 200)}`, () => bakeSprite(x, y - N.base * 0.6 * N.dk, N.base * N.dk, () => DRAW_DECOR.shelf(x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } }); }
   if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
@@ -6622,6 +6861,9 @@ const DRAW_DECOR = {
 
 // ---------- playing with the decorations ----------
 
+/** Where each piece was drawn last, for tapping it (see spriteHit). */
+const pieceHits = {};
+
 const decorFx = {};
 let swingPush = 0;
 const fxAge = id => decorFx[id] === undefined ? 9 : (game.time - decorFx[id]) / 1000;
@@ -6647,25 +6889,33 @@ function bulbPos(i) {
 /** Which decoration (if any) is under a finger. The rug is left out: the floor is for calling everyone. */
 function decorAt(x, y) {
   const b = N.base;
-  if (N.iso) for (const p of Object.values(isoLayout().placed)) {
-    if (p.id === "bed" || p.id === "incubator") continue;
-    const [px, py] = isoPieceAt(p), tile = N.isoW * 2 / ISO_G;
-    if (Math.abs(x - px) < tile * 0.6 && y < py + tile * 0.3 && y > py - tile * 1.6) return { id: p.id };
+  if (N.iso) {
+    // the frontmost piece whose own pixels are under the finger; the swing's seat counts too
+    let best = null;
+    for (const p of Object.values(isoLayout().placed)) {
+      if (p.id === "bed" || p.id === "incubator") continue;
+      const h = pieceHits[p.id];
+      let hit = h && spriteHit(h.c, h.x, h.y, x, y);
+      if (!hit && p.id === "swing") { const [sx, sy] = swingSeat(); hit = Math.hypot(x - sx, (y - sy) * 1.6) < N.isoW / ISO_G * 0.7; }
+      if (hit && (!best || p.i + p.j > best.i + best.j)) best = p;
+    }
+    if (best) return { id: best.id };
   }
   for (const d of DECOR) {
     if (!hasDecor(d.id) || d.id === "rug" || d.id === "lights") continue;
-    let [hx, hy] = decorSpot(d.id), r = b * 0.55;
+    if (N.iso && d.id !== "shelf") continue;
+    let [hx, hy] = decorSpot(d.id), r = b * 0.42;
     const k = d.id === "shelf" ? N.dk : depthK(hy); r *= k;
     if (d.id === "lamp") { hy -= b * 0.75 * k; r = b * 0.5 * k; }
     else if (d.id === "mushrooms") { hy -= b * 0.35 * k; r = b * 0.6 * k; }
     else if (d.id === "cushion") hy -= b * 0.1;
-    else if (d.id === "shelf") { hy -= b * 1.15 * k; r = b * 0.7 * k; }
+    else if (d.id === "shelf") { hy -= b * 1.15 * k; r = b * 0.5 * k; }
     else if (d.id === "spring") r = b * 0.7;
     else if (d.id === "swing") { const s2 = swingSeat(); hx = s2[0]; hy = s2[1] + b * 0.18; r = b * 0.5; }
     if (Math.hypot(x - hx, y - hy) < r) return { id: d.id };
   }
   // the fairy lights last, so they don't steal taps meant for the shelf
-  if (hasDecor("lights")) for (let i = 1; i < 14; i++) { const [bx, by] = bulbPos(i); if (Math.hypot(x - bx, y - by) < 20) return { id: "lights", bulb: i }; }
+  if (hasDecor("lights")) for (let i = 1; i < 14; i++) { const [bx, by] = bulbPos(i); if (Math.hypot(x - bx, y - by) < 13) return { id: "lights", bulb: i }; }
   return null;
 }
 
@@ -6693,6 +6943,9 @@ function playDecor(hit) {
     case "mushrooms":
       if (sfx.ready()) { sfx.tone(t, 180, 0.2, 0.3, "sine", 420); sfx.tone(t + 0.08, 260, 0.1, 0.25, "sine", 600); }
       for (let i = 0; i < 14; i++) game.sparks.push({ x: x + rand(-0.4, 0.5) * b, y: y - b * rand(0.4, 0.8), vx: rand(-30, 30), vy: rand(-90, -40), t: 0, life: rand(0.8, 1.4), s: rand(2, 4), color: pick(["#8ff0d8", "#c9b8ff", "#ff9ecb", "#fff"]) });
+      break;
+    case "musicbox":
+      openJukebox();
       break;
     case "cushion":
       if (sfx.ready()) { sfx.grain(t, 0.25, 500, 0.7, 0.25, "lowpass"); sfx.grain(t + 0.02, 0.12, 2200, 1, 0.08); }
@@ -7944,7 +8197,7 @@ document.addEventListener("pointerdown", ev => {
   if (navigator.vibrate) navigator.vibrate(6);
 }, { passive: true });
 $("taskPill").addEventListener("click", openTasks);
-const FAQ = [["Who made Hatchstone?", "I'm Viktoria Shchypalkina (helavika). I make Hatchstone in my free time, pixel by pixel. The game's code is open on [GitHub](https://github.com/helavika/hatchstone), and there's more of my work in my [portfolio](https://helavika.github.io/helavika-portfolio/). Found a bug or have an idea? [Tell me on GitHub](https://github.com/helavika/hatchstone/issues/new)."],["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."]];
+const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."], ["Who made Hatchstone?", "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new)."]];
 function openFaq() {
   sfx.tick();
   const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -7961,6 +8214,7 @@ $("foundForge").addEventListener("click", openForge);
 $("foundMap").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("map"); });
 $("feedBtn").addEventListener("click", openSnacks);
 $("snackClose").addEventListener("click", () => show("snacks", false));
+$("jukeClose").addEventListener("click", () => show("jukebox", false));
 $("playBtn").addEventListener("click", startCatch);
 $("sleepBtn").addEventListener("click", toggleSleep);
 $("catchBack").addEventListener("click", () => { show("catchDone", false); game.catch = null; setScene("nest"); });
@@ -8361,6 +8615,7 @@ function update(dt) {
     const n = game.nest;
     updateActors(dt);
     updateWeather(dt);
+    musicNotes(dt);
     swingPush *= Math.exp(-0.35 * dt);
     if (n.snack) {
       const a = activeActor();
