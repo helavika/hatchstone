@@ -3790,8 +3790,7 @@ function drawCreature(c, x, y, s, sp, o = {}) {
     const m = c.getTransform(), at = (lx, ly) => [(m.a * lx + m.c * ly + m.e) / 2, (m.b * lx + m.d * ly + m.f) / 2];
     const fy = BODY[sp.body].face * s, ex = s * (sp.body === "wide" ? 0.18 : 0.16);
     faceStamp.push({ eyes: [at(-ex, fy), at(ex, fy)], mouth: at(0, fy + s * 0.1), blush: [at(-s * 0.28, fy + s * 0.08), at(s * 0.28, fy + s * 0.08)],
-      r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" ? "sleepy" : sp.eyes, eating: !!o.eating, blink: (t % 3800) < 140, t,
-      sly: (sp.beh || BEHAVIOR[sp.id]) === "curious", look: Math.sin(t * 0.0007) > 0 ? 1 : -1 });
+      r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" || (sp.beh || BEHAVIOR[sp.id]) === "curious" ? "sleepy" : sp.eyes, eating: !!o.eating, blink: (t % 3800) < 140, t });
   } else drawFace(c, s, sp, t, mood, o.eating);
   if (sp.back !== "wisp") {
     c.fillStyle = shade(pal[0], -0.15);
@@ -3909,10 +3908,7 @@ function stampFace(d, w, h, solid, f, ox, oy) {
   const R = f.r, e = R < 8 ? 1 : R < 17 ? 2 : R < 26 ? 3 : Math.round(R * 0.13), big = f.kind === "big", tall = e + (big && e > 1 ? 1 : 0) + (e === 1 && R >= 6 ? 1 : 0) + (e >= 4 ? Math.round(e * 0.3) : 0);
   const eyes = f.eyes.map(([x, y]) => [Math.round(x - ox - e / 2), Math.round(y - oy - tall / 2)]);
   const arc = (x, y, up) => { for (let k = 0; k <= e; k++) put(x + k, y + (k === 0 || k === e ? (up ? 1 : 0) : (up ? 0 : 1)), FACE.ink); };
-  // the curious kinds look sly when they're just going about: lids half down, peeking to one side, one brow up, a smirk
-  // (a cute little scheme: both eyes glance to one side, and a cat's mouth)
-  const sly = f.sly && !f.eating && R >= 8 && (f.mood === "ok" || f.mood === "hungry");
-  for (const [i, [x, y]] of eyes.entries()) {
+  for (const [x, y] of eyes) {
     if (f.mood === "happy" || f.mood === "joy") arc(x, y + Math.floor(tall / 2), true);
     else if (f.mood === "asleep") arc(x, y + Math.floor(tall / 2) - 1, false);
     else if (f.blink) for (let k = 0; k <= e; k++) put(x + k - (e > 1 ? 0 : 0), y + Math.floor(tall / 2), FACE.ink);
@@ -3922,22 +3918,21 @@ function stampFace(d, w, h, solid, f, ox, oy) {
       const cx = x + e / 2, cy = y + tall / 2;
       for (let j = 0; j < tall; j++) for (let k = 0; k < e; k++) if (((k + 0.5 - e / 2) / (e / 2)) ** 2 + ((j + 0.5 - tall / 2) / (tall / 2)) ** 2 <= 1) put(x + k, y + j, FACE.ink);
       const gr = Math.max(1, e * 0.18);
-      for (let j = -2; j <= 2; j++) for (let k = -2; k <= 2; k++) if (Math.hypot(k, j) <= gr) put(cx + e * 0.18 * (sly && f.look < 0 ? -1 : 1) + k, cy - tall * 0.2 + j, FACE.hi);
+      for (let j = -2; j <= 2; j++) for (let k = -2; k <= 2; k++) if (Math.hypot(k, j) <= gr) put(cx + e * 0.18 + k, cy - tall * 0.2 + j, FACE.hi);
     }
     else {
       for (let k = 0; k < e; k++) for (let j = 0; j < tall; j++) put(x + k, y + j, FACE.ink);
       // the glint, top right; sparkly eyes get a second one low left
-      if (e > 1) { put(sly && f.look < 0 ? x : x + e - 1, y, FACE.hi); if (f.kind === "sparkle" && e > 2) put(x, y + tall - 1, FACE.hi); }
+      if (e > 1) { put(x + e - 1, y, FACE.hi); if (f.kind === "sparkle" && e > 2) put(x, y + tall - 1, FACE.hi); }
     }
   }
-  if (!sly && (f.mood === "sad" || f.mood === "hungry")) eyes.forEach(([x, y], i) => { const dir = i ? 1 : -1; put(x + (dir < 0 ? e : -1), y - 2, FACE.ink); put(x + (dir < 0 ? e + 1 : -2), y - 3, FACE.ink); });
+  if (f.mood === "sad" || f.mood === "hungry") eyes.forEach(([x, y], i) => { const dir = i ? 1 : -1; put(x + (dir < 0 ? e : -1), y - 2, FACE.ink); put(x + (dir < 0 ? e + 1 : -2), y - 3, FACE.ink); });
   // blush: a short pink dash under each eye, a little outside
   if (R >= 8) for (const [x, y] of f.blush) { const bw = Math.max(1, Math.round(R * 0.07)), bh = R >= 26 ? 2 : 1; for (let k = -bw; k < bw; k++) for (let j = 0; j < bh; j++) put(x - ox + k, y - oy + j, FACE.blush); }
   // the mouth
   const mx = Math.round(f.mouth[0] - ox), my = Math.round(f.mouth[1] - oy);
   if (f.eating) { const open = Math.sin(f.t * 0.03) > 0; put(mx, my, FACE.ink); put(mx + 1, my, FACE.ink); if (open) { put(mx, my + 1, FACE.mouthIn); put(mx + 1, my + 1, FACE.ink); } }
   else if (R < 8) put(mx, my, FACE.ink);
-  else if (sly) { const k = R >= 26 ? Math.max(1, Math.round(R * 0.05)) : 1; for (const [dx, dy] of [[-2, 0], [-1, 1], [0, 0], [1, 1], [2, 0]]) for (let a = 0; a < k; a++) for (let b = 0; b < k; b++) put(mx + dx * k + a, my + dy * k + b, FACE.ink); } // a cat's mouth, ω
   else if (f.mood === "sad" || f.mood === "hungry") { put(mx - 1, my + 1, FACE.ink); put(mx, my, FACE.ink); put(mx + 1, my + 1, FACE.ink); }
   else if (f.mood === "asleep") put(mx, my, FACE.ink);
   else if (R >= 26) { const mw = Math.round(R * 0.11); for (let k = -mw; k <= mw; k++) put(mx + k, my + Math.round((1 - (k / mw) ** 2) * mw * 0.55), FACE.ink); }
