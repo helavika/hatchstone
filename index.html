@@ -3909,7 +3909,16 @@ function stampFace(d, w, h, solid, f, ox, oy) {
   const eyes = f.eyes.map(([x, y]) => [Math.round(x - ox - e / 2), Math.round(y - oy - tall / 2)]);
   const arc = (x, y, up) => { for (let k = 0; k <= e; k++) put(x + k, y + (k === 0 || k === e ? (up ? 1 : 0) : (up ? 0 : 1)), FACE.ink); };
   for (const [x, y] of eyes) {
-    if (f.mood === "happy" || f.mood === "joy") arc(x, y + Math.floor(tall / 2), true);
+    if (f.mood === "hungry" && !f.blink && !f.eating && R >= 8) {
+      // hungry: big, round, shiny puppy eyes (larger than usual, two glints, a wet shine along the bottom)
+      const E = Math.max(3, Math.round(e * 1.6)), Th = Math.max(4, Math.round(tall * 1.45)), x0 = Math.round(x + e / 2 - E / 2), y0 = Math.round(y + tall / 2 - Th / 2);
+      for (let j = 0; j < Th; j++) for (let k = 0; k < E; k++) if (((k + 0.5 - E / 2) / (E / 2)) ** 2 + ((j + 0.5 - Th / 2) / (Th / 2)) ** 2 <= 1.08) put(x0 + k, y0 + j, FACE.ink);
+      // one bright glint high up (bigger in bigger eyes) and a tiny one low on the other side
+      const g = E >= 6 ? 2 : 1;
+      for (let j = 0; j < g; j++) for (let k = 0; k < g; k++) put(x0 + E - 1 - g + k - (E >= 5 ? 1 : 0), y0 + 1 + j, FACE.hi);
+      if (E >= 4) put(x0 + 1, y0 + Th - 2 - (E >= 6 ? 1 : 0), FACE.hi);
+    }
+    else if (f.mood === "happy" || f.mood === "joy") arc(x, y + Math.floor(tall / 2), true);
     else if (f.mood === "asleep") arc(x, y + Math.floor(tall / 2) - 1, false);
     else if (f.blink) for (let k = 0; k <= e; k++) put(x + k - (e > 1 ? 0 : 0), y + Math.floor(tall / 2), FACE.ink);
     else if (f.kind === "sleepy") { for (let k = 0; k < e + 1; k++) put(x + k, y + Math.floor(tall / 2) - 1, FACE.ink); for (let k = 0; k < e; k++) for (let j = 0; j < Math.ceil(tall / 2); j++) put(x + k, y + Math.floor(tall / 2) + j, FACE.ink); }
