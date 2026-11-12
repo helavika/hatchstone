@@ -4652,7 +4652,12 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
 
 /** Damage numbers that pop out and float up, with a dark outline so they read on any stone. */
 function pop(text, x, y, color, size = 1) {
-  game.pops.push({ text, x: x + rand(-14, 14), y: y + rand(-6, 6), vx: rand(-70, 70), vy: -rand(110, 170), t: 0, life: 0.9, color, size });
+  // fast taps used to pile numbers on top of each other: now each new one flies out to the other side, the ones
+  // already up get pushed a little higher, and only the newest few stay (older ones fade out quickly)
+  const live = game.pops.filter(p => p.t < p.life * 0.7);
+  live.forEach((p, i) => { p.y -= 12 * Math.max(1, L.k); if (live.length - i > 3) p.t = Math.max(p.t, p.life * 0.75); });
+  game.popSide = -(game.popSide || 1);
+  game.pops.push({ text, x: x + game.popSide * rand(6, 18), y: y + rand(-4, 4), vx: game.popSide * rand(40, 90), vy: -rand(110, 160), t: 0, life: live.length > 2 ? 0.7 : 0.9, color, size });
 }
 
 /** Shards burst out of the hit, hang for a moment, then fly up into the counter. */
