@@ -2363,7 +2363,7 @@ const SPECIES = [
     lore: "Hops higher under a full moon. Keeps a crescent on its head in case it gets lost." },
   { id: "hushowl", name: "Hushowl", crystal: "moonstone", body: "wide", ears: "tufts", pattern: "belly", eyes: "big", snack: "cookie", voice: 0.75,
     lore: "Says nothing. Notices everything. Remembers the exact moment you wandered off the line." },
-  { id: "sproutle", name: "Sproutle", crystal: "peridot", body: "round", head: "sprout", pattern: "spots", eyes: "round", snack: "dew", voice: 1.1,
+  { id: "sproutle", name: "Sprigglet", crystal: "peridot", body: "round", head: "sprout", pattern: "spots", eyes: "round", snack: "dew", voice: 1.1,
     lore: "Grows a new leaf every few levels. Water it with attention; it isn't picky about the rest." },
   { id: "mossmew", name: "Mossmew", crystal: "peridot", body: "wide", ears: "cat", back: "tail", pattern: "spots", eyes: "sleepy", snack: "cookie", voice: 1.0,
     lore: "Soft as moss and twice as stubborn. Purrs like a tiny, friendly landslide." },
@@ -2914,6 +2914,13 @@ function loadSave() {
 function migrate(d) {
   d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {}; d.forge = d.forge || {};
   for (const g of Object.values(d.geodes)) if (g.img && g.img.length > 60000) delete g.img;
+  // Sproutle was renamed Sprigglet: glowlings still wearing the old species name take the new one
+  const renamed = n => n === "Sproutle" ? "Sprigglet" : n === "✦ Sproutle" ? "✦ Sprigglet" : n;
+  for (const cr of d.creatures || []) {
+    cr.name = renamed(cr.name);
+    if (cr.mix && cr.mix.parents) cr.mix.parents = cr.mix.parents.map(renamed);
+  }
+  for (const h of d.hybrids || []) if (h.parents) h.parents = h.parents.map(renamed);
   d.v = SAVE_VERSION;
   return d;
 }
