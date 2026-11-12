@@ -3259,6 +3259,8 @@ const ROOM_SLOTS = {
   lamp: [0, 0.02], incubator: [0.02, 0.5], mushrooms: [0.1, 0.94],
   spring: [0.98, 0.06], cushion: [0.5, 0], bed: [0.97, 0.94],
   rug: [0.5, 0.56],
+  // the pieces drawn for the isometric room stand here when the room is seen straight on
+  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98],
 };
 // a wide, shallow room (a computer screen) spreads the front pieces inward instead, so they don't stand in front of the middle ones
 const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 0.96], bed: [0.85, 0.9] };
@@ -5622,7 +5624,7 @@ function openShop() {
   const iso = N.iso, used = isoSpaceUsed();
   const space = iso ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "";
   const rearr = iso ? `<button class="act arrange-btn" id="arrangeOpen">✥ ${tr("Rearrange the room")}</button>` : "";
-  $("shopList").innerHTML = roomsList() + themes + space + rearr + DECOR.filter(d => iso || !d.iso).map(d => {
+  $("shopList").innerHTML = roomsList() + themes + space + rearr + DECOR.filter(d => iso || !d.wall || DRAW_DECOR[d.id]).map(d => {
     const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
     const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
     const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
@@ -6360,6 +6362,14 @@ function drawRoom() {
   // furniture from the back of the room to the front, so nearer things overlap farther ones
   const items = [{ y: N.bedY, draw: () => drawCushion(N.bedX, N.bedY + N.base * 0.1 * depthK(N.bedY), N.base * 0.72 * depthK(N.bedY)) },
     ...(incHere() ? [{ y: incSpot()[1], draw: drawIncubator }] : [])];
+  // pieces made only as isometric pixel art stand in the room as they are, at their own spots
+  for (const d of DECOR) if (hasDecor(d.id) && d.iso && !d.wall && !DRAW_DECOR[d.id] && ISO_ART[d.id]) {
+    const [x, y] = decorSpot(d.id), k = depthK(y), tw = Math.max(6, Math.round(N.base * k * 0.6 / PX)), pad = Math.ceil(tw * 1.2) + 3;
+    const w = Math.ceil(2 * tw + pad * 2), h = tw + tw * 2 + pad, ax0 = tw + pad, ay = tw * 2 + pad / 2;
+    const extra = pieceExtra({ id: d.id });
+    items.push({ y, draw: () => drawBaked(cachedSprite(roomSprites, d.id, `front|${x}|${y}|${tw}|${PX}|${JSON.stringify(extra)}`,
+      () => ({ c: isoArt(w, h, T => ISO_ART[d.id](tw, T, ax0, ay, extra)), x: Math.round(x / PX - ax0) * PX, y: Math.round(y / PX - ay - tw) * PX }))) });
+  }
   for (const d of DECOR) if (hasDecor(d.id) && d.id !== "rug" && DRAW_DECOR[d.id]) {
     const [x, y] = decorSpot(d.id);
     // the swing and the lights are thin lines on the wall; the rest are baked
