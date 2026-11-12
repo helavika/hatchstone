@@ -3655,7 +3655,8 @@ function drawCreature(c, x, y, s, sp, o = {}) {
     const m = c.getTransform(), at = (lx, ly) => [(m.a * lx + m.c * ly + m.e) / 2, (m.b * lx + m.d * ly + m.f) / 2];
     const fy = BODY[sp.body].face * s, ex = s * (sp.body === "wide" ? 0.18 : 0.16);
     faceStamp.push({ eyes: [at(-ex, fy), at(ex, fy)], mouth: at(0, fy + s * 0.1), blush: [at(-s * 0.28, fy + s * 0.08), at(s * 0.28, fy + s * 0.08)],
-      r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" ? "sleepy" : sp.eyes, eating: !!o.eating, blink: (t % 3800) < 140, t });
+      r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" ? "sleepy" : sp.eyes, eating: !!o.eating, blink: (t % 3800) < 140, t,
+      sly: (sp.beh || BEHAVIOR[sp.id]) === "curious", look: Math.sin(t * 0.0007) > 0 ? 1 : -1 });
   } else drawFace(c, s, sp, t, mood, o.eating);
   if (sp.back !== "wisp") {
     c.fillStyle = shade(pal[0], -0.15);
@@ -3773,8 +3774,18 @@ function stampFace(d, w, h, solid, f, ox, oy) {
   const R = f.r, e = R < 8 ? 1 : R < 17 ? 2 : R < 26 ? 3 : Math.round(R * 0.13), big = f.kind === "big", tall = e + (big && e > 1 ? 1 : 0) + (e === 1 && R >= 6 ? 1 : 0) + (e >= 4 ? Math.round(e * 0.3) : 0);
   const eyes = f.eyes.map(([x, y]) => [Math.round(x - ox - e / 2), Math.round(y - oy - tall / 2)]);
   const arc = (x, y, up) => { for (let k = 0; k <= e; k++) put(x + k, y + (k === 0 || k === e ? (up ? 1 : 0) : (up ? 0 : 1)), FACE.ink); };
-  for (const [x, y] of eyes) {
-    if (f.mood === "happy" || f.mood === "joy") arc(x, y + Math.floor(tall / 2), true);
+  // the curious kinds look sly when they're just going about: lids half down, peeking to one side, one brow up, a smirk
+  // (one eye narrowed, the other wide open under a raised brow: up to something, and very interested in you)
+  const sly = f.sly && !f.eating && R >= 8 && (f.mood === "ok" || f.mood === "hungry");
+  for (const [i, [x, y]] of eyes.entries()) {
+    if (sly && !f.blink && i === 0) {
+      // the narrowed eye: a flat lid with just the lower part of the eye under it, and a glint
+      const mid = y + Math.floor(tall / 2);
+      for (let k = 0; k < e; k++) put(x + k, mid, FACE.ink);
+      for (let j = 1; j < Math.max(2, Math.ceil(tall / 2)); j++) for (let k = 0; k < e; k++) if (e < 4 || ((k + 0.5 - e / 2) / (e / 2)) ** 2 + ((j + 0.5) / Math.ceil(tall / 2)) ** 2 <= 1.05) put(x + k, mid + j, FACE.ink);
+      if (e > 2) put(x + e - 1, mid + 1, FACE.hi);
+    }
+    else if (f.mood === "happy" || f.mood === "joy") arc(x, y + Math.floor(tall / 2), true);
     else if (f.mood === "asleep") arc(x, y + Math.floor(tall / 2) - 1, false);
     else if (f.blink) for (let k = 0; k <= e; k++) put(x + k - (e > 1 ? 0 : 0), y + Math.floor(tall / 2), FACE.ink);
     else if (f.kind === "sleepy") { for (let k = 0; k < e + 1; k++) put(x + k, y + Math.floor(tall / 2) - 1, FACE.ink); for (let k = 0; k < e; k++) for (let j = 0; j < Math.ceil(tall / 2); j++) put(x + k, y + Math.floor(tall / 2) + j, FACE.ink); }
@@ -3791,13 +3802,16 @@ function stampFace(d, w, h, solid, f, ox, oy) {
       if (e > 1) { put(x + e - 1, y, FACE.hi); if (f.kind === "sparkle" && e > 2) put(x, y + tall - 1, FACE.hi); }
     }
   }
-  if (f.mood === "sad" || f.mood === "hungry") eyes.forEach(([x, y], i) => { const dir = i ? 1 : -1; put(x + (dir < 0 ? e : -1), y - 2, FACE.ink); put(x + (dir < 0 ? e + 1 : -2), y - 3, FACE.ink); });
+  // the raised brow over the open eye: a small arch, well clear of the eye
+  if (sly && !f.blink && R >= 12) { const [x, y] = eyes[1], gap = Math.max(2, Math.round(e * 0.5)); for (let k = 0; k <= e; k++) put(x + k, y - gap - (k > 0 && k < e ? 1 : 0), FACE.ink); }
+  if (!sly && (f.mood === "sad" || f.mood === "hungry")) eyes.forEach(([x, y], i) => { const dir = i ? 1 : -1; put(x + (dir < 0 ? e : -1), y - 2, FACE.ink); put(x + (dir < 0 ? e + 1 : -2), y - 3, FACE.ink); });
   // blush: a short pink dash under each eye, a little outside
   if (R >= 8) for (const [x, y] of f.blush) { const bw = Math.max(1, Math.round(R * 0.07)), bh = R >= 26 ? 2 : 1; for (let k = -bw; k < bw; k++) for (let j = 0; j < bh; j++) put(x - ox + k, y - oy + j, FACE.blush); }
   // the mouth
   const mx = Math.round(f.mouth[0] - ox), my = Math.round(f.mouth[1] - oy);
   if (f.eating) { const open = Math.sin(f.t * 0.03) > 0; put(mx, my, FACE.ink); put(mx + 1, my, FACE.ink); if (open) { put(mx, my + 1, FACE.mouthIn); put(mx + 1, my + 1, FACE.ink); } }
   else if (R < 8) put(mx, my, FACE.ink);
+  else if (sly) { const mw = R >= 26 ? Math.round(R * 0.09) : 1; for (let k = -mw; k <= mw; k++) put(mx + k, my + (k < mw ? 1 : 0) - (k === mw ? 0 : 0), FACE.ink); put(mx + mw + 1, my, FACE.ink); } // a little smirk, one corner up
   else if (f.mood === "sad" || f.mood === "hungry") { put(mx - 1, my + 1, FACE.ink); put(mx, my, FACE.ink); put(mx + 1, my + 1, FACE.ink); }
   else if (f.mood === "asleep") put(mx, my, FACE.ink);
   else if (R >= 26) { const mw = Math.round(R * 0.11); for (let k = -mw; k <= mw; k++) put(mx + k, my + Math.round((1 - (k / mw) ** 2) * mw * 0.55), FACE.ink); }
@@ -5893,25 +5907,31 @@ const ISO_ART = {
     for (let k = 0; k < 16; k++) { const an = k / 16 * TAU; if (k % 2) T.px(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr / 2, IC.b0); }
   },
   armchair(t, T, ax, ay) {
-    // a little velvet armchair: short wooden legs, a plump seat cushion with piping, a tall back with two buttons against the wall,
-    // rolled arms lit along the top, and a pink cushion tucked into the corner
-    const a = t * 0.42, b = t * 0.42, x = ax + 1, y = ay + 2, lift = Math.max(2, Math.round(t * 0.08));
-    const at = (du, dv, up = 0) => [x + 2 * du - 2 * dv, y + du + dv - up];
-    for (const [du, dv] of [[1, 1.2], [a - 0.6, 1.2], [1, b - 0.4], [a - 0.6, b - 0.4]]) { const [lx, ly] = at(du, dv); for (let k = 0; k < lift; k++) { T.px(lx, ly - k, k ? IC.w2 : IC.w3); T.px(lx + 1, ly - k, IC.w3); } }
-    const seatH = Math.round(t * 0.24), backH = Math.round(t * 0.88), armH = Math.round(t * 0.5);
-    T.box(...at(0, 0, lift), a, b, seatH, IC.g1, IC.g2, IC.g3);                                  // base
-    const back = T.box(...at(0, 0, lift), a, 2, backH, IC.g1, IC.g2, IC.g3);                    // back, against the wall
-    // two tufted buttons and a seam on the back's face
-    const onBack = (k, z) => [back.Bv[0] + (back.Buv[0] - back.Bv[0]) * k, back.Bv[1] + (back.Buv[1] - back.Bv[1]) * k - z];
-    for (let k = 0; k <= 1; k += 0.02) { const [hx, hy] = onBack(k, backH - 1); T.px(hx, hy, IC.g0); }          // the rounded top edge, lit
-    for (const k of [0.3, 0.7]) { const [bx, by] = onBack(k, backH * 0.6); T.px(bx, by, IC.g3); T.px(bx + 1, by, IC.g3); T.px(bx, by + 1, IC.g3); T.px(bx - 1, by - 1, IC.g0); }
-    T.box(...at(1, 2.2, lift + seatH), a - 2.2, b - 3.4, 2, IC.g0, IC.g1, IC.g2, false);           // the seat cushion
-    { const [p0x, p0y] = at(1, b - 1.2, lift + seatH + 1), [p1x, p1y] = at(a - 1.2, b - 1.2, lift + seatH + 1); T.line(p0x, p0y, p1x, p1y, IC.g0); } // piping
-    T.box(...at(0, 0, lift), 1.6, b, armH, IC.g1, IC.g2, IC.g3);                                  // left arm
-    T.box(...at(a - 1.6, 0, lift), 1.6, b, armH, IC.g1, IC.g2, IC.g3);                            // right arm
-    for (const du of [0.8, a - 0.8]) { const [r0x, r0y] = at(du, 1, lift + armH + 1), [r1x, r1y] = at(du, b - 0.5, lift + armH + 1); T.line(r0x, r0y, r1x, r1y, IC.g0); } // rolled tops
-    const [cx, cy] = at(2.6, 2.8, lift + seatH + t * 0.1);
-    T.ball(cx, cy, Math.max(2, t * 0.13), IC.p0, IC.p1, IC.p2, Math.max(2, t * 0.13) * 0.8);       // a pink cushion
+    // a plump round tub chair, made like the bed: a soft round base on short wooden legs, a seat cushion on top,
+    // and a ring of fat cushions round the back and the sides (high at the back, lower for the arms); a pink pillow inside
+    const cx = ax, cy = ay + t / 2 + 1, rx = t * 0.44, ry = rx / 2, lift = Math.max(2, Math.round(t * 0.07)), seatH = Math.round(t * 0.2);
+    for (const [dx, dy] of [[-0.6, 0.1], [0.6, 0.1], [0, 0.8]]) { const lx = cx + dx * rx, ly = cy + dy * ry; for (let k = 0; k < lift; k++) { T.px(lx, ly - k, k ? IC.w2 : IC.w3); T.px(lx + 1, ly - k, IC.w3); } }
+    const by = cy - lift;
+    T.cyl(cx, by, rx, seatH, IC.g1, IC.g2, IC.g3);
+    const top = by - seatH, r = Math.max(2.5, t * 0.17);
+    // the back half of the ring first (it's behind the seat), big and high
+    const ring = front => {
+      const n = 9;
+      for (let k = 0; k <= n; k++) {
+        const an = Math.PI + k / n * Math.PI, sy = Math.sin(an), side = Math.abs(Math.cos(an));
+        if (front !== (side > 0.82)) continue;
+        const rr = r * (side > 0.82 ? 0.95 : 1.15), up = side > 0.82 ? r * 0.7 : r * (1.2 + (1 - side) * 1.8);
+        T.ball(cx + Math.cos(an) * rx * 0.86, top + sy * ry * 0.86 - up, rr, IC.g0, IC.g1, IC.g2, rr * 0.92);
+      }
+    };
+    for (const k of [-0.45, 0, 0.45]) T.ball(cx + k * rx * 0.9, top - ry * 0.75 - r * 3, r * 1.1, IC.g0, IC.g1, IC.g2, r);
+    T.ball(cx, top - ry * 0.6 - r * 1.8, r * 1.2, IC.g0, IC.g1, IC.g2, r * 1.1);
+    ring(false);
+    T.disc(cx, top - 1, rx * 0.72, (x, y) => (Math.hypot((x - cx) / (rx * 0.72), (y - top + 1) / (ry * 0.72)) > 0.75 ? IC.g1 : IC.g0));   // the seat cushion
+    T.ball(cx - rx * 0.25, top - r * 1.2, r * 0.8, IC.p0, IC.p1, IC.p2, r * 0.72);                                                         // a pink pillow
+    ring(true);
+    // the arms come round to the front: one more cushion each side, nearest you
+    for (const d of [-1, 1]) T.ball(cx + d * rx * 0.8, top + ry * 0.35 - r * 0.6, r * 0.9, IC.g0, IC.g1, IC.g2, r * 0.85);
   },
   cushion(t, T, ax, ay, o = {}) {
     const cx = ax, cy = ay + t / 2;
@@ -5962,6 +5982,33 @@ const ISO_ART = {
     T.px(cx, cy - Math.round(r * 0.5), IC.p1); T.px(cx, cy - Math.round(r * 0.5) - 1, IC.p0);
     // little gold feet
     for (const s of [0.1, 0.9]) { const [fx, fy] = at(s, 0); T.px(fx, fy + 1, IC.y1); }
+  },
+  shelf(t, T, ax, ay, o = {}) {
+    // a thick wooden plank on two brackets, along the wall; on it stand up to three geodes cut in half: a round stone shell
+    // shaded like a ball, and inside it rings of crystal, dark at the rim and bright in the middle, with a glint
+    const len = t * 0.68, dep = t * 0.24, th = Math.max(3, Math.round(t * 0.1));
+    const at = (du, dv, up = 0) => [ax + 2 * du - 2 * dv, ay + du + dv - up];
+    for (const k of [0.18, 0.82]) { const [bx, by] = at(len * k, dep * 0.4, -1); for (let j = 0; j < t * 0.22; j++) { T.px(bx, by + j, IC.w3); if (j < t * 0.22 - 2) T.px(bx + 1, by + j, IC.w2); } T.line(bx + 1, by + Math.round(t * 0.2), bx + Math.round(dep * 1.6), by, IC.w3); }
+    T.box(...at(0, 0, 0), len, dep, th, IC.w0, IC.w1, IC.w2);
+    const gems = o.gems && o.gems.length ? o.gems : [[IC.l0, IC.l2, IC.l4], [IC.b0, IC.b1, IC.b3], [IC.p0, IC.p1, IC.p3]];
+    gems.slice(0, 3).forEach(([c0, c1, c2], i) => {
+      // a half geode standing on its round back, its cut face turned toward the room: you see the stone shell bulging
+      // behind on the right, a white agate rim, crystals catching the light, and the dark hollow in the middle
+      const r = Math.max(4, t * (i === 1 ? 0.24 : 0.19)), ry = r * 1.12, [cx, cy] = at(len * (0.2 + i * 0.3), dep * 0.5, th + ry * 0.92);
+      T.disc(cx + 1, cy + ry * 0.9, r * 0.8, IC.w3, r * 0.25);                           // its shadow on the plank
+      T.ball(cx + r * 0.18, cy, r, IC.s1, IC.s2, IC.s3, ry);                            // the stone shell
+      const fx = cx - r * 0.12, fr = r * 0.8, fry = ry * 0.86;
+      T.disc(fx, cy, fr, (px, py) => {
+        const d = Math.hypot((px - fx) / fr, (py - cy) / fry);
+        if (d > 0.84) return IC.s0;                                                        // agate rim
+        if (d > 0.62) return (px + py) % 3 ? c1 : c0;                                       // crystal points
+        if (d > 0.36) return py < cy ? c0 : c1;                                             // tips, lit from above
+        return pxHash(px, py) > 0.8 ? c0 : c2;                                              // the hollow, with a few sparkles
+      }, fry);
+      // a glint, and a sparkle when tapped
+      T.px(fx - fr * 0.35, cy - fry * 0.4, IC.white); T.px(fx - fr * 0.35 + 1, cy - fry * 0.4, IC.white);
+      if (o.spark !== undefined && Math.abs(o.spark - i) < 0.5) { T.px(cx, cy - r - 2, IC.white); T.px(cx - 1, cy - r - 1, IC.y0); T.px(cx + 1, cy - r - 1, IC.y0); T.px(cx, cy - r, IC.y0); }
+    });
   },
   chest(t, T, ax, ay) {
     const a = t * 0.42, b = t * 0.32, hgt = Math.round(t * 0.42), x = ax, y = ay + 2;
@@ -6068,6 +6115,24 @@ function isoPiece(p, extra = {}) {
     const [bx, by] = isoAt(p.i / ISO_G, p.j / ISO_G);
     return { c, x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX };
   });
+}
+
+/** The geode shelf on its wall, showing your three shiniest geodes in their own colors. */
+function drawShelfIso() {
+  const m = wallSlot("shelf"), tw = N.isoW / ISO_G / PX, c = (m.s + 0.5) / ISO_G, half = 0.65 / 2 / ISO_G * 2;
+  const best = Object.entries(save.geodes).filter(([id]) => CRYSTAL[id]).sort((p, q) => (q[1].shine || 0) - (p[1].shine || 0)).slice(0, 3).map(([id]) => CRYSTAL[id].c.map(pxHex));
+  const k = fxAge("shelf"), spark = k < 0.9 ? Math.floor(k / 0.3) : undefined;
+  const pad = Math.ceil(tw * 0.6) + 4, w = Math.ceil(tw * 1.5 + pad * 2), h = Math.ceil(tw * 1.1 + pad);
+  // the plank starts a little before the slot's middle and runs along the wall
+  const [bx, by] = m.wall === "R" ? isoAt(c - half / 2, 0) : isoAt(0, c - half / 2), lift = N.isoWall * 0.5;
+  const f = cachedSprite(isoPieces, "shelf", `${m.wall}|${m.s}|${tw.toFixed(2)}|${JSON.stringify(best)}|${spark}`, () => {
+    const ax = pad, ay = Math.round(tw * 0.75);
+    let cv = isoArt(w, h, T => ISO_ART.shelf(tw, T, ax, ay, { gems: best, spark })), x0 = ax;
+    if (m.wall === "L") { const mm = document.createElement("canvas"); mm.width = cv.width; mm.height = cv.height; const g = mm.getContext("2d"); g.translate(cv.width, 0); g.scale(-1, 1); g.drawImage(cv, 0, 0); cv = mm; x0 = cv.width - ax; }
+    return { c: cv, x: Math.round(bx / PX - x0) * PX, y: Math.round((by - lift) / PX - ay) * PX };
+  });
+  pieceHits.shelf = { c: f.c, x: f.x, y: f.y };
+  drawBaked(f);
 }
 
 /** The swing in the room: its frame, then the ropes and the moon seat swinging under the bar. */
@@ -6544,7 +6609,7 @@ function drawRoomIso() {
     const extra = pieceExtra(p);
     items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); } });
   }
-  if (hasDecor("shelf")) { const [x, y] = decorSpot("shelf"); items.push({ y: -2, draw: () => { decorK = N.dk; drawBaked(cachedSprite(roomSprites, "shelf", `${x}|${y}|${wallSlot("shelf").wall}|${N.base}|${PX}|${Math.floor(game.time / 200)}`, () => bakeSprite(x, y - N.base * 0.6 * N.dk, N.base * N.dk, () => DRAW_DECOR.shelf(x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } }); }
+  if (hasDecor("shelf")) items.push({ y: -2, draw: drawShelfIso });
   if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
   if (weather.drops.length) items.push({ y: 1e6, top: true, draw: drawWeatherAir });
   if (hasDecor("cushion")) items.push({ y: 1e6, top: true, id: "cushion", draw: drawCloud });
@@ -6916,10 +6981,11 @@ function decorAt(x, y) {
       if (hit && (!best || p.i + p.j > best.i + best.j)) best = p;
     }
     if (best) return { id: best.id };
+    if (hasDecor("shelf") && pieceHits.shelf && spriteHit(pieceHits.shelf.c, pieceHits.shelf.x, pieceHits.shelf.y, x, y)) return { id: "shelf" };
   }
   for (const d of DECOR) {
     if (!hasDecor(d.id) || d.id === "rug" || d.id === "lights") continue;
-    if (N.iso && d.id !== "shelf") continue;
+    if (N.iso) continue;
     let [hx, hy] = decorSpot(d.id), r = b * 0.42;
     const k = d.id === "shelf" ? N.dk : depthK(hy); r *= k;
     if (d.id === "lamp") { hy -= b * 0.75 * k; r = b * 0.5 * k; }
