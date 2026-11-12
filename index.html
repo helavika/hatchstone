@@ -6541,7 +6541,7 @@ function drawRoomIso() {
     if (p.id === "incubator") { items.push({ y: fy, box, draw: drawIncubator }); continue; }
     if (p.id === "swing") { items.push({ y: fy, box, draw: () => drawSwingIso(p) }); continue; }
     const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
-    const extra = p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : {};
+    const extra = pieceExtra(p);
     items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); } });
   }
   if (hasDecor("shelf")) { const [x, y] = decorSpot("shelf"); items.push({ y: -2, draw: () => { decorK = N.dk; drawBaked(cachedSprite(roomSprites, "shelf", `${x}|${y}|${wallSlot("shelf").wall}|${N.base}|${PX}|${Math.floor(game.time / 200)}`, () => bakeSprite(x, y - N.base * 0.6 * N.dk, N.base * N.dk, () => DRAW_DECOR.shelf(x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } }); }
@@ -6875,6 +6875,8 @@ const DRAW_DECOR = {
 
 /** Where each piece was drawn last, for tapping it (see spriteHit). */
 const pieceHits = {};
+/** What a piece's picture depends on right now (the lamp being off, the pond's ripple frame...). */
+const pieceExtra = p => p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : {};
 
 const decorFx = {};
 let swingPush = 0;
@@ -6906,8 +6908,10 @@ function decorAt(x, y) {
     let best = null;
     for (const p of Object.values(isoLayout().placed)) {
       if (p.id === "bed" || p.id === "incubator") continue;
-      const h = pieceHits[p.id];
-      let hit = h && spriteHit(h.c, h.x, h.y, x, y);
+      // not drawn yet (it was only just put out): its picture is made now
+      let h = pieceHits[p.id];
+      if (!h) { const f = isoPiece(p, pieceExtra(p)); h = pieceHits[p.id] = { c: f.c, x: f.x, y: f.y }; }
+      let hit = spriteHit(h.c, h.x, h.y, x, y);
       if (!hit && p.id === "swing") { const [sx, sy] = swingSeat(); hit = Math.hypot(x - sx, (y - sy) * 1.6) < N.isoW / ISO_G * 0.7; }
       if (hit && (!best || p.i + p.j > best.i + best.j)) best = p;
     }
