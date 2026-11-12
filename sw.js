@@ -1,5 +1,5 @@
 // Hatchstone offline support: the page itself is fetched fresh when online, everything else from the cache.
-const CACHE = "hatchstone-v25-wardrobe";
+const CACHE = "hatchstone-v26-faces";
 const SHELL = [
   "./", "index.html", "coop-link.js", "coop-invite.js", "coop-state.js", "vendor/peerjs-1.5.5.min.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
