@@ -661,6 +661,9 @@
   /* today's tasks */
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
+  #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
+  .lantern-meter { display: flex; justify-content: center; gap: 4px; margin: 4px 0 12px; }
+  .lantern-meter .ic { width: 30px; height: 30px; }
   .task { display: flex; align-items: center; gap: 12px; padding: 12px 0; text-align: left; border-top: 3px solid var(--px-raise); }
   .task span { flex: 1; font-size: 18px; }
   .task .go { padding: 8px 18px; }
@@ -824,6 +827,7 @@
   <div class="row">
     <div class="pill glass stack" title="Shards: spend them on snacks, decor and the forge"><b id="shardPill">✦ 0</b><small>shards</small></div>
     <div class="pill glass stack" title="Stars from the grotto levels"><b id="starPill">★ 0</b><small>stars</small></div>
+    <button class="pill glass btn stack" id="oilPill" title="Lantern oil: each geode in the grotto uses one drop"><b id="oilCount"></b><small id="oilWhen">lantern</small></button>
     <button class="pill glass btn stack" id="taskPill" title="Today's little tasks"><b id="taskCount">0/3</b><small>tasks</small></button>
     <button class="pill glass btn stack" id="homePill" title="Who's at home and who's exploring" hidden><b id="homeCount"></b><small>at home</small></button>
   </div>
@@ -993,6 +997,17 @@
     <button class="ghost" id="jukeClose">close</button>
   </div>
 </div>
+<div id="lantern" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2 id="lanternTitle">Lantern</h2>
+    <p class="sub" id="lanternSub"></p>
+    <div id="lanternMeter" class="lantern-meter"></div>
+    <div id="barList"></div>
+    <p class="fact" id="lanternFree"></p>
+    <button class="ghost" id="lanternClose">not now</button>
+  </div>
+</div>
+
 <div id="snacks" class="overlay modal hidden">
   <div class="card glass dark">
     <h2>Snack time</h2>
@@ -1277,6 +1292,21 @@ const UK = {
   "Leave": "Піти",
   "Snack time": "Час смаколиків",
   "not now": "не зараз",
+  "Lantern": "Ліхтарик",
+  "lantern": "ліхтарик",
+  "The lantern is out": "Ліхтарик згас",
+  "Firefly square": "Світлякова плитка",
+  "Nut bar": "Горіховий батончик",
+  "Star bar": "Зоряний батончик",
+  "+{0} oil": "+{0} олії",
+  "fills the lantern, even past the brim": "наповнює ліхтарик, навіть понад край",
+  "Full: {0} trips into the grotto.": "Повний: {0} походів у Грот.",
+  "{0} of {1} drops of oil · the next one in {2}": "{0} з {1} крапель олії · наступна за {2}",
+  "Have a bar, or come back a little later.": "З'їж батончик або повернись трохи згодом.",
+  "Bars come from daily tasks, level-ups, moon eggs and sometimes the rubble of a geode. Moon eggs, playing together and levels you have ★★★ on don't use oil.": "Батончики дають за щоденні завдання, нові рівні малюків, місячні яйця, а іноді вони трапляються в уламках жеоди. Місячні яйця, гра разом і рівні з ★★★ олії не витрачають.",
+  "{0} +1": "{0} +1",
+  " · {0} in the rubble": " · в уламках: {0}",
+  "Lantern oil: each geode in the grotto uses one drop": "Олія для ліхтарика: кожна жеода в Гроті забирає одну краплю",
   "Decorate the nest": "Прикрась гніздечко",
   "done": "готово",
   "Today's tasks": "Завдання на сьогодні",
@@ -2562,6 +2592,10 @@ function pxSmooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t 
 // ---------- pixel icons: little sprites for buttons and labels, drawn from text maps ----------
 const PX_ICON_COLORS = { U: "#2f68c8", K: "#3a2440", w: "#efe6ff", W: "#ffffff", l: "#ad91e6", L: "#d2bfff", p: "#6b4fa8", d: "#3d2866", k: "#160c26", g: "#eec26a", G: "#fff0b5", o: "#c98f3a", b: "#946027", B: "#5e3a1c", r: "#e88bb1", R: "#c25586", s: "#e4dfe8", S: "#8a8494", z: "#5d5666", t: "#69b7d6", T: "#3383a8", m: "#57ad6a", e: "#e0634f", E: "#b8323b" };
 const PX_ICON_MAPS = {
+  lantern: ["....zzzz....", "...z....z...", "....SSSS....", "...SzzzzS...", "...sGGGGs...", "...sGWWGs...", "...sGWgGs...", "...sGggGs...", "...sGGGGs...", "...SzzzzS...", "....SSSS....", "............"],
+  barFirefly: ["............", "............", "...BBBBBB...", "..BbbbbbbB..", "..BbGbbbbB..", "..BbbbbbbB..", "..BbbbbbbB..", "..BbbbbGbB..", "..BbbbbbbB..", "...BBBBBB...", "............", "............"],
+  barNut: ["............", "............", "............", "rr........rr", ".rRRRRRRRRr.", ".RoobobobbR.", ".RbobbobobR.", ".rRRRRRRRRr.", "rr........rr", "............", "............", "............"],
+  barStar: ["............", "............", "............", "tt........tt", ".tTTTTgTTTt.", ".TTTTgGgTTT.", ".TTTTTgTTTT.", ".tTTTTTTTTt.", "tt........tt", "............", "............", "............"],
   hammer: ["............", ".zSSSSSSSSz.", ".SswssssssS.", ".SsssssssSS.", ".zSSSSSSSSz.", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....bB.....", "............"],
   eye: ["............", "............", "....ssss....", "..ssssssss..", ".sssTTTTsss.", "ssssTkkTssss", "ssssTkWTssss", ".sssTTTTsss.", "..ssssssss..", "....ssss....", "............", "............"],
   bell: [".....bb.....", ".....gg.....", "....gGgg....", "...gGgggo...", "...gGgggo...", "...gGgggo...", "..gGggggoo..", "..gGggggoo..", ".ggggggggoo.", ".oooooooooo.", ".....bb.....", "............"],
@@ -2954,7 +2988,7 @@ function levelConf(n) {
 // Progress is precious: a main save, a "last good" copy, and care when several tabs are open.
 const SAVE_KEY = "hatchstone.save", BAK_KEY = "hatchstone.save.bak";
 const SAVE_VERSION = 1;
-const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }], room: 0 });
+const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }], room: 0, bars: { firefly: 2, nut: 1 } });
 const validSave = d => d && typeof d === "object" && Array.isArray(d.creatures) && typeof d.stars === "object";
 
 let startedEmpty = true; // no nest in storage when this page opened
@@ -2987,6 +3021,7 @@ function migrate(d) {
   for (const h of d.hybrids || []) if (h.parents) h.parents = h.parents.map(renamed);
   if (!Array.isArray(d.rooms) || !d.rooms.length) { d.rooms = [{ kind: "nest", on: [] }]; d.room = 0; }
   if (!(d.room >= 0 && d.room < d.rooms.length)) d.room = 0;
+  if (!d.bars) d.bars = { firefly: 2, nut: 1 };
   d.v = SAVE_VERSION;
   return d;
 }
@@ -3109,7 +3144,8 @@ function addXP(cr, n) {
     cr.level++;
     const grew = stageOf(cr.level) !== before;
     if (grew && stageOf(cr.level) === 1) { if (game.scene === "nest") setTimeout(() => talk("firstGrow", cr), 900); else talkLater.push(["firstGrow", cr]); }
-    toast(grew ? tr("{0} grew up: now {1}! ✦", cr.name, STAGES[stageOf(cr.level)]) : tr("{0} reached level {1} ✦", cr.name, cr.level));
+    giveBar("firefly");
+    toast((grew ? tr("{0} grew up: now {1}! ✦", cr.name, STAGES[stageOf(cr.level)]) : tr("{0} reached level {1} ✦", cr.name, cr.level)) + " · " + tr("{0} +1", barName("firefly")));
     sfx.levelUp();
     const a = actors.get(cr.id);
     if (game.scene === "nest" && a) { const v = actorView(a); burst(v.x, v.y, grew ? 40 : 18, ["#fff", ...palOf(specOf(cr))], grew ? 1.6 : 1); }
@@ -4650,10 +4686,11 @@ function taskDone(id) {
   const all = t.ids.every(i => t.done[i]);
   if (all) gain += TASK_BONUS;
   save.shards += gain;
+  if (all) giveBar("nut");
   persist();
   updateTopbar();
   sfx.star(all ? 2 : 0);
-  toast(all ? tr("All of today's tasks done! +{0} ✦", gain) : tr("Task done: {0} · +{1} ✦", TASKS[id].text, gain));
+  toast(all ? tr("All of today's tasks done! +{0} ✦", gain) + " · " + tr("{0} +1", barName("nut")) : tr("Task done: {0} · +{1} ✦", TASKS[id].text, gain));
   if (!$("tasks").classList.contains("hidden")) openTasks();
 }
 
@@ -4982,6 +5019,9 @@ function showFound() {
   shards += cheer;
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
   save.shards += shards;
+  // now and then a bar turns up in the rubble
+  const r = Math.random(), rubble = conf.coop || conf.moon ? null : r < 0.03 ? "nut" : r < 0.13 ? "firefly" : null;
+  if (rubble) giveBar(rubble);
   const { isNew, note, mine } = adopt(e);
   if (!conf.coop && e.shiny) talkLater.push(["shiny", mine]);
   else if (!conf.coop && rarityOf(sp) === "legendary") talkLater.push(["legendary", mine]);
@@ -5001,7 +5041,7 @@ function showFound() {
   $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
-  $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? tr(" · moon streak {0} 🔥", save.moon.streak) : "") + (cheer ? tr(" · cheered on by {0}: +{1} ✦", buddy.name, cheer) : "");
+  $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? tr(" · moon streak {0} 🔥", save.moon.streak) : "") + (rubble ? tr(" · {0} in the rubble", barName(rubble)) : "") + (cheer ? tr(" · cheered on by {0}: +{1} ✦", buddy.name, cheer) : "");
   $("stShine").textContent = Math.round(shine * 100) + "%";
   $("stTaps").textContent = e.taps;
   $("stPar").textContent = tr("taps · ★ in {0}", e.par);
@@ -5285,6 +5325,7 @@ function updateTopbar() {
   const n = nextLevel();
   $("crackLvl").textContent = n ? tr("Lv {0}", n) : tr("Wander");
   renderTaskPill();
+  renderOilPill();
   // who's home, out of everyone (only once somebody is out exploring)
   const away = save.creatures.filter(c => c.out).length;
   $("homePill").hidden = !away;
@@ -5338,6 +5379,8 @@ function finishMoon() {
   const y = new Date(); y.setDate(y.getDate() - 1);
   const streak = save.moon && save.moon.last === dayKey(y) ? save.moon.streak + 1 : 1;
   save.moon = { last: dayKey(), streak };
+  // every moon egg brings a firefly square; every third night in a row, a star bar
+  giveBar(streak % 3 ? "firefly" : "star");
   taskDone("moon");
   return 25 + Math.min(50, (streak - 1) * 5);
 }
@@ -5347,11 +5390,82 @@ function untilTomorrow() {
   return fmtLeft(t - Date.now());
 }
 
+// ---------- the lantern: oil for trips into the grotto, and snack bars that top it up ----------
+
+const OIL_MAX = 5, OIL_EVERY = 20 * 60e3;
+const BARS = {
+  firefly: { name: "Firefly square", oil: 1, icon: "barFirefly" },
+  nut: { name: "Nut bar", oil: 3, icon: "barNut" },
+  star: { name: "Star bar", oil: OIL_MAX, icon: "barStar" },
+};
+/** Oil in the lantern now: one drop comes back every 20 minutes up to the brim (bars can fill it past that). */
+function oilNow() {
+  const now = Date.now(), o = save.oil && Number.isFinite(save.oil.n) ? save.oil : (save.oil = { n: OIL_MAX, t: now });
+  if (o.n >= OIL_MAX) { o.t = now; return o.n; }
+  const k = Math.floor((now - o.t) / OIL_EVERY);
+  if (k > 0) { o.n = Math.min(OIL_MAX, o.n + k); o.t = o.n >= OIL_MAX ? now : o.t + k * OIL_EVERY; }
+  return o.n;
+}
+const oilNext = () => Math.max(0, save.oil.t + OIL_EVERY - Date.now());
+/** Moon eggs, co-op and levels you already have three stars on don't need oil. */
+const tripCosts = n => !(n > 0 && save.stars[n] >= 3);
+function burnOil() {
+  if (oilNow() < 1) return false;
+  save.oil.n--;
+  persist();
+  updateTopbar();
+  return true;
+}
+/** A snack bar for the lantern, from a task, a level-up, a moon egg or the rubble of a geode. */
+function giveBar(id, n = 1) {
+  save.bars = { ...save.bars, [id]: (save.bars?.[id] || 0) + n };
+  persist();
+  if (!$("lantern").classList.contains("hidden")) openLantern();
+}
+const barName = id => tr(BARS[id].name);
+function useBar(id) {
+  if (!(save.bars?.[id] > 0)) return;
+  oilNow();
+  save.bars[id]--;
+  save.oil.n = Math.min(99, save.oil.n + BARS[id].oil);
+  if (save.oil.n >= OIL_MAX) save.oil.t = Date.now();
+  persist();
+  sfx.munch(); setTimeout(() => sfx.shimmer(), 250);
+  updateTopbar();
+  openLantern();
+}
+function renderOilPill() {
+  const n = oilNow();
+  $("oilCount").innerHTML = `${ic("lantern", n ? "" : "off")}${n}/${OIL_MAX}`;
+  $("oilWhen").textContent = n >= OIL_MAX ? tr("lantern") : fmtClock(oilNext());
+  $("oilPill").classList.toggle("empty", !n);
+}
+const fmtClock = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+/** The lantern sheet: how much oil, when the next drop comes, and the bars you have. needed: opened because a trip needs oil. */
+function openLantern(needed) {
+  const n = oilNow();
+  $("lanternTitle").textContent = needed && !n ? tr("The lantern is out") : tr("Lantern");
+  $("lanternSub").textContent = (n >= OIL_MAX ? tr("Full: {0} trips into the grotto.", n) : tr("{0} of {1} drops of oil · the next one in {2}", n, OIL_MAX, fmtLeft(oilNext())))
+    + (needed && !n ? ". " + tr("Have a bar, or come back a little later.") : "");
+  $("lanternMeter").innerHTML = Array.from({ length: Math.max(OIL_MAX, n) }, (_, i) => ic("lantern", i < n ? "" : "off")).join("");
+  $("barList").innerHTML = Object.entries(BARS).map(([id, b]) => {
+    const have = save.bars?.[id] || 0;
+    return `<button class="snack" data-bar="${id}" ${have ? "" : "disabled"}>${ic(b.icon, "big")}<span><b>${barName(id)}</b><small>${id === "star" ? tr("fills the lantern, even past the brim") : tr("+{0} oil", b.oil)}</small></span><span class="cost">×${have}</span></button>`;
+  }).join("");
+  $$("#barList [data-bar]").forEach(b => b.addEventListener("click", () => useBar(b.dataset.bar)));
+  $("lanternFree").textContent = tr("Bars come from daily tasks, level-ups, moon eggs and sometimes the rubble of a geode. Moon eggs, playing together and levels you have ★★★ on don't use oil.");
+  show("lantern", true);
+}
+
 function startLevel(n) {
+  // a trip into the grotto takes a drop of lantern oil
+  const paid = tripCosts(n);
+  if (paid && !burnOil()) { sfx.tick(); openLantern(true); return; }
   sfx.tick();
   game.chips = []; game.sparks = [];
   setScene("crack");
   newEgg(levelConf(n), true);
+  game.egg.paid = paid;
 }
 
 /** Where the six levels of a chapter sit on its cave, in percent: across the top, then back along the bottom. */
@@ -8418,13 +8532,14 @@ function endEcho() {
   g.done = true; sfx.hush = false;
   const best = g.score > (save.echoBest || 0);
   if (best) save.echoBest = g.score;
+  if (best && g.score >= 3) giveBar("nut");
   const joy = Math.min(35, g.score * 4 + 5), xp = g.score * 2 + 5, shards = Math.floor(g.score / 2);
   cr.joy = clamp(cr.joy + joy, 0, 100);
   save.shards += shards;
   addXP(cr, xp);
   persist();
   $("catchTitle").textContent = g.score >= 10 ? tr("Perfect pitch! ✦") : g.score >= 5 ? tr("Lovely song!") : tr("Fun!");
-  $("catchSub").textContent = tr("Tunes sung back with {0}: {1}", cr.name, g.score) + (best && g.score ? tr(" · a new best!") : "");
+  $("catchSub").textContent = tr("Tunes sung back with {0}: {1}", cr.name, g.score) + (best && g.score ? tr(" · a new best!") + (g.score >= 3 ? " " + tr("{0} +1", barName("nut")) : "") : "");
   $("cdJoy").textContent = "+" + joy;
   $("cdXp").textContent = "+" + xp;
   $("cdShards").textContent = "+" + shards;
@@ -9157,7 +9272,9 @@ $("quit").addEventListener("click", () => {
   if (coopSession) { coopEnd("left"); return; }
   const e = game.egg;
   const started = e && e.state === "cracking" && e.taps > 0;
-  if (started) { sfx.tick(); show("confirmLeave", true); } else setScene("map");
+  if (started) { sfx.tick(); show("confirmLeave", true); return; }
+  if (e && e.paid && !e.taps) { e.paid = false; oilNow(); save.oil.n++; persist(); }
+  setScene("map");
 });
 $("keepCracking").addEventListener("click", () => show("confirmLeave", false));
 $("leaveEgg").addEventListener("click", () => { show("confirmLeave", false); if (coopSession) coopEnd("left"); else setScene("map"); });
@@ -9205,6 +9322,9 @@ document.addEventListener("pointerdown", ev => {
   buzz(6);
 }, { passive: true });
 $("taskPill").addEventListener("click", openTasks);
+$("oilPill").addEventListener("click", () => { sfx.tick(); openLantern(); });
+$("lanternClose").addEventListener("click", () => show("lantern", false));
+setInterval(() => { if ($("topbar").classList.contains("on")) renderOilPill(); }, 1000);
 const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now. A well-rested, happy glowling also cheers you on when you crack an egg: a few more shards."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."], ["Who made Hatchstone?", "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new)."]];
 function openFaq() {
   sfx.tick();
