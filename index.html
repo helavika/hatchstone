@@ -6896,20 +6896,43 @@ function paintRoomIso(id) {
         put(x, y, pxPick(wallR, val, x, y));
       }
     }
-    // a window in the left wall: a parallelogram that follows the wall, arched in the abbey
+    // a window in the left wall: a parallelogram that follows the wall, arched in the abbey. It has depth: a deep reveal
+    // in the wall on one side, a wooden frame with a cross of glazing bars, a stone sill that sticks out at the bottom,
+    // and through the glass a moonlit night with far hills, stars of different brightness and a faint shine on the panes
     const sky = (night ? night.sky : ["#0d0a2a", "#160c33", "#2d2468", "#463592"]).map(pxHex);
-    for (let x = Math.floor(cx - hw * 0.64); x <= Math.ceil(cx - hw * 0.36); x++) {
+    const woodW = [IC.w0, IC.w1, IC.w2, IC.w3], white = pxHex("#ffffff"), moon = pxHex("#fff8d6");
+    for (let x = Math.floor(cx - hw * 0.67); x <= Math.ceil(cx - hw * 0.33); x++) {
       const tt = (cx - x) / hw, base = top + tt * hh, lx = (tt - 0.5) / 0.14;
-      for (let y = Math.floor(base - wall * 0.84); y < base - wall * 0.3; y++) {
+      for (let y = Math.floor(base - wall * 0.86); y < base - wall * 0.26; y++) {
         const hy = (base - y) / wall, archTop = kind === "hall" ? 0.84 - 0.12 * Math.abs(lx) ** 1.6 : 0.8 - 0.08 * lx * lx;
-        if (hy > archTop) continue;
-        const frame = hy > archTop - 0.04 || hy < 0.34 || Math.abs(lx) > 0.86;
-        let col = frame ? wallR[Math.min(4, wallR.length - 1)] : pxPick(sky, 0.2 + (archTop - hy) * 1.4, x, y);
-        if (!frame && kind === "hall" && (Math.abs(lx) < 0.1 || Math.abs(hy - 0.55) < 0.02)) col = ink;
-        if (!frame && pxHash(x, y + seed) > 0.96) col = pxHex("#ffffff");
-        if (!frame && kind === "cave" && Math.hypot(lx - 0.35, (hy - 0.66) * 4) < 0.28) col = pxHex("#fff8d6");
+        // the sill: a ledge under the window, a little wider than it, lit on top
+        if (hy >= 0.28 && hy < 0.335 && Math.abs(lx) < 1.12) { put(x, y, hy > 0.315 ? wallR[Math.min(4, wallR.length - 1)] : wallR[1]); continue; }
+        if (Math.abs(lx) > 1 || hy > archTop || hy < 0.335) continue;
+        let col;
+        if (Math.abs(lx) > 0.88 || hy > archTop - 0.03) col = lx > 0 ? wallR[0] : wallR[2];                     // the reveal: the wall's thickness
+        else if (Math.abs(lx) > 0.78 || hy > archTop - 0.075 || hy < 0.37) col = woodW[lx > 0 ? 2 : 1];          // the frame
+        else if (Math.abs(lx) < 0.05 || Math.abs(hy - 0.57) < 0.013) col = woodW[2];                             // the glazing bars
+        else {
+          // the night outside
+          col = pxPick(sky, 0.15 + (archTop - hy) * 1.5, x, y);
+          if (hy < 0.405 + 0.022 * Math.sin(lx * 4 + seed) + 0.012 * Math.sin(lx * 11)) col = pxPick([sky[0], sky[1]], 0.35, x, y);   // far hills
+          else {
+            const st = pxHash(x, y + seed);
+            if (st > 0.985) col = white; else if (st > 0.96) col = sky[3];
+            const md = Math.hypot(lx - 0.38, (hy - 0.68) * 4);
+            if (md < 0.24) col = moon; else if (md < 0.36 && PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.4) col = sky[3];
+          }
+          // a faint shine slanting across the glass
+          if (((x + y * 2) % 23 + 23) % 23 < 2 && hy > 0.5) col = sky[3];
+        }
         put(x, y, col);
       }
+    }
+    // the moonlight it lets in: a pale, sparse patch on the floor below it
+    for (let y = Math.floor(top); y <= Math.ceil(top + hw); y++) for (let x = Math.floor(cx - hw); x <= cx; x++) {
+      const a = (x - cx) / hw, b = (y - top) / hh, u = (a + b) / 2, v = (b - a) / 2;
+      if (u < 0.03 || u > 0.3 || v < 0.38 + u * 0.3 || v > 0.62 + u * 0.3) continue;
+      if (PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.18 * (1 - u / 0.3)) put(x, y, sky[3]);
     }
     if (kind === "cave") {
       // crystals growing at the foot of the walls, in the back corner and at both ends
