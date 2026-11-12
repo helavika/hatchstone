@@ -684,6 +684,9 @@
   .switch-wrap #switcher { flex: 1; min-width: 0; }
   .sw-arrow { flex: 0 0 26px; height: 40px; border: 0; padding: 0; cursor: pointer; font-size: 26px; line-height: 1; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame), inset 2px 2px 0 0 var(--px-gold-hi), inset -2px -2px 0 0 var(--px-gold-lo); }
   .sw-arrow[hidden] { visibility: hidden; display: block !important; }
+  /* everyone fits: no arrows taking room, no scrolling */
+  .switch-wrap.fits .sw-arrow { display: none !important; }
+  .switch-wrap.fits #switcher { overflow-x: hidden; justify-content: center; }
   .arrange-btn { width: 100%; margin-top: 12px; }
   #arrangeBar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) + 84px); z-index: 3; width: min(440px, calc(100% - 20px)); padding: 10px 12px 12px; text-align: center; }
   #arrangeBar[hidden] { display: none; }
@@ -718,8 +721,10 @@
     background: repeating-linear-gradient(90deg, transparent 0 calc(25% - 2px), var(--px-ink) 0 25%), linear-gradient(90deg, var(--fillc, var(--px-gold)) calc(var(--fill, 1) * 100%), rgba(255, 255, 255, .14) 0); }
   body.compact #feedBtn { --fillc: #eec26a; } body.compact #playBtn { --fillc: #e88bb1; } body.compact #sleepBtn { --fillc: #69b7d6; }
   body.compact .acts .act.lowfill::after { animation: pxBlink 1s steps(2) infinite; }
-  body.compact #switcher button { width: 40px; height: 40px; }
-  body.compact #switcher button img.px2 { width: 34px !important; height: 34px !important; }
+  /* buttons give up a few pixels before the row has to scroll */
+  body.compact #switcher { gap: 6px; }
+  body.compact #switcher button { flex: 0 1 40px; width: 40px; min-width: 34px; height: 40px; }
+  body.compact #switcher button img.px2 { width: 100% !important; max-width: 34px; height: auto !important; aspect-ratio: 1; }
   /* a lower tab bar */
   body.compact #tabs { padding: 4px; gap: 4px; }
   body.compact #tabs button { padding: 3px 2px !important; font-size: 14px !important; }
@@ -5012,7 +5017,14 @@ function renderNest(full) {
 }
 /** The arrows beside the glowling row show only where there are more glowlings to scroll to. */
 function switchArrows() {
-  const sw = $("switcher"), more = sw.scrollWidth - sw.clientWidth > 2;
+  // first see whether everyone fits without the arrows (buttons may shrink a little): then there's nothing to scroll
+  const sw = $("switcher"), wrap = sw.parentElement;
+  if (!wrap.classList.contains("fits") || sw.scrollWidth - sw.clientWidth > 2) {
+    wrap.classList.add("fits");
+    if (sw.scrollWidth - sw.clientWidth > 2) wrap.classList.remove("fits");
+  }
+  if (wrap.classList.contains("fits")) { sw.scrollLeft = 0; $("swPrev").hidden = $("swNext").hidden = true; return; }
+  const more = sw.scrollWidth - sw.clientWidth > 2;
   $("swPrev").hidden = !more || sw.scrollLeft < 4;
   $("swNext").hidden = !more || sw.scrollLeft > sw.scrollWidth - sw.clientWidth - 4;
 }
@@ -8164,6 +8176,7 @@ $("nextLvl").addEventListener("click", () => {
 $("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
 $("foundShare").addEventListener("click", shareFound);
 $("switcher").addEventListener("scroll", switchArrows, { passive: true });
+addEventListener("resize", () => requestAnimationFrame(switchArrows));
 for (const [id, dir] of [["swPrev", -1], ["swNext", 1]]) $(id).addEventListener("click", () => { sfx.tick(); const sw = $("switcher"); sw.scrollBy({ left: dir * sw.clientWidth * 0.8, behavior: "smooth" }); });
 $("arrangeFlip").addEventListener("click", arrangeFlip);
 $("arrangeStore").addEventListener("click", arrangeStore);
