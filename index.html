@@ -6278,12 +6278,26 @@ const ISO_ART = {
     const fw = Math.max(6, Math.abs(B.Buv[0] - B.Bv[0])), ds = 1 / fw;
     // the grille: gold dots on the dark
     for (let z = Math.round(hgt * 0.12); z < hgt * 0.5; z += 2) for (let s = 0.18; s < 0.84; s += 2 * ds) { const [px, py] = at(s, z); T.px(px, py, IC.y1); }
-    // the light window: an arch of colored bars, framed in gold
-    const bars = [IC.p0, IC.y0, IC.g0, IC.b0, IC.l1], archTop = s => hgt * 0.9 - ((s - 0.5) / 0.36) ** 2 * hgt * 0.14;
-    for (let s = 0.14; s < 0.87; s += ds) for (let z = Math.round(hgt * 0.56); z <= archTop(s) + 1; z++) {
-      const edge = s < 0.14 + ds * 1.2 || s > 0.87 - ds * 1.2 || z === Math.round(hgt * 0.56) || z > archTop(s);
-      const [px, py] = at(s, z); T.px(px, py, edge ? IC.y1 : bars[Math.floor((s - 0.16) / 0.7 * bars.length) % bars.length]);
+    // the arched window: a rim of colored lights that chase round it, and behind the glass a spinning record
+    // (grooves, a pink label, and a glint that turns with the music)
+    const f = o.frame || 0, bars = [IC.p0, IC.y0, IC.g0, IC.b0, IC.l1], archTop = s => hgt * 0.9 - ((s - 0.5) / 0.36) ** 2 * hgt * 0.14;
+    const z0 = Math.round(hgt * 0.56), rc = [0.5, (z0 + hgt * 0.84) / 2], rr = hgt * 0.15;
+    for (let s = 0.14; s < 0.87; s += ds) for (let z = z0; z <= archTop(s) + 1; z++) {
+      const edge = s < 0.14 + ds * 1.2 || s > 0.87 - ds * 1.2 || z === z0 || z > archTop(s);
+      const [px, py] = at(s, z);
+      if (edge) { T.px(px, py, bars[(Math.floor(s / ds) + Math.floor(z) + f) % bars.length]); continue; }
+      const du = (s - rc[0]) / ds / 2, dz = z - rc[1], d = Math.hypot(du, dz) / rr;
+      if (d < 1) {
+        const an = Math.atan2(dz, du), glint = Math.abs(((an / TAU * 8 + f) % 8 + 8) % 8 - 4) < 0.5;
+        T.px(px, py, d < 0.28 ? (d < 0.1 ? IC.white : IC.p1) : glint ? IC.s1 : Math.round(d * 6) % 2 ? IC.ink : IC.ink2);
+      } else T.px(px, py, IC.ink2);
     }
+    // a row of little selector buttons and a coin slot under the window
+    for (let k = 0; k < 6; k++) { const [px, py] = at(0.22 + k * 0.11, hgt * 0.53); T.px(px, py, [IC.r1, IC.y0, IC.g0, IC.b0, IC.p0, IC.white][k]); }
+    { const [px, py] = at(0.82, hgt * 0.53); T.px(px, py, IC.ink); T.px(px, py - 1, IC.ink); }
+    // glowing tubes up the side, cycling through the colors
+    const side = (s, z) => [B.Bu[0] + (B.Buv[0] - B.Bu[0]) * s, B.Bu[1] + (B.Buv[1] - B.Bu[1]) * s - z];
+    for (const [k, s2] of [[0, 0.3], [2, 0.65]]) for (let z = 3; z < hgt - 3; z++) { const [px, py] = side(s2, z); T.px(px, py, bars[(k + Math.floor(z / 4) + f) % bars.length]); }
     // gold trim up both sides and along the top of the front
     for (let z = 1; z < hgt - 1; z++) for (const s of [ds * 0.6, 1 - ds * 1.4]) { const [px, py] = at(s, z); T.px(px, py, IC.y1); }
     for (let s = 0; s < 1; s += ds) { const [px, py] = at(s, hgt - 1); T.px(px, py, IC.y0); }
@@ -7327,7 +7341,7 @@ const DRAW_DECOR = {
 /** Where each piece was drawn last, for tapping it (see spriteHit). */
 const pieceHits = {};
 /** What a piece's picture depends on right now (the lamp being off, the pond's ripple frame...). */
-const pieceExtra = p => p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : {};
+const pieceExtra = p => p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
 
 const decorFx = {};
 let swingPush = 0;
