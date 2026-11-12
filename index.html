@@ -31,8 +31,8 @@
     --glass-edge: rgba(255, 255, 255, .26);
     --accent: linear-gradient(135deg, #c9b8ff, #8fd8ef 55%, #b9e88a);
     --gold: #ffe9a8;
-    --top: max(14px, env(safe-area-inset-top));
-    --bottom: max(12px, env(safe-area-inset-bottom));
+    --top: max(14px, env(safe-area-inset-top), var(--tg-top, 0px));
+    --bottom: max(12px, env(safe-area-inset-bottom), var(--tg-bottom, 0px));
   }
   * { box-sizing: border-box; }
   html, body {
@@ -1304,6 +1304,7 @@ const UK = {
   "👯 Shared room": "👯 Спільна кімната",
   "Leave shared room": "Вийти зі спільної кімнати",
   "Couldn't save: tap backup and keep a backup code": "Не вдалося зберегти: зроби копію гніздечка в меню ⚙",
+  "Your nest came back from Telegram ✦": "Гніздечко повернулося з Telegram ✦",
   "tap the egg to crack it · aim for the glow ✦": "тапай по яйцю, щоб розбити · цілься в сяйво ✦",
   "the weak spot hides now: knocks sound higher near it": "тепер слабке місце ховається: біля нього стукіт звучить вище",
   "hard stone: find the weak spot by ear": "твердий камінь: шукай слабке місце на слух",
@@ -4612,7 +4613,7 @@ function buyForge(id) {
   save.shards -= cost;
   save.forge = { ...save.forge, [id]: l + 1 };
   sfx.levelUp();
-  if (navigator.vibrate) navigator.vibrate([12, 30, 12]);
+  buzz([12, 30, 12]);
   toast(tr("{0} · level {1} ✦", f.name, l + 1));
   taskDone("forge");
   persist();
@@ -4666,7 +4667,7 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   sfx.knock(res.weak);
   if (res.grown) sfx.crackle(Math.min(res.grown, 12));
   game.ripples.push({ x, y, t: 0, r: (20 + res.weak * 50) * L.k, h: res.weak });
-  if (navigator.vibrate) navigator.vibrate(res.crit ? 18 : 7);
+  buzz(res.crit ? 18 : 7);
   if (e.conf.spotGlow < 0.5 && res.weak > 0.2 && !res.crit) floatText("closer…", x, y - 30 * L.k, "#e6e0ff");
   updateDots();
 }
@@ -4717,7 +4718,7 @@ function openEgg() {
   burst(L.ecx, L.ecy, 36, ["#fff", ...e.crystal.c], 1.6);
   spawnChips(L.ecx, L.ecy, 24, 1.8);
   sfx.burst(e.crystal.rarity);
-  if (navigator.vibrate) navigator.vibrate([20, 40, 20]);
+  buzz([20, 40, 20]);
   setHint("");
 }
 
@@ -7630,7 +7631,7 @@ function sweepDust(x, y) {
   floatText("+1 ✦", hit.x, hit.y - hit.r * 2, "#fff0b5");
   sfx.tick();
   if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.08, 3000, 0.6, 0.12);
-  if (navigator.vibrate) navigator.vibrate(8);
+  buzz(8);
   persist();
   updateTopbar();
   renderNest();
@@ -8024,7 +8025,7 @@ function updateCatch(dt) {
       it.hit = true;
       if (it.pebble) {
         g.combo = 0; g.score = Math.max(0, g.score - 1); g.flinch = 0.4;
-        sfx.bonk(); if (navigator.vibrate) navigator.vibrate(20);
+        sfx.bonk(); buzz(20);
         floatText("bonk", it.x, it.y, "#ffb3a8");
       } else {
         g.combo++; g.score++;
@@ -8826,7 +8827,7 @@ $$(".overlay.modal").forEach(o => o.addEventListener("click", ev => {
 document.addEventListener("pointerdown", ev => {
   if (!ev.target.closest("button:not(:disabled), .btn")) return;
   sfx.press();
-  if (navigator.vibrate) navigator.vibrate(6);
+  buzz(6);
 }, { passive: true });
 $("taskPill").addEventListener("click", openTasks);
 const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now. A well-rested, happy glowling also cheers you on when you crack an egg: a few more shards."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."], ["Who made Hatchstone?", "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new)."]];
@@ -9847,6 +9848,79 @@ requestAnimationFrame(frame);
   }
 })();
 for (const el of $$("[data-ic]")) el.style.backgroundImage = `url(${pxIcon(el.dataset.ic)})`;
+
+// ---------- inside Telegram (as a Mini App): its back button, haptics, safe areas, and the save kept in Telegram's cloud ----------
+// Telegram opens the game with #tgWebAppData… in the address; anywhere else none of this loads, and the game is the same as ever
+let tg = null, tgCloud = false;
+/** A little buzz: Telegram's haptics when we have them, the phone's vibration otherwise. A pattern (array) is a "well done". */
+function buzz(p) {
+  const h = tg && tg.isVersionAtLeast("6.1") && tg.HapticFeedback;
+  if (h) { if (Array.isArray(p)) h.notificationOccurred("success"); else h.impactOccurred(p >= 18 ? "heavy" : p >= 10 ? "medium" : p >= 7 ? "light" : "soft"); return; }
+  if (navigator.vibrate) navigator.vibrate(p);
+}
+/** What Telegram's back button would do right now: close the top window, or leave the egg (it asks first), or nothing. */
+function tgBackTarget() {
+  const m = $$(".overlay.modal:not(.hidden)").pop();
+  if (m) return m.querySelector('[id$="Close"]') || m.querySelector("#keepCracking");
+  if (!$("catchDone").classList.contains("hidden")) return $("catchBack");
+  if (game.scene === "crack") return $("quit");
+  return null;
+}
+const TG_CHUNK = 4000, TG_MAX = 400;
+/** The save goes to Telegram's cloud in pieces (4096 characters each at most); geode pictures stay behind, they can be redrawn. */
+function tgCloudPut() {
+  if (!tgCloud || !validSave(save)) return;
+  const copy = JSON.parse(JSON.stringify(save));
+  for (const g of Object.values(copy.geodes || {})) delete g.img;
+  const text = JSON.stringify(copy), n = Math.ceil(text.length / TG_CHUNK);
+  if (n > TG_MAX) return;
+  for (let i = 0; i < n; i++) tg.CloudStorage.setItem("s" + i, text.slice(i * TG_CHUNK, (i + 1) * TG_CHUNK));
+  tg.CloudStorage.setItem("sn", `${n}|${copy.rev || 0}`);   // written last: a half-written save is never picked up
+}
+function tgCloudGet(done) {
+  tg.CloudStorage.getItem("sn", (err, head) => {
+    if (err || !head) return done(null);
+    const [n, rev] = head.split("|").map(Number);
+    if (!(n > 0 && n <= TG_MAX) || rev <= (save.rev || 0)) return done(null);
+    tg.CloudStorage.getItems(Array.from({ length: n }, (_, i) => "s" + i), (err2, parts) => {
+      if (err2 || !parts) return done(null);
+      try { done(JSON.parse(Array.from({ length: n }, (_, i) => parts["s" + i] || "").join(""))); } catch { done(null); }
+    });
+  });
+}
+function tgStart() {
+  tg = window.Telegram && Telegram.WebApp;
+  if (!tg || !tg.initData) { tg = null; return; }
+  document.body.classList.add("in-telegram");
+  tg.ready(); tg.expand();
+  if (tg.isVersionAtLeast("7.7")) tg.disableVerticalSwipes();   // tracing a crack downwards mustn't pull the game shut
+  if (tg.isVersionAtLeast("6.1")) { tg.setHeaderColor("#16123a"); tg.setBackgroundColor("#16123a"); }
+  if (tg.isVersionAtLeast("7.10")) tg.setBottomBarColor("#16123a");
+  // keep clear of Telegram's own buttons at the top in full screen
+  const insets = () => {
+    const a = tg.safeAreaInset || {}, c = tg.contentSafeAreaInset || {}, st = document.documentElement.style;
+    st.setProperty("--tg-top", ((a.top || 0) + (c.top || 0)) + "px"); st.setProperty("--tg-bottom", ((a.bottom || 0) + (c.bottom || 0)) + "px");
+  };
+  insets(); tg.onEvent("safeAreaChanged", insets); tg.onEvent("contentSafeAreaChanged", insets);
+  if (tg.isVersionAtLeast("6.1")) {
+    tg.BackButton.onClick(() => { const b = tgBackTarget(); if (b) b.click(); });
+    setInterval(() => { const on = !!tgBackTarget(); if (on !== tg.BackButton.isVisible) on ? tg.BackButton.show() : tg.BackButton.hide(); }, 300);
+  }
+  tgCloud = tg.isVersionAtLeast("6.9") && !!tg.CloudStorage;
+  if (tgCloud) {
+    // the same nest on your phone and your computer: take the cloud copy if it's newer, and keep it up to date
+    tgCloudGet(d => { if (d && validSave(d)) { adoptSave(d); store.set(SAVE_KEY, save); toast(tr("Your nest came back from Telegram ✦")); } });
+    let last = 0;
+    setInterval(() => { if (save.rev !== last) { last = save.rev; tgCloudPut(); } }, 20000);
+    addEventListener("visibilitychange", () => { if (document.hidden) tgCloudPut(); });
+    if (tg.isVersionAtLeast("8.0")) tg.onEvent("deactivated", tgCloudPut);
+  }
+}
+if (/[#&?]tgWebApp/.test(location.hash + location.search)) {
+  const sc = document.createElement("script");
+  sc.src = "https://telegram.org/js/telegram-web-app.js?65"; sc.onload = tgStart;
+  document.head.appendChild(sc);
+}
 </script>
 </body>
 </html>
