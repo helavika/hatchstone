@@ -1705,6 +1705,10 @@ const UK = {
 
 const UK_DATA = {
   crystals: {
+    turquoise: { name: "Бірюза", fact: "Небесно-блакитний мідний камінь із темними прожилками, який цінують уже тисячі років." },
+    pyrite: { name: "Пірит", fact: "Котяче золото: латунні кубики, такі рівні, ніби їх зробила машина." },
+    tourmaline: { name: "Кавуновий турмалін", fact: "Рожевий усередині й зелений по краю, як скибочка кавуна." },
+    sunstone: { name: "Сонячний камінь", fact: "Польовий шпат, повний крихітних мідних пластинок, що мерехтять, як захід сонця." },
     amethyst: { name: "Аметист", fact: "Фіолетовий кварц — класична «підкладка» жеоди. Колір йому дарують домішки заліза." },
     quartz: { name: "Гірський кришталь", fact: "Найчастіший гість у жеодах: шестигранні вершинки, прозорі, як лід." },
     citrine: { name: "Цитрин", fact: "Золотистий кварц. Природний цитрин — рідкість; здебільшого це прогрітий аметист." },
@@ -1724,6 +1728,10 @@ const UK_DATA = {
     lapis: { name: "Лазурит", fact: "Глибока синь із золотими цятками пириту, наче зорі. Уже 6 000 років із нього розтирають ультрамарин." }
   },
   species: {
+    veilfin: { lore: "Мугикає морські пісні, яких ніколи не чув. Любить воду й усіх, хто її приносить." },
+    cubbet: { lore: "Сидить нерухомо в ідеальних квадратах. Думає, що зроблений із золота, і ніхто не має серця сказати йому правду." },
+    melonpip: { lore: "Ледь чутно пахне літом. Коли щасливий, котиться замість іти." },
+    embermote: { lore: "Найтепліше світиться надвечір і щовечора йде за останнім сонячним промінцем через усю кімнату." },
     mothlet: { lore: "Летить на будь-яке світло — навіть на екран твого телефона. Лишає бузковий пилок на всьому, що любить." },
     dozeling: { lore: "Ще жодного разу не прокидався до кінця. Сниться йому все в ідеальних шестикутниках, а хропе він у мінорі." },
     glassling: { lore: "Такий прозорий, що видно, про що він думає. А думає він здебільшого про тебе." },
@@ -2300,6 +2308,10 @@ const CRYSTALS = [
   { id: "fluorite", name: "Fluorite", rarity: "rare", style: "cavity", c: ["#a98bf0", "#c4f2d6", "#5f7f9e"], fact: "Purple and green cubes. It glows under UV light, which is where 'fluorescence' got its name." },
   { id: "rhodochrosite", name: "Rhodochrosite", rarity: "rare", style: "banded", c: ["#f08aa0", "#ffd1db", "#b5485f"], fact: "Raspberry-pink bands, formed in old silver mines in Argentina." },
   { id: "malachite", name: "Malachite", rarity: "rare", style: "banded", c: ["#3fb07a", "#a8ecc8", "#1d6b49"], fact: "Swirling green copper mineral, once ground up to make green paint." },
+  { id: "turquoise", name: "Turquoise", rarity: "common", style: "flecks", c: ["#5fc9c0", "#c4f2ec", "#2f7d76"], fact: "Sky-blue copper stone with dark veins, treasured for thousands of years." },
+  { id: "pyrite", name: "Pyrite", rarity: "rare", style: "cavity", c: ["#e0c060", "#fff2b0", "#9a7a2a"], fact: "Fool's gold: brassy cubes so perfect they look machine-made." },
+  { id: "tourmaline", name: "Watermelon Tourmaline", rarity: "rare", style: "banded", c: ["#f07aa0", "#c8f0b0", "#3f9a5a"], fact: "Pink in the middle and green at the rim, like a slice of watermelon." },
+  { id: "sunstone", name: "Sunstone", rarity: "rare", style: "flash", c: ["#f7a35c", "#ffe0b8", "#c2623a"], fact: "Feldspar full of tiny copper plates that glitter like a sunset." },
   { id: "opal", name: "Opal", rarity: "legendary", style: "flash", c: ["#ffc8ef", "#c9f1ff", "#b9a2ff"], fact: "Tiny silica spheres split light into flashes of every color." },
   { id: "labradorite", name: "Labradorite", rarity: "legendary", style: "flash", c: ["#5d7a8f", "#9fe3e0", "#2c3e4f"], fact: "Gray stone that flashes peacock blue and gold when it turns in the light." },
   { id: "lapis", name: "Lapis Lazuli", rarity: "legendary", style: "flecks", c: ["#3a4fb8", "#9fb0ff", "#1c2366"], fact: "Deep blue with gold pyrite specks like stars. Ground into ultramarine paint for 6,000 years." },
@@ -2369,6 +2381,14 @@ const SPECIES = [
     lore: "A spring moon-egg kitten. Sneaks flowers into your pockets when you're not looking." },
   { id: "sunsplash", name: "Sunsplash", crystal: "moonstone", moon: "summer", pal: ["#7fe0d6", "#e0fff8", "#2fa39a"], body: "drop", head: "rays", back: "fins", pattern: "spots", eyes: "sparkle", snack: "dew", voice: 1.15,
     lore: "A summer moon-egg sprite. Leaves warm little puddles of light wherever it naps." },
+  { id: "veilfin", name: "Veilfin", crystal: "turquoise", body: "wide", back: "fins", pattern: "bubbles", eyes: "round", snack: "dew", voice: 0.9,
+    lore: "Hums sea songs it has never heard. Loves water, and anyone who brings it some." },
+  { id: "cubbet", name: "Cubbet", crystal: "pyrite", body: "round", head: "crystal", back: "tail", pattern: "spots", eyes: "round", snack: "cookie", voice: 0.95,
+    lore: "Sits very still in perfect squares. Thinks it's made of gold, and nobody has the heart to tell it." },
+  { id: "melonpip", name: "Melonpip", crystal: "tourmaline", body: "drop", head: "sprout", back: "ribbon", pattern: "stripes", eyes: "big", snack: "berry", voice: 1.2,
+    lore: "Smells faintly of summer. Rolls instead of walking when it's happy." },
+  { id: "embermote", name: "Embermote", crystal: "sunstone", body: "round", head: "rays", back: "comet", pattern: "freckles", eyes: "sparkle", snack: "dew", voice: 1.1,
+    lore: "Glows warmest at dusk, and follows the last sunbeam across the room every evening." }
 ];
 const rarityOf = sp => sp.moon ? "moon" : CRYSTAL[sp.crystal].rarity;
 const SP = Object.fromEntries(SPECIES.map(s => [s.id, s]));
@@ -5455,7 +5475,8 @@ const BEHAVIOR = {
   dozeling: "nap", smudgekin: "nap", dreamwisp: "nap", hushowl: "nap",
   skyfin: "swim", ripplet: "swim", bubblequill: "swim", cometail: "swim", auroray: "swim",
   blushbun: "hop", lunaroo: "hop", ringlet: "hop", sproutle: "hop",
-  glimmerfox: "curious", ambercub: "curious", mossmew: "curious", nebbit: "curious",
+  glimmerfox: "curious", ambercub: "curious", mossmew: "curious", nebbit: "curious", cubbet: "curious",
+  veilfin: "swim", melonpip: "hop", embermote: "flutter",
   petalpuff: "dance", rosettle: "dance", sunnub: "dance", glassling: "dance", prismpip: "dance", swirlhorn: "dance",
 };
 const ROOM_MAX = 12, ROOM_MAX_PHONE = 8;
