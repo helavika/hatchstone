@@ -3824,7 +3824,8 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   c.strokeStyle = shade(pal[2], -0.25); c.globalAlpha = 0.3; c.lineWidth = 1; c.stroke(); c.globalAlpha = 1;
   drawHeadTop(c, s, sp, t, pal, top, level);
   if (o.acc && !o.sil && !(mood === "asleep" && ["bow", "flowers", "mushroom", "crown", "star"].includes(o.acc))) drawAccessory(c, s, sp, top, o.acc);
-  if (mood === "asleep" && !o.sil) drawNightcap(c, s, sp, top);
+  // the nightcap is for bedtime: a quick doze elsewhere keeps the eyes shut but no cap
+  if (mood === "asleep" && !o.sil && o.cap !== false) drawNightcap(c, s, sp, top);
   if (faceStamp && !o.sil) {
     // inside a sprite cut, remember where the face goes; it's stamped pixel by pixel afterwards so the eyes stay crisp
     const m = c.getTransform(), at = (lx, ly) => [(m.a * lx + m.c * ly + m.e) / 2, (m.b * lx + m.d * ly + m.f) / 2];
@@ -5915,6 +5916,8 @@ function updateActors(dt) {
     const ease = (to, k) => { a.alt = lerp(a.alt, to, Math.min(1, dt * k)); };
     if (a.state === "sleep") ease(0, 4);
     else if (N.iso && a.state === "nap" && a.decor === "cushion") { const c = cloudSpot(); ease(a.y - c.bodyY + N.isoW / ISO_G * 0.75, 5); }
+    // a doze anywhere else: fliers and swimmers settle down to the floor instead of sleeping in mid-air
+    else if (a.state === "nap") ease(0, 4);
     else if (a.state === "visit" && (a.decor === "swing" || a.decor === "spring")) { /* set above */ }
     else if (a.beh === "flutter") ease(N.base * (0.5 + 0.14 * Math.sin(a.ph * 3)), 3);
     else if (a.beh === "swim") ease(N.base * (0.28 + 0.1 * Math.sin(a.ph * 1.6)), 3);
@@ -7697,7 +7700,7 @@ function drawActor(a) {
     }
     const asleep = a.state === "sleep" || a.state === "nap";
     const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || a.state === "visit" || (a.emote && a.emote.text === "♥") ? "happy" : moodOf(cr);
-    drawSprite(v.x, v.y, v.size, sp, { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 });
+    drawSprite(v.x, v.y, v.size, sp, { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, cap: a.state === "sleep", hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 });
     if (asleep) {
       fx.font = `400 ${Math.round(Math.max(14, v.size * 0.2))}px ${PIXEL_FONT}`;
       fx.fillStyle = "#d2bfff";
