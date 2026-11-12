@@ -1567,7 +1567,7 @@ const UK = {
   "How do I get three stars?": "Як отримати три зірки?",
   "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars.": "Шукай слабке місце: цілься в сяйво, а з 4 рівня прислухайся, де стукіт дзвенить вище. Влучиш — яйце трісне за менше ударів, а менше ударів — більше зірок.",
   "How do I look after my glowling?": "Як доглядати глоулінга?",
-  "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now.": "Гладь його пальцем, годуй смаколиками, грай у ловлю іскорок і вкладай спати, коли він сонний. Щасливий глоулінг отримує досвід і росте до 20 рівня. Кнопка, що світиться, підкаже, чого йому хочеться зараз.",
+  "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now. A well-rested, happy glowling also cheers you on when you crack an egg: a few more shards.": "Гладь його пальцем, годуй смаколиками, грай у ловлю іскорок і вкладай спати, коли він сонний. Щасливий глоулінг отримує досвід і росте до 20 рівня. Кнопка, що світиться, підкаже, чого йому хочеться зараз. А виспаний і щасливий глоулінг ще й підбадьорює тебе, коли ти розколюєш яйце: трохи більше осколків.",
   "What are shards for?": "Навіщо осколки?",
   "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg.": "На смаколики, прикраси для гніздечка й покращення молота в Кузні. Їх дають жеоди, щоденні завдання й місячне яйце.",
   "What is the moon egg?": "Що таке місячне яйце?",
@@ -1687,7 +1687,8 @@ const UK = {
   "A glowling portrait": "Портрет глоулінга",
   "Crystal cave": "Кришталева печера",
   "The painting now shows: {0}": "На картині тепер: {0}",
-  "Tap it in the room to change the picture": "Торкнись її в кімнаті, щоб змінити сюжет"
+  "Tap it in the room to change the picture": "Торкнись її в кімнаті, щоб змінити сюжет",
+  " \u00b7 cheered on by {0}: +{1} \u2726": " · підтримка від {0}: +{1} ✦"
 };
 
 const UK_DATA = {
@@ -4769,7 +4770,12 @@ function showFound() {
   const firstClear = !conf.wander && !save.stars[conf.n];
   const shine = e.matte ? e.matte.shine : 0;
   const moonBonus = conf.moon ? finishMoon() : 0;
-  const shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + e.gems + Math.round(shine * 10) + moonBonus;
+  let shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + e.gems + Math.round(shine * 10) + moonBonus;
+  // a well-rested, happy glowling cheers you on: a few more shards (the one you'd picked before this egg)
+  const buddy = !conf.coop && activeCreature();
+  let cheer = 0;
+  if (buddy && !buddy.out && !buddy.sleeping) { applyTime(buddy); if (buddy.energy >= 75 && buddy.joy >= 70) cheer = Math.max(2, Math.round(shards * 0.15)); }
+  shards += cheer;
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
   save.shards += shards;
   const { isNew, note, mine } = adopt(e);
@@ -4791,7 +4797,7 @@ function showFound() {
   $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
-  $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? tr(" · moon streak {0} 🔥", save.moon.streak) : "");
+  $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? tr(" · moon streak {0} 🔥", save.moon.streak) : "") + (cheer ? tr(" · cheered on by {0}: +{1} ✦", buddy.name, cheer) : "");
   $("stShine").textContent = Math.round(shine * 100) + "%";
   $("stTaps").textContent = e.taps;
   $("stPar").textContent = tr("taps · ★ in {0}", e.par);
@@ -8731,7 +8737,7 @@ document.addEventListener("pointerdown", ev => {
   if (navigator.vibrate) navigator.vibrate(6);
 }, { passive: true });
 $("taskPill").addEventListener("click", openTasks);
-const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."], ["Who made Hatchstone?", "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new)."]];
+const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now. A well-rested, happy glowling also cheers you on when you crack an egg: a few more shards."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."], ["Who made Hatchstone?", "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new)."]];
 function openFaq() {
   sfx.tick();
   const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
