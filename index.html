@@ -556,7 +556,15 @@
   #switcher button { position: relative; }
   #switcher button.out img { opacity: .45; filter: grayscale(.5); }
   #switcher button.out::after { content: "🧭"; position: absolute; right: -3px; bottom: -3px; font-size: 13px; line-height: 1; }
-  #homeCount { color: var(--soft); text-shadow: 0 2px 0 var(--px-ink); font-size: 13px; white-space: nowrap; }
+  #homePill[hidden] { display: none; }
+  .home-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; margin-bottom: 6px; }
+  .home-grid button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; font-size: 11px; position: relative; }
+  .home-grid button img { width: 40px; height: 40px; image-rendering: pixelated; }
+  .home-grid button small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .home-grid button.out img { opacity: .5; filter: grayscale(.5); }
+  .home-grid button.out::after { content: "🧭"; position: absolute; right: 4px; top: 4px; font-size: 12px; }
+  #homeList h3 { margin: 8px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
+  #homeList { max-height: 58vh; overflow-y: auto; }
   /* native-pixel pictures: always a whole number of screen pixels per art pixel */
   img.px2 { object-fit: fill; image-rendering: pixelated; }
   #libGrid .pg img.lib-px { width: 64px; height: 64px; object-fit: fill; image-rendering: pixelated; }
@@ -748,8 +756,13 @@
   body.compact #found .stats span { font-size: 13px; }
   body.compact #found .row.center { margin-top: 10px; }
   /* very narrow: icons and numbers only on the top bar, ? and language live in the menu, the buttons stack their labels */
-  body.narrow #topbar .faq-btn, body.narrow #topbar .lang-btn { display: none; }
-  body.narrow .menu-only { display: inline-flex !important; }
+  body.narrow #topbar .faq-btn, body.narrow #topbar .lang-btn, body.tight #topbar .faq-btn, body.tight #topbar .lang-btn { display: none; }
+  body.narrow .menu-only, body.tight .menu-only { display: inline-flex !important; }
+  body.tight #topbar .pill:not(.round) { padding: 0 9px; }
+  /* and if even that doesn't fit: a little smaller all round */
+  body.tighter #topbar .row { gap: 4px; }
+  body.tighter #topbar .pill:not(.round) { padding: 0 5px; font-size: 14px; }
+  body.tighter #topbar .pill.stack .ic { width: 16px; height: 16px; margin-right: 1px; }
   body.compact .pill.stack small { display: none; }
   body.compact #topbar .pill.stack { min-width: 0; }
   body.narrow #topbar .pill:not(.round) { padding: 0 9px; }
@@ -783,6 +796,7 @@
     <div class="pill glass stack" title="Shards: spend them on snacks, decor and the forge"><b id="shardPill">✦ 0</b><small>shards</small></div>
     <div class="pill glass stack" title="Stars from the grotto levels"><b id="starPill">★ 0</b><small>stars</small></div>
     <button class="pill glass btn stack" id="taskPill" title="Today's little tasks"><b id="taskCount">0/3</b><small>tasks</small></button>
+    <button class="pill glass btn stack" id="homePill" title="Who's at home and who's exploring" hidden><b id="homeCount"></b><small>at home</small></button>
   </div>
   <div class="row menu-wrap">
     <button class="pill glass btn round faq-btn" aria-label="Questions &amp; answers"><i class="ic" data-ic="help"></i></button>
@@ -892,7 +906,6 @@
   <button id="nestName"></button><button id="nestShare" aria-label="Share a postcard"><i class="ic" data-ic="postcard"></i></button>
   <div id="nestLvl"></div>
   <div class="bar" id="xpBar"><i></i></div>
-  <div id="homeCount" hidden></div>
 </div>
 <div id="nestEmpty" hidden>
   <div class="card glass dark">
@@ -933,6 +946,14 @@
   </div>
 </div>
 
+<div id="homeSheet" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Who's at home</h2>
+    <p class="sub" id="homeSub"></p>
+    <div id="homeList"></div>
+    <button class="ghost" id="homeClose">close</button>
+  </div>
+</div>
 <div id="jukebox" class="overlay modal hidden">
   <div class="card glass dark">
     <h2>Music box</h2>
@@ -1627,7 +1648,13 @@ const UK = {
   "Knock": "Стук",
   "Rare crystal": "Рідкісний кристал",
   "Legendary crystal": "Легендарний кристал",
-  "Cracking stone": "Тріск каменю"
+  "Cracking stone": "Тріск каменю",
+  "Who's at home and who's exploring": "Хто вдома, а хто досліджує",
+  "at home": "вдома",
+  "Who's at home": "Хто вдома",
+  "The nest fits {0} glowlings at once. The others are exploring the grotto and need nothing while they're away. Tap an explorer to call it home: if the nest is full, the one home longest goes out instead.": "У гніздечку вміщається {0} глоулінгів одночасно. Інші досліджують грот і, поки їх немає, нічого не потребують. Торкнись дослідника, щоб покликати додому: якщо гніздечко повне, натомість вирушить той, хто вдома найдовше.",
+  "At home · {0}/{1}": "Вдома · {0}/{1}",
+  "Exploring · {0}": "Досліджують · {0}"
 };
 
 const UK_DATA = {
@@ -4905,7 +4932,21 @@ function updateTopbar() {
   const n = nextLevel();
   $("crackLvl").textContent = n ? tr("Lv {0}", n) : tr("Wander");
   renderTaskPill();
+  // who's home, out of everyone (only once somebody is out exploring)
+  const away = save.creatures.filter(c => c.out).length;
+  $("homePill").hidden = !away;
+  if (away) $("homeCount").innerHTML = `${ic("nest")}${save.creatures.length - away}/${save.creatures.length}`;
+  fitTopbar();
   updateCalls();
+}
+/** When the top bar's pills don't fit across the screen, ? and the language move into the ⚙ menu (as on the narrowest phones). */
+function fitTopbar() {
+  const body = document.body, rows = $$("#topbar .row");
+  body.classList.remove("tight", "tighter");
+  if (rows.length < 2) return;
+  const over = () => { const [l, r] = rows.map(e => e.getBoundingClientRect()); return r.right > innerWidth + 1 || l.right > r.left - 4 || $("topbar").scrollWidth > $("topbar").clientWidth + 1; };
+  if (over()) body.classList.add("tight");
+  if (over()) body.classList.add("tighter");
 }
 
 // ---------- the daily moon egg ----------
@@ -5010,10 +5051,6 @@ function renderNest(full) {
     if (btn) { btn.style.setProperty("--fill", Math.ceil(cr[k] / 25) / 4); btn.classList.toggle("lowfill", cr[k] < 25); }
     $("v" + id).textContent = Math.round(cr[k]);
   }
-  // how many are home and how many exploring (only once some are out)
-  const away = save.creatures.filter(c => c.out).length;
-  $("homeCount").hidden = !away;
-  if (away) $("homeCount").textContent = `🏠 ${save.creatures.length - away} · 🧭 ${away}`;
   $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Sleep");
   $("feedBtn").disabled = cr.sleeping;
   // the button for what it needs lights up, the way a Tamagotchi's attention icon does
@@ -5236,7 +5273,7 @@ function settleHome() {
   }
   const away = save.creatures.filter(c => c.out).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
   while (home.length < cap && away.length) { const c = away.shift(); c.out = false; c.homeAt = Date.now(); c.last = Date.now(); home.push(c); }
-  if (sent.length) persist();
+  if (sent.length) { persist(); if (typeof updateTopbar === "function") updateTopbar(); }
   return sent;
 }
 /** Tap an explorer in the row: it comes home (and if the nest is full, someone else heads out). */
@@ -5247,7 +5284,22 @@ function callHome(id) {
   save.active = id;
   const sent = settleHome();
   toast(sent.length ? tr("{0} came home, and {1} went exploring 🧭", c.name, sent[0].name) : tr("{0} came home ✦", c.name));
-  persist();
+  persist(); updateTopbar();
+}
+/** Who's at home and who's out exploring, with what that means; tap an explorer to call it home. */
+function openHome() {
+  sfx.tick();
+  const cap = homeCap(), home = save.creatures.filter(c => !c.out), away = save.creatures.filter(c => c.out);
+  $("homeSub").textContent = tr("The nest fits {0} glowlings at once. The others are exploring the grotto and need nothing while they're away. Tap an explorer to call it home: if the nest is full, the one home longest goes out instead.", cap);
+  const card = c => `<button class="pillbtn${c.out ? " out" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt=""><small>${c.name}</small></button>`;
+  $("homeList").innerHTML = `<h3>${tr("At home · {0}/{1}", home.length, cap)}</h3><div class="home-grid">${home.map(card).join("")}</div>`
+    + (away.length ? `<h3>${tr("Exploring · {0}", away.length)}</h3><div class="home-grid">${away.map(card).join("")}</div>` : "");
+  $$("#homeList [data-id]").forEach(b => b.addEventListener("click", () => {
+    const id = Number(b.dataset.id);
+    if (save.creatures.find(c => c.id === id)?.out) callHome(id); else save.active = id;
+    persist(); syncActors(); renderNest(true); updateTopbar(); openHome();
+  }));
+  show("homeSheet", true);
 }
 /** The glowlings in the room: everyone at home. */
 function roomCreatures() {
@@ -8246,7 +8298,7 @@ $("nextLvl").addEventListener("click", () => {
 $("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
 $("foundShare").addEventListener("click", shareFound);
 $("switcher").addEventListener("scroll", switchArrows, { passive: true });
-addEventListener("resize", () => requestAnimationFrame(switchArrows));
+addEventListener("resize", () => requestAnimationFrame(() => { switchArrows(); fitTopbar(); }));
 for (const [id, dir] of [["swPrev", -1], ["swNext", 1]]) $(id).addEventListener("click", () => { sfx.tick(); const sw = $("switcher"); sw.scrollBy({ left: dir * sw.clientWidth * 0.8, behavior: "smooth" }); });
 $("arrangeFlip").addEventListener("click", arrangeFlip);
 $("arrangeStore").addEventListener("click", arrangeStore);
@@ -8298,6 +8350,8 @@ $("foundMap").addEventListener("click", () => { if (coopSession) coopEnd("naviga
 $("feedBtn").addEventListener("click", openSnacks);
 $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
+$("homeClose").addEventListener("click", () => show("homeSheet", false));
+$("homePill").addEventListener("click", openHome);
 $("playBtn").addEventListener("click", startCatch);
 $("sleepBtn").addEventListener("click", toggleSleep);
 $("catchBack").addEventListener("click", () => { show("catchDone", false); game.catch = null; setScene("nest"); });
