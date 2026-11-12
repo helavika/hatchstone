@@ -6223,31 +6223,27 @@ const ISO_ART = {
     for (let k = 0; k < 16; k++) { const an = k / 16 * TAU; if (k % 2) T.px(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr / 2, IC.b0); }
   },
   armchair(t, T, ax, ay) {
-    // a plump round tub chair, made like the bed: a soft round base on short wooden legs, a seat cushion on top,
-    // and a ring of fat cushions round the back and the sides (high at the back, lower for the arms); a pink pillow inside
-    const cx = ax, cy = ay + t / 2 + 1, rx = t * 0.44, ry = rx / 2, lift = Math.max(2, Math.round(t * 0.07)), seatH = Math.round(t * 0.2);
-    for (const [dx, dy] of [[-0.6, 0.1], [0.6, 0.1], [0, 0.8]]) { const lx = cx + dx * rx, ly = cy + dy * ry; for (let k = 0; k < lift; k++) { T.px(lx, ly - k, k ? IC.w2 : IC.w3); T.px(lx + 1, ly - k, IC.w3); } }
-    const by = cy - lift;
-    T.cyl(cx, by, rx, seatH, IC.g1, IC.g2, IC.g3);
-    const top = by - seatH, r = Math.max(2.5, t * 0.17);
-    // the back half of the ring first (it's behind the seat), big and high
-    const ring = front => {
-      const n = 9;
-      for (let k = 0; k <= n; k++) {
-        const an = Math.PI + k / n * Math.PI, sy = Math.sin(an), side = Math.abs(Math.cos(an));
-        if (front !== (side > 0.82)) continue;
-        const rr = r * (side > 0.82 ? 0.95 : 1.15), up = side > 0.82 ? r * 0.7 : r * (1.2 + (1 - side) * 1.8);
-        T.ball(cx + Math.cos(an) * rx * 0.86, top + sy * ry * 0.86 - up, rr, IC.g0, IC.g1, IC.g2, rr * 0.92);
-      }
-    };
-    for (const k of [-0.45, 0, 0.45]) T.ball(cx + k * rx * 0.9, top - ry * 0.75 - r * 3, r * 1.1, IC.g0, IC.g1, IC.g2, r);
-    T.ball(cx, top - ry * 0.6 - r * 1.8, r * 1.2, IC.g0, IC.g1, IC.g2, r * 1.1);
-    ring(false);
-    T.disc(cx, top - 1, rx * 0.72, (x, y) => (Math.hypot((x - cx) / (rx * 0.72), (y - top + 1) / (ry * 0.72)) > 0.75 ? IC.g1 : IC.g0));   // the seat cushion
-    T.ball(cx - rx * 0.25, top - r * 1.2, r * 0.8, IC.p0, IC.p1, IC.p2, r * 0.72);                                                         // a pink pillow
-    ring(true);
-    // the arms come round to the front: one more cushion each side, nearest you
-    for (const d of [-1, 1]) T.ball(cx + d * rx * 0.8, top + ry * 0.35 - r * 0.6, r * 0.9, IC.g0, IC.g1, IC.g2, r * 0.85);
+    // a retro-futuristic armchair: a boxy white space-age shell with rounded, lit edges, chunky arms and a tall back,
+    // plump orange cushions, on slim splayed chrome legs
+    const a = t * 0.44, b = t * 0.42, x = ax + 1, y = ay + 2, lift = Math.max(4, Math.round(t * 0.18));
+    const at = (du, dv, up = 0) => [x + 2 * du - 2 * dv, y + du + dv - up];
+    const shell = [IC.white, IC.s0, IC.s1], cush = [pxHex("#f2a07b"), IC.r1, IC.r2], arm = Math.max(1.8, a * 0.2);
+    // slim chrome legs, splayed a little, with a glint
+    for (const [du, dv, sx] of [[0.8, 0.8, -1], [a - 0.8, 0.8, 1], [0.8, b - 0.6, -1], [a - 0.8, b - 0.6, 1]]) {
+      const [fx, fy] = at(du, dv), [tx, ty] = at(du, dv, lift);
+      T.line(fx + sx, fy, tx, ty, IC.s1); T.line(fx + sx + 1, fy, tx + 1, ty, IC.s3); T.px(tx, ty + 1, IC.white);
+    }
+    const seatH = Math.round(t * 0.2), backH = Math.round(t * 0.82), armH = Math.round(t * 0.42);
+    T.box(...at(0, 0, lift), a, b, seatH, ...shell);                               // the shell's seat
+    T.box(...at(0, 0, lift), a, 2.4, backH, ...shell);                              // the tall back, against the wall
+    T.box(...at(arm, 2.4, lift + seatH), a - arm * 2, b - 3, 2, ...cush, false);    // the seat cushion
+    T.box(...at(arm, 2.4, lift + seatH), a - arm * 2, 1.2, backH - seatH - 3, ...cush, false); // the back cushion
+    T.box(...at(0, 0, lift), arm, b, armH, ...shell);                               // left arm
+    T.box(...at(a - arm, 0, lift), arm, b, armH, ...shell);                         // right arm
+    // rounded, lit edges along the tops of the arms and the back, and an orange stripe round the shell
+    for (const du of [arm / 2, a - arm / 2]) { const [l0x, l0y] = at(du, 0.6, lift + armH + 1), [l1x, l1y] = at(du, b - 0.4, lift + armH + 1); T.line(l0x, l0y, l1x, l1y, IC.white); }
+    { const [l0x, l0y] = at(0.4, 1.2, lift + backH + 1), [l1x, l1y] = at(a - 0.4, 1.2, lift + backH + 1); T.line(l0x, l0y, l1x, l1y, IC.white); }
+    { const [l0x, l0y] = at(0, b, lift + 2), [l1x, l1y] = at(a, b, lift + 2); T.line(l0x, l0y, l1x, l1y, IC.r1); }
   },
   cushion(t, T, ax, ay, o = {}) {
     const cx = ax, cy = ay + t / 2;
