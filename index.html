@@ -6119,9 +6119,9 @@ const ISO_ART = {
       while (s < 1 - 4 * ds) {
         k++;
         if (pxHash(k, 5 + row) > 0.9) { s += 2 * ds; continue; }
-        const w = pxHash(k, row + 3) > 0.55 ? 3 : 2, col = BOOKS[Math.floor(pxHash(k, 11 + row) * BOOKS.length)];
+        const w = pxHash(k, row + 3) > 0.5 ? 4 : 3, col = BOOKS[Math.floor(pxHash(k, 11 + row) * BOOKS.length)];
         const tall = Math.round(top - 1 - pxHash(k, 7) * Math.min(3, rowH * 0.3));
-        if (row === 1 && s > 0.62 && s < 0.8) { book(s, 2, z0, Math.round(tall - 1), col, 0.35); s += 5 * ds; continue; }
+        if (row === 1 && s > 0.62 && s < 0.8) { book(s, 3, z0, Math.round(tall - 1), col, 0.35); s += 6 * ds; continue; }
         book(s, w, z0, tall, col);
         s += w * ds;
       }
@@ -6265,13 +6265,27 @@ const ISO_ART = {
     T.px(mx, my, IC.y0); T.px(mx, my + 1, IC.y1); T.px(mx - 1, my + 1, IC.w1);
   },
   plant(t, T, ax, ay) {
-    const cx = ax, cy = ay + t / 2, ph = Math.round(t * 0.3);
-    T.cyl(cx, cy, t * 0.26, ph, IC.r3, IC.r1, IC.r2);
-    T.disc(cx, cy - ph, t * 0.2, IC.w3);
-    for (const [dx, h, lean, c0, c1] of [[-2, 0.75, -0.25, IC.b0, IC.b1], [1, 1.0, 0.1, IC.l0, IC.l2], [3, 0.6, 0.35, IC.b0, IC.b2], [-4, 0.5, -0.45, IC.l1, IC.l3]]) {
-      const bx = cx + dx, by = cy - ph, hh = t * h;
-      T.poly([[bx - 1, by], [bx + lean * hh - 1, by - hh * 0.75], [bx + lean * hh, by - hh], [bx + lean * hh + 1, by - hh * 0.75], [bx + 1, by]], (x) => x < bx + lean * hh * 0.5 ? c0 : c1);
-    }
+    // a plump succulent in a clay pot: a rosette of thick, rounded leaves in three rings, each leaf shaded like a little
+    // ball with a blush-pink tip; the outer ring lies low and wide, the inner ones sit higher and lighter, a bud in the middle
+    const cx = ax, cy = ay + t / 2, ph = Math.round(t * 0.28);
+    T.cyl(cx, cy, t * 0.24, ph, IC.r2, IC.r1, IC.r3);
+    T.disc(cx, cy - ph, t * 0.26, IC.r1); T.disc(cx, cy - ph, t * 0.21, IC.w3);
+    const top = cy - ph - 1;
+    // one pointed, fleshy leaf from the middle outward: lit on one side of the midrib, shaded on the other, tip curling up
+    const leaf = (an, len, wid, lift, curl, light, dark) => {
+      const dx = Math.cos(an), dy = Math.sin(an) * 0.5, px = -Math.sin(an), py = Math.cos(an) * 0.5;
+      const bx = cx, by = top - lift, tx = bx + dx * len, ty = by + dy * len - curl;
+      const mx = bx + dx * len * 0.5, my = by + dy * len * 0.5 - curl * 0.3;
+      T.poly([[bx, by], [mx + px * wid, my + py * wid], [tx, ty], [mx - px * wid, my - py * wid]], (x, y) => ((x - bx) * (ty - by) - (y - by) * (tx - bx)) * (Math.cos(an) > 0 ? 1 : -1) > 0 ? dark : light);
+      T.px(tx, ty, IC.p1);
+    };
+    const ring = (n, len, wid, lift, curl, light, dark, turn) => {
+      for (const an of Array.from({ length: n }, (_, k) => k / n * TAU + turn).sort((p, q) => Math.sin(p) - Math.sin(q))) leaf(an, len, wid, lift, curl, light, dark);
+    };
+    ring(8, t * 0.48, t * 0.16, 0, t * 0.06, IC.g1, IC.g2, 0.2);
+    ring(7, t * 0.34, t * 0.14, t * 0.07, t * 0.12, IC.g0, IC.g1, 0.65);
+    ring(5, t * 0.2, t * 0.1, t * 0.13, t * 0.16, IC.b0, IC.g0, 1.2);
+    T.ball(cx, top - t * 0.16, Math.max(1.5, t * 0.05), IC.white, IC.b0, IC.g0);
   },
   table(t, T, ax, ay) {
     const cx = ax, cy = ay + t / 2, lift = Math.round(t * 0.42), rx = t * 0.4;
