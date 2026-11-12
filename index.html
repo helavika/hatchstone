@@ -2988,7 +2988,7 @@ function levelConf(n) {
 // Progress is precious: a main save, a "last good" copy, and care when several tabs are open.
 const SAVE_KEY = "hatchstone.save", BAK_KEY = "hatchstone.save.bak";
 const SAVE_VERSION = 1;
-const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }], room: 0, bars: { firefly: 2, nut: 1 } });
+const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 } });
 const validSave = d => d && typeof d === "object" && Array.isArray(d.creatures) && typeof d.stars === "object";
 
 let startedEmpty = true; // no nest in storage when this page opened
@@ -3022,6 +3022,7 @@ function migrate(d) {
   if (!Array.isArray(d.rooms) || !d.rooms.length) { d.rooms = [{ kind: "nest", on: [] }]; d.room = 0; }
   if (!(d.room >= 0 && d.room < d.rooms.length)) d.room = 0;
   if (!d.bars) d.bars = { firefly: 2, nut: 1 };
+  if (!d.oil || !Number.isFinite(d.oil.n)) d.oil = { n: 5, t: 0 };
   d.v = SAVE_VERSION;
   return d;
 }
@@ -5400,8 +5401,9 @@ const BARS = {
 };
 /** Oil in the lantern now: one drop comes back every 20 minutes up to the brim (bars can fill it past that). */
 function oilNow() {
-  const now = Date.now(), o = save.oil && Number.isFinite(save.oil.n) ? save.oil : (save.oil = { n: OIL_MAX, t: now });
-  if (o.n >= OIL_MAX) { o.t = now; return o.n; }
+  // (only reads: a full lantern leaves the save alone, so looking at it never changes anything)
+  const now = Date.now(), o = save.oil;
+  if (o.n >= OIL_MAX) return o.n;
   const k = Math.floor((now - o.t) / OIL_EVERY);
   if (k > 0) { o.n = Math.min(OIL_MAX, o.n + k); o.t = o.n >= OIL_MAX ? now : o.t + k * OIL_EVERY; }
   return o.n;
@@ -5411,6 +5413,8 @@ const oilNext = () => Math.max(0, save.oil.t + OIL_EVERY - Date.now());
 const tripCosts = n => !(n > 0 && save.stars[n] >= 3);
 function burnOil() {
   if (oilNow() < 1) return false;
+  // the 20 minutes start counting from the first drop used
+  if (save.oil.n >= OIL_MAX) save.oil.t = Date.now();
   save.oil.n--;
   persist();
   updateTopbar();
@@ -9273,7 +9277,7 @@ $("quit").addEventListener("click", () => {
   const e = game.egg;
   const started = e && e.state === "cracking" && e.taps > 0;
   if (started) { sfx.tick(); show("confirmLeave", true); return; }
-  if (e && e.paid && !e.taps) { e.paid = false; oilNow(); save.oil.n++; persist(); }
+  if (e && e.paid && !e.taps) { e.paid = false; oilNow(); save.oil.n++; persist(); updateTopbar(); }
   setScene("map");
 });
 $("keepCracking").addEventListener("click", () => show("confirmLeave", false));
