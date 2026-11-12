@@ -6311,27 +6311,37 @@ const ISO_ART = {
     for (let k = 0; k < 16; k++) { const an = k / 16 * TAU; if (k % 2) T.px(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr / 2, IC.b0); }
   },
   armchair(t, T, ax, ay) {
-    // a retro-futuristic armchair: a boxy white space-age shell with rounded, lit edges, chunky arms and a tall back,
-    // plump orange cushions, on slim splayed chrome legs
-    const a = t * 0.44, b = t * 0.42, x = ax + 1, y = ay + 2, lift = Math.max(4, Math.round(t * 0.18));
-    const at = (du, dv, up = 0) => [x + 2 * du - 2 * dv, y + du + dv - up];
-    const shell = [IC.white, IC.s0, IC.s1], cush = [pxHex("#f2a07b"), IC.r1, IC.r2], arm = Math.max(1.8, a * 0.2);
-    // slim chrome legs, splayed a little, with a glint
-    for (const [du, dv, sx] of [[0.8, 0.8, -1], [a - 0.8, 0.8, 1], [0.8, b - 0.6, -1], [a - 0.8, b - 0.6, 1]]) {
-      const [fx, fy] = at(du, dv), [tx, ty] = at(du, dv, lift);
-      T.line(fx + sx, fy, tx, ty, IC.s1); T.line(fx + sx + 1, fy, tx + 1, ty, IC.s3); T.px(tx, ty + 1, IC.white);
-    }
-    const seatH = Math.round(t * 0.2), backH = Math.round(t * 0.82), armH = Math.round(t * 0.42);
-    T.box(...at(0, 0, lift), a, b, seatH, ...shell);                               // the shell's seat
-    T.box(...at(0, 0, lift), a, 2.4, backH, ...shell);                              // the tall back, against the wall
-    T.box(...at(arm, 2.4, lift + seatH), a - arm * 2, b - 3, 2, ...cush, false);    // the seat cushion
-    T.box(...at(arm, 2.4, lift + seatH), a - arm * 2, 1.2, backH - seatH - 3, ...cush, false); // the back cushion
-    T.box(...at(0, 0, lift), arm, b, armH, ...shell);                               // left arm
-    T.box(...at(a - arm, 0, lift), arm, b, armH, ...shell);                         // right arm
-    // rounded, lit edges along the tops of the arms and the back, and an orange stripe round the shell
-    for (const du of [arm / 2, a - arm / 2]) { const [l0x, l0y] = at(du, 0.6, lift + armH + 1), [l1x, l1y] = at(du, b - 0.4, lift + armH + 1); T.line(l0x, l0y, l1x, l1y, IC.white); }
-    { const [l0x, l0y] = at(0.4, 1.2, lift + backH + 1), [l1x, l1y] = at(a - 0.4, 1.2, lift + backH + 1); T.line(l0x, l0y, l1x, l1y, IC.white); }
-    { const [l0x, l0y] = at(0, b, lift + 2), [l1x, l1y] = at(a, b, lift + 2); T.line(l0x, l0y, l1x, l1y, IC.r1); }
+    // a big puffy bubble chair in deep green velvet: a ring of fat round cushions (tall at the back, lower for the arms,
+    // plump pumpkin-like ones along the front), a seat of more cushions inside, and a fine dotted weave all over
+    const cx = ax, cy = ay + t / 2 + 1, rx = t * 0.8, ry = rx / 2, r = Math.max(2.5, t * 0.23), seatY = cy - r * 0.8, seam = pxHex("#123a24");
+    const bubble = (x, y, rr, rh, lit0 = IC.g1, mid = IC.g2) => {
+      T.ball(x, y + 0.6, rr + 0.9, seam, seam, seam, rh + 0.9);         // a dark seam where it presses into its neighbours
+      T.ball(x, y, rr, lit0, mid, IC.g3, rh);
+      T.px(x - rr * 0.4, y - rh * 0.5, IC.g0);                            // a soft sheen
+      // the dotted weave: little dents in a staggered grid
+      for (let py = Math.ceil(y - rh) + 1; py < y + rh; py += 2) for (let px = Math.ceil(x - rr) + (py & 2 ? 1 : 0); px < x + rr; px += 3) {
+        const dx = (px + 0.5 - x) / rr, dy = (py + 0.5 - y) / rh, lit = -dx * 0.6 - dy * 0.8;
+        if (dx * dx + dy * dy < 0.72 && lit > -0.35) T.px(px, py, lit > 0.45 ? mid : IC.g3);
+      }
+    };
+    T.cyl(cx, cy - 1, rx * 0.9, Math.round(r * 1.2), IC.g2, IC.g3, IC.g3);    // the solid body under the cushions, right on the floor
+    const ring = (front) => {
+      const n = 10, out = [];
+      for (let k = 0; k < n; k++) {
+        const an = (k + 0.5) / n * TAU, sn = Math.sin(an);
+        if ((sn > 0.05) !== front) continue;
+        const back = Math.max(0, -sn), rr = r * (1 + back * 0.3), rh = front ? rr * 1.15 : rr * 1.05;
+        out.push([cx + Math.cos(an) * rx * 0.8, seatY + sn * ry * 0.8 - (front ? -r * 0.35 : r * (0.4 + back * 1.5)), rr, rh]);
+      }
+      out.sort((p, q) => p[1] - q[1]).forEach(q => bubble(...q));
+    };
+    ring(false);
+    // the back cushions you lean on, filling in between the high back and the seat
+    for (const dx of [-0.42, 0, 0.42]) bubble(cx + dx * rx, seatY - ry * 0.3 - r * (1.2 - Math.abs(dx)), r * 1.05, r * 0.9);
+    // the seat: plump cushions tucked inside the ring
+    // the seat, sunk a little and catching the light from above, so you can see where to sit
+    for (const [dx, dy] of [[-0.24, -0.25], [0.24, -0.25], [0, 0.2]]) bubble(cx + dx * rx, seatY - r * 0.45 + dy * ry, r * 0.95, r * 0.6, IC.g0, IC.g1);
+    ring(true);
   },
   cushion(t, T, ax, ay, o = {}) {
     const cx = ax, cy = ay + t / 2;
