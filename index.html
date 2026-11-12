@@ -6340,20 +6340,36 @@ const ISO_ART = {
     // a big round, puffy nest-bed over two tiles each way, all fabric: an oval base, a plump rim of cushions all round
     // (like a doughnut), a soft white middle with pillows, and a striped pink quilt tucked in at the front
     const cx = ax, cy = ay + t, rx = t * 1.75, ry = rx / 2, lift = Math.max(3, Math.round(t * 0.14));
+    // a cushion with its seam: the ball, then a darker line round its shaded lower edge (so each cushion stands apart)
+    const cushion = (x, y, r, ry2, cols, seam) => {
+      T.ball(x, y, r, ...cols, ry2);
+      for (let py = Math.floor(y - ry2); py <= Math.ceil(y + ry2); py++) for (let qx = Math.floor(x - r); qx <= Math.ceil(x + r); qx++) {
+        const dx = (qx + 0.5 - x) / r, dy = (py + 0.5 - y) / ry2, d = dx * dx + dy * dy;
+        if (d <= 1 && d > 0.72 && dx * 0.6 + dy * 0.8 > 0.15) T.px(qx, py, seam);
+      }
+    };
     T.cyl(cx, cy, rx, lift, IC.l2, IC.l3, IC.l4);
+    // piping round the base's top edge
+    for (let k = 0; k < 120; k++) { const an = k / 120 * TAU; if (Math.sin(an) > -0.2) T.px(cx + Math.cos(an) * rx, cy - lift + Math.sin(an) * ry, IC.l1); }
     T.disc(cx, cy - lift, rx * 0.8, (x, y) => (Math.hypot((x - cx) / (rx * 0.8), (y - cy + lift) / (ry * 0.8)) > 0.8 ? IC.s1 : IC.s0));
     const rim = (front) => {
       const n = 16, r = Math.max(2.5, t * 0.3);
       for (let k = 0; k < n; k++) {
         const an = k / n * TAU, sy = Math.sin(an);
         if ((sy > 0.15) !== front) continue;
-        T.ball(cx + Math.cos(an) * rx * 0.86, cy - lift + sy * ry * 0.86 - r * 0.4, r, IC.l0, IC.l1, IC.l2, r * 0.82);
+        cushion(cx + Math.cos(an) * rx * 0.86, cy - lift + sy * ry * 0.86 - r * 0.4, r, r * 0.82, [IC.l0, IC.l1, IC.l2], IC.l3);
       }
     };
     rim(false);
-    for (const [dx, dy] of [[-0.45, -0.32], [0.05, -0.42], [0.5, -0.26]]) T.ball(cx + dx * rx, cy - lift + dy * ry, t * 0.26, IC.white, IC.s0, IC.s1, t * 0.17);
-    // the quilt over the front half, with soft stripes
-    T.disc(cx + rx * 0.08, cy - lift + ry * 0.28, rx * 0.62, (x, y) => (Math.floor((x - cx) / Math.max(2, t * 0.22)) % 2 ? IC.p1 : IC.p0), ry * 0.5);
+    for (const [dx, dy] of [[-0.45, -0.32], [0.05, -0.42], [0.5, -0.26]]) cushion(cx + dx * rx, cy - lift + dy * ry, t * 0.26, t * 0.17, [IC.white, IC.s0, IC.s1], IC.s2);
+    // the quilt over the front half: soft stripes, a darker hem round it and little stitches down each stripe
+    const qx = cx + rx * 0.08, qy = cy - lift + ry * 0.28, qr = rx * 0.62, qry = ry * 0.5, sw = Math.max(2, t * 0.22);
+    T.disc(qx, qy, qr, (x, y) => {
+      const d = Math.hypot((x - qx) / qr, (y - qy) / qry);
+      if (d > 0.9) return IC.p2;
+      const st = Math.floor((x - cx) / sw), edge = Math.abs(((x - cx) / sw) - Math.round((x - cx) / sw)) < 0.5 / sw;
+      return edge && Math.round(y) % 2 ? IC.p2 : st % 2 ? IC.p1 : IC.p0;
+    }, qry);
     rim(true);
   },
 };
