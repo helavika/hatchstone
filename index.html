@@ -5600,7 +5600,7 @@ function freeFloorPoint() {
 function keepInRoom(a) {
   if (N.iso) {
     const m = isoMargin(0.42); let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
-    if (a.state !== "visit" || a.decor !== "swing") pushOutOfPieces(a);
+    if (a.state !== "visit" || (a.decor !== "swing" && a.decor !== "mushrooms")) pushOutOfPieces(a);
     [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
     return;
   }
@@ -5835,7 +5835,17 @@ function updateActors(dt) {
         const seat = swingSeat();
         if (seat[5] !== undefined) { const size = N.base * depth(seat[6]); a.x = seat[0]; a.y = seat[6] + 1; a.alt = a.y - size * 0.45 - (seat[1] - size * 0.32); }
         else { a.x = seat[0]; a.y = decorSpot("swing")[1]; a.alt = a.y - N.base * 0.45 - (seat[1] - N.base * 0.38); }
-      } else if (a.decor === "mushrooms") a.hop = Math.abs(Math.sin(a.ph * 5)) * 0.8;
+      } else if (a.decor === "mushrooms") {
+        // hopping from cap to cap like platforms: an arc between two caps, a squish on landing
+        const caps = mushroomCaps();
+        if (caps.length > 1) {
+          const ph = (game.time / 1000 + a.id * 0.37) / 0.75, i = Math.floor(ph) % caps.length, k = ph - Math.floor(ph), [x0, y0] = caps[i], [x1, y1] = caps[(i + 1) % caps.length];
+          const size = N.base * depth(a.y), top = lerp(y0, y1, k) - Math.sin(k * Math.PI) * N.base * 0.4, p = isoLayout().placed.mushrooms;
+          a.x = lerp(x0, x1, k); a.y = isoAt((p.i + 0.5) / ISO_G, (p.j + 0.5) / ISO_G)[1] + 1;
+          a.alt = a.y - size * 0.45 - (top - size * 0.32); a.hop = k < 0.12 ? 0.5 : 0;
+          if (k < 0.05 && !a.landed) { a.landed = true; if (Math.random() < 0.3 && sfx.ready()) sfx.tone(sfx.ac.currentTime, 520 + i * 90, 0.02, 0.12, "sine", 700 + i * 90); } else if (k > 0.5) a.landed = false;
+        } else a.hop = Math.abs(Math.sin(a.ph * 5)) * 0.8;
+      }
       else if (a.decor === "spring") a.alt = Math.sin(a.ph * 2.5) * N.base * 0.04;
     }
     // needs show up as little thought bubbles now and then
@@ -6082,6 +6092,19 @@ const isoSpaceUsed = () => Object.keys(ISO_PLACES).filter(hasDecor).reduce((n, i
 /** The middle of a placed piece on the floor (CSS pixels), and the spot just in front of it. */
 function isoPieceAt(p, front = 0) { return isoAt((p.i + p.fw / 2 + front) / ISO_G, (p.j + p.fd / 2 + front) / ISO_G); }
 
+/** The mushroom cluster: each one's place (dx, dy in tiles from the middle), height and cap size. */
+const MUSHROOMS = [[-0.36, 0.0, 0.95, 0.27], [0.12, -0.08, 1.35, 0.32], [0.38, 0.06, 0.7, 0.22], [-0.12, 0.12, 0.55, 0.18], [0.22, 0.16, 0.36, 0.13], [-0.45, 0.16, 0.32, 0.11], [0.5, -0.04, 0.48, 0.14]];
+/** Where the tops of the bigger caps are in the room (CSS pixels), lowest first: platforms to hop across. */
+function mushroomCaps() {
+  const p = N.iso && isoLayout().placed.mushrooms;
+  if (!p) return [];
+  const t = N.isoW / ISO_G / PX, [cx, cy] = isoAt((p.i + 0.5) / ISO_G, (p.j + 0.5) / ISO_G), m = p.flip ? -1 : 1;
+  return MUSHROOMS.filter(q => q[2] >= 0.48).map(([dx, dy, h, r]) => {
+    const rx = Math.max(2, r * t * 1.6), ry = Math.max(1, Math.round(rx * 0.4));
+    return [cx + m * (dx * t + Math.round(dx * 2)) * PX, cy + (dy * t - h * t * 1.05 - ry) * PX];
+  }).sort((p, q) => q[1] - p[1]);
+}
+
 /** Every piece's picture: (ax, ay) inside it is the back corner of its footprint. t is one tile's width in art pixels. */
 const ISO_ART = {
   lamp(t, T, ax, ay, o) {
@@ -6313,13 +6336,16 @@ const ISO_ART = {
     // a wide blue halo first, so the mushrooms sit inside their own light
     T.glow(cx, cy - t * 0.8, t * 1.45, B.deep, 0.5);
     T.glow(cx, cy - t * 0.75, t * 0.95, B.mid, 0.45);
-    const shrooms = [[-0.36, 0.0, 0.95, 0.27], [0.12, -0.08, 1.35, 0.32], [0.38, 0.06, 0.7, 0.22], [-0.12, 0.12, 0.55, 0.18], [0.22, 0.16, 0.36, 0.13], [-0.45, 0.16, 0.32, 0.11], [0.5, -0.04, 0.48, 0.14]]
-      .sort((p, q) => p[1] - q[1]);
+    const shrooms = [...MUSHROOMS].sort((p, q) => p[1] - q[1]);
     for (const [dx, dy, h, r] of shrooms) {
-      const x = Math.round(cx + dx * t), y = Math.round(cy + dy * t), top = Math.round(y - h * t * 1.35), rx = Math.max(2, r * t * 1.3), ry = Math.max(1, Math.round(rx * 0.36));
+      const x = Math.round(cx + dx * t), y = Math.round(cy + dy * t), top = Math.round(y - h * t * 1.05), rx = Math.max(2, r * t * 1.6), ry = Math.max(1, Math.round(rx * 0.4));
       const lean = Math.round(dx * 2);
-      // a thin stem with a bright core
-      for (let k = 0; k <= y - top; k++) { const sx = x + Math.round(lean * k / (y - top + 1)); T.px(sx, y - k, k % 4 === 0 ? B.white : B.pale); if (rx > 5) T.px(sx + 1, y - k, B.mid); }
+      // a sturdy stem, wider at the foot: lit on the left, a bright core, shaded on the right, little rings up it
+      const sw = Math.max(3, Math.round(rx * 0.42));
+      for (let k = 0; k <= y - top; k++) {
+        const sx = x + Math.round(lean * k / (y - top + 1)), w = sw + (k < 3 ? 2 : k < 5 ? 1 : 0);
+        for (let q = 0; q < w; q++) T.px(sx - Math.floor(w / 2) + q, y - k, q === 0 ? B.pale : q >= w - Math.max(1, Math.floor(w / 3)) ? B.lit : B.white);
+      }
       const tx = x + lean;
       // the cap: a flat parasol, its top glowing pale, its rim the brightest of all
       for (let yy = top - ry; yy <= top; yy++) for (let xx = Math.floor(tx - rx); xx <= Math.ceil(tx + rx); xx++) {
