@@ -562,6 +562,7 @@
   .home-grid button img { width: 40px; height: 40px; image-rendering: pixelated; }
   .home-grid button small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .home-grid button.out img { opacity: .5; filter: grayscale(.5); }
+  .home-grid button small.away { color: var(--soft); font-size: 10px; }
   .home-grid button.out::after { content: "🧭"; position: absolute; right: 4px; top: 4px; font-size: 12px; }
   #homeList h3 { margin: 8px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
   #homeList { max-height: 58vh; overflow-y: auto; }
@@ -1657,7 +1658,12 @@ const UK = {
   "Exploring · {0}": "Досліджують · {0}",
   "all rested!": "доброго ранку! ☀",
   "no thanks, I'm full": "ні, дякую, животик повний",
-  "not sleepy yet!": "ще не хочу спати!"
+  "not sleepy yet!": "ще не хочу спати!",
+  "{0} brought back ✦ {1} and a {2} geode!": "{0} приносить ✦ {1} і жеоду «{2}»!",
+  "{0} brought back ✦ {1}": "{0} приносить ✦ {1}",
+  "{0} min": "{0} хв",
+  "{0} h": "{0} год",
+  "The longer they're away, the more they bring back.": "Що довше мандрують, то більше приносять."
 };
 
 const UK_DATA = {
@@ -5302,26 +5308,56 @@ function settleHome() {
     home = home.filter(h => h !== c); sent.push(c);
   }
   const away = save.creatures.filter(c => c.out).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
-  while (home.length < cap && away.length) { const c = away.shift(); c.out = false; c.homeAt = Date.now(); c.last = Date.now(); home.push(c); }
+  while (home.length < cap && away.length) { const c = away.shift(); exploreFind(c); c.out = false; c.homeAt = Date.now(); c.last = Date.now(); home.push(c); }
   if (sent.length) { persist(); if (typeof updateTopbar === "function") updateTopbar(); }
   return sent;
 }
+/**
+ * Back from exploring with something found on the way: shards for the time away (a few for a short walk, up to 30
+ * for a long trip), and after a long trip, now and then a geode for the collection.
+ */
+function exploreFind(c) {
+  const hrs = (Date.now() - (c.outAt || Date.now())) / 3600e3;
+  if (hrs < 0.05) return null;
+  const shards = Math.min(30, Math.round(2 + hrs * 4));
+  let geode = null;
+  if (hrs > 2 && Math.random() < Math.min(0.4, hrs * 0.04)) {
+    geode = pick(CRYSTALS.filter(k => k.rarity === (Math.random() < 0.2 ? "rare" : "common")));
+    const g = save.geodes[geode.id] || { count: 0, shine: -1 };
+    g.count++; save.geodes[geode.id] = g;
+  }
+  save.shards += shards;
+  // the gift shows over its head once it's back in the room
+  setTimeout(() => {
+    const a = actors.get(c.id);
+    if (!a) return;
+    const v = actorView(a);
+    floatText(`+${shards} ✦${geode ? " 💎" : ""}`, v.x, v.y - v.size * 0.9, "#fff0b5");
+    a.hop = 1; sfx.shimmer();
+  }, 350);
+  return { shards, geode };
+}
+const findNote = (c, f) => !f ? "" : " · " + (f.geode ? tr("{0} brought back ✦ {1} and a {2} geode!", c.name, f.shards, CRYSTAL[f.geode.id].name) : tr("{0} brought back ✦ {1}", c.name, f.shards));
+/** Away for how long, said simply. */
+const awayFor = c => { const m = Math.max(1, Math.round((Date.now() - (c.outAt || Date.now())) / 60000)); return m < 60 ? tr("{0} min", m) : tr("{0} h", Math.floor(m / 60)); };
+
 /** Tap an explorer in the row: it comes home (and if the nest is full, someone else heads out). */
 function callHome(id) {
   const c = save.creatures.find(c => c.id === id);
   if (!c || !c.out) return;
+  const found = exploreFind(c);
   c.out = false; c.homeAt = Date.now(); c.last = Date.now();
   save.active = id;
   const sent = settleHome();
-  toast(sent.length ? tr("{0} came home, and {1} went exploring 🧭", c.name, sent[0].name) : tr("{0} came home ✦", c.name));
+  toast((sent.length ? tr("{0} came home, and {1} went exploring 🧭", c.name, sent[0].name) : tr("{0} came home ✦", c.name)) + findNote(c, found));
   persist(); updateTopbar();
 }
 /** Who's at home and who's out exploring, with what that means; tap an explorer to call it home. */
 function openHome() {
   sfx.tick();
   const cap = homeCap(), home = save.creatures.filter(c => !c.out), away = save.creatures.filter(c => c.out);
-  $("homeSub").textContent = tr("The nest fits {0} glowlings at once. The others are exploring the grotto and need nothing while they're away. Tap an explorer to call it home: if the nest is full, the one home longest goes out instead.", cap);
-  const card = c => `<button class="pillbtn${c.out ? " out" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt=""><small>${c.name}</small></button>`;
+  $("homeSub").textContent = tr("The nest fits {0} glowlings at once. The others are exploring the grotto and need nothing while they're away. Tap an explorer to call it home: if the nest is full, the one home longest goes out instead.", cap) + " " + tr("The longer they're away, the more they bring back.");
+  const card = c => `<button class="pillbtn${c.out ? " out" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt=""><small>${c.name}</small>${c.out ? `<small class="away">${awayFor(c)}</small>` : ""}</button>`;
   $("homeList").innerHTML = `<h3>${tr("At home · {0}/{1}", home.length, cap)}</h3><div class="home-grid">${home.map(card).join("")}</div>`
     + (away.length ? `<h3>${tr("Exploring · {0}", away.length)}</h3><div class="home-grid">${away.map(card).join("")}</div>` : "");
   $$("#homeList [data-id]").forEach(b => b.addEventListener("click", () => {
