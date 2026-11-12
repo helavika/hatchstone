@@ -1666,7 +1666,21 @@ const UK = {
   "The longer they're away, the more they bring back.": "Що довше мандрують, то більше приносять.",
   "Room for one more · ✦ {0}": "Місце ще для одного · ✦ {0}",
   "The nest is as roomy as it gets ✦": "Гніздечко вже найпросторіше ✦",
-  "The nest grew: {0} glowlings fit at home now ✦": "Гніздечко підросло: тепер удома вміщається {0} ✦"
+  "The nest grew: {0} glowlings fit at home now ✦": "Гніздечко підросло: тепер удома вміщається {0} ✦",
+  "Pink bow": "Рожевий бантик",
+  "Star clip": "Зіркова шпилька",
+  "Flower crown": "Віночок",
+  "Cozy scarf": "Теплий шарфик",
+  "Round glasses": "Круглі окуляри",
+  "Mushroom cap": "Капелюшок-грибочок",
+  "Little crown": "Маленька корона",
+  "Accessories for {0}": "Аксесуари для {0}",
+  "tap to take it off": "торкнись, щоб зняти",
+  "tap to put it on": "торкнись, щоб одягнути",
+  "any glowling can wear it": "може носити будь-який глоулінг",
+  "worn ✓": "одягнено ✓",
+  "owned": "є",
+  "{0} is wearing the {1} ✦": "{0} тепер у новому: {1} ✦"
 };
 
 const UK_DATA = {
@@ -3647,6 +3661,65 @@ function drawFace(c, s, sp, t, mood, eating) {
   }
 }
 
+// ---------- accessories: little things a glowling can wear, drawn on the sprite before it's cut into pixels ----------
+const ACCESSORIES = [
+  { id: "bow", name: "Pink bow", emoji: "🎀", cost: 40 },
+  { id: "star", name: "Star clip", emoji: "⭐", cost: 40 },
+  { id: "flowers", name: "Flower crown", emoji: "🌸", cost: 60 },
+  { id: "scarf", name: "Cozy scarf", emoji: "🧣", cost: 60 },
+  { id: "glasses", name: "Round glasses", emoji: "👓", cost: 70 },
+  { id: "mushroom", name: "Mushroom cap", emoji: "🍄", cost: 80 },
+  { id: "crown", name: "Little crown", emoji: "👑", cost: 150 },
+];
+if (LANG === "uk") for (const a of ACCESSORIES) a.name = tr(a.name);
+/** Draw one accessory on a glowling (in its own coordinates: centered, s wide, the top of its head at `top`). */
+function drawAccessory(c, s, sp, top, id) {
+  const fy = BODY[sp.body].face * s, ex = s * (sp.body === "wide" ? 0.18 : 0.16);
+  c.save();
+  if (id === "bow") {
+    const x = s * 0.26, y = top + s * 0.1, w = s * 0.23, h = s * 0.16;
+    c.fillStyle = "#e88bb1";
+    for (const d of [-1, 1]) { c.beginPath(); c.moveTo(x, y); c.lineTo(x + d * w, y - h); c.lineTo(x + d * w, y + h); c.closePath(); c.fill(); }
+    c.fillStyle = "#c25586"; c.beginPath(); c.arc(x, y, s * 0.065, 0, TAU); c.fill();
+  } else if (id === "star") {
+    const x = -s * 0.28, y = top + s * 0.14, r = s * 0.15;
+    c.fillStyle = "#eec26a"; c.beginPath();
+    for (let k = 0; k < 10; k++) { const an = -Math.PI / 2 + k * Math.PI / 5, rr = k % 2 ? r * 0.45 : r; c.lineTo(x + Math.cos(an) * rr, y + Math.sin(an) * rr); }
+    c.closePath(); c.fill();
+    c.fillStyle = "#fff0b5"; c.beginPath(); c.arc(x - r * 0.15, y - r * 0.15, r * 0.2, 0, TAU); c.fill();
+  } else if (id === "flowers") {
+    for (let k = -3; k <= 3; k++) {
+      const x = k * s * 0.11, y = top + s * 0.12 + k * k * s * 0.008;
+      c.fillStyle = "#57ad6a"; c.beginPath(); c.ellipse(x + s * 0.06, y + s * 0.03, s * 0.07, s * 0.035, 0.4, 0, TAU); c.fill();
+      c.fillStyle = ["#ffc4da", "#fff0b5", "#ffffff", "#e88bb1"][(k + 3) % 4]; c.beginPath(); c.arc(x, y, s * 0.075, 0, TAU); c.fill();
+      c.fillStyle = "#eec26a"; c.beginPath(); c.arc(x, y, s * 0.028, 0, TAU); c.fill();
+    }
+  } else if (id === "scarf") {
+    const y = fy + s * 0.28;
+    c.strokeStyle = "#e0634f"; c.lineWidth = s * 0.11; c.lineCap = "round";
+    c.beginPath(); c.ellipse(0, y - s * 0.06, s * 0.36, s * 0.1, 0, 0.1 * Math.PI, 0.9 * Math.PI); c.stroke();
+    c.fillStyle = "#e0634f"; c.fillRect(s * 0.16, y - s * 0.02, s * 0.1, s * 0.22);
+    c.fillStyle = "#fff0b5"; c.fillRect(s * 0.16, y + s * 0.06, s * 0.1, s * 0.03); c.fillRect(s * 0.16, y + s * 0.13, s * 0.1, s * 0.03);
+  } else if (id === "glasses") {
+    c.strokeStyle = "#22143a"; c.lineWidth = s * 0.03;
+    for (const d of [-1, 1]) { c.beginPath(); c.arc(d * ex, fy, s * 0.1, 0, TAU); c.stroke(); }
+    c.beginPath(); c.moveTo(-ex + s * 0.1, fy - s * 0.01); c.lineTo(ex - s * 0.1, fy - s * 0.01); c.stroke();
+    c.fillStyle = "rgba(255,255,255,.5)"; for (const d of [-1, 1]) { c.beginPath(); c.arc(d * ex - s * 0.04, fy - s * 0.04, s * 0.02, 0, TAU); c.fill(); }
+  } else if (id === "mushroom") {
+    const y = top + s * 0.16;
+    c.fillStyle = "#e0634f"; c.beginPath(); c.ellipse(0, y, s * 0.34, s * 0.2, 0, Math.PI, TAU); c.fill();
+    c.fillStyle = "#b8323b"; c.fillRect(-s * 0.34, y - s * 0.02, s * 0.68, s * 0.04);
+    c.fillStyle = "#ffffff"; for (const [dx, dy, r] of [[-0.16, -0.08, 0.05], [0.08, -0.13, 0.045], [0.2, -0.05, 0.035], [-0.02, -0.04, 0.03]]) { c.beginPath(); c.arc(dx * s, y + dy * s, r * s, 0, TAU); c.fill(); }
+  } else if (id === "crown") {
+    const y = top + s * 0.1, w = s * 0.27;
+    c.fillStyle = "#eec26a"; c.beginPath(); c.moveTo(-w, y); c.lineTo(-w, y - s * 0.17); c.lineTo(-w * 0.5, y - s * 0.07); c.lineTo(0, y - s * 0.24); c.lineTo(w * 0.5, y - s * 0.07); c.lineTo(w, y - s * 0.17); c.lineTo(w, y); c.closePath(); c.fill();
+    c.fillStyle = "#c98f3a"; c.fillRect(-w, y - s * 0.045, w * 2, s * 0.045);
+    c.fillStyle = "#e88bb1"; c.beginPath(); c.arc(0, y - s * 0.09, s * 0.05, 0, TAU); c.fill();
+    c.fillStyle = "#fff0b5"; c.beginPath(); c.arc(-w * 0.6, y - s * 0.07, s * 0.018, 0, TAU); c.fill();
+  }
+  c.restore();
+}
+
 /** A floppy striped nightcap with a pompom, in a color of its own for each kind of glowling. */
 function drawNightcap(c, s, sp, top) {
   const caps = [["#1d5276", "#3383a8", "#b8e6f5"], ["#8f3460", "#c25586", "#ffc4da"], ["#523a85", "#8a6cc9", "#d2bfff"], ["#1e5233", "#2f7d4a", "#a3dd9b"], ["#946027", "#c98f3a", "#fff0b5"]];
@@ -3710,6 +3783,7 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   bodyPath(c, s, sp.body);
   c.strokeStyle = shade(pal[2], -0.25); c.globalAlpha = 0.3; c.lineWidth = 1; c.stroke(); c.globalAlpha = 1;
   drawHeadTop(c, s, sp, t, pal, top, level);
+  if (o.acc && !o.sil && !(mood === "asleep" && ["bow", "flowers", "mushroom", "crown", "star"].includes(o.acc))) drawAccessory(c, s, sp, top, o.acc);
   if (mood === "asleep" && !o.sil) drawNightcap(c, s, sp, top);
   if (faceStamp && !o.sil) {
     // inside a sprite cut, remember where the face goes; it's stamped pixel by pixel afterwards so the eyes stay crisp
@@ -3765,7 +3839,7 @@ function drawSprite(x, y, s, sp, o = {}) {
   }
   // pixel-art pace: a new frame every 100 ms, drawn once and reused, placed on whole pixels so it never shimmers
   const t = Math.floor((o.t ?? game.time) / 100) * 100;
-  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${t}|${PX}`;
+  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${t}|${PX}|${o.acc || ""}`;
   let f = spriteFrames.get(key);
   if (!f) {
     if (spriteFrames.size > 400) spriteFrames.clear();
@@ -3952,8 +4026,8 @@ function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down
 
 const thumbCache = new Map();
 /** A glowling as a small picture: for the nest switcher, the glowpedia and the found card. */
-function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, mood = "ok", art = 0 } = {}) {
-  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}|${art}`;
+function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, mood = "ok", art = 0, acc = null } = {}) {
+  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}|${art}|${acc || ""}`;
   if (thumbCache.has(key)) return thumbCache.get(key);
   // a real pixel sprite (about one art pixel per three of yours), scaled up with hard edges.
   // With `art`, it stays at exactly that many pixels, for the page to blow up by a whole number (2× or 3×) so every pixel is the same size
@@ -3963,7 +4037,7 @@ function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, 
   const o = small.getContext("2d");
   o.setTransform(n / size, 0, 0, n / size, 0, 0);
   const grow = [0.82, 1, 1.12, 1.22][stageOf(level)];
-  const paint = () => cutSprite(o, size / 2, size * 0.56, size * 0.5, g => drawCreature(g, size / 2, size * 0.56, size * 0.5 / grow, sp, { t: 1000, sil, level, shiny, mood, glow: false }));
+  const paint = () => cutSprite(o, size / 2, size * 0.56, size * 0.5, g => drawCreature(g, size / 2, size * 0.56, size * 0.5 / grow, sp, { t: 1000, sil, level, shiny, mood, glow: false, acc }));
   paint();
   if (art) {
     // a small picture should be all glowling: find its edges, then draw it again filling the frame (more pixels for the eyes and ears)
@@ -5095,7 +5169,7 @@ function renderNest(full) {
   $("playBtn").disabled = cr.sleeping;
   if (full) {
     $("switcher").innerHTML = save.creatures.map(c =>
-      `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}${c.out ? " out" : ""}" title="${c.out ? tr("{0} is out exploring: tap to call it home", c.name) : c.name}"><img class="px2" style="width:40px;height:40px" src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt="${c.name}"></button>`).join("");
+      `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}${c.out ? " out" : ""}" title="${c.out ? tr("{0} is out exploring: tap to call it home", c.name) : c.name}"><img class="px2" style="width:40px;height:40px" src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="${c.name}"></button>`).join("");
     $$("#switcher button").forEach(b => b.addEventListener("click", () => selectCreature(Number(b.dataset.id))));
     requestAnimationFrame(switchArrows);
   }
@@ -5183,8 +5257,9 @@ function openShop() {
     const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
     const note = locked ? `${ic("lock")}${d.how}` : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
     return `<button class="decor${owned ? " owned" : ""}${d.legend ? " legend" : ""}" data-id="${d.id}" ${locked || (!owned && save.shards < d.cost) ? "disabled" : ""}>${decorThumb(d)}<span><b>${d.name}</b><small>${note}</small></span><span class="cost">${owned ? (owned.on ? tr("placed ✓") : tr("stored")) : "✦ " + d.cost}</span></button>`;
-  }).join("");
-  $$("#shopList .decor").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
+  }).join("") + accessoryList();
+  $$("#shopList .decor:not(.acc)").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
+  $$("#shopList .acc").forEach(b => b.addEventListener("click", () => wearAccessory(b.dataset.acc)));
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
   $$("#shopList [data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
   $("arrangeOpen")?.addEventListener("click", startArrange);
@@ -5223,6 +5298,32 @@ function musicNotes(dt) {
   noteT = rand(1.1, 1.9);
   const [x, y] = isoPieceAt(p);
   floatText(pick(["♪", "♫", "♪"]), x + rand(-8, 8), y - N.isoW / ISO_G * 1.6, pick(["#fff0b5", "#ffc4da", "#b8e6f5", "#d2bfff"]));
+}
+
+/** Accessories in the Decor sheet: each shown on the glowling you've picked; buy once, then any glowling can wear it. */
+function accessoryList() {
+  const cr = activeCreature();
+  if (!cr) return "";
+  const owned = save.wardrobe || {};
+  return `<h3>${tr("Accessories for {0}", cr.name)}</h3>` + ACCESSORIES.map(a => {
+    const has = owned[a.id], on = cr.acc === a.id;
+    const img = `<img class="em px-thumb" src="${creatureImage(specOf(cr), { art: 24, level: cr.level, shiny: cr.shiny, acc: a.id })}" alt="">`;
+    return `<button class="decor acc${has ? " owned" : ""}" data-acc="${a.id}" ${!has && save.shards < a.cost ? "disabled" : ""}>${img}<span><b>${a.emoji} ${a.name}</b><small>${has ? (on ? tr("tap to take it off") : tr("tap to put it on")) : tr("any glowling can wear it")}</small></span><span class="cost">${on ? tr("worn ✓") : has ? tr("owned") : "✦ " + a.cost}</span></button>`;
+  }).join("");
+}
+function wearAccessory(id) {
+  const cr = activeCreature(), a = ACCESSORIES.find(x => x.id === id);
+  if (!cr || !a) return;
+  save.wardrobe = save.wardrobe || {};
+  if (!save.wardrobe[id]) {
+    if (save.shards < a.cost) return;
+    save.shards -= a.cost; save.wardrobe[id] = true; sfx.levelUp();
+  } else sfx.tick();
+  cr.acc = cr.acc === id ? null : id;
+  const act = actors.get(cr.id);
+  if (act && cr.acc) { act.hop = 1; emote(act, "♥", 1.4); }
+  if (cr.acc) toast(tr("{0} is wearing the {1} ✦", cr.name, a.name.toLowerCase()));
+  persist(); updateTopbar(); renderNest(true); openShop();
 }
 
 /** Switch between the straight-on room and the isometric one: everything is laid out again. */
@@ -5362,7 +5463,7 @@ function openHome() {
   sfx.tick();
   const cap = homeCap(), home = save.creatures.filter(c => !c.out), away = save.creatures.filter(c => c.out);
   $("homeSub").textContent = tr("The nest fits {0} glowlings at once. The others are exploring the grotto and need nothing while they're away. Tap an explorer to call it home: if the nest is full, the one home longest goes out instead.", cap) + " " + tr("The longer they're away, the more they bring back.");
-  const card = c => `<button class="pillbtn${c.out ? " out" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny })}" alt=""><small>${c.name}</small>${c.out ? `<small class="away">${awayFor(c)}</small>` : ""}</button>`;
+  const card = c => `<button class="pillbtn${c.out ? " out" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt=""><small>${c.name}</small>${c.out ? `<small class="away">${awayFor(c)}</small>` : ""}</button>`;
   $("homeList").innerHTML = `<h3>${tr("At home · {0}/{1}", home.length, cap)}</h3><div class="home-grid">${home.map(card).join("")}</div>`
     + (away.length ? `<h3>${tr("Exploring · {0}", away.length)}</h3><div class="home-grid">${away.map(card).join("")}</div>` : "")
     + ((save.nestUp || 0) < NEST_UP_COST.length ? `<button class="act" id="nestUp" ${save.shards < NEST_UP_COST[save.nestUp || 0] ? "disabled" : ""}>${ic("nest")}${tr("Room for one more · ✦ {0}", NEST_UP_COST[save.nestUp || 0])}</button>` : `<p class="sub">${tr("The nest is as roomy as it gets ✦")}</p>`);
@@ -7355,7 +7456,7 @@ function drawActor(a) {
     }
     const asleep = a.state === "sleep" || a.state === "nap";
     const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || a.state === "visit" || (a.emote && a.emote.text === "♥") ? "happy" : moodOf(cr);
-    drawSprite(v.x, v.y, v.size, sp, { level: cr.level, shiny: cr.shiny, mood, hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 });
+    drawSprite(v.x, v.y, v.size, sp, { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 });
     if (asleep) {
       fx.font = `400 ${Math.round(Math.max(14, v.size * 0.2))}px ${PIXEL_FONT}`;
       fx.fillStyle = "#d2bfff";
