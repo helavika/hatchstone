@@ -1710,6 +1710,10 @@ const UK_DATA = {
     pyrite: { name: "Пірит", fact: "Котяче золото: латунні кубики, такі рівні, ніби їх зробила машина." },
     tourmaline: { name: "Кавуновий турмалін", fact: "Рожевий усередині й зелений по краю, як скибочка кавуна." },
     sunstone: { name: "Сонячний камінь", fact: "Польовий шпат, повний крихітних мідних пластинок, що мерехтять, як захід сонця." },
+    carnelian: { name: "Сердолік", fact: "Помаранчевий халцедон. Римляни вирізали з нього печатки, бо гарячий віск до нього не прилипає." },
+    garnet: { name: "Гранат", fact: "Темно-червоні кристали з багатьма гранями. Назва походить від гранатових зернят." },
+    tigereye: { name: "Тигрове око", fact: "Кварц із тонких волокон: золоті смуги мерехтять і пливуть, коли камінь повертаєш." },
+    emerald: { name: "Смарагд", fact: "Зелений берил. Майже в кожному смарагді є крихітні включення, які називають «садом»." },
     amethyst: { name: "Аметист", fact: "Фіолетовий кварц — класична «підкладка» жеоди. Колір йому дарують домішки заліза." },
     quartz: { name: "Гірський кришталь", fact: "Найчастіший гість у жеодах: шестигранні вершинки, прозорі, як лід." },
     citrine: { name: "Цитрин", fact: "Золотистий кварц. Природний цитрин — рідкість; здебільшого це прогрітий аметист." },
@@ -1733,6 +1737,10 @@ const UK_DATA = {
     cubbet: { lore: "Сидить нерухомо в ідеальних квадратах. Думає, що зроблений із золота, і ніхто не має серця сказати йому правду." },
     melonpip: { lore: "Ледь чутно пахне літом. Коли щасливий, котиться замість іти." },
     embermote: { lore: "Найтепліше світиться надвечір і щовечора йде за останнім сонячним промінцем через усю кімнату." },
+    hearthling: { lore: "Завжди сидить найближче до лампи й мугикає, як чайник перед кипінням. Гріти вміє як ніхто." },
+    pippom: { lore: "Ім'я має від гранатових зернят, як і камінь, з якого вилупилося. Тихенько торохтить, коли стрибає, і ніхто не знає чому." },
+    tigrell: { lore: "Смужки спалахують золотом, коли воно повертає голову. Тож голову воно повертає дуже часто." },
+    gladewing: { lore: "Носить усередині маленький сад, як справжній смарагд. Дасть подивитися, якщо чемно попросити." },
     mothlet: { lore: "Летить на будь-яке світло — навіть на екран твого телефона. Лишає бузковий пилок на всьому, що любить." },
     dozeling: { lore: "Ще жодного разу не прокидався до кінця. Сниться йому все в ідеальних шестикутниках, а хропе він у мінорі." },
     glassling: { lore: "Такий прозорий, що видно, про що він думає. А думає він здебільшого про тебе." },
@@ -2315,6 +2323,10 @@ const CRYSTALS = [
   { id: "sunstone", name: "Sunstone", rarity: "rare", style: "flash", c: ["#f7a35c", "#ffe0b8", "#c2623a"], fact: "Feldspar full of tiny copper plates that glitter like a sunset." },
   { id: "opal", name: "Opal", rarity: "legendary", style: "flash", c: ["#ffc8ef", "#c9f1ff", "#b9a2ff"], fact: "Tiny silica spheres split light into flashes of every color." },
   { id: "labradorite", name: "Labradorite", rarity: "legendary", style: "flash", c: ["#5d7a8f", "#9fe3e0", "#2c3e4f"], fact: "Gray stone that flashes peacock blue and gold when it turns in the light." },
+  { id: "carnelian", name: "Carnelian", rarity: "common", style: "banded", c: ["#f28a4a", "#ffd2ad", "#b8461f"], fact: "Orange chalcedony. Romans carved it into seals because hot wax won't stick to it." },
+  { id: "garnet", name: "Garnet", rarity: "rare", style: "cavity", c: ["#c8384f", "#ff9aa8", "#7a1630"], fact: "Deep red crystals with many faces. Its name comes from pomegranate seeds." },
+  { id: "tigereye", name: "Tiger's Eye", rarity: "rare", style: "flash", c: ["#b8742a", "#ffd36a", "#4a2a0e"], fact: "Quartz made of fine fibers: golden stripes shimmer and roll as you turn it." },
+  { id: "emerald", name: "Emerald", rarity: "legendary", style: "cavity", c: ["#2fbf71", "#b4ffd6", "#13693c"], fact: "Green beryl. Almost every emerald has tiny flaws inside, called its \"garden\"." },
   { id: "lapis", name: "Lapis Lazuli", rarity: "legendary", style: "flecks", c: ["#3a4fb8", "#9fb0ff", "#1c2366"], fact: "Deep blue with gold pyrite specks like stars. Ground into ultramarine paint for 6,000 years." },
 ];
 const CRYSTAL = Object.fromEntries(CRYSTALS.map(c => [c.id, c]));
@@ -2389,7 +2401,15 @@ const SPECIES = [
   { id: "melonpip", name: "Melonpip", crystal: "tourmaline", body: "drop", head: "sprout", back: "ribbon", pattern: "stripes", eyes: "big", snack: "berry", voice: 1.2,
     lore: "Smells faintly of summer. Rolls instead of walking when it's happy." },
   { id: "embermote", name: "Embermote", crystal: "sunstone", body: "round", head: "rays", back: "comet", pattern: "freckles", eyes: "sparkle", snack: "dew", voice: 1.1,
-    lore: "Glows warmest at dusk, and follows the last sunbeam across the room every evening." }
+    lore: "Glows warmest at dusk, and follows the last sunbeam across the room every evening." },
+  { id: "hearthling", name: "Hearthling", crystal: "carnelian", pal: ["#e8743a", "#ffb07a", "#a8401c"], body: "wide", ears: "tufts", back: "fluff", pattern: "belly", eyes: "sleepy", snack: "cookie", voice: 0.85,
+    lore: "Always sits closest to the lamp and hums like a kettle about to boil. Very good at being warm." },
+  { id: "pippom", name: "Pippom", crystal: "garnet", body: "round", head: "petals", pattern: "spots", eyes: "big", snack: "berry", voice: 1.2,
+    lore: "Named for pomegranate seeds, like its stone. Rattles softly when it hops, and nobody knows why." },
+  { id: "tigrell", name: "Tigrell", crystal: "tigereye", pal: ["#a8662a", "#e0a050", "#5a3410"], body: "bean", ears: "cat", back: "tail", pattern: "stripes", eyes: "sparkle", snack: "cookie", voice: 1.0,
+    lore: "Its stripes flash gold when it turns its head. So it turns its head a lot." },
+  { id: "gladewing", name: "Gladewing", crystal: "emerald", pal: ["#2fae68", "#8fe8b4", "#13693c"], body: "drop", head: "sprout", back: "mothwings", pattern: "spots", eyes: "sparkle", snack: "dew", voice: 1.1,
+    lore: "Carries a tiny garden inside, just like an emerald. It lets you look, if you ask nicely." }
 ];
 const rarityOf = sp => sp.moon ? "moon" : CRYSTAL[sp.crystal].rarity;
 const SP = Object.fromEntries(SPECIES.map(s => [s.id, s]));
@@ -4185,6 +4205,15 @@ function makeShell(stone) {
   return { canvas: c, ctx: o };
 }
 
+/** The colors that play across a stone with a sheen. */
+const FLASH = {
+  labradorite: ["#2aa3a0", "#3a6fd8", "#d9b13a", "#2aa3a0"],
+  opal: ["#ff7ac8", "#5fd0ff", "#9cff8a", "#ffd25f", "#b58cff"],
+  moonstone: ["#8fa6ff", "#e8f0ff", "#8fa6ff"],
+  sunstone: ["#ff9a4a", "#ffd9a0", "#e8703a", "#ffe0b8", "#ff9a4a"],
+  tigereye: ["#5a3410", "#ffd36a", "#7a4a16", "#ffe9a8", "#5a3410", "#e0a84a", "#5a3410"],
+};
+
 /** The inside, drawn the way the real mineral looks. */
 function makeInterior(crystal, stone) {
   const [main, light, deep] = crystal.c;
@@ -4251,12 +4280,12 @@ function makeInterior(crystal, stone) {
     o.restore();
   }
   if (crystal.style === "flash") {
-    // labradorite, opal and moonstone: a sheen of color across the stone
+    // labradorite, opal, moonstone, sunstone and tiger's eye: a sheen of color across the stone (tiger's eye in rolling golden stripes)
     o.save(); tracePoly(o, whole); o.clip();
     const sheen = o.createLinearGradient(cx - L.ew * 0.5, cy - L.eh * 0.5, cx + L.ew * 0.5, cy + L.eh * 0.5);
-    const flash = crystal.id === "labradorite" ? ["#2aa3a0", "#3a6fd8", "#d9b13a", "#2aa3a0"] : crystal.id === "opal" ? ["#ff7ac8", "#5fd0ff", "#9cff8a", "#ffd25f", "#b58cff"] : ["#8fa6ff", "#e8f0ff", "#8fa6ff"];
+    const flash = FLASH[crystal.id] || [main, light, main];
     flash.forEach((col, i) => sheen.addColorStop(i / (flash.length - 1), col));
-    o.globalAlpha = crystal.id === "moonstone" ? 0.3 : 0.4; o.fillStyle = sheen; o.fillRect(0, 0, L.ew + PAD * 2, L.eh + PAD * 2);
+    o.globalAlpha = crystal.id === "moonstone" ? 0.3 : crystal.id === "tigereye" ? 0.55 : 0.4; o.fillStyle = sheen; o.fillRect(0, 0, L.ew + PAD * 2, L.eh + PAD * 2);
     o.restore();
   }
   return c;
@@ -5501,6 +5530,7 @@ const BEHAVIOR = {
   blushbun: "hop", lunaroo: "hop", ringlet: "hop", sproutle: "hop",
   glimmerfox: "curious", ambercub: "curious", mossmew: "curious", nebbit: "curious", cubbet: "curious",
   veilfin: "swim", melonpip: "hop", embermote: "flutter",
+  hearthling: "nap", pippom: "hop", tigrell: "curious", gladewing: "flutter",
   petalpuff: "dance", rosettle: "dance", sunnub: "dance", glassling: "dance", prismpip: "dance", swirlhorn: "dance",
 };
 const ROOM_MAX = 12, ROOM_MAX_PHONE = 8;
