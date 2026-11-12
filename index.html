@@ -95,7 +95,7 @@
   }
   #hint.on { opacity: 1; transform: translate(-50%, 0); }
   body.scene-nest #hint { bottom: auto; top: calc(var(--top) + 132px); }
-  body.scene-catch #hint { bottom: auto; top: calc(var(--top) + 60px); }
+  body.scene-catch #hint, body.scene-echo #hint { bottom: auto; top: calc(var(--top) + 60px); }
   #confirmLeave .card { width: min(320px, 100%); }
   .row.center { justify-content: center; margin-top: 16px; }
   .pillbtn {
@@ -259,6 +259,8 @@
 
   #catchHud { position: fixed; inset: 0 0 auto 0; display: flex; justify-content: center; gap: 8px; padding: var(--top) 14px 0; pointer-events: none; opacity: 0; transition: opacity .4s; }
   body.scene-catch #catchHud { opacity: 1; }
+  #echoHud { position: fixed; inset: 0 0 auto 0; display: flex; justify-content: center; padding: var(--top) 14px 0; pointer-events: none; opacity: 0; transition: opacity .4s; z-index: 2; }
+  body.scene-echo #echoHud { opacity: 1; }
 
   /* glowpedia */
   .seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, .08); margin: 6px auto 0; }
@@ -1013,6 +1015,15 @@
   <div class="pill glass">✨ <span id="catchScore">0</span></div>
   <div class="pill glass">⏱ <span id="catchTime">20</span></div>
 </div>
+<div id="echoHud"><div class="pill glass">♪ <span id="echoRound">1</span></div></div>
+<div id="games" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Play time</h2>
+    <p class="sub" id="gamesSub"></p>
+    <div id="gamesList"></div>
+    <button class="ghost" id="gamesClose">not now</button>
+  </div>
+</div>
 <div id="catchDone" class="overlay hidden">
   <div class="card glass dark">
     <h2 id="catchTitle">Sparkle catch!</h2>
@@ -1349,6 +1360,18 @@ const UK = {
   "Sparkle storm! ✦": "Іскристий шторм! ✦",
   "Great catch!": "Чудовий улов!",
   "Fun!": "Весело!",
+  "Play time": "Час гратися",
+  "What shall we play with {0}?": "У що пограємо з {0}?",
+  "Sparkle catch": "Лови іскорки",
+  "drag to catch sparkles, dodge pebbles": "веди, щоб ловити іскорки й ухилятися від камінців",
+  "Echo song": "Луна",
+  "listen to the tune, then sing it back": "послухай мелодію і заспівай її у відповідь",
+  "listen…": "слухай…",
+  "your turn: tap the crystals": "твоя черга: торкайся кристалів",
+  "Perfect pitch! ✦": "Абсолютний слух! ✦",
+  "Lovely song!": "Гарна пісня!",
+  "Tunes sung back with {0}: {1}": "Мелодій, проспіваних разом із {0}: {1}",
+  " · a new best!": " · новий рекорд!",
   "Link": "Посилання",
   "Code": "Код",
   " selected — copy it using your browser.": " виділено — скопіюй засобами браузера.",
@@ -1468,7 +1491,7 @@ const UK = {
   "{0} hatched, with a surprise trait! ✦": "{0} вилупився, ще й з несподіваною рисою! ✦",
   "{0} hatched! ✦": "{0} вилупився! ✦",
   "{0} is too sleepy to play. Try a nap 🌙": "{0} надто сонний, щоб гратися. Хай подрімає 🌙",
-  "{0} caught {1} {2}.": "{0} спіймав {1} {2}.",
+  "{0} caught {1} {2}.": "Улов {0}: {1} {2}.",
   "sparkle|sparkles": [
   "іскорку",
   "іскорки",
@@ -1995,7 +2018,7 @@ const sfx = {
     const tick = () => {
       const m = this.song, eighth = 30 / m.bpm;
       setTimeout(tick, eighth * 1000);
-      if (!this.ready() || document.hidden) { step++; return; }
+      if (!this.ready() || document.hidden || this.hush) { step++; return; }
       if (!this.motifs || step % 128 === 0) { const a = motif(); this.motifs = [a, a, motif(), a]; }
       const t = this.ac.currentTime + 0.05, bar = Math.floor(step / 8) % 16, beat = step % 8;
       const chord = m.prog[bar % 4], g = m.gain;
@@ -2151,6 +2174,14 @@ const sfx = {
     const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568];
     const n = rarity === "legendary" ? 6 : rarity === "rare" ? 5 : 4;
     for (let i = 0; i < n; i++) this.tone(t + 0.25 + i * 0.11, notes[i], 0.08, 2.2, "sine", null, true);
+  },
+
+  /** The echo game's crystals: one clear bell note each. */
+  note(i) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime, f = [523.25, 659.25, 783.99, 1046.5][i];
+    this.tone(t, f, 0.1, 0.7, "sine", null, true);
+    this.tone(t, f * 2, 0.02, 0.2, "triangle");
   },
 
   /** Each species has its own voice pitch. */
@@ -8039,16 +8070,31 @@ const atIncubator = (x, y) => { const [ix, iy] = incSpot(); return Math.hypot(x 
 
 // ---------- the sparkle-catch mini-game ----------
 
-function startCatch() {
-  const cr = activeCreature();
-  if (!cr) return;
+/** Playing tires a glowling out, more so when it plays again and again: false if it's too sleepy to start. */
+function payToPlay(cr) {
   applyTime(cr);
-  if (cr.energy < 15) { toast(tr("{0} is too sleepy to play. Try a nap 🌙", cr.name)); return; }
+  if (cr.energy < 15) { toast(tr("{0} is too sleepy to play. Try a nap 🌙", cr.name)); return false; }
   const now = Date.now();
   cr.plays = (cr.plays || []).filter(t => now - t < 10 * 60e3).concat(now);
   cr.energy = clamp(cr.energy - 15 - 6 * (cr.plays.length - 1), 0, 100);
   cr.tummy = clamp(cr.tummy - 5, 0, 100);
   persist();
+  return true;
+}
+
+function openGames() {
+  const cr = activeCreature();
+  if (!cr) return;
+  $("gamesSub").textContent = tr("What shall we play with {0}?", cr.name);
+  $("gamesList").innerHTML = [["catch", "✨", tr("Sparkle catch"), tr("drag to catch sparkles, dodge pebbles")], ["echo", "🎵", tr("Echo song"), tr("listen to the tune, then sing it back")]]
+    .map(([id, em, name, how]) => `<button class="snack" data-game="${id}"><span class="em">${em}</span><span><b>${name}</b><small>${how}</small></span>${id === "echo" && save.echoBest ? `<span class="cost">♪ ${save.echoBest}</span>` : ""}</button>`).join("");
+  $$("#gamesList .snack").forEach(b => b.addEventListener("click", () => { show("games", false); (b.dataset.game === "echo" ? startEcho : startCatch)(); }));
+  show("games", true);
+}
+
+function startCatch() {
+  const cr = activeCreature();
+  if (!cr || !payToPlay(cr)) return;
   game.catch = { t: 20, intro: 3, x: W / 2, tx: W / 2, items: [], spawn: 0, score: 0, combo: 0, flinch: 0, done: false };
   setTimeout(() => setHint(tr("drag left and right · catch sparkles, dodge pebbles")), 50);
   setScene("catch");
@@ -8148,6 +8194,127 @@ function drawCatch() {
     ctx.restore();
   }
   drawSprite(g.x, y, s, specOf(cr), { level: cr.level, shiny: cr.shiny, mood: g.flinch > 0 ? "sad" : "happy" });
+}
+
+// ---------- the echo-song mini-game: four singing crystals, a tune that grows one note each round ----------
+
+const ECHO_STONES = ["amethyst", "citrine", "celestite", "rose"];
+
+function startEcho() {
+  const cr = activeCreature();
+  if (!cr || !payToPlay(cr)) return;
+  const r = () => Math.floor(Math.random() * 4);
+  game.echo = { seq: [r(), r()], phase: "pause", t: 1.2, i: 0, lit: -1, litT: 0, score: 0, sing: 0, done: false };
+  sfx.hush = true;
+  $("echoRound").textContent = 1;
+  setTimeout(() => setHint(tr("listen…")), 50);
+  setScene("echo");
+}
+
+function echoLayout() {
+  const r = Math.min(W * 0.17, H * 0.1, 80), gap = r * 0.25, y1 = H * 0.56;
+  return {
+    s: Math.min(W * 0.3, H * 0.2, 130), cy: y1 - r - H * 0.1, r,
+    pads: [[W / 2 - r - gap / 2, y1], [W / 2 + r + gap / 2, y1], [W / 2 - r - gap / 2, y1 + r * 2 + gap], [W / 2 + r + gap / 2, y1 + r * 2 + gap]],
+  };
+}
+
+function echoLight(k, dur) {
+  const g = game.echo;
+  g.lit = k; g.litT = dur; g.sing = dur;
+  sfx.note(k);
+}
+
+function updateEcho(dt) {
+  const g = game.echo;
+  if (!g || g.done) return;
+  g.litT -= dt; g.sing -= dt;
+  if (g.litT <= 0) g.lit = -1;
+  if (g.phase === "input") return;
+  g.t -= dt;
+  if (g.t > 0) return;
+  if (g.phase === "over") { endEcho(); return; }
+  if (g.phase === "pause") { g.phase = "show"; g.i = 0; g.t = 0; setHint(tr("listen…")); return; }
+  // showing the tune: one crystal at a time, a little quicker each round
+  if (g.i >= g.seq.length) { g.phase = "input"; g.i = 0; setHint(tr("your turn: tap the crystals")); return; }
+  const on = Math.max(0.3, 0.55 - g.score * 0.025);
+  echoLight(g.seq[g.i++], on);
+  g.t = on + 0.15;
+}
+
+function echoTap(x, y) {
+  const g = game.echo;
+  if (!g || g.phase !== "input") return;
+  const { pads, r } = echoLayout(), k = pads.findIndex(([px, py]) => Math.hypot(x - px, y - py) < r);
+  if (k < 0) return;
+  if (k !== g.seq[g.i]) {
+    // a wrong note: the crystal that should have sung lights up, so you can hear where the tune went
+    g.lit = g.seq[g.i]; g.litT = 0.9; g.phase = "over"; g.t = 1.4;
+    sfx.bonk(); buzz(30); setHint("");
+    return;
+  }
+  echoLight(k, 0.25);
+  if (++g.i < g.seq.length) return;
+  // the whole tune, sung back: one note longer next time
+  g.score++;
+  $("echoRound").textContent = g.score + 1;
+  const { cy } = echoLayout();
+  floatText(g.score % 5 ? "♪" : "♪♪♪", W / 2, cy - 40, "#fff0b5");
+  burst(W / 2, cy, 6, ["#fff", ...palOf(specOf(activeCreature()))]);
+  setTimeout(() => sfx.ding(g.score), 280);
+  g.seq.push(Math.floor(Math.random() * 4));
+  g.phase = "pause"; g.t = 1; setHint("");
+}
+
+function endEcho() {
+  const g = game.echo, cr = activeCreature();
+  g.done = true; sfx.hush = false;
+  const best = g.score > (save.echoBest || 0);
+  if (best) save.echoBest = g.score;
+  const joy = Math.min(35, g.score * 4 + 5), xp = g.score * 2 + 5, shards = Math.floor(g.score / 2);
+  cr.joy = clamp(cr.joy + joy, 0, 100);
+  save.shards += shards;
+  addXP(cr, xp);
+  persist();
+  $("catchTitle").textContent = g.score >= 10 ? tr("Perfect pitch! ✦") : g.score >= 5 ? tr("Lovely song!") : tr("Fun!");
+  $("catchSub").textContent = tr("Tunes sung back with {0}: {1}", cr.name, g.score) + (best && g.score ? tr(" · a new best!") : "");
+  $("cdJoy").textContent = "+" + joy;
+  $("cdXp").textContent = "+" + xp;
+  $("cdShards").textContent = "+" + shards;
+  sfx.levelUp();
+  show("catchDone", true);
+}
+
+/** A crystal pad: a six-sided gem, glowing while it sings. */
+function drawEchoStone(x, y, r, id, lit) {
+  const [main, light, deep] = CRYSTAL[id].c, k = lit ? 1.08 : 1, R = r * k;
+  const pt = (i, rr = R) => [x + Math.cos(-Math.PI / 2 + i * Math.PI / 3) * rr, y + Math.sin(-Math.PI / 2 + i * Math.PI / 3) * rr];
+  ctx.save();
+  if (lit && !quality.low) { ctx.shadowColor = light; ctx.shadowBlur = r * 0.6; }
+  ctx.fillStyle = lit ? light : deep;
+  ctx.beginPath(); for (let i = 0; i < 6; i++) ctx.lineTo(...pt(i)); ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  // the facets: a lit face up on the left, the table in the middle
+  ctx.fillStyle = lit ? "#fff" : main;
+  ctx.beginPath(); ctx.moveTo(...pt(0)); ctx.lineTo(...pt(5)); ctx.lineTo(...pt(4)); ctx.lineTo(x, y); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = lit ? shade(light, 0.4) : shade(main, 0.2);
+  ctx.beginPath(); for (let i = 0; i < 6; i++) ctx.lineTo(...pt(i, R * 0.5)); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = lit ? 0.9 : 0.35; ctx.fillStyle = "#fff";
+  sparklePath(ctx, x - R * 0.28, y - R * 0.3, R * 0.12); ctx.fill();
+  ctx.restore();
+}
+
+function drawEcho() {
+  const g = game.echo, cr = activeCreature();
+  if (!g || !cr) return;
+  const { s, cy, r, pads } = echoLayout();
+  pads.forEach(([x, y], k) => drawEchoStone(x, y, r, ECHO_STONES[k], g.lit === k));
+  const mood = g.phase === "over" ? "sad" : g.sing > 0 || g.phase === "pause" && g.score ? "happy" : "ok";
+  drawSprite(W / 2, cy + (g.sing > 0 ? -4 : 0), s, specOf(cr), { level: cr.level, shiny: cr.shiny, mood });
+  if (g.sing > 0) {
+    fx.fillStyle = "#fff0b5"; fx.font = `400 ${Math.round(s * 0.28)}px ${PIXEL_FONT}`; fx.textAlign = "center";
+    fx.fillText("♪", W / 2 + s * 0.55, cy - s * 0.55 - (0.3 - g.sing) * 30); fx.textAlign = "start";
+  }
 }
 
 // ---------- co-op transport and authoritative round state ----------
@@ -8454,6 +8621,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "crack" && game.egg.state === "cracking") hitEgg(x, y);
   if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = now; }
   if (game.scene === "catch" && game.catch) game.catch.tx = x;
+  if (game.scene === "echo") { echoTap(x, y); return; }
   if (game.scene === "nest" && cloudAt(x, y)) { pointer.cloud = true; return; }
   if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
@@ -8910,9 +9078,10 @@ $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
 $("homeClose").addEventListener("click", () => show("homeSheet", false));
 $("homePill").addEventListener("click", openHome);
-$("playBtn").addEventListener("click", startCatch);
+$("playBtn").addEventListener("click", openGames);
+$("gamesClose").addEventListener("click", () => show("games", false));
 $("sleepBtn").addEventListener("click", toggleSleep);
-$("catchBack").addEventListener("click", () => { show("catchDone", false); game.catch = null; setScene("nest"); });
+$("catchBack").addEventListener("click", () => { show("catchDone", false); game.catch = game.echo = null; sfx.hush = false; setScene("nest"); });
 $("nestName").addEventListener("click", () => {
   const cr = activeCreature();
   if (!cr) return;
@@ -9322,6 +9491,7 @@ function update(dt) {
     if ((nestTick += dt) > 1 && activeCreature()) { nestTick = 0; renderNest(); }
   }
   if (game.scene === "catch") updateCatch(dt);
+  if (game.scene === "echo") updateEcho(dt);
 
   const drag = Math.exp(-1.5 * dt);
   for (const p of game.pieces) {
@@ -9757,6 +9927,8 @@ function frame(now) {
     drawNest();
   } else if (game.scene === "catch") {
     drawCatch();
+  } else if (game.scene === "echo") {
+    drawEcho();
   } else {
     drawIdle();
   }
