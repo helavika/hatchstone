@@ -7743,14 +7743,50 @@ function tapIncubator() {
   renderNest(true);
 }
 
+/** The incubator's pod in pixels: a metal saucer with a ring of blinking lights, and inside the glass a nebula with twinkling stars. */
+function incubatorPod(x, y, b) {
+  const f = Math.floor(game.time / 400) % 8;
+  return cachedSprite(isoPieces, "incPod", `${x}|${y}|${b}|${PX}|${f}`, () => {
+    const w = Math.ceil(b * 1.3 / PX), h = Math.ceil(b * 1.25 / PX), ox = x - b * 0.65, oy = y - b * 1.05, q = v => v / PX;
+    const cx = q(x - ox), domeY = q(y - b * 0.55 - oy), r = q(b * 0.4), floorY = q(y - b * 0.06 - oy);
+    const neb = ["#0b0614", "#1d1145", "#3a2a7a", "#6b4fa8", "#c25586"].map(pxHex), metal = [IC.s0, IC.s1, IC.s2, IC.s3];
+    const c = isoArt(w, h, T => {
+      // the nebula, inside the dome's outline
+      for (let py = Math.floor(domeY - r); py <= floorY; py++) for (let px = Math.floor(cx - r); px <= Math.ceil(cx + r); px++) {
+        const inDome = py >= domeY ? Math.abs(px - cx) <= r : Math.hypot(px - cx, py - domeY) <= r;
+        if (!inDome) continue;
+        const n = pxNoise(px * 0.18, py * 0.18 + 3) * 0.8 + 0.25 * Math.sin((px - cx) * 0.2 + (py - domeY) * 0.15);
+        let col = pxPick(neb, clamp(n, 0, 1), px, py);
+        const st = pxHash(px, py);
+        if (st > 0.965) col = (st * 97 + f) % 3 < 1 ? IC.y0 : IC.white;
+        T.px(px, py, col);
+      }
+      // the saucer: a metal ring, lit on top, with lights all round that take turns
+      const rx = q(b * 0.5), ry = q(b * 0.14), sy = floorY + 1;
+      for (let py = Math.floor(sy - ry); py <= sy + ry + 2; py++) for (let px = Math.floor(cx - rx); px <= Math.ceil(cx + rx); px++) {
+        const d = Math.hypot((px - cx) / rx, (py - sy) / ry), under = py > sy && Math.hypot((px - cx) / rx, (py - sy - 2) / ry) <= 1;
+        if (d <= 1) T.px(px, py, py < sy - ry * 0.3 ? metal[0] : Math.abs(py - sy - ry * 0.15) < 1.5 ? IC.ink2 : py < sy + ry * 0.2 ? metal[1] : metal[2]);
+        else if (under) T.px(px, py, metal[3]);
+      }
+      const lights = [IC.y0, IC.p0, IC.b0, IC.g0];
+      for (let k = 0; k < 12; k++) {
+        const an = k / 12 * TAU, lx = cx + Math.cos(an) * rx * 0.88, ly = sy + ry * 0.15 + Math.sin(an) * ry * 0.75;
+        if (Math.sin(an) < -0.2) continue;
+        const col = (k + f) % 3 === 0 ? IC.white : lights[k % 4];
+        const ls = Math.max(2, Math.round(rx / 14));
+        for (let a2 = 0; a2 < ls; a2++) for (let b2 = 0; b2 < ls - 1; b2++) T.px(lx + a2, ly + b2, col);
+      }
+    });
+    return { c, x: Math.round(ox / PX) * PX, y: Math.round(oy / PX) * PX };
+  });
+}
+
 function drawIncubator() {
   const [x, y] = incSpot(), b = N.base * depthK(incSpot()[1]), inc = save.incubator, n = game.nest;
   const ready = inc && Date.now() >= inc.due;
-  // woven stand
-  ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + 4, b * 0.5, b * 0.1, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = "#8a6a9e"; ctx.beginPath(); ctx.ellipse(x, y - b * 0.06, b * 0.42, b * 0.14, 0, 0, Math.PI); ctx.lineTo(x - b * 0.42, y - b * 0.06); ctx.fill();
-  ctx.strokeStyle = "rgba(255,255,255,.25)"; ctx.lineWidth = 1;
-  for (let i = -3; i <= 3; i++) { ctx.beginPath(); ctx.moveTo(x + i * b * 0.11, y - b * 0.06); ctx.lineTo(x + i * b * 0.09, y + b * 0.06); ctx.stroke(); }
+  // a little space pod: a metal saucer with blinking lights, and a nebula full of stars inside the dome
+  ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + 4, b * 0.55, b * 0.11, 0, 0, TAU); ctx.fill();
+  drawBaked(incubatorPod(x, y, b));
   if (inc) {
     // the egg: speckled in both parents' colors, glowing warmer as it gets closer
     const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), wob = ready ? Math.sin(game.time * 0.02) * 0.08 + (n.hatchWob || 0) * Math.sin(game.time * 0.05) * 0.2 : 0;
@@ -7785,6 +7821,12 @@ function drawIncubator() {
   ctx.fillStyle = dg; ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.moveTo(x - b * 0.4, y - b * 0.06); ctx.lineTo(x - b * 0.4, y - b * 0.55); ctx.arc(x, y - b * 0.55, b * 0.4, Math.PI, 0); ctx.lineTo(x + b * 0.4, y - b * 0.06); ctx.fill(); ctx.stroke();
   ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.beginPath(); ctx.ellipse(x - b * 0.22, y - b * 0.62, b * 0.05, b * 0.16, 0.3, 0, TAU); ctx.fill();
+  // a tiny moon orbiting the dome on a faint ring
+  { const an = game.time * 0.0009, ox = Math.cos(an) * b * 0.62, oy = Math.sin(an) * b * 0.16, front = Math.sin(an) > 0;
+    ctx.strokeStyle = "rgba(201,184,255,.28)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, y - b * 0.42, b * 0.62, b * 0.16, 0, 0, TAU); ctx.stroke();
+    ctx.globalAlpha = front ? 1 : 0.45; ctx.fillStyle = "#fff0b5";
+    ctx.fillRect(Math.round((x + ox) / PX) * PX - PX * 1.5, Math.round((y - b * 0.42 + oy) / PX) * PX - PX * 1.5, PX * 3, PX * 3);
+    ctx.globalAlpha = 1; }
   // a progress ring while it incubates, a sparkle when it's ready
   if (inc && !ready) {
     const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1);
