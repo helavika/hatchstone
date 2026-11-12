@@ -7938,6 +7938,19 @@ function drawIncubator() {
   const ready = inc && Date.now() >= inc.due;
   // a little space pod: a metal saucer with blinking lights, and a nebula full of stars inside the dome
   ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + 4, b * 0.55, b * 0.11, 0, 0, TAU); ctx.fill();
+  // while it incubates, a ring of light on the floor round the saucer fills up (it lies flat, under everything else)
+  if (inc && !ready) {
+    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), fy = y - b * 0.02, from = Math.PI / 2;
+    ctx.lineWidth = Math.max(2, PX * 1.5);
+    ctx.strokeStyle = "rgba(255,255,255,.14)"; ctx.beginPath(); ctx.ellipse(x, fy, b * 0.66, b * 0.2, 0, 0, TAU); ctx.stroke();
+    ctx.strokeStyle = "rgba(255,179,212,.85)"; ctx.beginPath(); ctx.ellipse(x, fy, b * 0.66, b * 0.2, 0, from, from + TAU * k); ctx.stroke();
+  }
+  // a tiny moon orbits the dome on a faint ring: the far half of the ring (and the moon, when it's back there) goes behind the dome
+  const an = game.time * 0.0009, oy0 = y - b * 0.42, moonFront = Math.sin(an) > 0;
+  const orbit = (a0, a1) => { ctx.strokeStyle = "rgba(201,184,255,.3)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, oy0, b * 0.62, b * 0.16, 0, a0, a1); ctx.stroke(); };
+  const moon = () => { ctx.fillStyle = "#fff0b5"; ctx.fillRect(Math.round((x + Math.cos(an) * b * 0.62) / PX) * PX - PX * 1.5, Math.round((oy0 + Math.sin(an) * b * 0.16) / PX) * PX - PX * 1.5, PX * 3, PX * 3); };
+  orbit(Math.PI, TAU);
+  if (!moonFront) moon();
   drawBaked(incubatorPod(x, y, b));
   if (inc) {
     // the egg: speckled in both parents' colors, glowing warmer as it gets closer
@@ -7973,20 +7986,11 @@ function drawIncubator() {
   ctx.fillStyle = dg; ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.4;
   ctx.beginPath(); ctx.moveTo(x - b * 0.4, y - b * 0.06); ctx.lineTo(x - b * 0.4, y - b * 0.55); ctx.arc(x, y - b * 0.55, b * 0.4, Math.PI, 0); ctx.lineTo(x + b * 0.4, y - b * 0.06); ctx.fill(); ctx.stroke();
   ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.beginPath(); ctx.ellipse(x - b * 0.22, y - b * 0.62, b * 0.05, b * 0.16, 0.3, 0, TAU); ctx.fill();
-  // a tiny moon orbiting the dome on a faint ring
-  { const an = game.time * 0.0009, ox = Math.cos(an) * b * 0.62, oy = Math.sin(an) * b * 0.16, front = Math.sin(an) > 0;
-    ctx.strokeStyle = "rgba(201,184,255,.28)"; ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(x, y - b * 0.42, b * 0.62, b * 0.16, 0, 0, TAU); ctx.stroke();
-    ctx.globalAlpha = front ? 1 : 0.45; ctx.fillStyle = "#fff0b5";
-    ctx.fillRect(Math.round((x + ox) / PX) * PX - PX * 1.5, Math.round((y - b * 0.42 + oy) / PX) * PX - PX * 1.5, PX * 3, PX * 3);
-    ctx.globalAlpha = 1; }
-  // a progress ring while it incubates, a sparkle when it's ready
-  if (inc && !ready) {
-    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1);
-    ctx.strokeStyle = "rgba(255,255,255,.18)"; ctx.lineWidth = 4;
-    ctx.beginPath(); ctx.arc(x, y - b * 0.55, b * 0.5, Math.PI * 0.85, Math.PI * 2.15); ctx.stroke();
-    ctx.strokeStyle = "#ffb3d4";
-    ctx.beginPath(); ctx.arc(x, y - b * 0.55, b * 0.5, Math.PI * 0.85, Math.PI * (0.85 + 1.3 * k)); ctx.stroke();
-  } else if (ready) {
+  orbit(0, Math.PI);
+  if (moonFront) moon();
+  // a sparkle when it's ready to hatch, a little heart when it's empty
+  if (inc && !ready) { /* the ring on the floor shows how far along it is */ }
+  else if (ready) {
     ctx.fillStyle = "#ffe9a8";
     for (let i = 0; i < 3; i++) { const a = game.time * 0.002 + i * 2.1; sparklePath(ctx, x + Math.cos(a) * b * 0.5, y - b * 0.55 + Math.sin(a) * b * 0.4, 5 + 3 * Math.abs(Math.sin(game.time * 0.005 + i))); ctx.fill(); }
   } else {
