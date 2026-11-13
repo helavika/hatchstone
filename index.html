@@ -584,6 +584,8 @@
   #nestLvl { color: var(--soft); text-shadow: 0 2px 0 var(--px-ink); font-size: 14px; }
   #nestShare .ic { width: 28px; height: 28px; }
   #switcher button img { image-rendering: pixelated; }
+  .forge.craft .cost { flex-direction: column; align-items: flex-end; font-size: 13px; text-align: right; }
+  .forge.craft .cost em { font-style: normal; color: var(--soft); font-size: 12px; }
   .forge-h { margin: 12px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
   .forge .skin-img { width: 40px; height: 40px; image-rendering: pixelated; flex: 0 0 40px; }
   .decor.legend:not([disabled]) b { color: var(--px-gold); }
@@ -2240,6 +2242,18 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Workbench": "Верстак",
+  "Every geode past the first of its kind is a spare. The first one always stays in the book; spares melt down into useful things here.": "Кожна жеода, крім першої свого виду, — запасна. Перша завжди лишається в Книзі, а запасні тут можна переплавити на корисне.",
+  "150 shards": "150 осколків",
+  "a legendary spare, cut and sold": "легендарна запасна, огранена й продана",
+  "{0} {1} spares": "треба {0} · {1}",
+  "you have {0}": "у тебе: {0}",
+  "common ones": "звичайних",
+  "rare ones": "рідкісних",
+  "legendary ones": "легендарних",
+  "Made at the workbench: {0} ✦": "Зроблено на верстаку: {0} ✦",
+  "Handy": "Майстерність",
+  "Make 3 things at the workbench": "Зроби 3 речі на верстаку",
   "📋 Copy it": "📋 Скопіювати",
   "Sending opens GitHub (it needs a free account). No account? Copy it and send it any way you like.": "Надсилання відкриває GitHub (потрібен безкоштовний акаунт). Немає акаунта? Скопіюй і надішли будь-яким зручним способом.",
   "Copied ✓": "Скопійовано ✓",
@@ -5753,9 +5767,42 @@ function openForge() {
     const has = !k.cost || (save.toolSkins || {})[k.id], on = toolSkin().id === k.id;
     return `<button class="forge skin${on ? " maxed" : ""}" data-skin="${k.id}" ${!has && save.shards < k.cost ? "disabled" : ""}><img class="skin-img" src="${hammerImage(k)}" alt=""><span class="txt"><b>${k.name}</b><small>${k.note}</small></span><span class="cost">${on ? tr("in hand ✓") : has ? tr("owned") : `${ic("shard")}${k.cost}`}</span></button>`;
   }).join("");
-  $$("#forgeList .forge:not(.skin)").forEach(b => b.addEventListener("click", () => buyForge(b.dataset.id)));
+  $$("#forgeList .forge:not(.skin):not(.craft)").forEach(b => b.addEventListener("click", () => buyForge(b.dataset.id)));
+  $("forgeList").innerHTML += workbenchList();
   $$("#forgeList .skin").forEach(b => b.addEventListener("click", () => pickSkin(b.dataset.skin)));
+  $$("#forgeList [data-craft]").forEach(b => b.addEventListener("click", () => craft(b.dataset.craft)));
   show("forge", true);
+}
+
+// ---------- the workbench: spare geodes (every one past the first of its kind) melt down into useful things ----------
+
+const RECIPES = [
+  { id: "nut", rarity: "common", need: 3, name: "Nut bar", note: "+3 lantern oil", icon: () => pxIcon("barNut"), give: () => giveBar("nut") },
+  { id: "seeds", rarity: "common", need: 2, name: "A bundle of seeds", note: "glowberry, moon mint and cookie sprout, two of each", icon: () => plantImage("glowberry", 3), give: () => { const g = garden().seeds; for (const k of ["glowberry", "moonmint", "cookiecorn"]) g[k] = (g[k] || 0) + 2; } },
+  { id: "star", rarity: "rare", need: 3, name: "Star bar", note: "fills the lantern to the brim", icon: () => pxIcon("barStar"), give: () => giveBar("star") },
+  { id: "shards", rarity: "legendary", need: 1, name: "150 shards", note: "a legendary spare, cut and sold", icon: () => pxIcon("shard"), give: () => { save.shards += 150; } },
+];
+/** How many spare geodes of a rarity you have (the first of each kind stays in the book). */
+const spares = rarity => CRYSTALS.filter(c => c.rarity === rarity).reduce((n, c) => n + Math.max(0, ((save.geodes[c.id] || {}).count || 0) - 1), 0);
+function craft(id) {
+  const r = RECIPES.find(x => x.id === id);
+  if (!r || spares(r.rarity) < r.need) return;
+  // the spares come from the kinds you have most of
+  for (let k = 0; k < r.need; k++) {
+    const c = CRYSTALS.filter(x => x.rarity === r.rarity && ((save.geodes[x.id] || {}).count || 0) > 1).sort((p, q) => save.geodes[q.id].count - save.geodes[p.id].count)[0];
+    save.geodes[c.id].count--;
+  }
+  r.give(); bump("crafted"); sfx.levelUp(); buzz([12, 30, 12]);
+  toast(tr("Made at the workbench: {0} ✦", tr(r.name)));
+  persist(); updateTopbar(); openForge();
+}
+const RARITY_WORD = { common: "common ones", rare: "rare ones", legendary: "legendary ones" };
+function workbenchList() {
+  return `<h3 class="forge-h">${tr("Workbench")}</h3><p class="me-hint">${tr("Every geode past the first of its kind is a spare. The first one always stays in the book; spares melt down into useful things here.")}</p>`
+    + RECIPES.map(r => {
+      const have = spares(r.rarity);
+      return `<button class="forge craft" data-craft="${r.id}" ${have < r.need ? "disabled" : ""}><img class="skin-img" src="${r.icon()}" alt=""><span class="txt"><b>${tr(r.name)}</b><small>${tr(r.note)}</small></span><span class="cost">${tr("{0} {1} spares", r.need, tr(RARITY_WORD[r.rarity]))}<em>${tr("you have {0}", have)}</em></span></button>`;
+    }).join("");
 }
 
 /** Buy a hammer look (once), or switch to one you own. */
@@ -6618,6 +6665,7 @@ const AWARDS = [
   { id: "echo5", tier: "rare", name: "Good ear", how: "Sing back 5 tunes in Echo song", test: () => [save.echoBest || 0, 5] },
   { id: "wick3", tier: "rare", name: "A good customer", how: "Buy 3 things from Wick", test: () => [cnt("wickBought"), 3] },
   { id: "trips5", tier: "rare", name: "Explorer's map", how: "Send glowlings on 5 expeditions", test: () => [cnt("trips"), 5] },
+  { id: "craft3", tier: "rare", name: "Handy", how: "Make 3 things at the workbench", test: () => [cnt("crafted"), 3] },
   { id: "harvest25", tier: "rare", name: "Harvest festival", how: "Pick 25 harvests", test: () => [cnt("harvested"), 25] },
   { id: "biteleaf", tier: "epic", name: "It bites", how: "Grow and pick a biteleaf", test: () => [cnt("biteleaf"), 1] },
   { id: "rescue1", tier: "rare", name: "First light", how: "Free a spark from the Gloom", test: () => [cnt("rescued"), 1] },
@@ -11754,7 +11802,7 @@ function renderLib() {
     for (const c of CRYSTALS) if (save.geodes[c.id] && !save.geodes[c.id].img) { save.geodes[c.id].img = crystalThumb(c.id); persist(); }
     $("libGrid").innerHTML = CRYSTALS.map((c, i) => {
       const geo = save.geodes[c.id];
-      return `<button data-cr="${c.id}" class="${geo ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img src="${geo ? geo.img : mysteryGeode()}" alt=""></span><b>${geo ? c.name : "???"}</b><small>${rarF(c.rarity)}</small></button>`;
+      return `<button data-cr="${c.id}" class="${geo ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img src="${geo ? geo.img : mysteryGeode()}" alt=""></span><b>${geo ? c.name : "???"}</b><small>${rarF(c.rarity)}${geo && geo.count > 1 ? ` · ×${geo.count}` : ""}</small></button>`;
     }).join("");
   }
   $$("#libGrid [data-sp]").forEach(b => b.addEventListener("click", () => openSpecies(SP[b.dataset.sp])));
