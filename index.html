@@ -2710,18 +2710,21 @@ function pixelCave(th, W, H, { floorY = H - 8, lx, ly = H * .62, crystals = 16, 
   for (let i = 0; i < Math.round(crystals * .55); i++) { const x = spot(i, seed + 5); pts.push([x, ceil(x) - 1, (4 + pxHash(i, seed + 6) * 9) * reach * 0.6, (1 + pxHash(i, seed + 7) * 2) * girth, false]); }
   lx ??= W * (.3 + .4 * pxHash(seed, 9));
   const lr = W * .44, lh = H * .65;
+  // per column, worked out once: the floor and ceiling lines, and only the crystals that reach that column (in the same order)
+  const floorA = Float32Array.from({ length: W }, (_, x) => floor(x)), ceilA = Float32Array.from({ length: W }, (_, x) => ceil(x));
+  const colPts = Array.from({ length: W }, (_, x) => pts.filter(([sx, , , sw]) => Math.abs(x - sx) <= sw + .5));
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const light = Math.max(0, 1 - Math.hypot((x - lx) / lr, (y - ly) / lh));
     let col = null, air = false;
-    for (const [sx, sb, sh, sw, up] of pts) {
+    for (const [sx, sb, sh, sw, up] of colPts[x]) {
       const t = up ? (sb - y) / sh : (y - sb) / sh;
       if (t >= 0 && t <= 1 && Math.abs(x - sx) <= sw * (1 - t) + .5) { col = pxPick(crys, (x < sx ? .8 - t * .15 : .4 + t * .15) + light * .25 + pxFbm(x, y) * .08, x, y); break; }
     }
     if (!col) {
-      const f = floor(x);
+      const f = floorA[x];
       if (pool && y >= f - 1 && y < f + 10 && Math.abs(x - lx) < W * .21) col = pxPick(pool, .35 + light * .5 + .2 * Math.sin(x * .9 + y * 3) * (y % 2), x, y);
       else if (y >= f) col = pxPick(wall, .45 - (y - f) / 14 + pxFbm(x * .25, y * .25) * .3 + light * .35, x, y);
-      else if (y <= ceil(x)) col = pxPick(wall, .12 + pxFbm(x * .2, y * .2) * .3, x, y);
+      else if (y <= ceilA[x]) col = pxPick(wall, .12 + pxFbm(x * .2, y * .2) * .3, x, y);
       else {
         air = true;
         let v = pxFbm(x * .09 + seed, y * .14) * .35 + light * .55;
@@ -3517,12 +3520,17 @@ function makeMotes() {
   }));
 }
 
-function drawBackground() {
+/** The backdrop for a scene: which picture, and where its ground line meets the room. */
+function bgFor(scene) {
   const id = currentTheme();
   // in the nest, the backdrop's ground meets the room: a clearing or a ruined hall stands on the land, a cave hollow opens onto the cave floor
-  const kind = ROOM_KIND[id] || "cave", floor = game.scene === "nest" && N.back ? (kind === "cave" ? N.front : N.back + 1) / H : 0.86;
+  const kind = ROOM_KIND[id] || "cave", floor = scene === "nest" && N.back ? (kind === "cave" ? N.front : N.back + 1) / H : 0.86;
   const key = `${id}|${floor.toFixed(3)}`;
   if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor));
+  return [id, key];
+}
+function drawBackground() {
+  const [id, key] = bgFor(game.scene);
   // the music box plays the song picked on it, in the nest; otherwise each backdrop has its own
   const song = game.scene === "nest" && hasDecor("musicbox") && save.jukebox && THEMES.some(t => t.id === save.jukebox && t.ok()) ? save.jukebox : id;
   if (song !== bgTheme) { bgTheme = song; sfx.music(song); }
@@ -10215,7 +10223,8 @@ function drawCoopCursor() {
 function drawIdle() {
   const sp = SPECIES[Math.floor(game.time / 4000) % SPECIES.length];
   ctx.globalAlpha = game.scene === "menu" ? 0.9 : 0.3;
-  drawSprite(W / 2, H * 0.5 + Math.sin(game.time * 0.001) * 10, Math.min(W, H) * 0.32, sp, { mood: save.seen[sp.id] ? "happy" : "asleep" });
+  // one still frame per glowling (it floats as a whole), so the menu doesn't redraw a big sprite ten times a second
+  drawSprite(W / 2, H * 0.5 + Math.round(Math.sin(game.time * 0.001) * 10 / PX) * PX, Math.min(W, H) * 0.32, sp, { mood: save.seen[sp.id] ? "happy" : "asleep", t: 0 });
   ctx.globalAlpha = 1;
 }
 
@@ -10280,6 +10289,15 @@ checkThemes();
 coopImportLocationInvite();
 quality.settle(5000); // the first seconds bake every picture: don't judge the device by them
 requestAnimationFrame(frame);
+warmUp();
+
+/** While the menu is up, paint what the nest will need, one small job per idle moment, so Play opens without a hitch. */
+function warmUp() {
+  const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 1500 }) : setTimeout(f, 200));
+  const jobs = [() => bgFor("nest"), ...save.creatures.map(c => () => creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc }))];
+  const next = () => { if (game.scene !== "menu" || !jobs.length) return; jobs.shift()(); idle(next); };
+  setTimeout(() => idle(next), 600);
+}
 
 // ---------- the start plate: a dithered pixel-art grotto, drawn live like the keep on helavika's portfolio ----------
 // New players see a big stone egg that wobbles now and then; returning players see their own glowling on the ledge.
