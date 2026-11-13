@@ -723,6 +723,17 @@
   #meSkills h3 span { color: var(--px-gold); letter-spacing: 0; }
   .forge.skill { cursor: default; }
   .forge.skill .act { margin-left: auto; padding: 6px 12px; }
+  /* a glowling's card */
+  #glowCard .card { max-height: calc(100dvh - 40px); display: flex; flex-direction: column; }
+  .glow-img { width: 120px; height: 120px; image-rendering: pixelated; margin: 0 auto; display: block; }
+  .glow-head { display: flex; align-items: center; justify-content: center; gap: 8px; }
+  #glowRename { width: 32px; height: 32px; padding: 0; font-size: 16px; }
+  #glowMore { text-align: left; min-height: 0; }
+  #glowMore h3 { margin: 12px 0 6px; }
+  .diary { list-style: none; margin: 0; padding: 0; }
+  .diary li { display: flex; gap: 10px; padding: 5px 2px; border-bottom: 1px dashed rgba(255, 233, 168, .15); font-size: 15px; line-height: 1.3; }
+  .diary b { flex: none; width: 56px; color: var(--px-gold); font-weight: 400; font-size: 13px; padding-top: 2px; }
+  .diary span { color: var(--soft); }
   /* expeditions */
   .trip-who { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
   .trip-where .theme small { display: block; font-size: 12px; }
@@ -1457,6 +1468,15 @@
   </div>
 </div>
 
+<div id="glowCard" class="overlay modal hidden">
+  <div class="card glass dark">
+    <img id="glowImg" class="glow-img" alt="">
+    <div class="glow-head"><div class="big-name" id="glowName"></div><button class="pill glass btn round" id="glowRename" aria-label="Rename">✎</button></div>
+    <p class="sub" id="glowInfo"></p>
+    <div class="scroll" id="glowMore"></div>
+    <button class="ghost" id="glowClose">close</button>
+  </div>
+</div>
 <div id="spCard" class="overlay modal hidden">
   <div class="card glass dark">
     <img id="spImg" alt="">
@@ -2197,6 +2217,26 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Best friend": "Нерозлийвода",
+  "met {0} times: hugs, tag, duets and naps": "зустрічі: {0} — обійми, квач, дуети й дрімота",
+  "No best friend yet. Glowlings who live in the same room meet and make friends by themselves.": "Найкращого друга ще немає. Глоулінги, що живуть в одній кімнаті, зустрічаються й заприятелюють самі.",
+  "Diary": "Щоденник",
+  "Hatched and moved in ✦": "Вилупилося й оселилося ✦",
+  "Got a new name: {0}": "Отримало нове ім'я: {0}",
+  "Freed from the Gloom's seal at the end of the {0}": "Звільнене з-під печаті Мли наприкінці: {0}",
+  "Hatched from a moon egg 🌙": "Вилупилося з місячного яйця 🌙",
+  "Hatched from a {0} geode": "Вилупилося з жеоди: {0}",
+  "Grew up: now {0}": "Підросло: тепер {0}",
+  "Came back from {0} with {1}": "Повернулося з мандрів ({0}): {1}",
+  "Came back from {0}": "Повернулося з мандрів: {0}",
+  "Became friends with {0} ♥": "Заприятелювало з {0} ♥",
+  "Hatched in the incubator: a mix of {0}": "Вилупилося в інкубаторі: суміш {0}",
+  "sleepy": "сонне",
+  "hungry": "голодне",
+  "a bit lonely": "трохи сумує",
+  "happy": "щасливе",
+  "doing fine": "почувається добре",
+  "Rename": "Перейменувати",
   "Expeditions": "Експедиції",
   "{0} away exploring": "у мандрах: {0}",
   "send a glowling to explore for a few hours": "відправ глоулінга досліджувати на кілька годин",
@@ -2648,7 +2688,7 @@ const UK_DATA = {
     lights: { name: "Чарівні вогники", verb: "ганяється за вогниками" }
   },
   behaviors: { flutter: "пурхалки", hop: "стрибунці", nap: "сплюхи", dance: "танцюристи", curious: "цікавинки", swim: "плавунці" },
-  stages: ["Малюк", "Юний", "Дорослий", "Сяйливий"],
+  stages: ["Маля", "Підросле", "Доросле", "Сяйне"],
   caves: ["Аметистова западина", "Целестиновий грот", "Малахітові глибини", "Лабрадоритове склепіння"],
   caveNotes: ["М'який камінь · з 4 рівня слабке місце ховається", "Твердіший камінь · рідкісні кристали", "Шукай слабке місце на слух · є шанс на легендарне", "Найміцніший камінь і найрідкісніші жеоди"],
   themes: {
@@ -4012,6 +4052,7 @@ function addXP(cr, n) {
     const before = stageOf(cr.level);
     cr.level++;
     const grew = stageOf(cr.level) !== before;
+    if (grew) remember(cr, "Grew up: now {0}", STAGES[stageOf(cr.level)]);
     if (grew && stageOf(cr.level) === 1) { if (game.scene === "nest") setTimeout(() => talk("firstGrow", cr), 900); else talkLater.push(["firstGrow", cr]); }
     giveBar("firefly");
     toast((grew ? tr("{0} grew up: now {1}! ✦", cr.name, STAGES[stageOf(cr.level)]) : tr("{0} reached level {1} ✦", cr.name, cr.level)) + " · " + tr("{0} +1", barName("firefly")));
@@ -5937,6 +5978,7 @@ function adopt(e) {
     save.creatures.push(mine);
     adopt.sibling = false;
     note = e.shiny ? tr("A shiny one! It sparkles in your nest now ✦") : tr("{0} moved into your nest", sp.name);
+    if (!e.conf.coop) remember(mine, e.conf.gloom ? "Freed from the Gloom's seal at the end of the {0}" : e.conf.moon ? "Hatched from a moon egg 🌙" : "Hatched from a {0} geode", e.conf.gloom ? CAVES[e.conf.gloom - 1] : e.crystal.name);
   }
   save.active = mine.id;
   return { isNew, note, mine };
@@ -7243,6 +7285,7 @@ function tripsHome() {
       else if (Math.random() < 0.25 + k * 0.08) { giveBar(f); got.push(barName(f)); }
     }
     addXP(c, 6 * k);
+    remember(c, got.length ? "Came back from {0} with {1}" : "Came back from {0}", placeName(pl), got.join(", "));
     c.trip = null; c.roam = false; c.outAt = c.outAt || now;
     back.push(tr(pick(pl.tales), c.name) + (got.length ? " " + tr("Brought back: {0}", got.join(" · ")) : ""));
   }
@@ -7281,6 +7324,35 @@ function sendTrip() {
 function tellTrips() {
   const back = tripsHome();
   back.forEach((t, i) => setTimeout(() => toast(t), i * 2800));
+}
+
+// ---------- a glowling's own card: its best friend, and a diary of what it has lived through ----------
+
+/** Keep a moment in a glowling's diary (the words are translated when shown, so they follow the language). */
+function remember(cr, text, ...args) {
+  if (!cr) return;
+  cr.mem = [...(cr.mem || []), { t: Date.now(), k: text, a: args }].slice(-40);
+}
+/** Its best friend: whoever it has met most often, if they still live with you. */
+function bestFriend(cr) {
+  const best = Object.entries(cr.pals || {}).map(([id, n]) => [save.creatures.find(c => c.id === Number(id)), n]).filter(([c]) => c).sort((p, q) => q[1] - p[1])[0];
+  return best ? { c: best[0], n: best[1] } : null;
+}
+function openGlowling(cr) {
+  if (!cr) return;
+  sfx.tick(); sfx.chirp(specOf(cr).voice);
+  const sp = specOf(cr), bf = bestFriend(cr), mood = { asleep: "asleep", sleepy: "sleepy", hungry: "hungry", sad: "a bit lonely", happy: "happy", ok: "doing fine" }[moodOf(cr)];
+  $("glowImg").src = creatureImage(sp, { size: 200, level: cr.level, shiny: cr.shiny, acc: cr.acc });
+  $("glowName").textContent = cr.name;
+  $("glowInfo").textContent = `${sp.name} · ${tr("Level {0}", cr.level)} · ${STAGES[stageOf(cr.level)]} · ${tr(mood)}`;
+  const LOC = LANG === "uk" ? "uk-UA" : "en-US", day = t => new Date(t).toLocaleDateString(LOC, { day: "numeric", month: "short" });
+  $("glowMore").innerHTML = `<h3>${tr("Best friend")}</h3>`
+    + (bf ? `<div class="trip-away"><img src="${creatureImage(specOf(bf.c), { art: 20, level: bf.c.level, shiny: bf.c.shiny, acc: bf.c.acc })}" alt=""><span><b>${bf.c.name}</b><small>${tr("met {0} times: hugs, tag, duets and naps", bf.n)}</small></span></div>`
+      : `<p class="me-hint">${tr("No best friend yet. Glowlings who live in the same room meet and make friends by themselves.")}</p>`)
+    + `<h3>${tr("Diary")}</h3>`
+    // newest first; the day it hatched closes the list (unless the diary already tells how)
+    + `<ul class="diary">${(cr.mem || []).slice().reverse().map(m => `<li><b>${day(m.t)}</b><span>${tr(m.k, ...m.a.map(x => typeof x === "string" ? tr(x) : x))}</span></li>`).join("")}${(cr.mem || []).some(m => /^Hatched/.test(m.k)) ? "" : `<li><b>${day(cr.born)}</b><span>${tr("Hatched and moved in ✦")}</span></li>`}</ul>`;
+  show("glowCard", true);
 }
 
 // ---------- the music box: pick the nest's song from the ones you've unlocked, and play the game's sounds ----------
@@ -7909,7 +7981,10 @@ function meetFriend(a, f, cr) {
     a.state = f.state = "nap"; a.t = f.t = rand(5, 8); emote(a, "zz", 2.5); emote(f, "zz", 2.5);
   }
   // friends remember each other, and a good meeting cheers both up
-  for (const [c, o] of [[cr, fc], [fc, cr]]) { c.joy = clamp(c.joy + 3, 0, 100); c.pals = { ...c.pals, [o.id]: ((c.pals || {})[o.id] || 0) + 1 }; }
+  for (const [c, o] of [[cr, fc], [fc, cr]]) {
+    c.joy = clamp(c.joy + 3, 0, 100); c.pals = { ...c.pals, [o.id]: ((c.pals || {})[o.id] || 0) + 1 };
+    if (c.pals[o.id] === 5) remember(c, "Became friends with {0} ♥", o.name);
+  }
 }
 
 function updateActors(dt) {
@@ -10196,7 +10271,7 @@ function tapIncubator() {
   if (n.hatchTaps < 3) { sfx.crackDone(n.hatchTaps + 2); sfx.knock(0.8); return; }
   // it hatches!
   const now = Date.now();
-  const cr = { id: save.nextId++, sp: "hybrid", mix: inc.mix, name: (inc.shiny ? "✦ " : "") + inc.mix.name, shiny: inc.shiny, level: 1, xp: 0, tummy: 70, joy: 90, energy: 80, sleeping: false, last: now, born: now };
+  const cr = { mem: [{ t: Date.now(), k: "Hatched in the incubator: a mix of {0}", a: [inc.mix.parents.join(" × ")] }], id: save.nextId++, sp: "hybrid", mix: inc.mix, name: (inc.shiny ? "✦ " : "") + inc.mix.name, shiny: inc.shiny, level: 1, xp: 0, tummy: 70, joy: 90, energy: 80, sleeping: false, last: now, born: now };
   save.creatures.push(cr);
   save.hybrids = save.hybrids || [];
   save.hybrids.push({ id: cr.id, name: inc.mix.name, parents: inc.mix.parents, date: now });
@@ -11418,12 +11493,14 @@ $$(".hud-quit").forEach(b => b.addEventListener("click", ev => {
   else if (game.scene === "echo" && game.echo && !game.echo.done) endEcho();
 }));
 $("catchBack").addEventListener("click", () => { show("catchDone", false); game.catch = game.echo = null; sfx.hush = false; setScene("nest"); });
-$("nestName").addEventListener("click", () => {
+$("nestName").addEventListener("click", () => openGlowling(activeCreature()));
+$("glowRename").addEventListener("click", () => {
   const cr = activeCreature();
   if (!cr) return;
   const name = (prompt(tr("A new name for your {0}?", specOf(cr).name), cr.name) || "").trim().slice(0, 18);
-  if (name) { cr.name = name; persist(); renderNest(true); }
+  if (name) { remember(cr, "Got a new name: {0}", name); cr.name = name; persist(); renderNest(true); openGlowling(cr); }
 });
+$("glowClose").addEventListener("click", () => show("glowCard", false));
 $("spClose").addEventListener("click", () => show("spCard", false));
 // the test copy: a badge, and a way to bring your real nest over (a copy: the live one is never touched)
 if (STAGING) {
