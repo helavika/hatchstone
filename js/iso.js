@@ -544,7 +544,7 @@ function texturize(d, w, h, glowPx) {
     const c = m.ramp[clamp(m.i + sh, 0, Math.max(top, m.i))]; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2];
   }
 }
-function isoArt(w, h, paint, { outline = true, texture = true } = {}) {
+function isoArt(w, h, paint, { outline = true, texture = true, light = true } = {}) {
   w = Math.ceil(w); h = Math.ceil(h);
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
@@ -609,14 +609,30 @@ function isoArt(w, h, paint, { outline = true, texture = true } = {}) {
   };
   paint(T);
   if (texture) texturize(d, w, h, T.glowPx);
+  const solid = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 0 && !T.glowPx.has(i) ? 1 : 0;
+  if (light) {
+    // the light comes from the top left: a warm rim along the lit edges of the silhouette, cool (purple-shifted) shade along the far ones
+    const src = d.slice(), mix = (o, [r, g2, b], k) => { d[o] = src[o] + (r - src[o]) * k; d[o + 1] = src[o + 1] + (g2 - src[o + 1]) * k; d[o + 2] = src[o + 2] + (b - src[o + 2]) * k; };
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const i = y * w + x; if (!solid[i]) continue;
+      const up = y > 0 && solid[i - w], left = x > 0 && solid[i - 1], down = y < h - 1 && solid[i + w], right = x < w - 1 && solid[i + 1];
+      const down2 = y < h - 2 && solid[i + 2 * w];
+      if (!up || !left) mix(i * 4, [255, 238, 196], 0.3);
+      else if (!down || !right) mix(i * 4, [34, 18, 62], 0.32);
+      else if (!down2) mix(i * 4, [34, 18, 62], 0.14);
+    }
+  }
   if (outline) {
-    const solid = new Uint8Array(w * h);
-    for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 0 && !T.glowPx.has(i) ? 1 : 0;
+    // selective outline: on the lit side the outline is a dark shade of whatever it borders; on the shadow side it stays ink
     for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
       if (solid[y * w + x]) continue;
-      if ((x > 0 && solid[y * w + x - 1]) || (x < w - 1 && solid[y * w + x + 1]) || (y > 0 && solid[(y - 1) * w + x]) || (y < h - 1 && solid[(y + 1) * w + x])) {
-        const i = (y * w + x) * 4; if (d[i + 3] === 0 || T.glowPx.has(y * w + x)) { d[i] = IC.ink[0]; d[i + 1] = IC.ink[1]; d[i + 2] = IC.ink[2]; d[i + 3] = 255; }
-      }
+      const toR = x < w - 1 && solid[y * w + x + 1], toD = y < h - 1 && solid[(y + 1) * w + x], toL = x > 0 && solid[y * w + x - 1], toU = y > 0 && solid[(y - 1) * w + x];
+      if (!(toR || toD || toL || toU)) continue;
+      const i = (y * w + x) * 4; if (!(d[i + 3] === 0 || T.glowPx.has(y * w + x))) continue;
+      let col = IC.ink;
+      if ((toR || toD) && !toL && !toU && light) { const n = ((toR ? y * w + x + 1 : (y + 1) * w + x)) * 4; col = [d[n] * 0.38 + 10, d[n + 1] * 0.32 + 4, d[n + 2] * 0.42 + 22]; }
+      d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
     }
   }
   g.putImageData(img, 0, 0);
@@ -2267,6 +2283,14 @@ function drawRoomIso() {
   if (hasDecor("cushion")) drawCloudShadow();
   drawWeatherGround();
   const items = [];
+  // each piece casts a soft shadow on the floor, away from the light (top left), before anything is drawn on it
+  ctx.save(); ctx.fillStyle = "rgba(10,4,24,.36)";
+  for (const p of Object.values(isoLayout().placed)) {
+    if (["rack", "wallmap", "swing", "shelves", "shelves2", "jars", "bed"].includes(p.id)) continue;
+    const g0 = ISO_G, k = 0.28, pts = [[p.i + k, p.j], [p.i + p.fw + k, p.j], [p.i + p.fw + k, p.j + p.fd], [p.i + k, p.j + p.fd]].map(([u, v]) => isoAt(u / g0, v / g0));
+    ctx.beginPath(); pts.forEach(([x, y], n) => n ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill();
+  }
+  ctx.restore();
   for (const p of Object.values(isoLayout().placed)) {
     const fy = isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1];
     const box = { u0: p.i, u1: p.i + p.fw, v0: p.j, v1: p.j + p.fd, id: p.id };
