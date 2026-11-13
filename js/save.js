@@ -548,9 +548,11 @@ function updateEventMotes(dt) {
     if (m.x < -6) m.x = W + 6; else if (m.x > W + 6) m.x = -6;
   }
 }
+/** Is there open sky here? (the garden, the camp, a backdrop out of doors) — not inside a cave, the shop or the lab. */
+const skyHere = () => game.scene === "nest" && ["yard", "wood", "ruin"].includes(ROOM_KIND[currentTheme()] || "cave");
 function drawEventMotes() {
   const f = eventNow()?.fall;
-  if (!f) return;
+  if (!f || !skyHere()) return;
   for (const m of evMotes) {
     ctx.globalAlpha = f.blink ? 0.25 + 0.75 * Math.max(0, Math.sin(game.time * 0.002 + m.ph * 3)) : 0.85;
     const sway = f.dir > 0 ? Math.sin(m.ph + game.time * 0.0013) * 10 : 0, s = Math.max(2, Math.round(m.r * 1.5)) * PX;
