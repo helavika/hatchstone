@@ -409,6 +409,8 @@ $("worldTab").addEventListener("click", () => {
 $("worldClose").addEventListener("click", () => { sfx.tick(); closeWorld(); });
 $("spaceClose").addEventListener("click", () => show("spaceSheet", false));
 $("thingClose").addEventListener("click", () => show("thingSheet", false));
+// the trail of levels closes back to the grotto's hall
+$("mapClose").addEventListener("click", () => { sfx.tick(); arriveAt("grotto"); });
 $("worldIn").addEventListener("click", () => zoomWorld(1));
 $("worldOut").addEventListener("click", () => zoomWorld(-1));
 $("tabs").addEventListener("click", e => { if (worldOpen() && !e.target.closest("#worldTab")) closeWorld(); }, true);

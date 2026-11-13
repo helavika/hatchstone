@@ -350,7 +350,8 @@ function sizeCanvas() {
   // fine pixels: on sharp screens half a CSS pixel (one or two real screen pixels each), so every sprite has twice the detail;
   // a device that can't keep up steps back to coarser ones, a level at a time (see quality)
   // (the egg is drawn live every frame and fills the screen, so cracking keeps the regular pixel size)
-  const base = clamp(Math.ceil(Math.min(W, H * 0.6) / 400), 1, 4), fine = (window.devicePixelRatio || 1) >= 2 && game.scene !== "crack" ? base / 2 : base;
+  // (art pixels used to be half a CSS pixel on sharp screens; they're a whole one now, so the pixel art reads as pixel art)
+  const base = clamp(Math.ceil(Math.min(W, H * 0.6) / 400), 1, 4), fine = base;
   const levels = [...new Set([fine, base, base + 1])];
   quality.pxLevels = levels.length;
   PX = pxTry ? +pxTry[1] : levels[Math.min(quality.pxStep, levels.length - 1)];

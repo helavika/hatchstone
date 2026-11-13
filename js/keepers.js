@@ -237,11 +237,96 @@ function scaledT(T, S) {
     glow: (cx, cy, r, c, kk) => T.glow(k(cx + 0.5), k(cy + 0.5), k(r), c, kk),
   };
 }
+/** Keepers drawn by hand, pixel by pixel (40×64, one character per pixel, '.' see-through), with their own palettes. */
+const KEEPER_PIX = {
+  ember: {
+    pal: {"k": "#160a10", "1": "#3a0d1e", "2": "#6b1426", "3": "#9e2530", "4": "#cf4636", "5": "#ef7a4a", "h": "#2b2236", "H": "#4d4260", "j": "#776a8c", "y": "#ffd27a", "Y": "#fff7da", "m": "#23222c", "n": "#3e3c4a", "o": "#63606f", "p": "#9a97a6", "a": "#24130b", "b": "#3f2312", "c": "#5f381c", "d": "#85532b", "e": "#a97540", "s": "#3c4150", "t": "#6c7486", "u": "#a8b0c0", "v": "#e2e8f2", "g": "#8a5a1c", "G": "#d49a3a"},
+    // the eye, and what it becomes mid-blink
+    blink: { y: "2", Y: "2" }, eye: [9, 13, 13, 20],
+    rows: [
+      "..............................kkkkkkkkk.",
+      ".............................kuvvvvuuttk",
+      "...........kkkk.............kuvvvuuutttk",
+      "..........kjjHHkk...kkk.....kuuuutttttsk",
+      "..........kjHHHhhk.kjHHk....kttttttsssss",
+      "...........kkHHhhhkkjHhhk....ksssssssskk",
+      ".............kkhhHHkHhhk......kkkkdekk..",
+      "...............k4HHHHk............kdek..",
+      "..............k4455554kk.........kdek...",
+      ".............k4455555444kk.......kdek...",
+      ".............k45kk55444444k.....kdek....",
+      ".............k4k1yYk444444k....kkkkk....",
+      "............k34k1yyk4444444k..k5443k....",
+      "............k3444kk4443333kk..k4d43k....",
+      "............k333444422222k....k3e32k....",
+      ".............k33344433kkk......k332k....",
+      "..............kk333332k........k3432k...",
+      ".............kkkk3432kkkkkkkdekk3432k...",
+      ".......kkkkkkonopnopnoponokkkkkk3432k...",
+      "......kuvvuutkpnonopnonopkk34443k432k...",
+      ".....kuvvuuttskonopnoponkk3444443k32k...",
+      ".....kuuuutttsknonopnokkkk33333332k2k...",
+      "....kuuuttt5sskknononkdkonk2222222kk....",
+      "....kttttssssskknnonnkckonnkkkkkkkk.....",
+      ".....kssskkkkkdekkkkkkcknnmmmk..........",
+      ".....k343kknkdeeddddddcbkmmmk...........",
+      ".....k343kknkdeddddddccbkmmmk...........",
+      ".....k3442kmkdeddddadccbkmmmk...........",
+      ".....k3432kmkdedddddcccbkmmmk...........",
+      ".....k3432kmkdeddddddccbkmmmk...........",
+      ".....k3432kmkdedddddcccbkmmmk...........",
+      ".....k3432kkkdeddadddccbkmmk............",
+      ".....k4432kkkdeddddddccbkmmk............",
+      ".....k4332kkkggggGGggggggkkk............",
+      "....ktuuutkkkggggGkGgggggkkk............",
+      "....ktuvutskkdeddddddccbkmmk............",
+      "....ktuuutskkdedddddcccbkmmk............",
+      "....kstttsskkdeddddddccbkmmk............",
+      ".....kssssk.kdedddaddccbk443kk..........",
+      "......kkkk..kdeddddddccbk3443kk.........",
+      "............kdeddddddcbbkk34433k........",
+      "............kdedddddcccbk.k34443k.......",
+      "............kddddddddccbk..k3444k.......",
+      "............kdddadddcccbk...k344k.......",
+      "............kddddddcccbbk...k3443k......",
+      "............kdddddddcccbk....k343k......",
+      ".............kcdddddccbk.....k3443k.....",
+      ".............kkcccccbbkkbbk...k343k.....",
+      ".............kbkkkkkkkbccbk...k3432k....",
+      ".............kbccbk..kbccbk...k2342k....",
+      ".............kbccbk..kbccbk..k23332k....",
+      "............ktuuutk.ktuuutk.k2332kk.....",
+      "............ktuvutk.ktuvutkkk222k.......",
+      "............kstuuts.kstuutskkkkk........",
+      "............kstuutsk.kstutsk............",
+      "............kstuutsk.kstutsk............",
+      "............ksttttsk.kstttsk............",
+      "............kssttssk.kssttsk............",
+      "............kbbbbbk..kbbbbk.............",
+      "............kbccccbk.kbcccbk............",
+      "............kabbbbbbkkabbbbbk...........",
+      "............kkkkkkkkkkkkkkkkk...........",
+      "........................................",
+      "........................................",
+    ],
+  },
+};
+function keeperPixCanvas(id, blink, S) {
+  const k = KEEPER_PIX[id], c = document.createElement("canvas"); c.width = KW * S; c.height = KH * S;
+  const g = c.getContext("2d");
+  k.rows.forEach((row, y) => [...row].forEach((ch, x) => {
+    if (ch === ".") return;
+    const [y0, y1, x0, x1] = k.eye, inEye = y >= y0 && y <= y1 && x >= x0 && x <= x1;
+    g.fillStyle = k.pal[blink && inEye && k.blink[ch] ? k.blink[ch] : ch]; g.fillRect(x * S, y * S, S, S);
+  }));
+  return c;
+}
 const keeperCache = {};
 /** A keeper's full-length picture as a canvas, S real pixels to each of its own (S = 1 is the small 34×46 version). */
 function keeperCanvas(id, blink = false, S = 1) {
   const key = `${id}|${blink ? 1 : 0}|${S}`;
   if (keeperCache[key]) return keeperCache[key];
+  if (KEEPER_PIX[id]) return keeperCache[key] = keeperPixCanvas(id, blink, S);
   return keeperCache[key] = isoArt(KW * S, KH * S, T => KEEPER_ART[id](S === 1 ? T : scaledT(T, S), blink), { texture: false });
 }
 /** The same as a data URL (for the dialog box, the place bar and the map). */
