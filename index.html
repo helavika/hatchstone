@@ -727,9 +727,9 @@
 
   /* awards: a trophy drops in from the top, and the book keeps them by rarity */
   #award { position: fixed; z-index: 40; left: 50%; top: calc(var(--top) + 8px); display: flex; align-items: center; gap: 12px; min-width: min(300px, calc(100vw - 24px)); padding: 10px 16px 10px 12px;
-    transform: translate(-50%, -140%); transition: transform .4s cubic-bezier(.2, .9, .3, 1.2); pointer-events: none; text-align: left; background: var(--px-raise) !important;
+    transform: translate(-50%, calc(-100% - var(--top) - 40px)); visibility: hidden; transition: transform .4s cubic-bezier(.2, .9, .3, 1.2), visibility 0s .4s; pointer-events: none; text-align: left; background: var(--px-raise) !important;
     box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep) !important; }
-  #award.on { transform: translate(-50%, 0); }
+  #award.on { transform: translate(-50%, 0); visibility: visible; transition: transform .4s cubic-bezier(.2, .9, .3, 1.2); }
   #award .ic { width: 40px; height: 40px; flex: none; }
   #award small { display: block; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--soft); }
   #award b { display: block; font-size: 19px; font-weight: 400; color: #fff; }
