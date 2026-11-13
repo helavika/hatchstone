@@ -1240,24 +1240,36 @@ const ISO_ART = {
   },
   // ---- the forge
   furnace(t, T, ax, ay, o) {
-    // a smith's hearth: a waist-high table of dressed stone with a bed of glowing coals on top, a stone hood over it and a chimney up the wall
-    const a = t * 0.95, b = t * 0.95, h = Math.round(t * 0.62), x = ax, y = ay + 2, f = (o.frame || 0) % 3;
+    // a smith's hearth, built true to the room's grid: a stone table with a firepot sunk in its top, a hood narrowing up from a
+    // skirt over the fire into a chimney that stands against the back wall and rises out of sight
+    const A = t * 0.95, h = Math.round(t * 0.62), f = (o.frame || 0) % 3, x0 = ax, y0 = ay + 2;
+    const P = (u, v, z) => [x0 + 2 * u - 2 * v, y0 + u + v - z];       // a point in the piece: u along the right wall, v along the left, z up
+    const quad = (pts, col) => T.poly(pts.map(([u, v, z]) => P(u, v, z)), col);
     const brick = (side) => (px, py) => { const row = Math.floor(py / 4), col = Math.floor((px + (row % 2) * 4) / 8); return (py % 4 === 0 || (px + (row % 2) * 4) % 8 === 0) ? IC.s4 : pxHash(col, row) > 0.5 ? (side ? IC.s2 : IC.s1) : (side ? IC.s3 : IC.s2); };
-    const q = T.box(x, y, a, b, h, IC.s1, brick(0), brick(1));
-    // the fire bed sunk into the top: coals dark at the rim, bright at the heart
-    const fx = q.top[0] - b + a, fy = q.top[1] + (a + b) / 2;
-    T.disc(fx, fy, a * 0.55, IC.s3, a * 0.3);
-    T.disc(fx, fy, a * 0.45, (px, py) => { const n = pxHash(px >> 1, py >> 1) + Math.sin(px * 0.7 + f * 2) * 0.15; return n > 0.75 ? IC.y0 : n > 0.45 ? IC.y1 : n > 0.2 ? IC.r1 : IC.r2; }, a * 0.24);
-    T.glow(fx, fy - 4, t * 1.3, IC.y1, 0.3);
-    // the hood: a stone funnel gathering smoke, narrowing into the chimney
-    const hy = fy - t * 0.95, hw = a * 0.75;
-    T.poly([[fx - hw, hy + t * 0.25], [fx + hw, hy + t * 0.25 + hw * 0.1], [fx + hw * 0.35, hy - t * 0.15], [fx - hw * 0.35, hy - t * 0.2]], (px, py) => pxHash(px >> 2, py >> 1) > 0.6 ? IC.s1 : IC.s2);
-    T.poly([[fx - hw, hy + t * 0.25], [fx + hw, hy + t * 0.25 + hw * 0.1], [fx + hw, hy + t * 0.32 + hw * 0.1], [fx - hw, hy + t * 0.32]], IC.s3);
-    T.box(fx - t * 0.1, hy - t * 0.25, t * 0.22, t * 0.22, Math.round(t * 1.6), IC.s1, brick(0), brick(1));
-    // sparks lifting from the coals
-    for (let k = 0; k < 4; k++) T.px(fx - 5 + k * 3 + f, fy - 6 - ((k + f) % 3) * 4, k % 2 ? IC.y0 : IC.r1);
-    // a poker leaning on the table
-    T.line(q.Buv[0] - 3, q.Buv[1] - 1, q.Buv[0] + 4, q.Buv[1] - h - 8, IC.s3);
+    // the table
+    T.box(x0, y0, A, A, h, IC.s1, brick(0), brick(1));
+    // the firepot: a square well in the top, dark rim, coals glowing in it
+    const fu0 = A * 0.3, fu1 = A * 0.72, fv0 = A * 0.3, fv1 = A * 0.72;
+    quad([[fu0, fv0, h], [fu1, fv0, h], [fu1, fv1, h], [fu0, fv1, h]], IC.s4);
+    const coal = (px, py) => { const n = pxHash(px >> 1, py >> 1) + Math.sin(px * 0.7 + f * 2) * 0.15; return n > 0.78 ? IC.y0 : n > 0.48 ? IC.y1 : n > 0.22 ? IC.r1 : IC.r2; };
+    quad([[fu0 + 2, fv0 + 2, h - 1], [fu1 - 1, fv0 + 2, h - 1], [fu1 - 1, fv1 - 1, h - 1], [fu0 + 2, fv1 - 1, h - 1]], coal);
+    // the hood: a skirt just above head height over the fire, its two front faces sloping in to the chimney's mouth
+    const zs = h + t * 0.62, zc = h + t * 1.0, su0 = A * 0.12, su1 = A * 0.92, sv0 = 0, sv1 = A * 0.88;
+    const cu0 = A * 0.36, cu1 = A * 0.64, cv0 = 0, cv1 = A * 0.26;
+    const hoodStone = (lit) => (px, py) => pxHash(px >> 2, py >> 1) > 0.65 ? (lit ? IC.s1 : IC.s2) : (lit ? IC.s2 : IC.s3);
+    quad([[su0, sv1, zs], [su1, sv1, zs], [cu1, cv1, zc], [cu0, cv1, zc]], hoodStone(true));     // the face toward the left wall's side, lit
+    quad([[su1, sv0, zs], [su1, sv1, zs], [cu1, cv1, zc], [cu1, cv0, zc]], hoodStone(false));    // the face toward the right, in shade
+    // the skirt's rim: a band of stone with the fire's light on its underside
+    quad([[su0, sv1, zs], [su1, sv1, zs], [su1, sv1, zs - 3], [su0, sv1, zs - 3]], IC.s3);
+    quad([[su1, sv0, zs], [su1, sv1, zs], [su1, sv1, zs - 3], [su1, sv0, zs - 3]], IC.s4);
+    for (let k = 0; k < 10; k++) { const [px, py] = P(su0 + (su1 - su0) * (k + 0.5) / 10, sv1, zs - 3); T.px(px, py + 1, k % 3 ? IC.r1 : IC.y1); }
+    // the chimney: a square stack against the back wall, from the hood up out of the picture
+    T.box(P(cu0, cv0, zc)[0], P(cu0, cv0, zc)[1], cu1 - cu0, cv1 - cv0, Math.round(t * 1.6), IC.s1, brick(0), brick(1));
+    // light from the coals, a few sparks lifting under the hood, a poker leaning on the table
+    const [gx, gy] = P((fu0 + fu1) / 2, (fv0 + fv1) / 2, h);
+    T.glow(gx, gy - 4, t * 1.1, IC.y1, 0.3);
+    for (let k = 0; k < 4; k++) T.px(gx - 4 + k * 3 + f, gy - 6 - ((k + f) % 3) * 4, k % 2 ? IC.y0 : IC.r1);
+    const [lx, ly] = P(A, A * 0.55, 0); T.line(lx + 2, ly, lx + 6, ly - h - 8, IC.m3);
   },
   bellows(t, T, ax, ay) {
     // paired leather bellows on a wooden frame, their nozzle into the hearth, worked by a long lever overhead
