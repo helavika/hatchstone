@@ -2262,6 +2262,27 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Starfruit": "Зіркоплід",
+  "Growcap": "Ростогриб",
+  "Starfruit vine": "Зіркоплідна лоза",
+  "Sunpetal": "Сонцепелюстка",
+  "2 berry juices and a moonberry": "2 ягідні соки й місячна ягідка",
+  "3 moon mint teas: they wake a sleepy glowling right up": "3 чаї з місячної м'яти: вмить будять сонне малятко",
+  "2 starfruits: every glowling's favorite": "2 зіркоплоди: улюблені ласощі кожного глоулінга",
+  "2 growcaps: a big step toward growing up": "2 ростогриби: великий крок до дорослішання",
+  "laid by your next egg, it hatches shiny far more often": "покладена біля наступного яйця, робить сяйливе вилуплення набагато ймовірнішим",
+  "reach chapter II": "дійди до розділу II",
+  "a sunpetal for your next egg ☀️": "сонцепелюстка для наступного яйця ☀️",
+  "A sunpetal warms this egg ☀️ a far better chance it's shiny": "Сонцепелюстка гріє це яйце ☀️ шанс на сяйливе значно вищий",
+  "+{0} toward growing up": "+{0} до дорослішання",
+  "favorite!": "улюблене!",
+  "A sip doesn't fill the tummy or make anyone drowsy. Starfizz perks a sleepy glowling up.": "Ковток не наповнює животик і не присипляє. Зоряна шипучка бадьорить сонне малятко.",
+  "From the garden": "Із саду",
+  "No shop sells these: they only grow in the garden bed outside.": "Цього не продають ніде: воно росте лише на грядці надворі.",
+  "That one only grows in the garden 🌱": "Це росте лише в саду 🌱",
+  "growing! ✦": "росту! ✦",
+  "What grows here can't be bought anywhere: juice and mint tea, starfruit every glowling loves, growcaps that help them grow up, sunpetals for shiny eggs. Seeds grow in real time, even while you're away; watering helps.": "Те, що тут росте, ніде не купиш: сік і м'ятний чай, зіркоплоди, які люблять усі глоулінги, ростогриби для дорослішання, сонцепелюстки для сяйливих яєць. Насіння росте в реальному часі, навіть коли тебе немає; полив допомагає.",
+  "☀️ ×{0} waiting by your next egg": "☀️ ×{0} чекає біля наступного яйця",
   "Saved ✓": "Збережено ✓",
   "Save": "Зберегти",
   "2 dewdrops and 2 mint teas for the pantry": "2 росинки й 2 м'ятні чаї в комору",
@@ -2472,7 +2493,7 @@ const UK = {
   "Crystal bloom seeds ×2": "Насіння кришталевого цвіту ×2",
   "grow shards in the garden": "вирощуй осколки на грядці",
   "A bundle of seeds": "Жмуток насіння",
-  "glowberry, moon mint and cookie sprout, two of each": "світлоягода, місячна м'ята й печивний паросток, по дві",
+  "glowberry, moon mint and starfruit, two of each": "світлоягода, місячна м'ята й зіркоплід, по дві",
   "+3 lantern oil": "+3 краплі олії",
   "Mystery geode": "Таємнича жеода",
   "a rare or legendary one for your collection": "рідкісна чи легендарна, до колекції",
@@ -2763,7 +2784,7 @@ const UK_DATA = {
     twinklet: { lore: "Носить стрічку, яку ніхто не зав'язував, і сяє п'ятьма кольорами водночас. Голосно рахує до кожного Нового року." }
   },
   rarity: { common: "звичайний", rare: "рідкісний", legendary: "легендарний", moon: "місячний" },
-  snacks: { dew: "Росинка", cookie: "Печиво із зоряного пилу", berry: "Місячна ягідка", milk: "Місячне молоко", juice: "Ягідний сік", tea: "Чай з місячної м'яти", fizz: "Зоряна шипучка" },
+  snacks: { dew: "Росинка", cookie: "Печиво із зоряного пилу", berry: "Місячна ягідка", milk: "Місячне молоко", juice: "Ягідний сік", tea: "Чай з місячної м'яти", fizz: "Зоряна шипучка", star: "Зіркоплід", cap: "Ростогриб" },
   decor: {
     lamp: { name: "Кришталева лампа", verb: "гріється біля лампи" },
     mushrooms: { name: "Сяйні грибочки", verb: "стрибає на грибочках" },
@@ -3465,9 +3486,12 @@ const SNACKS = {
   berry: { name: "Moonberry", emoji: "🫐", cost: 15, tummy: 40, joy: 10 },
   // drinks: a sip, no heavy tummy (so no drowsiness); the fizzy and the minty ones wake you up
   milk: { name: "Moon milk", emoji: "🥛", cost: 6, tummy: 10, joy: 4, drink: true },
-  juice: { name: "Berry juice", emoji: "🧃", cost: 8, tummy: 8, joy: 10, drink: true },
-  tea: { name: "Moon mint tea", emoji: "🍵", cost: 12, tummy: 4, joy: 4, energy: 20, drink: true },
   fizz: { name: "Starfizz", emoji: "🥤", cost: 18, tummy: 4, joy: 12, energy: 35, drink: true },
+  // only the garden grows these: no shop sells them
+  juice: { name: "Berry juice", emoji: "🧃", tummy: 8, joy: 18, drink: true, garden: true },
+  tea: { name: "Moon mint tea", emoji: "🍵", tummy: 4, joy: 6, energy: 45, drink: true, garden: true },
+  star: { name: "Starfruit", emoji: "🌟", tummy: 35, joy: 10, fav: true, garden: true },
+  cap: { name: "Growcap", emoji: "🍄", tummy: 20, joy: 6, xp: 40, garden: true },
 };
 
 /** Things to buy with shards. Each has a fixed spot in the room and the kinds of glowling that love it. */
@@ -5471,8 +5495,10 @@ function newEgg(conf, animate = true) {
   const rarity = r < conf.legendary ? "legendary" : r < conf.legendary + conf.rare ? "rare" : "common";
   const crystal = conf.forced ? conf.forced.crystal : pick(CRYSTALS.filter(c => c.rarity === rarity));
   const species = conf.forced ? conf.forced.species : pick(SPECIES.filter(s => s.crystal === crystal.id && !s.moon));
+  const sun = !conf.coop && !conf.forced && animate && save.sunlit > 0;
+  if (sun) { save.sunlit--; setTimeout(() => toast(tr("A sunpetal warms this egg ☀️ a far better chance it's shiny")), 600); }
   game.egg = {
-    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04) + (conf.coop ? 0 : skill("luck") * 0.006), stone: conf.gloom ? GLOOM_STONE : conf.moon ? moonStone() : pick(STONES),
+    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04) + (conf.coop ? 0 : skill("luck") * 0.006) + (sun ? 0.3 : 0), stone: conf.gloom ? GLOOM_STONE : conf.moon ? moonStone() : pick(STONES),
     state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
     hp: conf.hp, damage: 0, taps: 0, crits: 0, gems: 0, combo: 0, lastTap: -9, hits: [], seed: coopId(),
     net: { segs: [], tips: [] }, painted: 0,
@@ -5818,7 +5844,7 @@ function openForge() {
 
 const RECIPES = [
   { id: "nut", rarity: "common", need: 3, name: "Nut bar", note: "+3 lantern oil", icon: () => pxIcon("barNut"), give: () => giveBar("nut") },
-  { id: "seeds", rarity: "common", need: 2, name: "A bundle of seeds", note: "glowberry, moon mint and cookie sprout, two of each", icon: () => plantImage("glowberry", 3), give: () => { const g = garden().seeds; for (const k of ["glowberry", "moonmint", "cookiecorn"]) g[k] = (g[k] || 0) + 2; } },
+  { id: "seeds", rarity: "common", need: 2, name: "A bundle of seeds", note: "glowberry, moon mint and starfruit, two of each", icon: () => plantImage("glowberry", 3), give: () => { const g = garden().seeds; for (const k of ["glowberry", "moonmint", "cookiecorn"]) g[k] = (g[k] || 0) + 2; } },
   { id: "star", rarity: "rare", need: 3, name: "Star bar", note: "fills the lantern to the brim", icon: () => pxIcon("barStar"), give: () => giveBar("star") },
   { id: "shards", rarity: "legendary", need: 1, name: "150 shards", note: "a legendary spare, cut and sold", icon: () => pxIcon("shard"), give: () => { save.shards += 150; } },
 ];
@@ -7068,11 +7094,15 @@ function openSnacks() {
   const snack = SNACKS[sp.snack].name.toLowerCase();
   $("snackSub").textContent = tr("You have ✦ {0} shards. {1}s love {2}.", save.shards, sp.name, LANG === "uk" ? snack : snack.replace(/([^aeiou])y$/, "$1ie") + "s");
   const pantry = save.pantry || {};
-  const row = ([id, s]) =>
-    `<button class="snack" data-id="${id}" ${!pantry[id] && save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>${tr("Hunger")} +${s.tummy}${s.energy ? ` · ${tr("Sleepiness")} +${s.energy}` : ""}${id === sp.snack ? tr(" · favorite!") : ""}</small></span><span class="cost">${pantry[id] ? `🧺 ×${pantry[id]}` : `✦ ${s.cost}`}</span></button>`;
-  const all = Object.entries(SNACKS);
-  $("snackList").innerHTML = `<h3 class="forge-h">${tr("Snacks")}</h3>` + all.filter(([, s]) => !s.drink).map(row).join("")
-    + `<h3 class="forge-h">${tr("Drinks")}</h3><p class="me-hint">${tr("A sip doesn't fill the tummy or make anyone drowsy. Tea and Starfizz perk a sleepy glowling up.")}</p>` + all.filter(([, s]) => s.drink).map(row).join("");
+  const row = ([id, s]) => {
+    const fav = id === sp.snack || s.fav, more = [s.energy && `${tr("Sleepiness")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), fav && tr("favorite!")].filter(Boolean);
+    const cost = pantry[id] ? `🧺 ×${pantry[id]}` : s.garden ? "🌱" : `✦ ${s.cost}`;
+    return `<button class="snack" data-id="${id}" ${!pantry[id] && (s.garden || save.shards < s.cost) ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${fav ? " ♥" : ""}</b><small>${[`${tr("Hunger")} +${s.tummy}`, ...more].join(" · ")}</small></span><span class="cost">${cost}</span></button>`;
+  };
+  const all = Object.entries(SNACKS), bought = all.filter(([, s]) => !s.garden);
+  $("snackList").innerHTML = `<h3 class="forge-h">${tr("Snacks")}</h3>` + bought.filter(([, s]) => !s.drink).map(row).join("")
+    + `<h3 class="forge-h">${tr("Drinks")}</h3><p class="me-hint">${tr("A sip doesn't fill the tummy or make anyone drowsy. Starfizz perks a sleepy glowling up.")}</p>` + bought.filter(([, s]) => s.drink).map(row).join("")
+    + `<h3 class="forge-h">${tr("From the garden")}</h3><p class="me-hint">${tr("No shop sells these: they only grow in the garden bed outside.")}</p>` + all.filter(([, s]) => s.garden).map(row).join("");
   $$("#snackList .snack").forEach(b => b.addEventListener("click", () => feed(b.dataset.id)));
   show("snacks", true);
 }
@@ -7083,13 +7113,14 @@ function feed(id) {
   if (cr.tummy >= (s.drink ? 97 : 88)) { refuseWith(cr, tr("no thanks, I'm full")); return; }
   // grown in your garden: free
   if (save.pantry && save.pantry[id] > 0) save.pantry = { ...save.pantry, [id]: save.pantry[id] - 1 };
+  else if (s.garden) { toast(tr("That one only grows in the garden 🌱")); return; }
   else {
     if (save.shards < s.cost) { toast(tr("Not enough shards: crack a geode to earn more ✦")); return; }
     save.shards -= s.cost;
   }
   game.nest.feedCall = { t: game.time, id: cr.id };
   const v = actorView(activeActor());
-  game.nest.snack = { emoji: s.emoji, x: v.x, y: v.y - N.base * 2, ty: v.y, vy: 0, fav: id === sp.snack, s };
+  game.nest.snack = { emoji: s.emoji, x: v.x, y: v.y - N.base * 2, ty: v.y, vy: 0, fav: id === sp.snack || !!s.fav, s };
   updateTopbar();
 }
 
@@ -7107,9 +7138,9 @@ function finishSnack(sn) {
   cr.messT = (cr.messT || 0) + 15;
   bump("fed");
   cr.joy = clamp(cr.joy + sn.s.joy + (sn.fav ? 15 : 0), 0, 100);
-  addXP(cr, sn.fav ? 12 : 6);
+  addXP(cr, (sn.fav ? 12 : 6) + (sn.s.xp || 0));
   spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
-  floatText(sn.fav ? tr("favorite! ♥") : sn.s.drink ? tr("slurp") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
+  floatText(sn.fav ? tr("favorite! ♥") : sn.s.xp ? tr("growing! ✦") : sn.s.drink ? tr("slurp") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
   if (sn.fav) for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3);
   // the hungry ones who came running only get to watch: they stay hungry until they get their own snack
   for (const o of actors.values()) if (o.state === "begging" && a && Math.hypot(o.x - a.x, o.y - a.y) < N.base * 1.4) emote(o, "🥺", 1.6);
@@ -7196,9 +7227,11 @@ function renderShopPick() {
 // ---------- the garden: plant seeds in the garden bed, water them, and pick what grows (in real time) ----------
 
 const SEEDS = {
-  glowberry: { name: "Glowberry", hrs: 2, cost: 8, gives: { pantry: { berry: 3 } }, note: "3 moonberries for the pantry" },
-  moonmint: { name: "Moon mint", hrs: 3, cost: 6, gives: { pantry: { dew: 2, tea: 2 } }, note: "2 dewdrops and 2 mint teas for the pantry" },
-  cookiecorn: { name: "Cookie sprout", hrs: 4, cost: 10, gives: { pantry: { cookie: 3 } }, note: "3 stardust cookies, right off the stalk" },
+  glowberry: { name: "Glowberry", hrs: 2, cost: 8, gives: { pantry: { juice: 2, berry: 1 } }, note: "2 berry juices and a moonberry" },
+  moonmint: { name: "Moon mint", hrs: 3, cost: 6, gives: { pantry: { tea: 3 } }, note: "3 moon mint teas: they wake a sleepy glowling right up" },
+  cookiecorn: { name: "Starfruit vine", hrs: 4, cost: 12, gives: { pantry: { star: 2 } }, note: "2 starfruits: every glowling's favorite" },
+  growcap: { name: "Growcap", hrs: 6, cost: 20, gives: { pantry: { cap: 2 } }, note: "2 growcaps: a big step toward growing up" },
+  sunpetal: { name: "Sunpetal", hrs: 8, cost: 35, gives: { sun: 1 }, note: "laid by your next egg, it hatches shiny far more often", ok: () => unlocked(7), how: "reach chapter II" },
   crystalbloom: { name: "Crystal bloom", hrs: 8, cost: 30, gives: { shards: 45 }, note: "45 shards, and now and then a geode" },
   biteleaf: { name: "Biteleaf", hrs: 12, cost: 60, gives: { shards: 30, bar: "star" }, note: "a star bar and 30 shards. It bites", ok: () => unlocked(13), how: "reach chapter III" },
 };
@@ -7231,6 +7264,13 @@ function gardenPlant(T, x, y, kind, stage, t) {
     T.px(x, top - 1, IC.y0); T.px(x + 1, top - 2, IC.y0);
   } else if (kind === "cookiecorn") {
     for (const [dx, dy] of [[-2, 1], [2, 0], [0, -2]]) { T.ball(x + dx * u, top + dy * u, 1.6 * u, IC.w0, IC.w1, IC.w2); T.px(x + dx * u, top + dy * u, IC.w3); }
+  } else if (kind === "growcap") {
+    // a fat red cap with white spots on a pale stem
+    T.ball(x, top + 1, 3 * u, IC.r1, IC.r2, IC.r1);
+    for (const [dx, dy] of [[-1.5, 0], [1, -1], [1.8, 1]]) T.px(x + dx * u, top + dy * u, IC.white);
+  } else if (kind === "sunpetal") {
+    for (let k = 0; k < 8; k++) { const an = k / 8 * Math.PI * 2; T.px(x + Math.cos(an) * 2.6 * u, top + Math.sin(an) * 2.2 * u, IC.y0); T.px(x + Math.cos(an) * 1.7 * u, top + Math.sin(an) * 1.4 * u, IC.y0); }
+    T.ball(x, top, 1.3 * u, IC.w3, IC.w2, IC.w3);
   } else if (kind === "crystalbloom") {
     const h = 4 * u;
     T.poly([[x, top - h], [x - 2 * u, top], [x, top + u]], IC.l1); T.poly([[x, top - h], [x + 2 * u, top], [x, top + u]], IC.l3);
@@ -7256,8 +7296,8 @@ function openGarden() {
       + (st === 3 ? `<button class="act buy" data-pick="${i}">${tr("Pick")}</button>` : `<button class="act" data-water="${i}" ${wet ? "disabled" : ""}>${wet ? tr("watered ✓") : "💧 " + tr("Water")}</button>`) + `</div>`;
   };
   const free = g.slots.findIndex(q => !q);
-  $("gardenSub").textContent = tr("Seeds grow in real time, even while you're away. Watering helps them along; hoppers and swimmers who live outside water now and then too.");
-  $("gardenList").innerHTML = `<div class="plots">${g.slots.map(slot).join("")}</div><h3>${tr("Seeds")}</h3>` + Object.entries(SEEDS).map(([id, sd]) => {
+  $("gardenSub").textContent = tr("What grows here can't be bought anywhere: juice and mint tea, starfruit every glowling loves, growcaps that help them grow up, sunpetals for shiny eggs. Seeds grow in real time, even while you're away; watering helps.");
+  $("gardenList").innerHTML = `<div class="plots">${g.slots.map(slot).join("")}</div>${save.sunlit ? `<p class="me-hint">${tr("☀️ ×{0} waiting by your next egg", save.sunlit)}</p>` : ""}<h3>${tr("Seeds")}</h3>` + Object.entries(SEEDS).map(([id, sd]) => {
     const have = g.seeds[id] || 0, locked = sd.ok && !sd.ok();
     return `<div class="snack seed${locked ? " locked" : ""}"><img class="em" src="${plantImage(id, 3)}" alt=""><span><b>${seedName(id)} <em>×${have}</em></b><small>${locked ? ic("lock") + tr(sd.how) : `${tr(sd.note)} · ${tr("{0} h", sd.hrs)}`}</small></span>`
       + `<span class="seed-btns">${have && free >= 0 && !locked ? `<button class="act" data-plant="${id}">${tr("Plant")}</button>` : ""}<button class="act" data-seed="${id}" ${locked || save.shards < sd.cost ? "disabled" : ""}>+1 ✦ ${sd.cost}</button></span></div>`;
@@ -7298,6 +7338,7 @@ function pickPlot(i) {
   g.slots[i] = null;
   for (const [k, n] of Object.entries(sd.gives.pantry || {})) { save.pantry = { ...save.pantry, [k]: ((save.pantry || {})[k] || 0) + n }; got.push(`${SNACKS[k].emoji}×${n}`); }
   if (sd.gives.shards) { save.shards += sd.gives.shards; got.push(`✦ ${sd.gives.shards}`); }
+  if (sd.gives.sun) { save.sunlit = (save.sunlit || 0) + sd.gives.sun; got.push(tr("a sunpetal for your next egg ☀️")); }
   if (sd.gives.bar) { giveBar(sd.gives.bar); got.push(barName(sd.gives.bar)); }
   if (q.seed === "crystalbloom" && Math.random() < 0.3) {
     const k = pick(CRYSTALS.filter(c => c.rarity === "rare")), geo = save.geodes[k.id] || { count: 0, shine: -1 };
@@ -7321,7 +7362,7 @@ function gardenHelp(cr) {
 const WICK_WARES = {
   biteleaf: { name: "Biteleaf seed", note: "the one that bites, no questions asked", cost: 50, icon: () => plantImage("biteleaf", 3), give: () => { garden().seeds.biteleaf = (garden().seeds.biteleaf || 0) + 1; } },
   bloom: { name: "Crystal bloom seeds ×2", note: "grow shards in the garden", cost: 45, icon: () => plantImage("crystalbloom", 3), give: () => { garden().seeds.crystalbloom = (garden().seeds.crystalbloom || 0) + 2; } },
-  bundle: { name: "A bundle of seeds", note: "glowberry, moon mint and cookie sprout, two of each", cost: 30, icon: () => plantImage("glowberry", 3), give: () => { const g = garden().seeds; for (const k of ["glowberry", "moonmint", "cookiecorn"]) g[k] = (g[k] || 0) + 2; } },
+  bundle: { name: "A bundle of seeds", note: "glowberry, moon mint and starfruit, two of each", cost: 30, icon: () => plantImage("glowberry", 3), give: () => { const g = garden().seeds; for (const k of ["glowberry", "moonmint", "cookiecorn"]) g[k] = (g[k] || 0) + 2; } },
   nut: { name: "Nut bar", note: "+3 lantern oil", cost: 40, icon: () => pxIcon("barNut"), give: () => giveBar("nut") },
   star: { name: "Star bar", note: "fills the lantern to the brim", cost: 110, icon: () => pxIcon("barStar"), give: () => giveBar("star") },
   geode: { name: "Mystery geode", note: "a rare or legendary one for your collection", cost: 70, icon: () => mysteryGeode(), give: () => {
