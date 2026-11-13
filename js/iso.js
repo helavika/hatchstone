@@ -662,12 +662,12 @@ const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1
   // the places on the map come furnished, and that furniture stays put
   shelves: { fw: 2, fd: 1, at: [1, 0] }, shelves2: { fw: 1, fd: 2, at: [0, 2] }, counter: { fw: 2, fd: 1, at: [2, 3] }, crates: { fw: 1, fd: 1, at: [5, 4] }, sacks: { fw: 1, fd: 1, at: [4, 0] }, barrel: { fw: 1, fd: 1, at: [0, 5] },
   furnace: { fw: 2, fd: 2, at: [1, 0] }, bellows: { fw: 1, fd: 1, at: [3, 0] }, anvil: { fw: 1, fd: 1, at: [3, 3] }, coalbin: { fw: 1, fd: 1, at: [0, 3] }, rack: { fw: 2, fd: 1, at: [4, 0] }, barrel2: { fw: 1, fd: 1, at: [2, 3] },
-  tent: { fw: 2, fd: 2, at: [3, 0] }, campfire: { fw: 1, fd: 1, at: [2, 3] }, logs: { fw: 2, fd: 1, at: [0, 4] }, packs: { fw: 1, fd: 1, at: [1, 1] }, camplamp: { fw: 1, fd: 1, at: [5, 3] },
-  greenhouse: { fw: 2, fd: 2, at: [0, 0] }, potting: { fw: 1, fd: 2, at: [0, 2] }, sunflowers: { fw: 1, fd: 1, at: [5, 3] }, barrow: { fw: 1, fd: 1, at: [3, 0] },
+  tent: { fw: 2, fd: 2, at: [3, 0] }, campfire: { fw: 1, fd: 1, at: [2, 3] }, logs: { fw: 2, fd: 1, at: [0, 4] }, packs: { fw: 1, fd: 1, at: [1, 1] }, camplamp: { fw: 1, fd: 1, at: [5, 3] }, maptable: { fw: 1, fd: 1, at: [1, 2] },
+  greenhouse: { fw: 2, fd: 2, at: [0, 0] }, skep: { fw: 1, fd: 1, at: [0, 5] }, coldframe: { fw: 2, fd: 1, at: [3, 5] }, potting: { fw: 1, fd: 2, at: [0, 2] }, sunflowers: { fw: 1, fd: 1, at: [5, 3] }, barrow: { fw: 1, fd: 1, at: [3, 0] },
   tunnel: { fw: 2, fd: 1, at: [2, 0] }, wallmap: { fw: 1, fd: 2, at: [0, 1] }, altar: { fw: 1, fd: 1, at: [2, 3] }, shrine: { fw: 1, fd: 1, at: [4, 3] },
   labdesk: { fw: 2, fd: 1, at: [2, 0] }, jars: { fw: 1, fd: 1, at: [0, 1] }, scope: { fw: 1, fd: 1, at: [4, 4] }, books: { fw: 1, fd: 1, at: [5, 0] } };
 /** What each kind of room comes with (anything not listed has just its bed). */
-const ROOM_FIXED = { grotto: ["tunnel", "wallmap", "altar", "shrine"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "bellows", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
+const ROOM_FIXED = { grotto: ["tunnel", "wallmap", "altar", "shrine"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow", "skep", "coldframe"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "bellows", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp", "maptable"] };
 /** The places' own furniture: not decorations to play with. */
 const PLACE_PROPS = new Set(Object.values(ROOM_FIXED).flat().filter(id => !["bed", "garden", "incubator"].includes(id)));
 
@@ -1113,6 +1113,28 @@ const ISO_ART = {
     const cx = x - b * 0.4, cy = y + b + 2;
     T.cyl(cx, cy, t * 0.12, Math.round(t * 0.2), IC.s1, IC.s2, IC.s3); T.line(cx + t * 0.12, cy - t * 0.12, cx + t * 0.3, cy - t * 0.25, IC.s2);
   },
+  skep(t, T, ax, ay) {
+    // a straw bee skep on a little stand: coiled rows of straw, a dark doorway at its foot, a bee or two about
+    const cx = ax, cy = ay + t / 2, straw = [pxHex("#7a5a2c"), pxHex("#a8844a"), pxHex("#d2b273"), pxHex("#ead09a")];
+    T.box(cx - t * 0.02, cy - t * 0.3, t * 0.28, t * 0.28, Math.round(t * 0.28), IC.w1, IC.w2, IC.w3);
+    const base = cy - t * 0.42, r = t * 0.3, hgt = t * 0.62;
+    for (let k = 0; k < 7; k++) { const f = k / 7, rr = r * Math.sqrt(1 - f * f * 0.9), yy = base - hgt * f; T.disc(cx, yy, rr, (px) => px < cx - rr * 0.3 ? straw[3] : px > cx + rr * 0.4 ? straw[1] : straw[2], rr * 0.45); T.line(cx - rr, yy, cx + rr, yy, straw[0]); }
+    T.ball(cx, base - hgt, r * 0.25, straw[2], straw[1], straw[0], r * 0.18);
+    T.poly([[cx - 2, base + 1], [cx + 2, base + 2], [cx + 2, base - 2], [cx - 2, base - 3]], IC.ink2);
+    for (const [dx, dy] of [[-r * 1.2, -hgt * 0.6], [r * 1.1, -hgt * 0.9]]) { T.px(cx + dx, base + dy, IC.y1); T.px(cx + dx + 1, base + dy, IC.ink2); T.px(cx + dx, base + dy - 1, IC.white); }
+  },
+  coldframe(t, T, ax, ay) {
+    // a cold frame: a low wooden box with a sloping glass lid propped open, seedlings in rows inside
+    const a = t - 2, b = t * 0.42, x = ax, y = ay + t * 0.05, h = Math.round(t * 0.32);
+    const q = T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
+    T.poly([q.top, [q.top[0] + 2 * a, q.top[1] + a], [q.top[0] + 2 * a - 2 * b, q.top[1] + a + b], [q.top[0] - 2 * b, q.top[1] + b]], IC.w3);
+    for (let r = 0; r < 2; r++) for (let k = 0; k < 7; k++) { const px = q.top[0] - 2 * b * (r * 0.5 + 0.25) + 2 * a * (k + 0.5) / 7, py = q.top[1] + b * (r * 0.5 + 0.25) + a * (k + 0.5) / 7; T.px(px, py - 1, IC.g0); T.px(px - 1, py - 2, IC.g1); T.px(px + 1, py - 2, IC.g0); }
+    // the lid, raised on a stick, panes catching the light
+    const lift = t * 0.45, l0 = [q.top[0], q.top[1] - lift], l1 = [q.top[0] + 2 * a, q.top[1] + a - lift];
+    T.poly([l0, l1, [l1[0] - 2 * b * 0.9, l1[1] + b * 0.9 + lift * 0.6], [l0[0] - 2 * b * 0.9, l0[1] + b * 0.9 + lift * 0.6]], (px, py) => (px - py * 2) % 7 === 0 ? IC.white : IC.b0);
+    T.line(l0[0], l0[1], l1[0], l1[1], IC.w1);
+    T.line(q.top[0] + a, q.top[1] + a / 2, q.top[0] + a, q.top[1] + a / 2 - lift, IC.w2);
+  },
   sunflowers(t, T, ax, ay) {
     // three tall sunflowers nodding at the moon
     const cx = ax, cy = ay + t / 2;
@@ -1258,30 +1280,45 @@ const ISO_ART = {
   },
   // ---- the explorers' camp
   tent(t, T, ax, ay) {
-    // a canvas tent with its flap tied open, a lantern inside and a little flag on top
-    const x = ax, y = ay + t * 0.15, a = t * 0.98, b = t * 0.9, h = Math.round(t * 1.45);
-    const right = [x + 2 * a, y + a], left = [x - 2 * b, y + b], front = [x + 2 * a - 2 * b, y + a + b];
-    const ridge0 = [x - b + 0.5, y + b / 2 - h], ridge1 = [x + 2 * a - b, y + a + b / 2 - h];
-    T.poly([left, front, ridge1, ridge0], (px, py) => (px + py) % 9 === 0 ? IC.w0 : IC.y1);
-    T.poly([front, right, ridge1], IC.w1);
-    const d0 = [(left[0] * 0.35 + front[0] * 0.65), (left[1] * 0.35 + front[1] * 0.65)];
-    T.poly([[d0[0] - 6, d0[1] - 3], [d0[0] + 6, d0[1] + 3], [ridge1[0] - b * 0.35, ridge1[1] + h * 0.3]], IC.ink2);
-    T.glow(d0[0], d0[1] - 5, t * 0.5, IC.y0, 0.5); T.px(d0[0], d0[1] - 5, IC.y0); T.px(d0[0] + 1, d0[1] - 5, IC.y1);
-    for (let k = 0; k < 9; k++) T.px(ridge1[0], ridge1[1] - k, IC.w3);
-    T.poly([[ridge1[0], ridge1[1] - 9], [ridge1[0] + 6, ridge1[1] - 7], [ridge1[0], ridge1[1] - 5]], IC.r1);
-    T.line(front[0], front[1], front[0] + 5, front[1] + 4, IC.w3); T.line(left[0], left[1], left[0] - 5, left[1] + 3, IC.w3);
+    // a canvas wall tent: four short walls and a ridged roof, the door flaps tied back, guy ropes to pegs, a stovepipe smoking
+    const cv = [pxHex("#6b5e44"), pxHex("#9c8c68"), pxHex("#c8b890"), pxHex("#e2d6b4")];
+    const x = ax, y = ay + t * 0.25, a = t * 0.9, b = t * 0.8, wall = Math.round(t * 0.55), roof = Math.round(t * 0.55);
+    const q = T.box(x, y, a, b, wall, cv[2], (px, py) => (px % 7 === 0 ? cv[1] : cv[2]), (px, py) => (px % 7 === 0 ? cv[0] : cv[1]));
+    const up = p => [p[0], p[1] - wall];
+    const L = up(q.Bv), F = up(q.Buv), Rr = up(q.Bu), B = q.top;
+    const r0 = [(B[0] + L[0]) / 2, (B[1] + L[1]) / 2 - roof], r1 = [(Rr[0] + F[0]) / 2, (Rr[1] + F[1]) / 2 - roof];
+    T.poly([L, F, r1, r0], (px, py) => (Math.round(px + py * 2) % 9 === 0 ? cv[2] : cv[3]));
+    T.poly([F, Rr, r1], cv[1]);
+    T.line(r0[0], r0[1], r1[0], r1[1], cv[0]);
+    // the doorway on the front wall, flaps tied back to either side
+    const d0 = [q.Bv[0] + (q.Buv[0] - q.Bv[0]) * 0.38, q.Bv[1] + (q.Buv[1] - q.Bv[1]) * 0.38], d1 = [q.Bv[0] + (q.Buv[0] - q.Bv[0]) * 0.62, q.Bv[1] + (q.Buv[1] - q.Bv[1]) * 0.62];
+    T.poly([d0, d1, [d1[0], d1[1] - wall - roof * 0.45], [(d0[0] + d1[0]) / 2, (d0[1] + d1[1]) / 2 - wall - roof * 0.75], [d0[0], d0[1] - wall - roof * 0.45]], IC.ink2);
+    T.glow((d0[0] + d1[0]) / 2, (d0[1] + d1[1]) / 2 - wall * 0.4, t * 0.4, IC.y0, 0.45);
+    for (const [d, side] of [[d0, -1], [d1, 1]]) T.poly([d, [d[0] + side * 3, d[1] + side * 1.5], [d[0] + side * 2, d[1] - wall], [d[0], d[1] - wall - 2]], cv[1]);
+    // guy ropes to pegs
+    for (const [p, dx, dy] of [[L, -t * 0.35, t * 0.35], [F, -t * 0.05, t * 0.5], [Rr, t * 0.35, t * 0.3]]) { T.line(p[0], p[1], p[0] + dx, p[1] + dy + wall, cv[0]); T.line(p[0] + dx, p[1] + dy + wall, p[0] + dx, p[1] + dy + wall - 2, IC.w3); }
+    // the stovepipe through the roof
+    const sp = [r1[0] * 0.7 + r0[0] * 0.3, r1[1] * 0.7 + r0[1] * 0.3 + 2];
+    T.line(sp[0], sp[1], sp[0], sp[1] - t * 0.35, IC.s3); T.line(sp[0] + 1, sp[1], sp[0] + 1, sp[1] - t * 0.35, IC.s2);
+    for (let k = 0; k < 5; k++) T.px(sp[0] + Math.round(Math.sin(k) * 2), sp[1] - t * 0.4 - k * 3, IC.s1);
   },
   campfire(t, T, ax, ay, o) {
+    // a ring of stones, crossed logs, the fire, and an iron pot hanging from a tripod over it, steaming
     const cx = ax, cy = ay + t / 2, f = (o.frame || 0) % 4;
     T.glow(cx, cy - 4, t * 1.8, IC.y1, 0.32);
-    for (let k = 0; k < 9; k++) { const an = k / 9 * TAU; T.ball(cx + Math.cos(an) * t * 0.36, cy + Math.sin(an) * t * 0.18, 2, IC.s1, IC.s2, IC.s3); }
+    for (let k = 0; k < 10; k++) { const an = k / 10 * TAU; T.ball(cx + Math.cos(an) * t * 0.36, cy + Math.sin(an) * t * 0.18, 2.2, IC.s1, IC.s2, IC.s3); }
     T.box(cx - t * 0.3, cy - 2, t * 0.3, 1, 2, IC.w1, IC.w2, IC.w3); T.box(cx + t * 0.05, cy - 4, 1, t * 0.3, 2, IC.w1, IC.w2, IC.w3);
-    const tall = t * 0.75;
+    const tall = t * 0.5;
     for (const [dx, k0, w] of [[0, 1, 3], [-3, 0.7, 2], [3, 0.8, 2]]) {
       const hh = Math.round(tall * k0 * (f % 2 ? 1 : 0.88));
       for (let k = 0; k < hh; k++) { const sway = Math.round(Math.sin((k + f * 2) * 0.6) * (k / hh) * 1.5), ww = Math.max(1, Math.round(w * (1 - k / hh))); for (let j = -ww + 1; j < ww; j++) T.px(cx + dx + sway + j, cy - 2 - k, k < hh * 0.35 ? IC.y0 : k < hh * 0.7 ? IC.y1 : IC.r1); }
     }
-    T.px(cx - 2 + f, cy - tall - 3 - f, IC.y0); T.px(cx + 3 - f, cy - tall - 6, IC.r1);
+    // the tripod and the pot
+    const top = [cx, cy - t * 1.05];
+    for (const [dx, dy] of [[-t * 0.42, t * 0.05], [t * 0.4, t * 0.1], [t * 0.05, -t * 0.22]]) T.line(top[0], top[1], cx + dx, cy + dy, IC.w3);
+    T.line(top[0], top[1], top[0], top[1] + t * 0.35, IC.s3);
+    T.ball(cx, top[1] + t * 0.5, t * 0.17, IC.s2, IC.s3, IC.s4, t * 0.14); T.line(cx - t * 0.17, top[1] + t * 0.4, cx + t * 0.17, top[1] + t * 0.4, IC.s4);
+    for (let k = 0; k < 4; k++) T.px(cx - 2 + k + ((k + f) % 2), top[1] + t * 0.3 - k * 3, IC.s0);
   },
   logs(t, T, ax, ay) {
     // two logs to sit on, cut ends showing their rings
@@ -1300,6 +1337,16 @@ const ISO_ART = {
     T.cyl(cx, cy + t * 0.1, t * 0.12, 2, IC.y0, IC.w0, IC.w1); T.line(cx - t * 0.4, cy + t * 0.2, cx + t * 0.3, cy + t * 0.05, IC.b2);
   },
   camplamp(t, T, ax, ay) { ISO_ART.lamppost(t, T, ax, ay); },
+  maptable(t, T, ax, ay) {
+    // a folding camp table with a map spread out, a brass compass and a candle stub
+    const cx = ax, cy = ay + t / 2, h = Math.round(t * 0.5);
+    for (const [dx, dy] of [[-t * 0.3, -t * 0.05], [t * 0.3, -t * 0.05]]) { T.line(cx + dx - 3, cy + dy, cx + dx + 3, cy + dy - h, IC.w3); T.line(cx + dx + 3, cy + dy, cx + dx - 3, cy + dy - h, IC.w2); }
+    T.box(cx - 1, cy - h - t * 0.32, t * 0.36, t * 0.3, 2, IC.w1, IC.w2, IC.w3);
+    T.poly([[cx - t * 0.55, cy - h - t * 0.05], [cx, cy - h + t * 0.2], [cx + t * 0.55, cy - h - t * 0.05], [cx, cy - h - t * 0.3]], (px, py) => pxHash(px >> 1, py) > 0.9 ? IC.w2 : IC.w0);
+    T.line(cx - t * 0.3, cy - h - t * 0.05, cx + t * 0.2, cy - h - t * 0.12, IC.r1); T.px(cx + t * 0.2, cy - h - t * 0.12, IC.r2);
+    T.disc(cx - t * 0.2, cy - h - t * 0.12, 2.5, IC.y1, 1.6); T.px(cx - t * 0.2, cy - h - t * 0.13, IC.r2);
+    T.line(cx + t * 0.35, cy - h - t * 0.05, cx + t * 0.35, cy - h - t * 0.2, IC.white); T.px(cx + t * 0.35, cy - h - t * 0.22, IC.y0);
+  },
   // ---- the lab
   labdesk(t, T, ax, ay) {
     // an alchemist's bench: a little brick athanor at one end, an alembic dripping into a receiver, a retort, candles and an open book
@@ -2049,6 +2096,11 @@ function paintRoomIso(id) {
         if (pxHash(x + 7, y + seed) > 0.988) col = pxHex(pxHash(x, y) > 0.5 ? "#c98f3a" : "#946027");
         else if (pxHash(x + 3, y + seed * 2) > 0.995) col = pxHex("#8ff0d8");
       }
+      // blades of grass in little tufts (a light tip over a dark root), clover, pebbles
+      const tuft = pxNoise(x * 0.09 + seed, y * 0.18) > 0.58;
+      if (!col && tuft && pxHash(x, y + 3) > 0.7) col = pxPick(ground, pxHash(x, y + 1) > 0.5 ? 0.85 : 0.2, x, y);
+      else if (!col && pxHash(x >> 1, (y >> 1) + seed) > 0.992) col = pxHex(pxHash(x, y) > 0.5 ? "#8a8494" : "#b9b3c0");
+      else if (!col && kind !== "wood" && pxHash((x >> 1) + 7, y >> 1) > 0.994) col = pxHex("#fff0b5");
       if (Math.max(u, v) > 0.985) col = pxPick(ground, 0.85, x, y); // a lit rim at the front edges
       put(x, y, col || pxPick(ground, val, x, y));
     }
