@@ -186,6 +186,11 @@
   .r-rare { background: linear-gradient(90deg, #8fd8ef, #c9b8ff); color: #1d1745; }
   .r-legendary { background: linear-gradient(90deg, #ffe9a8, #ff9ecb, #b69cff); color: #1d1745; }
   .r-moon { background: linear-gradient(90deg, #fff8d6, #c9d2ff); color: #1d1745; }
+  .evbar { display: flex; align-items: center; gap: 12px; padding: 10px 14px; margin: 0 0 10px; border-radius: 14px; text-align: left;
+    background: linear-gradient(90deg, rgba(255, 233, 168, .16), rgba(180, 140, 255, .1)); outline: 1px dashed rgba(255, 233, 168, .45); outline-offset: -4px; }
+  .evbar .em { font-size: 26px; }
+  .evbar b { display: block; color: #ffe9a8; }
+  .evbar small { opacity: .85; }
   .moonbtn {
     width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; margin: 4px 0 6px; padding: 12px 16px; cursor: pointer;
     border-radius: 20px; border: 1px solid rgba(255, 248, 214, .5); color: var(--ink);
@@ -1861,7 +1866,28 @@ const UK = {
   "The Heartlight never really went out. It lives in every nest that's loved. It lives in yours.": "Серцесвіт ніколи не згасав по-справжньому. Він живе в кожному гніздечку, де є любов. І у твоєму теж.",
   "Well, I'll be. I'm going to tell everyone!": "Оце так! Розкажу всім-всім!",
   "I'll write this one down... right after a little nap.": "Я це запишу... одразу після коротенької дрімоти.",
-  "Thank you, friend. I can finally rest easy on my watch.": "Дякую, друже. Тепер я можу спокійно стояти на варті."
+  "Thank you, friend. I can finally rest easy on my watch.": "Дякую, друже. Тепер я можу спокійно стояти на варті.",
+  "Spring Bloom": "Весняне цвітіння",
+  "Firefly Nights": "Ночі світлячків",
+  "Harvest Moon": "Місяць урожаю",
+  "Hollow Night": "Ніч ліхтариків",
+  "First Frost": "Перший іній",
+  "Winter Lights": "Зимові вогники",
+  "Can you smell it? The moss is flowering. Spring Bloom is here!": "Відчуваєш запах? Мох квітне. Настало Весняне цвітіння!",
+  "The fireflies have come down into the grotto. It's Firefly Nights!": "Світлячки спустилися в грот. Почалися Ночі світлячків!",
+  "The moon is big and golden tonight. The Harvest Moon is up!": "Сьогодні місяць великий і золотий. Зійшов Місяць урожаю!",
+  "Little lanterns are floating up from the deep. Happy Hollow Night!": "З глибин здіймаються маленькі ліхтарики. Щасливої Ночі ліхтариків!",
+  "Brr! The first frost has reached the grotto. Look at the snow!": "Бр-р! До гроту дістався перший іній. Глянь, який сніг!",
+  "Every crystal in the grotto is twinkling. Winter Lights have begun!": "Кожен кристал у гроті мерехтить. Почалися Зимові вогники!",
+  "For {0} days a limited glowling, {1}, sleeps in the moon egg. Don't miss it!": "Ще {0} дн. у місячному яйці спить особливий глоулінг {1}. Не проґав!",
+  "moon glowling · {0}": "місячний глоулінг · {0}",
+  "the {0} glowling": "глоулінг події «{0}»",
+  "Hatches only from moon eggs during {0} ({1}). Look for the 🌙 in the Grotto.": "Вилуплюється лише з місячних яєць під час події «{0}» ({1}). Шукай 🌙 у Гроті.",
+  "Only in 🌙 moon eggs during {0}.": "Лише в 🌙 місячних яйцях під час події «{0}».",
+  "last day": "останній день",
+  "{0} days left": "залишилось днів: {0}",
+  " · you've met {0} ✓": " · {0} вже з тобою ✓",
+  " · a limited glowling sleeps in the moon egg": " · у місячному яйці спить особливий глоулінг"
 };
 
 const UK_DATA = {
@@ -1930,7 +1956,13 @@ const UK_DATA = {
     emberleaf: { lore: "Вилуплюється лише тоді, коли жовтіє листя. Пахне підсмаженим маршмелоу й хрумким осіннім ранком." },
     frostpuff: { lore: "Пухнастик із зимового місячного яйця. Кожен його чих — крихітний снігопад." },
     bloomkit: { lore: "Кошеня з весняного місячного яйця. Нишком підкидає квіти тобі в кишені, поки ти не дивишся." },
-    sunsplash: { lore: "Ельф із літнього місячного яйця. Де подрімає — там лишає теплі калюжки світла." }
+    sunsplash: { lore: "Ельф із літнього місячного яйця. Де подрімає — там лишає теплі калюжки світла." },
+    petalpup: { lore: "З'являється, коли грот квітне. Лишає за собою стежку з пелюсток і не вважає, що тут є за що вибачатися." },
+    glimmerbug: { lore: "Цілий вечір блимає. Ніхто не знає, що саме воно каже, але явно щось дуже радісне." },
+    acornet: { lore: "Ховає смаколики на зиму й забуває де. Тепер у гніздечку повно печивних сюрпризів." },
+    gourdlet: { lore: "Світиться зсередини, як вирізаний ліхтарик. Лячне рівно одну секунду, а потім хоче обіймів." },
+    rimeling: { lore: "Дихне на віконце — і там уже візерунок інею, ще й підписаний крихітною лапкою." },
+    twinklet: { lore: "Носить стрічку, яку ніхто не зав'язував, і сяє п'ятьма кольорами водночас. Голосно рахує до кожного Нового року." }
   },
   rarity: { common: "звичайний", rare: "рідкісний", legendary: "легендарний", moon: "місячний" },
   snacks: { dew: "Росинка", cookie: "Печиво із зоряного пилу", berry: "Місячна ягідка" },
@@ -2562,6 +2594,19 @@ const SPECIES = [
     lore: "A spring moon-egg kitten. Sneaks flowers into your pockets when you're not looking." },
   { id: "sunsplash", name: "Sunsplash", crystal: "moonstone", moon: "summer", pal: ["#7fe0d6", "#e0fff8", "#2fa39a"], body: "drop", head: "rays", back: "fins", pattern: "spots", eyes: "sparkle", snack: "dew", voice: 1.15,
     lore: "A summer moon-egg sprite. Leaves warm little puddles of light wherever it naps." },
+  // only in moon eggs during an event, a few weeks a year
+  { id: "petalpup", name: "Petalpup", crystal: "moonstone", moon: "spring", event: "bloom", pal: ["#f7a8c8", "#ffe6f1", "#c9618f"], body: "round", ears: "bunny", head: "petals", back: "fluff", pattern: "heart", eyes: "sparkle", snack: "berry", voice: 1.15,
+    lore: "Hatches when the grotto blooms. Leaves a trail of petals everywhere, and refuses to apologize for it." },
+  { id: "glimmerbug", name: "Glimmerbug", crystal: "moonstone", moon: "summer", event: "fireflies", pal: ["#d8f27a", "#fbffd0", "#7fa83a"], body: "bean", head: "antennae", back: "mothwings", pattern: "spots", eyes: "big", snack: "dew", voice: 1.3,
+    lore: "Blinks on and off all evening. Nobody knows what it's saying, but it's clearly very happy about it." },
+  { id: "acornet", name: "Acornet", crystal: "moonstone", moon: "autumn", event: "harvest", pal: ["#c98a4a", "#f2cf9a", "#7d4f24"], body: "round", ears: "tufts", head: "cap", back: "tail", pattern: "belly", eyes: "round", snack: "cookie", voice: 0.9,
+    lore: "Hides snacks for winter and forgets where. The nest is full of surprise cookies." },
+  { id: "gourdlet", name: "Gourdlet", crystal: "moonstone", moon: "autumn", event: "hollow", pal: ["#ff9d3c", "#ffe0a0", "#b8521c"], body: "wide", head: "sprout", back: "wisp", pattern: "stripes", eyes: "sleepy", snack: "cookie", voice: 0.95,
+    lore: "Glows from the inside like a carved lantern. Spooky for exactly one second, then wants a hug." },
+  { id: "rimeling", name: "Rimeling", crystal: "moonstone", moon: "autumn", event: "frost", pal: ["#b9c8ff", "#f4f6ff", "#6f7fc9"], body: "drop", ears: "cat", head: "crystal", back: "startail", pattern: "iridescent", eyes: "sparkle", snack: "dew", voice: 1.25,
+    lore: "Breathes ferns of frost onto every window it passes, then signs each one with a tiny paw." },
+  { id: "twinklet", name: "Twinklet", crystal: "moonstone", moon: "winter", event: "lights", pal: ["#ff6f7f", "#ffe1a8", "#b8324a"], body: "round", ears: "fox", head: "rays", back: "ribbon", pattern: "spots", eyes: "sparkle", snack: "cookie", voice: 1.1,
+    lore: "Wears a ribbon nobody tied and glows in five colors at once. Counts down to every new year, loudly." },
   { id: "veilfin", name: "Veilfin", crystal: "turquoise", body: "wide", back: "fins", pattern: "bubbles", eyes: "round", snack: "dew", voice: 0.9,
     lore: "Hums sea songs it has never heard. Loves water, and anyone who brings it some." },
   { id: "cubbet", name: "Cubbet", crystal: "pyrite", body: "round", head: "crystal", back: "tail", pattern: "spots", eyes: "round", snack: "cookie", voice: 0.95,
@@ -3609,7 +3654,39 @@ function drawBats(dt) {
   game.bats = game.bats.filter(b => b.x > -40 && b.x < W + 40);
 }
 
+/** The event's sky: snow, petals, leaves, fireflies, lanterns or twinkling lights over every scene. */
+let evMotes = [];
+function makeEventMotes() {
+  const f = eventNow()?.fall;
+  evMotes = !f ? [] : Array.from({ length: Math.round(f.n * 1.4 * clamp(W * H / 300000, 0.6, 1.6)) }, () => ({
+    x: rand(0, W), y: rand(0, H), r: f.r * rand(0.7, 1.3), v: rand(10, 26), ph: rand(0, 6.28), c: pick(f.c),
+  }));
+}
+function updateEventMotes(dt) {
+  const f = eventNow()?.fall;
+  if (!f || f.still) return;
+  for (const m of evMotes) {
+    m.y += m.v * f.dir * dt;
+    if (!f.dir) { m.x += Math.cos(m.ph + game.time * 0.0007) * 9 * dt; m.y += Math.sin(m.ph * 1.7 + game.time * 0.0005) * 7 * dt; }
+    if (m.y > H + 6) { m.y = -6; m.x = rand(0, W); } else if (m.y < -6) { m.y = H + 6; m.x = rand(0, W); }
+    if (m.x < -6) m.x = W + 6; else if (m.x > W + 6) m.x = -6;
+  }
+}
+function drawEventMotes() {
+  const f = eventNow()?.fall;
+  if (!f) return;
+  for (const m of evMotes) {
+    ctx.globalAlpha = f.blink ? 0.25 + 0.75 * Math.max(0, Math.sin(game.time * 0.002 + m.ph * 3)) : 0.85;
+    const sway = f.dir > 0 ? Math.sin(m.ph + game.time * 0.0013) * 10 : 0, s = Math.max(2, Math.round(m.r * 1.5)) * PX;
+    ctx.fillStyle = m.c;
+    ctx.fillRect(Math.round(m.x + sway), Math.round(m.y), s, s);
+    if (f.blink) { ctx.globalAlpha *= 0.25; ctx.fillRect(Math.round(m.x + sway) - s, Math.round(m.y) - s, s * 3, s * 3); }
+  }
+  ctx.globalAlpha = 1;
+}
+
 function makeMotes() {
+  makeEventMotes();
   motes = Array.from({ length: Math.round(clamp(W * H / 14000, 20, 70)) }, () => ({
     x: rand(0, W), y: rand(0, H), r: rand(0.6, 1.8), vy: rand(3, 10), ph: rand(0, 6.28), a: rand(0.2, 0.7),
   }));
@@ -4541,7 +4618,7 @@ function newEgg(conf, animate = true) {
   const crystal = conf.forced ? conf.forced.crystal : pick(CRYSTALS.filter(c => c.rarity === rarity));
   const species = conf.forced ? conf.forced.species : pick(SPECIES.filter(s => s.crystal === crystal.id && !s.moon));
   game.egg = {
-    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04), stone: conf.moon ? MOON_STONE : pick(STONES),
+    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04), stone: conf.moon ? moonStone() : pick(STONES),
     state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
     hp: conf.hp, damage: 0, taps: 0, crits: 0, gems: 0, combo: 0, lastTap: -9, hits: [], seed: coopId(),
     net: { segs: [], tips: [] }, painted: 0,
@@ -5164,7 +5241,7 @@ function showFound() {
   imgFrom($("foundImg").src).then(im => { $("foundImg").src = pixelate(im, 66, 88).toDataURL(); });
   $("newBadge").hidden = !isNew;
   $("foundName").textContent = (e.shiny ? "✦ " : "") + sp.name;
-  $("foundRarity").textContent = sp.moon ? tr("{0} moon glowling", seasonName(sp.moon)) : tr("{0} geode · {1}", cry.name, rarF(cry.rarity));
+  $("foundRarity").textContent = sp.moon ? moonKind(sp) : tr("{0} geode · {1}", cry.name, rarF(cry.rarity));
   $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
@@ -5372,6 +5449,13 @@ function talkMoments(scene) {
   if (scene === "map") talk("firstGrotto");
   for (const k of [1, 2, 3]) if (unlocked(k * 6 + 1)) talk("ch" + k);
   if (unlocked(LEVELS + 1)) talk("allClear");
+  // Mossa tells you when an event starts, once each year
+  const ev = eventNow();
+  if (ev && save.creatures.length) {
+    const id = `ev-${ev.id}-${new Date().getFullYear()}`;
+    TALKS[id] = () => [[MOSSA, ev.line], [MOSSA, tr("For {0} days a limited glowling, {1}, sleeps in the moon egg. Don't miss it!", eventDaysLeft(ev), SP[ev.sp].name), scene === "map" ? "#moonBtn" : null]];
+    talk(id);
+  }
   // one part of the story per visit, so a long-time player catches up gently
   const part = STORY.find(s => unlocked(s.at) && !talkSeen(s.id));
   if (part) talk(part.id);
@@ -5529,12 +5613,52 @@ function fitTopbar() {
 // ---------- the daily moon egg ----------
 
 const MOON_STONE = Object.assign(["#d7d9f2", "#9ea3cc", "#f6f6ff"], { moon: true });
+/** The moon egg wears the colors of an event while it's on. */
+const moonStone = () => { const ev = eventNow(); return ev ? Object.assign([...ev.egg], { moon: true }) : MOON_STONE; };
+
+// ---------- events: a few weeks each year with their own glowling in the moon egg, their own sky, and a word from Mossa ----------
+
+const EVENTS = [
+  { id: "bloom", name: "Spring Bloom", emoji: "🌸", from: [3, 20], to: [4, 15], sp: "petalpup", egg: ["#f6d3e4", "#c98fb0", "#fff4fa"],
+    fall: { c: ["#ffc2dc", "#fff0f6", "#f08cb8"], dir: 1, r: 2.2, n: 26 }, line: "Can you smell it? The moss is flowering. Spring Bloom is here!" },
+  { id: "fireflies", name: "Firefly Nights", emoji: "✨", from: [6, 20], to: [7, 15], sp: "glimmerbug", egg: ["#e4efb8", "#a8b86a", "#fbffe6"],
+    fall: { c: ["#e8ff8a", "#fbffd0", "#c8f060"], dir: 0, r: 2, n: 22, blink: true }, line: "The fireflies have come down into the grotto. It's Firefly Nights!" },
+  { id: "harvest", name: "Harvest Moon", emoji: "🍂", from: [9, 15], to: [10, 10], sp: "acornet", egg: ["#ecd2b0", "#b88a5c", "#fff2e0"],
+    fall: { c: ["#e8913a", "#c45a2a", "#f2c45c"], dir: 1, r: 2.6, n: 22 }, line: "The moon is big and golden tonight. The Harvest Moon is up!" },
+  { id: "hollow", name: "Hollow Night", emoji: "🎃", from: [10, 20], to: [11, 3], sp: "gourdlet", egg: ["#f2c58f", "#c27a3c", "#fff0d8"],
+    fall: { c: ["#ff9d3c", "#ffd27a", "#ff7a2a"], dir: -1, r: 2.4, n: 16, blink: true }, line: "Little lanterns are floating up from the deep. Happy Hollow Night!" },
+  { id: "frost", name: "First Frost", emoji: "❄️", from: [11, 8], to: [11, 30], sp: "rimeling", egg: ["#dfe6ff", "#a3b0e0", "#ffffff"],
+    fall: { c: ["#ffffff", "#e2ecff", "#c7d6ff"], dir: 1, r: 1.8, n: 48 }, line: "Brr! The first frost has reached the grotto. Look at the snow!" },
+  { id: "lights", name: "Winter Lights", emoji: "🎄", from: [12, 15], to: [1, 10], sp: "twinklet", egg: ["#f2d6d6", "#c08080", "#fff6e8"],
+    fall: { c: ["#ff6f7f", "#ffd36a", "#7fe0a0", "#8fb8ff"], dir: 0, r: 2, n: 28, blink: true, still: true }, line: "Every crystal in the grotto is twinkling. Winter Lights have begun!" },
+];
+const EVENT = Object.fromEntries(EVENTS.map(e => [e.id, e]));
+// the test game can try any event: /staging/?event=bloom
+const EVENT_TRY = STAGING && EVENT[new URLSearchParams(location.search).get("event")];
+const inRange = (d, [fm, fd], [tm, td]) => {
+  const v = (d.getMonth() + 1) * 100 + d.getDate(), a = fm * 100 + fd, b = tm * 100 + td;
+  return a <= b ? v >= a && v <= b : v >= a || v <= b;
+};
+/** The event that's on today, if any. */
+const eventNow = (d = new Date()) => EVENT_TRY || EVENTS.find(e => inRange(d, e.from, e.to)) || null;
+/** Whole days until an event ends, counting today. */
+function eventDaysLeft(ev, d = new Date()) {
+  const end = new Date(d.getFullYear(), ev.to[0] - 1, ev.to[1]);
+  if (end < new Date(d.getFullYear(), d.getMonth(), d.getDate())) end.setFullYear(end.getFullYear() + 1);
+  return Math.max(1, Math.round((end - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 864e5) + 1);
+}
+const eventName = ev => tr(ev.name);
+const eventDates = ev => [ev.from, ev.to].map(([m, d]) => new Date(2000, m - 1, d).toLocaleDateString(LANG === "uk" ? "uk-UA" : "en-US", { month: "short", day: "numeric" })).join(" – ");
+/** How a moon glowling is described: by its season, or by the event it belongs to. */
+const moonKind = sp => sp.event ? tr("moon glowling · {0}", eventName(EVENT[sp.event])) : tr("{0} moon glowling", seasonName(sp.moon));
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 const seasonOf = (d = new Date()) => ["winter", "winter", "spring", "spring", "spring", "summer", "summer", "summer", "autumn", "autumn", "autumn", "winter"][d.getMonth()];
 
 /** Today's moon egg: the season's moon glowling until you've met it, then a rare or legendary one that changes daily. */
 function moonToday() {
-  const season = SPECIES.find(s => s.moon === seasonOf());
+  const ev = eventNow(), evSp = ev && SP[ev.sp];
+  if (evSp && !save.seen[evSp.id]) return evSp;
+  const season = SPECIES.find(s => s.moon === seasonOf() && !s.event);
   if (!save.seen[season.id]) return season;
   const pool = SPECIES.filter(s => !s.moon && CRYSTAL[s.crystal].rarity !== "common");
   return pool[Math.floor(seeded(dayKey())() * pool.length)];
@@ -5679,10 +5803,12 @@ function renderMap() {
   const streak = moonStreak(), done = moonDone(), sp = moonToday();
   const moonCard = `<button class="moonbtn" id="moonBtn" ${done ? "disabled" : ""}><span class="em">🌙</span><span><b>${done ? tr("Moon egg opened") : tr("Today's moon egg")}</b><small>${done
     ? tr("next one in {0}", untilTomorrow()) + (streak ? tr(" · streak {0} 🔥", streak) : "")
-    : tr("{0} sleeps inside ✦ +25 shards", sp.moon && !save.seen[sp.id] ? tr(/^[aeiou]/.test(sp.moon) ? "an {0} moon glowling" : "a {0} moon glowling", seasonName(sp.moon)) : tr("a {0} glowling", rar(rarityOf(sp)))) + (streak ? tr(" · streak {0} 🔥", streak) : "")}</small></span></button>`;
+    : tr("{0} sleeps inside ✦ +25 shards", sp.event && !save.seen[sp.id] ? tr("the {0} glowling", eventName(EVENT[sp.event])) : sp.moon && !save.seen[sp.id] ? tr(/^[aeiou]/.test(sp.moon) ? "an {0} moon glowling" : "a {0} moon glowling", seasonName(sp.moon)) : tr("a {0} glowling", rar(rarityOf(sp)))) + (streak ? tr(" · streak {0} 🔥", streak) : "")}</small></span></button>`;
   const ready = canForge();
   const forgeCard = `<button class="moonbtn forgebtn${ready ? " ready" : ""}" id="forgeBtn">${ic("hammer", "big")}<span><b>${tr("The Forge")}${ready ? ` <em class="tag">${tr("upgrade ready")}</em>` : ""}</b><small>${tr("spend shards on your hammer: harder taps, keener eyes")}</small></span></button>`;
-  $("mapList").innerHTML = forgeCard + moonCard + html;
+  const ev = eventNow(), evLeft = ev && eventDaysLeft(ev);
+  const evCard = ev ? `<div class="evbar"><span class="em">${ev.emoji}</span><span><b>${eventName(ev)}</b><small>${tr(evLeft === 1 ? "last day" : "{0} days left", evLeft)}${save.seen[ev.sp] ? tr(" · you've met {0} ✓", SP[ev.sp].name) : tr(" · a limited glowling sleeps in the moon egg")}</small></span></div>` : "";
+  $("mapList").innerHTML = forgeCard + evCard + moonCard + html;
   $("forgeBtn").addEventListener("click", openForge);
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
   $("moonBtn").addEventListener("click", startMoon);
@@ -9867,14 +9993,14 @@ const imgFrom = url => new Promise(r => { const im = new Image(); im.onload = ()
 async function shareFound() {
   const e = game.egg, sp = e.species;
   const art = await imgFrom(creatureImage(sp, { size: 360, shiny: e.shiny, mood: "happy" }));
-  sharePostcard(makePostcard({ art, pal: palOf(sp), name: (e.shiny ? "✦ " : "") + sp.name, line: sp.moon ? tr("{0} moon glowling", seasonName(sp.moon)) : tr("from a {0} geode · {1}", e.crystal.name, rar(rarityOf(sp))), note: tr("just hatched in my nest") }), sp.name);
+  sharePostcard(makePostcard({ art, pal: palOf(sp), name: (e.shiny ? "✦ " : "") + sp.name, line: sp.moon ? moonKind(sp) : tr("from a {0} geode · {1}", e.crystal.name, rar(rarityOf(sp))), note: tr("just hatched in my nest") }), sp.name);
 }
 
 /** The postcard of a glowling from the nest. */
 async function shareCreature(cr) {
   const sp = specOf(cr);
   const art = await imgFrom(creatureImage(sp, { size: 360, level: cr.level, shiny: cr.shiny, mood: "happy" }));
-  const what = sp.hybrid ? tr("{0} hybrid", sp.parents.join(" × ")) : sp.moon ? tr("{0} moon glowling", seasonName(sp.moon)) : `${STAGES[stageOf(cr.level)].toLowerCase()} ${sp.name} · ${rar(rarityOf(sp))}`;
+  const what = sp.hybrid ? tr("{0} hybrid", sp.parents.join(" × ")) : sp.moon ? moonKind(sp) : `${STAGES[stageOf(cr.level)].toLowerCase()} ${sp.name} · ${rar(rarityOf(sp))}`;
   sharePostcard(makePostcard({ art, pal: palOf(sp), name: cr.name, line: what, note: tr("level {0} · raised in my nest", cr.level) }), cr.name);
 }
 
@@ -9910,13 +10036,13 @@ function openSpecies(sp) {
   sfx.tick();
   $("spImg").src = creatureImage(sp, { size: 200, sil: !seen, level: mine.length ? Math.max(...mine.map(c => c.level)) : 1 });
   $("spName").textContent = seen ? sp.name : "???";
-  $("spRarity").textContent = sp.moon ? tr("{0} moon glowling", seasonName(sp.moon)) : `${cry.name} · ${rar(cry.rarity)}`;
+  $("spRarity").textContent = sp.moon ? moonKind(sp) : `${cry.name} · ${rar(cry.rarity)}`;
   $("spRarity").className = `rarity r-${rarityOf(sp)}`;
-  $("spLore").textContent = seen ? sp.lore : sp.moon ? tr("Hatches only from moon eggs in {0}. Look for the 🌙 in the Grotto.", seasonIn(sp.moon)) : tr("Sleeps inside {0} geodes. Crack one to meet it.", LANG === "uk" ? cry.name : cry.name.toLowerCase());
+  $("spLore").textContent = seen ? sp.lore : sp.event ? tr("Hatches only from moon eggs during {0} ({1}). Look for the 🌙 in the Grotto.", eventName(EVENT[sp.event]), eventDates(EVENT[sp.event])) : sp.moon ? tr("Hatches only from moon eggs in {0}. Look for the 🌙 in the Grotto.", seasonIn(sp.moon)) : tr("Sleeps inside {0} geodes. Crack one to meet it.", LANG === "uk" ? cry.name : cry.name.toLowerCase());
   $("spFacts").innerHTML = seen
     ? tr("Favorite snack: {0}<br>Met {1} {2} · first on {3}", SNACKS[sp.snack].emoji + " " + SNACKS[sp.snack].name, seen.count, pl(seen.count, "time", "times"), new Date(seen.first).toLocaleDateString(LOCALE)) +
       (mine.length ? tr("<br>In your nest: {0}", mine.map(c => tr("{0} (level {1})", c.name, c.level)).join(", ")) : "")
-    : sp.moon ? tr("Only in 🌙 moon eggs, in {0}.", seasonIn(sp.moon)) : tr(cry.rarity === "common" ? "Found anywhere in the grotto." : cry.rarity === "rare" ? "Found deeper in the grotto." : "Found rarely, in the deepest parts of the grotto.");
+    : sp.event ? tr("Only in 🌙 moon eggs during {0}.", eventName(EVENT[sp.event])) : sp.moon ? tr("Only in 🌙 moon eggs, in {0}.", seasonIn(sp.moon)) : tr(cry.rarity === "common" ? "Found anywhere in the grotto." : cry.rarity === "rare" ? "Found deeper in the grotto." : "Found rarely, in the deepest parts of the grotto.");
   show("spCard", true);
   if (seen) sfx.chirp(sp.voice);
 }
@@ -9945,6 +10071,7 @@ let nestTick = 0;
 function update(dt) {
   game.time += dt * 1000;
   for (const m of motes) { m.y -= m.vy * dt; if (m.y < -4) { m.y = H + 4; m.x = rand(0, W); } }
+  updateEventMotes(dt);
 
   const e = game.egg;
   if (game.scene === "crack" && e) {
@@ -10425,6 +10552,7 @@ function frame(now) {
   } else {
     drawIdle();
   }
+  if (game.scene !== "catch" && game.scene !== "echo") drawEventMotes();
   drawChips();
   drawGlints();
   drawRipples();
