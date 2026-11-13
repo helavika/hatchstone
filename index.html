@@ -2179,6 +2179,20 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Nest-bed": "Ліжко-гніздо",
+  "Pile of leaves": "Купа листя",
+  "Hammock": "Гамак",
+  "Basket": "Кошик",
+  "Canopy bed": "Ліжко з балдахіном",
+  "round and puffy, room for everyone": "кругле й пухке, місця вистачить усім",
+  "crunchy, warm, smells of autumn": "шелестить, гріє, пахне осінню",
+  "sways a little when someone climbs in": "трохи гойдається, коли хтось залазить",
+  "woven, with a soft cushion inside": "плетений, із м'якою подушкою всередині",
+  "posts, a drape, very grand": "стовпчики, завіса, дуже пишно",
+  "The bed in the {0}": "Ліжко: {0}",
+  "free": "безкоштовно",
+  "Beds are free: pick the one that suits the room. Every glowling who lives here sleeps in it.": "Ліжка безкоштовні: обери те, що пасує кімнаті. У ньому спатимуть усі, хто тут живе.",
+  "A new bed: {0} ✦": "Нове ліжко: {0} ✦",
   "Music": "Музика",
   "Music is the backdrops' songs and the grotto's hum; sounds are everything else: taps, chirps, voices.": "Музика — це мелодії тел і гул гроту; звуки — усе інше: удари, щебет, голоси.",
   "Less motion": "Менше руху",
@@ -6882,7 +6896,9 @@ function openShop() {
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
       }).join("")}</div>`;
   } else if (st.tab === "rooms") {
-    body = roomsList() + `<p class="sub">${tr("Each room has its own furniture, backdrop and bed. Switch rooms with the arrows at the sides of the nest.")}</p>`;
+    body = roomsList() + `<p class="sub">${tr("Each room has its own furniture, backdrop and bed. Switch rooms with the arrows at the sides of the nest.")}</p>`
+      + `<h3>${tr("The bed in the {0}", roomName(save.room).toLowerCase())}</h3><div class="tiles">${BEDS.map(bd => `<button class="tile${bedStyle() === bd.id ? " on placed" : ""}" data-bed="${bd.id}"><img class="em" src="${bedThumb(bd.id)}" alt=""><b>${tr(bd.name)}</b><small>${bedStyle() === bd.id ? tr("placed ✓") : tr("free")}</small></button>`).join("")}</div>`
+      + `<p class="me-hint">${tr("Beds are free: pick the one that suits the room. Every glowling who lives here sleeps in it.")}</p>`;
   } else if (st.tab === "wear") {
     body = accessoryList();
   } else {
@@ -6911,6 +6927,7 @@ function openShop() {
   $$("#shopList [data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
   $("arrangeOpen")?.addEventListener("click", startArrange);
   $$("#shopList [data-room]").forEach(b => b.addEventListener("click", () => { goRoom(Number(b.dataset.room)); openShop(); }));
+  $$("#shopList [data-bed]").forEach(b => b.addEventListener("click", () => { save.rooms[save.room].bed = b.dataset.bed; persist(); sfx.tick(); toast(tr("A new bed: {0} ✦", tr(BEDS.find(x => x.id === b.dataset.bed).name))); openShop(); }));
   $("roomAdd")?.addEventListener("click", addRoom);
   show("shop", true);
 }
@@ -8490,7 +8507,8 @@ const ISO_ART = {
     // spores drifting up through the light
     for (let i = 0; i < 7; i++) { if ((i + f) % 3 === 0) continue; T.px(cx + Math.round((pxHash(i, 5) - 0.5) * t * 1.5), cy - Math.round(t * (1.1 + pxHash(5, i) * 1.0)) - ((i + f) % 4), i % 2 ? B.white : B.pale); }
   },
-  bed(t, T, ax, ay) {
+  bed(t, T, ax, ay, o = {}) {
+    if (o.style && o.style !== "nest" && BED_ART[o.style]) return BED_ART[o.style](t, T, ax, ay);
     // a big round, puffy nest-bed over two tiles each way, all fabric: an oval base, a plump rim of cushions all round
     // (like a doughnut), a soft white middle with pillows, and a striped pink quilt tucked in at the front
     const cx = ax, cy = ay + t, rx = t * 1.75, ry = rx / 2, lift = Math.max(3, Math.round(t * 0.14));
@@ -8528,6 +8546,79 @@ const ISO_ART = {
   },
 };
 
+// ---------- beds to suit the room: the nest-bed, a pile of leaves outside, a hammock, a basket, a canopy bed ----------
+
+const BEDS = [
+  { id: "nest", name: "Nest-bed", note: "round and puffy, room for everyone" },
+  { id: "leaves", name: "Pile of leaves", note: "crunchy, warm, smells of autumn" },
+  { id: "hammock", name: "Hammock", note: "sways a little when someone climbs in" },
+  { id: "basket", name: "Basket", note: "woven, with a soft cushion inside" },
+  { id: "canopy", name: "Canopy bed", note: "posts, a drape, very grand" },
+];
+const BED_FOR_ROOM = { nest: "nest", yard: "leaves", play: "hammock", garden: "basket", study: "canopy" };
+/** The bed in the room you're in: the one you picked for it, or the one that suits its kind. */
+const bedStyle = (i = save.room) => (save.rooms && save.rooms[i] && (save.rooms[i].bed || BED_FOR_ROOM[save.rooms[i].kind])) || "nest";
+const BED_ART = {
+  leaves(t, T, ax, ay) {
+    // a heap of autumn leaves over the two tiles, a blanket thrown over its front, a pillow at the back
+    const cx = ax, cy = ay + t, rx = t * 1.6, ry = rx / 2, cols = [IC.w0, IC.w1, IC.w2, IC.r1, IC.y1, IC.r2];
+    T.disc(cx, cy, rx, IC.w2);
+    // leaves from the edge inward and from the bottom up, so the heap rises in the middle
+    const leaves = Array.from({ length: 110 }, (_, k) => { const an = pxHash(k, 3) * TAU, r = Math.sqrt(pxHash(k, 7)); return [cx + Math.cos(an) * r * rx * 0.9, cy + Math.sin(an) * r * ry * 0.9 - (1 - r * r) * t * 0.55, k]; }).sort((p, q) => p[1] - q[1]);
+    for (const [x, y, k] of leaves) {
+      const c = cols[Math.floor(pxHash(k, 11) * cols.length)], r = Math.max(1.6, t * 0.13);
+      T.disc(x, y, r, c, r * 0.6);
+      T.px(x - r * 0.4, y - r * 0.3, IC.y0);
+    }
+    T.ball(cx - rx * 0.35, cy - t * 0.5, t * 0.3, IC.white, IC.s0, IC.s1, t * 0.18);
+    const bx = cx + rx * 0.15, by = cy - t * 0.12;
+    T.disc(bx, by, rx * 0.5, (x, y) => (Math.floor((x - bx) / 3) + Math.floor((y - by) / 2)) % 2 ? IC.g1 : IC.g0, ry * 0.42);
+  },
+  hammock(t, T, ax, ay) {
+    // two wooden posts, ropes, and a striped hammock sagging between them
+    const cx = ax, cy = ay + t, x0 = cx - t * 1.45, x1 = cx + t * 1.45, top = cy - t * 1.15;
+    const post = x => { for (let y = Math.round(top - 2); y <= cy + 1; y++) { T.px(x - 1, y, IC.w1); T.px(x, y, IC.w2); T.px(x + 1, y, IC.w3); } T.ball(x, top - 3, 2, IC.w0, IC.w1, IC.w2); };
+    post(x0); post(x1);
+    const sag = x => { const u = (x - x0) / (x1 - x0); return top + 4 + Math.sin(u * Math.PI) * t * 0.7; };
+    for (let x = Math.round(x0 + 2); x <= Math.round(x1 - 2); x++) {
+      const y = Math.round(sag(x)), w = Math.max(3, Math.round(t * 0.22 * Math.sin((x - x0) / (x1 - x0) * Math.PI) + 2));
+      for (let k = 0; k < w; k++) T.px(x, y + k, k === w - 1 ? IC.b3 : Math.floor((x - x0) / 4) % 2 ? IC.b1 : IC.white);
+    }
+    for (const [px0, ex] of [[x0, x0 + 5], [x1, x1 - 5]]) T.line(px0, top, ex, sag(ex), IC.y1);
+  },
+  basket(t, T, ax, ay) {
+    // a woven basket, a cushion inside, a little blanket over its edge
+    const cx = ax, cy = ay + t, rx = t * 1.35, h = Math.round(t * 0.5);
+    for (let k = 0; k <= h; k++) T.disc(cx, cy - k, rx, (x) => (Math.floor(x / 2) + k) % 2 ? IC.w1 : IC.w2);
+    T.disc(cx, cy - h, rx * 0.86, IC.w3);
+    T.disc(cx, cy - h - 1, rx * 0.8, (x, y) => Math.hypot((x - cx) / (rx * 0.8), (y - cy + h + 1) / (rx * 0.4)) > 0.75 ? IC.p1 : IC.p0);
+    for (let k = 0; k < 90; k++) { const an = k / 90 * TAU; if (Math.sin(an) > -0.2) T.px(cx + Math.cos(an) * rx, cy - h + Math.sin(an) * rx / 2, IC.w0); }
+    T.poly([[cx + rx * 0.2, cy - h], [cx + rx * 0.75, cy - h + 2], [cx + rx * 0.8, cy - h * 0.2], [cx + rx * 0.3, cy - h * 0.1]], IC.l2);
+  },
+  canopy(t, T, ax, ay) {
+    // a grand bed: a wooden frame, a white mattress, a purple quilt, four posts and a pink drape across the top
+    const cx = ax, a = t * 0.82, b = t * 0.82, x = cx, y = ay + t - b, h = Math.round(t * 0.32);
+    T.box(x, y, a, b, h, IC.white, IC.w2, IC.w3);
+    const top = y - h;
+    T.poly([[x - 2 * b * 0.1, top + b * 0.1 + 2 * a * 0.45 * 0.5], [x + 2 * a - 2 * b * 0.1, top + a + b * 0.1], [x + 2 * a - 2 * b, top + a + b], [x - 2 * b, top + b + a * 0.45]], IC.l3);
+    T.ball(x + a * 0.2 - b * 0.4, top + b * 0.6, t * 0.22, IC.white, IC.s0, IC.s1, t * 0.14);
+    const corners = [[x, y], [x + 2 * a, y + a], [x - 2 * b, y + b], [x + 2 * a - 2 * b, y + a + b]], ph = Math.round(t * 1.5);
+    for (const [px, py] of corners) for (let k = 0; k < ph; k++) { T.px(px, py - k, IC.w2); T.px(px + 1, py - k, IC.w3); }
+    const up = ([px, py]) => [px, py - ph];
+    for (const [p0, p1] of [[corners[0], corners[1]], [corners[0], corners[2]], [corners[1], corners[3]], [corners[2], corners[3]]]) {
+      const [x0, y0] = up(p0), [x1, y1] = up(p1);
+      for (let k = 0; k <= 20; k++) { const u = k / 20, sx = x0 + (x1 - x0) * u, sy = y0 + (y1 - y0) * u + Math.sin(u * Math.PI) * 3; T.px(sx, sy, IC.p1); T.px(sx, sy + 1, IC.p2); }
+    }
+  },
+};
+
+/** A small picture of a bed, for choosing one. */
+const bedThumbs = {};
+function bedThumb(id) {
+  if (bedThumbs[id]) return bedThumbs[id];
+  const t = 14, c = isoArt(t * 4 + 8, Math.round(t * 3.6 + 8), T => ISO_ART.bed(t, T, t * 2 + 4, 4 + t * 1.4, { style: id }));
+  return bedThumbs[id] = c.toDataURL();
+}
 /** The baked picture of one placed piece, in CSS pixels ready for drawBaked. */
 function isoPiece(p, extra = {}) {
   const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3, base = pieceDims(p.id, false);
@@ -9465,7 +9556,7 @@ const DRAW_DECOR = {
 /** Where each piece was drawn last, for tapping it (see spriteHit). */
 const pieceHits = {};
 /** What a piece's picture depends on right now (the lamp being off, the pond's ripple frame...). */
-const pieceExtra = p => p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
+const pieceExtra = p => p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
 
 const decorFx = {};
 let swingPush = 0;
