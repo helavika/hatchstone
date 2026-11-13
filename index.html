@@ -386,6 +386,8 @@
   }
   .ghost:active { transform: scale(.96); }
   #startCoop { display: block; margin: 14px auto 0; }
+  /* the button that closes a sheet looks the same in every sheet: one width, centered at the bottom */
+  .overlay .card > .ghost[id$="Close"] { display: flex; width: min(100%, 280px); margin: 14px auto 0; }
   .pillbtn { border-color: rgba(255, 233, 168, .3); }
 
   #libGrid { gap: 12px; }
@@ -590,6 +592,12 @@
   /* native-pixel pictures: always a whole number of screen pixels per art pixel */
   img.px2 { object-fit: fill; image-rendering: pixelated; }
   #libGrid .pg img.lib-px { width: 64px; height: 64px; object-fit: fill; image-rendering: pixelated; }
+  /* every card in the book the same size: names take at most two lines, the rarity sits on the same line at the bottom */
+  #libGrid { grid-auto-rows: 1fr; }
+  #libGrid button { display: flex; flex-direction: column; align-items: center; }
+  #libGrid .pg { align-self: stretch; display: grid; place-items: center; }
+  #libGrid b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.05; max-width: 100%; }
+  #libGrid small { margin-top: auto; padding-top: 2px; }
   #switcher button img.px2 { display: block; margin: auto; }
   #switcher button.on { background: var(--px-gold-lo) !important; }
 
@@ -1548,7 +1556,7 @@ const UK = {
   "upgrade ready": "можна покращити",
   "spend shards on your hammer: harder taps, keener eyes": "витрачай осколки на молот: сильніші удари, гостріше око",
   "Level {0} · {1} {2}": "Рівень {0} · {1} {2}",
-  "You have ✦ {0} shards. {1}s love {2}s.": "Осколків: ✦ {0}. {1} найбільше любить: {2}.",
+  "You have ✦ {0} shards. {1}s love {2}.": "Осколків: ✦ {0}. {1} найбільше любить: {2}.",
   "tummy +{0}": "животик +{0}",
   "{0} is too full right now": "{0} уже наївся",
   "You have {0}. Glowlings visit the things they love.": "У тебе {0}. Глоулінги навідуються до того, що люблять.",
@@ -5599,7 +5607,9 @@ function openSnacks() {
   const cr = activeCreature();
   if (!cr) return;
   const sp = specOf(cr);
-  $("snackSub").textContent = tr("You have ✦ {0} shards. {1}s love {2}s.", save.shards, sp.name, SNACKS[sp.snack].name.toLowerCase());
+  // (English plurals: a moonberry, moonberries)
+  const snack = SNACKS[sp.snack].name.toLowerCase();
+  $("snackSub").textContent = tr("You have ✦ {0} shards. {1}s love {2}.", save.shards, sp.name, LANG === "uk" ? snack : snack.replace(/([^aeiou])y$/, "$1ie") + "s");
   $("snackList").innerHTML = Object.entries(SNACKS).map(([id, s]) =>
     `<button class="snack" data-id="${id}" ${save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>${tr("tummy +{0}", s.tummy)}${id === sp.snack ? tr(" · favorite!") : ""}</small></span><span class="cost">✦ ${s.cost}</span></button>`).join("");
   $$("#snackList .snack").forEach(b => b.addEventListener("click", () => feed(b.dataset.id)));
