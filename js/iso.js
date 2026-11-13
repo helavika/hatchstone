@@ -630,9 +630,10 @@ const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1
   furnace: { fw: 2, fd: 2, at: [1, 0] }, anvil: { fw: 1, fd: 1, at: [3, 3] }, coalbin: { fw: 1, fd: 1, at: [0, 3] }, rack: { fw: 2, fd: 1, at: [4, 0] }, barrel2: { fw: 1, fd: 1, at: [5, 4] },
   tent: { fw: 2, fd: 2, at: [3, 0] }, campfire: { fw: 1, fd: 1, at: [2, 3] }, logs: { fw: 2, fd: 1, at: [0, 4] }, packs: { fw: 1, fd: 1, at: [1, 1] }, camplamp: { fw: 1, fd: 1, at: [5, 3] },
   greenhouse: { fw: 2, fd: 2, at: [0, 0] }, potting: { fw: 1, fd: 2, at: [0, 2] }, sunflowers: { fw: 1, fd: 1, at: [5, 3] }, barrow: { fw: 1, fd: 1, at: [3, 0] },
+  tunnel: { fw: 2, fd: 1, at: [2, 0] }, altar: { fw: 1, fd: 1, at: [3, 3] }, lanternpost: { fw: 1, fd: 1, at: [0, 2] }, board: { fw: 1, fd: 1, at: [0, 4] }, cart: { fw: 1, fd: 1, at: [4, 1] }, crystals: { fw: 1, fd: 1, at: [5, 4] },
   labdesk: { fw: 2, fd: 1, at: [2, 0] }, jars: { fw: 1, fd: 1, at: [0, 1] }, scope: { fw: 1, fd: 1, at: [4, 4] }, books: { fw: 1, fd: 1, at: [5, 0] } };
 /** What each kind of room comes with (anything not listed has just its bed). */
-const ROOM_FIXED = { yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
+const ROOM_FIXED = { grotto: ["tunnel", "altar", "lanternpost", "board", "cart", "crystals"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
 /** The places' own furniture: not decorations to play with. */
 const PLACE_PROPS = new Set(Object.values(ROOM_FIXED).flat().filter(id => !["bed", "garden", "incubator"].includes(id)));
 
@@ -976,6 +977,56 @@ const ISO_ART = {
     ring(7, t * 0.34, t * 0.14, t * 0.07, t * 0.12, IC.g0, IC.g1, 0.65);
     ring(5, t * 0.2, t * 0.1, t * 0.13, t * 0.16, IC.b0, IC.g0, 1.2);
     T.ball(cx, top - t * 0.16, Math.max(1.5, t * 0.05), IC.white, IC.b0, IC.g0);
+  },
+  // ---- the grotto's hall, before the tunnel
+  tunnel(t, T, ax, ay) {
+    // a rough arch into the dark with crystals round its mouth and rails running in
+    const a = t - 2, b = t * 0.5, h = Math.round(t * 1.5), x = ax, y = ay + 1;
+    const rock = (c0, c1, c2) => (px, py) => { const n = pxHash(px >> 1, py >> 1); return n > 0.86 ? c2 : n > 0.55 ? c1 : c0; };
+    const q = T.box(x, y, a, b, h, rock(IC.s2, IC.l4, IC.s3), rock(IC.s3, IC.s2, IC.s4), rock(IC.s4, IC.s3, IC.ink2));
+    // a ragged crest along the top, so it reads as a cliff rather than a block
+    for (let k = 0; k < 7; k++) { const f = (k + 0.5) / 7, bx = q.top[0] + (q.Bu[0] - x) * f, by = q.top[1] + (q.Bu[1] - y) * f, hh = t * (0.15 + pxHash(k, 9) * 0.3), w = t * 0.16;
+      T.poly([[bx - w, by + 1], [bx + w * 0.3, by - hh], [bx + w, by + 2]], k % 2 ? IC.s2 : IC.l4); }
+    const mx = (q.Bv[0] + q.Buv[0]) / 2 + a * 0.5, my = (q.Bv[1] + q.Buv[1]) / 2 + a * 0.25, w = t * 0.45;
+    T.poly([[mx - w, my - w / 2], [mx + w, my + w / 2], [mx + w, my + w / 2 - h * 0.55], [mx + w * 0.3, my - h * 0.8], [mx - w * 0.5, my - w / 2 - h * 0.62]], IC.ink);
+    T.glow(mx, my - h * 0.3, t * 0.9, IC.l3, 0.3);
+    for (const [dx, hh, c] of [[-w - 3, 7, IC.l1], [w + 2, 6, IC.l2], [-w + 1, 4, IC.l0], [w - 2, 9, IC.l1]]) for (let k = 0; k < hh; k++) { T.px(mx + dx, my + dx / 2 - 1 - k, c); if (k < hh - 2) T.px(mx + dx + 1, my + dx / 2 - 1 - k, IC.l3); }
+    for (const off of [-w * 0.45, w * 0.45]) for (let k = 0; k < t * 0.9; k++) T.px(mx + off + k * 0.2 - k * 0.9, my + off / 2 + k * 0.55, IC.s1);
+    for (let k = 0; k < 5; k++) T.line(mx - w * 0.6 - k * t * 0.15, my - w * 0.3 + k * t * 0.1, mx + w * 0.6 - k * t * 0.15, my + w * 0.3 + k * t * 0.1, IC.w2);
+  },
+  altar(t, T, ax, ay, o) {
+    // a stone pedestal; today's moon egg rests on it until you've opened it
+    const cx = ax, cy = ay + t / 2;
+    T.cyl(cx, cy, t * 0.3, Math.round(t * 0.16), IC.s1, IC.s2, IC.s3);
+    T.cyl(cx, cy - t * 0.16, t * 0.18, Math.round(t * 0.4), IC.s0, IC.s1, IC.s2);
+    const top = cy - t * 0.56;
+    T.cyl(cx, top, t * 0.26, 2, IC.s0, IC.s1, IC.s2);
+    if (!o.done) { T.glow(cx, top - t * 0.3, t * 0.9, IC.b0, 0.45); T.ball(cx, top - t * 0.28, t * 0.2, IC.white, IC.b0, IC.l2, t * 0.26); T.px(cx - 1, top - t * 0.4, IC.white); }
+    else { T.ball(cx - 2, top - 2, t * 0.12, IC.s0, IC.s1, IC.s2, t * 0.08); T.ball(cx + 3, top - 1, t * 0.1, IC.s0, IC.s1, IC.s2, t * 0.07); }
+  },
+  lanternpost(t, T, ax, ay) { ISO_ART.lamppost(t, T, ax, ay); },
+  board(t, T, ax, ay, o) {
+    // a notice board of old planks; a bright poster when a festival is on
+    const cx = ax, cy = ay + t / 2;
+    T.line(cx - t * 0.3, cy, cx - t * 0.3, cy - t * 1.1, IC.w3); T.line(cx + t * 0.3, cy - t * 0.15, cx + t * 0.3, cy - t * 1.25, IC.w3);
+    T.poly([[cx - t * 0.42, cy - t * 1.2], [cx + t * 0.42, cy - t * 1.35], [cx + t * 0.42, cy - t * 0.7], [cx - t * 0.42, cy - t * 0.55]], IC.w1);
+    for (let k = 0; k < 3; k++) T.poly([[cx - t * 0.32 + k * t * 0.22, cy - t * 1.12 - k * t * 0.04], [cx - t * 0.16 + k * t * 0.22, cy - t * 1.15 - k * t * 0.04], [cx - t * 0.16 + k * t * 0.22, cy - t * 0.85 - k * t * 0.04], [cx - t * 0.32 + k * t * 0.22, cy - t * 0.82 - k * t * 0.04]], k === 1 && o.event ? IC.r1 : IC.s0);
+  },
+  cart(t, T, ax, ay) {
+    // a mine cart heaped with uncut geodes
+    const cx = ax, cy = ay + t / 2;
+    T.disc(cx - t * 0.2, cy + 1, t * 0.09, IC.ink2); T.disc(cx + t * 0.25, cy - 1, t * 0.09, IC.ink2);
+    T.box(cx - t * 0.05, cy - t * 0.42, t * 0.34, t * 0.22, Math.round(t * 0.32), IC.s2, IC.s3, IC.s4);
+    for (let k = 0; k < 5; k++) T.ball(cx - t * 0.2 + k * t * 0.1, cy - t * 0.62 + (k % 2) * 2, t * 0.09, IC.s0, IC.s1, IC.s3);
+  },
+  crystals(t, T, ax, ay) {
+    // a cluster of amethyst points growing out of the floor
+    const cx = ax, cy = ay + t / 2;
+    T.glow(cx, cy - t * 0.4, t * 0.9, IC.l2, 0.3);
+    for (const [dx, hh, w] of [[-t * 0.2, 0.7, 3], [t * 0.05, 1.1, 4], [t * 0.25, 0.55, 3], [-t * 0.05, 0.4, 2]]) {
+      const top = cy - t * hh;
+      T.poly([[cx + dx - w, cy], [cx + dx, top], [cx + dx, cy + 1]], IC.l1); T.poly([[cx + dx, top], [cx + dx + w, cy], [cx + dx, cy + 1]], IC.l3);
+    }
   },
   // ---- the garden
   greenhouse(t, T, ax, ay) {

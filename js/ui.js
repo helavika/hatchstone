@@ -18,7 +18,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
   if (game.scene === "nest" && !remote && wickAt(x, y)) { pointer = null; openWick(); return; }
-  if (game.scene === "nest" && !remote && isPlace() && (heroAt(x, y) || propAt(x, y))) { pointer = null; tapHero(); return; }
+  if (game.scene === "nest" && !remote && isPlace()) { const pr = propAt(x, y); if (pr && PROP_TAP[pr]) { pointer = null; PROP_TAP[pr](); return; } if (heroAt(x, y) || (pr && !heroHere()?.none)) { pointer = null; tapHero(); return; } }
   if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
   else if (game.scene === "nest" && !actorAt(x, y) && (pointer.decor = decorAt(x, y))) {
     if (pointer.decor.id === "lights") playDecor(pointer.decor);

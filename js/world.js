@@ -258,9 +258,9 @@ function worldFrame(now) {
 function wherePlace() {
   if (game.scene === "map") return "grotto";
   const k = save.rooms[save.room]?.kind;
-  return { yard: "garden", lab: "lab", shop: "shop", forge: "forge", camp: "trail" }[k] || "nest";
+  return { yard: "garden", lab: "lab", shop: "shop", forge: "forge", camp: "trail", grotto: "grotto" }[k] || "nest";
 }
-const WM_KEEPERS = { grotto: "mossa", shop: "tansy", forge: "ember", trail: "pip", lab: "ollo", garden: "fennel" };
+const WM_KEEPERS = { shop: "tansy", forge: "ember", trail: "pip", lab: "ollo", garden: "fennel" };
 /** How big the map is drawn: zoom 0 fits it all on screen, each step in is half as big again. */
 const WM_ZOOMS = [1, 1.6, 2.4, 3.4];
 function wmFit() {

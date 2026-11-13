@@ -1157,3 +1157,5 @@ body.compact .place-who img { width: 36px; height: 36px; }
 #worldMap.far .wplace.locked .wbanner small { display: block; font-size: 10px; }
 #worldMap { --k: 3; }
 #worldMap.far .wplace.call .wbanner::after { width: 12px; height: 12px; font-size: 10px; transform: translate(85%, -75%); }
+.place-who img.small { padding: 8px; box-sizing: border-box; }
+#placeActs .act { font-size: 16px; padding-left: 4px; padding-right: 4px; }

@@ -221,7 +221,7 @@ function renderShopPick() {
 
 const ripePlots = () => (save.garden?.slots || []).filter(q => q && SEEDS[q.seed] && stageOf2(q) === 3).length;
 const WORLD = [
-  { id: "grotto", name: "Grotto", icon: "grotto", at: [62, 66], note: () => !moonDone() ? tr("today's moon egg 🌙") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone(), go: () => setScene("map") },
+  { id: "grotto", name: "Grotto", icon: "grotto", at: [62, 66], note: () => !moonDone() ? tr("today's moon egg 🌙") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone(), go: () => arriveAt("grotto") },
   { id: "forge", name: "The Forge", icon: "hammer", at: [58, 160], ok: () => unlocked(4) || Object.keys(save.forge || {}).length > 0, how: () => tr("clear level {0}", 3), note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: () => arriveAt("forge") },
   { id: "nest", name: "Nest", icon: "nest", at: [166, 64], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
   { id: "lab", name: "Laboratory", icon: "flask", at: [186, 172], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => arriveAt("lab") },
@@ -712,6 +712,7 @@ const ROOM_KINDS = [
   { id: "shop", name: "Shop", place: true, theme: "abbey" },
   { id: "forge", name: "The Forge", place: true, theme: "malachite" },
   { id: "camp", name: "Explorers' camp", place: true, theme: "glowcap" },
+  { id: "grotto", name: "Grotto", place: true, theme: "amethyst" },
 ];
 /** What each room keeps for itself (the room you're in keeps them in the save as usual; the others are packed away in save.rooms). */
 const ROOM_KEYS = ["layout", "cloud", "theme", "jukebox"];
@@ -759,6 +760,7 @@ const HEROES = {
   yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "croak", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sun", "Garden bed", () => openGarden()]],
     hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
     lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."] },
+  grotto: { who: { name: "Grotto" }, icon: "grotto", none: true, role: "the hall before the tunnel", act: [["egg", "Into the tunnel", () => setScene("map")], ["moon", "Moon egg", () => moonDone() ? toast(tr("Today's moon egg is open: the next one comes tomorrow 🌙")) : startMoon()], ["lantern", "Lantern", () => openLantern()]], hello: [], lines: [] },
   lab: { who: OLLO, eyes: [[3, 5, 3, 2, "#69b7d6"], [9, 5, 3, 2, "#69b7d6"]], quirk: "turn", icon: "ollo", at: [0.55, 0.36], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
     hello: ["Hoo. A visitor. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby mixes them both.", "Stroke the egg to keep it warm. It hatches faster."],
     lines: ["Fascinating. Truly fascinating. Hoo.", "I am writing the great book of glowlings. Chapter one is just you.", "No two mixed eggs are alike. I've checked. Many times.", "Glowlings glow brighter when they're happy. I measured it.", "Please don't touch the green jar."] },
@@ -767,6 +769,7 @@ const heroHere = () => HEROES[save.rooms[save.room]?.kind] || null;
 const heroSpot = () => { const h = heroHere(); return isoAt(h.at[0], h.at[1]); };
 const heroImgs = {};
 function drawHero() {
+  if (heroHere().none) return;
   const h = heroHere(), img = heroImgs[h.icon] || (heroImgs[h.icon] = Object.assign(new Image(), { src: pxIcon(h.icon) }));
   const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time, me = game.hero && game.hero.room === save.room ? game.hero : null;
   const since = me ? t - me.t : 1e9, jump = me && me.startle ? 0.45 : 0.18;
@@ -809,8 +812,17 @@ function drawBubble(x, y, text, alpha = 1) {
   rows.forEach((r, k) => fx.fillText(r, bx + 8, by + 6 + k * lh));
   fx.restore();
 }
-const heroAt = (x, y) => { if (!heroHere() || !N.iso) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.55 && y < hy + N.base * 0.15 && y > hy - N.base * 1.2; };
-const propAt = (x, y) => Object.values(isoLayout().placed).some(p => PLACE_PROPS.has(p.id) && pieceHits[p.id] && spriteHit(pieceHits[p.id].c, pieceHits[p.id].x, pieceHits[p.id].y, x, y));
+const heroAt = (x, y) => { if (!heroHere() || heroHere().none || !N.iso) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.55 && y < hy + N.base * 0.15 && y > hy - N.base * 1.2; };
+const propAt = (x, y) => Object.values(isoLayout().placed).find(p => PLACE_PROPS.has(p.id) && pieceHits[p.id] && spriteHit(pieceHits[p.id].c, pieceHits[p.id].x, pieceHits[p.id].y, x, y))?.id || null;
+/** Things in a place that do something of their own when tapped. */
+const PROP_TAP = {
+  tunnel: () => { sfx.tick(); setScene("map"); },
+  altar: () => moonDone() ? toast(tr("Today's moon egg is open: the next one comes tomorrow 🌙")) : startMoon(),
+  lanternpost: () => openLantern(),
+  board: () => { const ev = eventNow(); toast(ev ? tr("On the board: {0} · {1}", eventName(ev), tr(eventDaysLeft(ev) === 1 ? "last day" : "{0} days left", eventDaysLeft(ev))) : tr("The board is empty. Festivals are posted here when they come.")); },
+  cart: () => toast(tr("Geodes, waiting to be cracked. They're down the tunnel.")),
+  crystals: () => { sfx.shimmer(); toast(tr("The crystals hum softly ✦")); },
+};
 // ---------- life in the places: sparks at the forge, embers and fireflies at the camp, bubbles in the lab, dust in the shop's light, butterflies in the garden ----------
 
 const placeLife = { list: [], last: 0 };
@@ -855,7 +867,7 @@ function drawPlaceLife() {
 }
 /** Tapping the keeper (or their counter, anvil, fire): a hop, a line, and what they do for you. */
 function tapHero(auto = false) {
-  const h = heroHere(); if (!h) return;
+  const h = heroHere(); if (!h || h.none) return;
   for (let k = 0; k < 4; k++) setTimeout(() => sfx.voice(h.who.voice), k * 90);
   const seen = save.heroTalk?.[save.rooms[save.room].kind] || 0;
   let line = tr(seen < h.hello.length ? h.hello[seen] : pick(h.lines));
@@ -876,13 +888,13 @@ function renderPlaceBar() {
   const h = isPlace() && heroHere(), bar = $("placeBar");
   bar.hidden = !h || game.scene !== "nest";
   if (!h) return;
-  $("placeFace").src = pxIcon(h.icon);
+  $("placeFace").src = pxIcon(h.icon); $("placeFace").classList.toggle("small", !!h.none);
   $("placeWho").textContent = tr(h.who.name);
   $("placeRole").textContent = tr(h.role);
   $("placeActs").innerHTML = h.act.map(([icon, name], k) => `<button class="act buy" data-act="${k}">${ic(icon)}${tr(name)}</button>`).join("")
-    + `<button class="act" id="placeTalk">${ic("scroll")}${tr("Chat")}</button>`;
+    + (h.none ? "" : `<button class="act" id="placeTalk">${ic("scroll")}${tr("Chat")}</button>`);
   $$("#placeActs [data-act]").forEach(b => b.addEventListener("click", () => { sfx.tick(); h.act[Number(b.dataset.act)][2](); }));
-  $("placeTalk").addEventListener("click", () => tapHero());
+  $("placeTalk")?.addEventListener("click", () => tapHero());
 }
 /** Arriving at a place: its keeper says hello. */
 function arriveAt(kind) {
