@@ -692,6 +692,10 @@
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
   #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
+  /* Wick's wares, and the gossip that comes free */
+  #wickList img.em { width: 40px; height: 40px; image-rendering: pixelated; object-fit: contain; flex: none; }
+  .wick-gossip { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; padding: 10px 12px; text-align: left; font-size: 15px; color: var(--soft); background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
+  .wick-gossip img { width: 36px; height: 36px; image-rendering: pixelated; flex: none; }
   /* the garden sheet: three plots, then the seeds */
   .plots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 2px 6px; }
   .plot { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; background: var(--px-deep); box-shadow: var(--px-frame); }
@@ -1184,6 +1188,14 @@
     <p class="sub" id="homeSub"></p>
     <div id="homeList"></div>
     <button class="ghost" id="homeClose">close</button>
+  </div>
+</div>
+<div id="wickSheet" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Wick's wares</h2>
+    <p class="sub" id="wickSub"></p>
+    <div id="wickList"></div>
+    <button class="ghost" id="wickClose">see you</button>
   </div>
 </div>
 <div id="gardenSheet" class="overlay modal hidden">
@@ -2062,6 +2074,34 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "fills the lantern to the brim": "наповнює ліхтарик ущерть",
+  "Wick's wares": "Крамничка Ґнотика",
+  "see you": "до зустрічі",
+  "Glimmers and gossip, fresh from the deep. Here until midnight ({0} left).": "Блискітки й плітки, свіженькі з глибин. Тут до півночі (лишилось {0}).",
+  "Biteleaf seed": "Насінина Кусь-листа",
+  "the one that bites, no questions asked": "той, що кусається, без зайвих питань",
+  "Crystal bloom seeds ×2": "Насіння кришталевого цвіту ×2",
+  "grow shards in the garden": "вирощуй осколки на грядці",
+  "A bundle of seeds": "Жмуток насіння",
+  "glowberry, moon mint and cookie sprout, two of each": "світлоягода, місячна м'ята й печивний паросток, по дві",
+  "+3 lantern oil": "+3 краплі олії",
+  "Mystery geode": "Таємнича жеода",
+  "a rare or legendary one for your collection": "рідкісна чи легендарна, до колекції",
+  "A new geode for the book: {0} 💎": "Нова жеода в Книзі: {0} 💎",
+  "{0} 💎": "{0} 💎",
+  "sold ✓": "продано ✓",
+  "Pleasure doing business! ✦ {0}": "Приємно мати справу! ✦ {0}",
+  "Psst! Over here, by the garden. I've brought a few things from the deep.": "Пс-с! Я тут, біля грядки. Приніс дещо з глибин.",
+  "Psst! I'm outside today, by the garden, with a few things from the deep. Here till midnight!": "Пс-с! Сьогодні я надворі, біля грядки, з дечим із глибин. Тут до півночі!",
+  "They say a shiny glowling hums a different note when you pet it.": "Кажуть, сяйливий глоулінг мугикає іншу ноту, коли його гладиш.",
+  "Mossa snores. Loudly. You didn't hear it from me.": "Мосса хропе. Гучно. Але я тобі нічого не казав.",
+  "Dorma's library has a book that reads itself. It's very boring.": "У бібліотеці Дорми є книжка, що читає сама себе. Дуже нудна.",
+  "The deeper the cave, the rarer the stone. And the grumpier.": "Що глибша печера, то рідкісніший камінь. І буркотливіший.",
+  "A biteleaf only bites the ones it likes. Or so I'm told.": "Кусь-лист кусає лише тих, хто йому подобається. Так мені казали.",
+  "Hear a knock that rings higher? Hit there. Trust a moth.": "Чуєш стук, що дзвенить вище? Бий туди. Повір молі.",
+  "The moon drops more eggs for nests that glow. Keep yours bright.": "Місяць кидає більше яєць туди, де гніздечко світиться. Тримай своє яскравим.",
+  "A good customer": "Свої люди",
+  "Buy 3 things from Wick": "Купи 3 речі в Ґнотика",
   "Outside, the garden is always under the open sky.": "Надворі сад завжди під відкритим небом.",
   "The nest is always tucked away in a cave, a grotto or a hollow.": "Гніздечко завжди сховане в печері, гроті чи западині.",
   "This room can take any backdrop you've found.": "У цій кімнаті може бути будь-яке з відкритих тел.",
@@ -5859,6 +5899,12 @@ function talkMoments(scene) {
     TALKS[id] = () => [[MOSSA, ev.line], [MOSSA, tr("For {0} days a limited glowling, {1}, sleeps in the moon egg. Don't miss it!", eventDaysLeft(ev), SP[ev.sp].name), scene === "map" ? "#moonBtn" : null]];
     talk(id);
   }
+  // Wick lands outside every third day and lets you know
+  if (scene === "nest" && save.creatures.length && wickHere()) {
+    const id = `wick-${dayNo()}`;
+    TALKS[id] = () => [[WICK, isOutside() ? "Psst! Over here, by the garden. I've brought a few things from the deep." : "Psst! I'm outside today, by the garden, with a few things from the deep. Here till midnight!", isOutside() ? null : "#roomNav"]];
+    talk(id);
+  }
   // one part of the story per visit, so a long-time player catches up gently
   const part = STORY.find(s => unlocked(s.at) && !talkSeen(s.id));
   if (part) talk(part.id);
@@ -6054,6 +6100,7 @@ const AWARDS = [
   { id: "streak3", tier: "rare", name: "Night owl", how: "Open moon eggs 3 nights in a row", test: () => [stat.streak(), 3] },
   { id: "room2", tier: "rare", name: "More room", how: "Add a room to your home", test: () => [(save.rooms || []).length, 2] },
   { id: "echo5", tier: "rare", name: "Good ear", how: "Sing back 5 tunes in Echo song", test: () => [save.echoBest || 0, 5] },
+  { id: "wick3", tier: "rare", name: "A good customer", how: "Buy 3 things from Wick", test: () => [cnt("wickBought"), 3] },
   { id: "harvest25", tier: "rare", name: "Harvest festival", how: "Pick 25 harvests", test: () => [cnt("harvested"), 25] },
   { id: "biteleaf", tier: "epic", name: "It bites", how: "Grow and pick a biteleaf", test: () => [cnt("biteleaf"), 1] },
   { id: "cracked250", tier: "epic", name: "Quarry lord", how: "Crack 250 eggs", test: () => [stat.cracked(), 250] },
@@ -6633,6 +6680,74 @@ function pickPlot(i) {
 function gardenHelp(cr) {
   const g = garden(), i = g.slots.findIndex(q => q && stageOf2(q) < 3 && !(q.wet && Date.now() - q.wet < WATER_EVERY));
   if (i >= 0 && waterPlot(i, cr)) toast(tr("{0} watered the {1} 💧", cr.name, seedName(g.slots[i].seed).toLowerCase()));
+}
+
+// ---------- Wick, the travelling moth: every third day, outside, with a few wares from the deep and some gossip for free ----------
+
+const WICK_WARES = {
+  biteleaf: { name: "Biteleaf seed", note: "the one that bites, no questions asked", cost: 50, icon: () => plantImage("biteleaf", 3), give: () => { garden().seeds.biteleaf = (garden().seeds.biteleaf || 0) + 1; } },
+  bloom: { name: "Crystal bloom seeds ×2", note: "grow shards in the garden", cost: 45, icon: () => plantImage("crystalbloom", 3), give: () => { garden().seeds.crystalbloom = (garden().seeds.crystalbloom || 0) + 2; } },
+  bundle: { name: "A bundle of seeds", note: "glowberry, moon mint and cookie sprout, two of each", cost: 30, icon: () => plantImage("glowberry", 3), give: () => { const g = garden().seeds; for (const k of ["glowberry", "moonmint", "cookiecorn"]) g[k] = (g[k] || 0) + 2; } },
+  nut: { name: "Nut bar", note: "+3 lantern oil", cost: 40, icon: () => pxIcon("barNut"), give: () => giveBar("nut") },
+  star: { name: "Star bar", note: "fills the lantern to the brim", cost: 110, icon: () => pxIcon("barStar"), give: () => giveBar("star") },
+  geode: { name: "Mystery geode", note: "a rare or legendary one for your collection", cost: 70, icon: () => mysteryGeode(), give: () => {
+    const k = pick(CRYSTALS.filter(c => c.rarity !== "common")), g = save.geodes[k.id] || { count: 0, shine: -1 }, isNew = !g.count;
+    g.count++; save.geodes[k.id] = g; toast(isNew ? tr("A new geode for the book: {0} 💎", k.name) : tr("{0} 💎", k.name));
+  } },
+};
+const WICK_GOSSIP = [
+  "They say a shiny glowling hums a different note when you pet it.",
+  "Mossa snores. Loudly. You didn't hear it from me.",
+  "Dorma's library has a book that reads itself. It's very boring.",
+  "The deeper the cave, the rarer the stone. And the grumpier.",
+  "A biteleaf only bites the ones it likes. Or so I'm told.",
+  "Hear a knock that rings higher? Hit there. Trust a moth.",
+  "The moon drops more eggs for nests that glow. Keep yours bright.",
+];
+const dayNo = (d = new Date()) => Math.floor((d - d.getTimezoneOffset() * 60e3) / 864e5);
+// the test game can call Wick any day: /staging/?wick
+const WICK_TRY = STAGING && /[?&]wick\b/.test(location.search);
+/** Is Wick visiting today? (Every third day, once you've met Wick in the story.) */
+const wickHere = () => (WICK_TRY || dayNo() % 3 === 0) && (talkSeen("s2") || unlocked(7));
+/** Today's wares: three from the pack, the same all day, and what you've already bought. */
+function wickToday() {
+  const day = dayNo(), r = seeded("wick" + day), pool = Object.keys(WICK_WARES);
+  const pickN = []; while (pickN.length < 3) { const k = pool[Math.floor(r() * pool.length)]; if (!pickN.includes(k)) pickN.push(k); }
+  if (!save.wick || save.wick.day !== day) save.wick = { day, sold: [] };
+  return { wares: pickN, sold: save.wick.sold, gossip: WICK_GOSSIP[Math.floor(r() * WICK_GOSSIP.length)] };
+}
+/** Where Wick hovers outside: at the front right of the yard, lantern in hand. */
+const wickSpot = () => isoAt(0.86, 0.72);
+let wickImg = null;
+function drawWick() {
+  if (!wickImg) { wickImg = new Image(); wickImg.src = pxIcon("wick"); }
+  const [x, y] = wickSpot(), s = Math.round(N.base * 0.85 / 18) * 18 || 18, bob = Math.sin(game.time * 0.003) * N.base * 0.06;
+  // the lantern's glow, then a shadow, then the moth
+  const glow = ctx.createRadialGradient(x, y - s * 0.6 + bob, 2, x, y - s * 0.6 + bob, s * 1.1);
+  glow.addColorStop(0, "rgba(255,226,150,.35)"); glow.addColorStop(1, "rgba(255,226,150,0)");
+  ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y - s * 0.6 + bob, s * 1.1, 0, TAU); ctx.fill();
+  ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y, s * 0.3, s * 0.08, 0, 0, TAU); ctx.fill();
+  ctx.imageSmoothingEnabled = false;
+  if (wickImg.complete) ctx.drawImage(wickImg, Math.round(x - s / 2), Math.round(y - s * 1.25 + bob), s, s);
+}
+const wickAt = (x, y) => { if (!(isOutside() && N.iso && wickHere())) return false; const [wx, wy] = wickSpot(); return Math.hypot(x - wx, y - (wy - N.base * 0.6)) < N.base * 0.55; };
+function openWick() {
+  sfx.voice(WICK.voice); sfx.tick();
+  const t = wickToday(), end = new Date(); end.setHours(24, 0, 0, 0);
+  $("wickSub").textContent = tr("Glimmers and gossip, fresh from the deep. Here until midnight ({0} left).", fmtLeft(end - Date.now()));
+  $("wickList").innerHTML = t.wares.map(id => {
+    const w = WICK_WARES[id], sold = t.sold.includes(id);
+    return `<button class="snack" data-ware="${id}" ${sold || save.shards < w.cost ? "disabled" : ""}><img class="em px-thumb" src="${w.icon()}" alt=""><span><b>${tr(w.name)}</b><small>${tr(w.note)}</small></span><span class="cost">${sold ? tr("sold ✓") : `✦ ${w.cost}`}</span></button>`;
+  }).join("") + `<p class="wick-gossip"><img src="${pxIcon("wick")}" alt=""><span>“${tr(t.gossip)}”</span></p>`;
+  $$("#wickList [data-ware]").forEach(b => b.addEventListener("click", () => buyWare(b.dataset.ware)));
+  show("wickSheet", true);
+}
+function buyWare(id) {
+  const w = WICK_WARES[id], t = wickToday();
+  if (!w || t.sold.includes(id) || save.shards < w.cost) return;
+  save.shards -= w.cost; save.wick.sold.push(id); w.give(); bump("wickBought");
+  sfx.levelUp(); toast(tr("Pleasure doing business! ✦ {0}", tr(w.name)));
+  persist(); updateTopbar(); openWick();
 }
 
 // ---------- the music box: pick the nest's song from the ones you've unlocked, and play the game's sounds ----------
@@ -9188,6 +9303,10 @@ function drawNest() {
     }
     items.push(item);
   }
+  if (isOutside() && N.iso && wickHere()) {
+    const [wx, wy] = wickSpot(), [u, v] = isoFrom(wx, wy);
+    items.push({ y: wy, draw: drawWick, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } });
+  }
   (N.iso ? isoOrder(items) : items.sort((p, q) => p.y - q.y)).forEach(it => it.draw());
   const sn = game.nest.snack;
   if (sn) {
@@ -10078,6 +10197,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "nest" && cloudAt(x, y)) { pointer.cloud = true; return; }
   if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
+  if (game.scene === "nest" && !remote && wickAt(x, y)) { pointer = null; openWick(); return; }
   if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
   else if (game.scene === "nest" && !actorAt(x, y) && (pointer.decor = decorAt(x, y))) {
     if (pointer.decor.id === "lights") playDecor(pointer.decor);
@@ -10575,6 +10695,7 @@ $("feedBtn").addEventListener("click", openSnacks);
 $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
 $("gardenClose").addEventListener("click", () => show("gardenSheet", false));
+$("wickClose").addEventListener("click", () => show("wickSheet", false));
 $("homeClose").addEventListener("click", () => show("homeSheet", false));
 $("homePill").addEventListener("click", openHome);
 $("residentsBtn").addEventListener("click", openHome);
