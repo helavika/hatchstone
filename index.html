@@ -692,6 +692,36 @@
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
   #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
+  /* awards: a trophy drops in from the top, and the book keeps them by rarity */
+  #award { position: fixed; z-index: 40; left: 50%; top: calc(var(--top) + 8px); display: flex; align-items: center; gap: 12px; min-width: min(300px, calc(100vw - 24px)); padding: 10px 16px 10px 12px;
+    transform: translate(-50%, -140%); transition: transform .4s cubic-bezier(.2, .9, .3, 1.2); pointer-events: none; text-align: left; background: var(--px-raise) !important;
+    box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep) !important; }
+  #award.on { transform: translate(-50%, 0); }
+  #award .ic { width: 40px; height: 40px; flex: none; }
+  #award small { display: block; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--soft); }
+  #award b { display: block; font-size: 19px; font-weight: 400; color: #fff; }
+  #award.rare small { color: #dfe6ff; } #award.epic small { color: #d2bfff; } #award.legendary small { color: #ffe9a8; }
+  #award.legendary { box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -3px 0 0 var(--px-gold-lo), 0 0 24px rgba(255, 210, 120, .5) !important; }
+  #libGrid .aw-list { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }
+  #libGrid .aw small { text-transform: none; letter-spacing: 0; }
+  #libGrid .aw-h { grid-column: 1 / -1; display: flex; justify-content: space-between; align-items: baseline; margin: 14px 2px 2px; }
+  #libGrid .aw-h:first-child { margin-top: 2px; }
+  #libGrid .aw-h span { font-size: 14px; color: var(--soft); letter-spacing: 0; text-transform: none; }
+  #libGrid .aw-h.legendary { color: #ffe9a8; } #libGrid .aw-h.epic { color: #d2bfff; } #libGrid .aw-h.rare { color: #dfe6ff; } #libGrid .aw-h.common { color: #f2cf9a; }
+  #libGrid .aw { grid-column: 1 / -1; display: flex; align-items: center; gap: 12px; padding: 8px 12px; text-align: left; background: rgba(255, 255, 255, .04); box-shadow: var(--px-frame); }
+  #libGrid .aw .ic { width: 40px; height: 40px; flex: none; filter: grayscale(1) brightness(.45); }
+  #libGrid .aw.got .ic { filter: none; }
+  #libGrid .aw.got { background: rgba(255, 233, 168, .07); }
+  #libGrid .aw.legendary.got { background: linear-gradient(90deg, rgba(255, 210, 120, .18), rgba(255, 255, 255, .03)); }
+  #libGrid .aw > span { flex: 1; min-width: 0; }
+  #libGrid .aw b { display: block; font-weight: 400; color: #fff; }
+  #libGrid .aw:not(.got) b { color: var(--soft); }
+  #libGrid .aw small { display: block; font-size: 14px; color: var(--soft); }
+  #libGrid .aw em { display: block; font-style: normal; font-size: 13px; color: var(--px-gold); margin-top: 2px; }
+  #libGrid .aw-bar { position: relative; display: block; height: 12px; margin-top: 5px; background: linear-gradient(90deg, var(--px-edge) calc(var(--k) * 100%), var(--px-deep) 0); box-shadow: 0 0 0 2px var(--px-ink); }
+  #libGrid .aw-bar u { position: absolute; right: 4px; top: -1px; font-size: 11px; line-height: 14px; text-decoration: none; color: #fff; }
+  #lib .seg { flex-wrap: wrap; justify-content: center; }
+
   /* the wallet answers a tap */
   #walletPill { cursor: pointer; }
   #walletPill.jingle { animation: walletJingle .45s steps(3); }
@@ -953,6 +983,7 @@
 </div>
 
 <div id="hint" class="glass"></div>
+<div id="award" class="glass" role="status" aria-live="polite"></div>
 <div id="rotate"><div><div style="font-size:54px">📱</div>Turn your phone upright<br><span style="font-weight:400;font-size:15px;color:var(--soft)">Hatchstone is made to be played standing tall</span></div></div>
 <button class="act" id="polishDone" hidden>✨ Shiny enough</button>
 <div id="toast" class="glass"></div>
@@ -1194,7 +1225,7 @@
     <h2>Glowpedia</h2>
     <div class="orn" aria-hidden="true"></div>
     <p class="sub" id="libSub"></p>
-    <div class="seg"><button data-lib="sp" class="on">Glowlings</button><button data-lib="cr">Geodes</button><button data-lib="hy">Hybrids</button><button data-lib="st">Story</button></div>
+    <div class="seg"><button data-lib="sp" class="on">Glowlings</button><button data-lib="cr">Geodes</button><button data-lib="hy">Hybrids</button><button data-lib="st">Story</button><button data-lib="aw">Awards</button></div>
     <div class="scroll"><div id="libGrid"></div></div>
   </div>
 </div>
@@ -1965,6 +1996,80 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Awards": "Нагороди",
+  "Common": "Звичайні",
+  "Rare": "Рідкісні",
+  "Epic": "Епічні",
+  "Legendary": "Легендарні",
+  "Common award": "Звичайна нагорода",
+  "Rare award": "Рідкісна нагорода",
+  "Epic award": "Епічна нагорода",
+  "Legendary award": "Легендарна нагорода",
+  "{0} awards earned ✦ see them in the Book": "Нагород отримано: {0} ✦ дивись у Книзі",
+  "First crack": "Перша тріщина",
+  "Hello, little one": "Привіт, маля",
+  "Meet your first glowling": "Познайомся з першим глоулінгом",
+  "Give 10 snacks": "Дай 10 смаколиків",
+  "Gentle hands": "Лагідні руки",
+  "Pet your glowlings 25 times": "Попести глоулінгів 25 разів",
+  "Home sweet home": "Дім, милий дім",
+  "Buy a decoration for the nest": "Купи прикрасу для гніздечка",
+  "Moonstruck": "Місячне сяйво",
+  "Open a moon egg": "Відкрий місячне яйце",
+  "Playmate": "Разом веселіше",
+  "Play 5 mini-games": "Зіграй 5 міні-ігор",
+  "Busy day": "Насичений день",
+  "Finish all of a day's tasks": "Виконай усі завдання дня",
+  "Stonebreaker": "Камінь за каменем",
+  "Crack 50 eggs": "Розбий 50 яєць",
+  "Collector": "Колекція росте",
+  "Meet 10 kinds of glowlings": "Зустрінь 10 видів глоулінгів",
+  "Rockhound": "Нюх на камені",
+  "Find 10 kinds of geodes": "Знайди 10 видів жеод",
+  "Starry-eyed": "Зорі в очах",
+  "Earn 30 stars": "Збери 30 зірок",
+  "All grown up": "Маля підросло",
+  "Raise a glowling to level 10": "Виховай глоулінга до 10 рівня",
+  "Matchmaker": "Пара на щастя",
+  "Hatch a hybrid": "Виведи гібрида",
+  "Blacksmith": "Гарячий метал",
+  "Buy 5 upgrades at the Forge": "Купи 5 покращень у Кузні",
+  "Night owl": "Нічна сова",
+  "Open moon eggs 3 nights in a row": "Відкривай місячні яйця 3 ночі поспіль",
+  "More room": "Більше місця",
+  "Add a room to your home": "Додай кімнату до свого дому",
+  "Good ear": "Добрий слух",
+  "Sing back 5 tunes in Echo song": "Повтори 5 мелодій у «Луні»",
+  "Quarry lord": "Ціла каменоломня",
+  "Crack 250 eggs": "Розбий 250 яєць",
+  "Glowpedia scholar": "Глоупедія напам'ять",
+  "Meet 20 kinds of glowlings": "Зустрінь 20 видів глоулінгів",
+  "Constellation": "Сузір'я",
+  "Earn 60 stars": "Збери 60 зірок",
+  "Radiant": "Сяйво",
+  "Raise a glowling to level 15": "Виховай глоулінга до 15 рівня",
+  "Something shiny": "Щось блискуче",
+  "Hatch a shiny glowling": "Виведи сяйливого глоулінга",
+  "Into the Vault": "У Склепіння",
+  "Reach the fourth cave": "Дійди до четвертої печери",
+  "Moon keeper": "Тиждень під місяцем",
+  "Open moon eggs 7 nights in a row": "Відкривай місячні яйця 7 ночей поспіль",
+  "In season": "У сезон",
+  "Meet a limited event glowling": "Зустрінь особливого глоулінга події",
+  "Arsenal": "Арсенал",
+  "Own every tool at the Forge": "Збери всі знаряддя в Кузні",
+  "Legend": "Легенда",
+  "Meet a legendary glowling": "Зустрінь легендарного глоулінга",
+  "Heart of the grotto": "Серце гроту",
+  "Clear all 24 levels": "Пройди всі 24 рівні",
+  "Flawless": "Бездоганно",
+  "Earn all 72 stars": "Збери всі 72 зірки",
+  "Brightest of all": "Найяскравіше маля",
+  "Raise a glowling to level 20": "Виховай глоулінга до 20 рівня",
+  "The whole story": "Уся історія",
+  "Hear every part of Mossa's story": "Почуй усі частини історії Мосси",
+  "Every last one": "Усі до одного",
+  "Meet every kind of glowling": "Зустрінь усі види глоулінгів",
   "{0} shards": "Осколків: {0}",
   "{0} of {1} stars": "Зірок: {0} з {1}",
   "Spend them on snacks, decor and the Forge. They come from geodes, daily tasks and the moon egg.": "Витрачай на смаколики, декор і Кузню. Їх дають жеоди, щоденні завдання й місячне яйце.",
@@ -2937,8 +3042,12 @@ const PX_ICON_MAPS = {
     "....gg....gg....",
     "................",
   ],
+  trophy: ["............", "..AAAAAAAB..", ".CABBBBBBBC.", "C.ABBBBBBB.C", "C.ABBBBBBB.C", ".CABBBBBBC..", "...ABBBBC...", "....ABBC....", ".....BC.....", "....ABBC....", "...ACCCCC...", "............"],
   broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
 };
+// the trophy in each award's metal: bronze, silver, amethyst and gold
+for (const [tier, [a, b, c]] of Object.entries({ common: "obB", rare: "sSz", epic: "Llp", legendary: "Ggo" }))
+  PX_ICON_MAPS["trophy_" + tier] = PX_ICON_MAPS.trophy.map(r => r.replace(/A/g, a).replace(/B/g, b).replace(/C/g, c));
 const pxIconCache = {};
 /** A pixel icon as a data URL: the map drawn 1:1 with a dark outline around it. */
 function pxIcon(name) {
@@ -5040,7 +5149,7 @@ function taskDone(id) {
   const all = t.ids.every(i => t.done[i]);
   if (all) gain += TASK_BONUS;
   save.shards += gain;
-  if (all) giveBar("nut");
+  if (all) { giveBar("nut"); bump("taskDays"); }
   persist();
   updateTopbar();
   sfx.star(all ? 2 : 0);
@@ -5390,6 +5499,7 @@ function showFound() {
   checkThemes();
   taskDone("crack");
   if (shine >= 0.8) taskDone("polish");
+  bump("cracked"); if (e.shiny && !conf.coop) bump("shiny");
 
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
@@ -5767,6 +5877,95 @@ function fitTopbar() {
   if (over()) body.classList.add("tighter");
 }
 
+// ---------- awards: achievements in four rarities, each with a few shards and a trophy in the book ----------
+
+const AWARD_TIERS = [
+  { id: "common", name: "Common", one: "Common award", shards: 10 },
+  { id: "rare", name: "Rare", one: "Rare award", shards: 25 },
+  { id: "epic", name: "Epic", one: "Epic award", shards: 60 },
+  { id: "legendary", name: "Legendary", one: "Legendary award", shards: 150 },
+];
+const AWARD_TIER = Object.fromEntries(AWARD_TIERS.map(t => [t.id, t]));
+/** Counters for the things the save didn't count before: eggs cracked, snacks, pets, games, finished days. */
+const cnt = k => (save.counts && save.counts[k]) || 0;
+function bump(k, n = 1) { save.counts = { ...save.counts, [k]: cnt(k) + n }; }
+const stat = {
+  // older nests counted every hatch in the glowpedia, so cracking starts from there
+  cracked: () => Math.max(cnt("cracked"), Object.values(save.seen).reduce((a, v) => a + (v.count || 0), 0)),
+  species: () => SPECIES.filter(sp => save.seen[sp.id]).length,
+  level: () => Math.max(0, ...save.creatures.map(c => c.level)),
+  streak: () => Math.max(cnt("moonBest"), save.moon ? save.moon.streak : 0),
+};
+/** Each award: its rarity, and a test that says how far along you are [now, goal]. */
+const AWARDS = [
+  { id: "firstCrack", tier: "common", name: "First crack", how: "Crack your first egg", test: () => [stat.cracked(), 1] },
+  { id: "firstFriend", tier: "common", name: "Hello, little one", how: "Meet your first glowling", test: () => [Object.keys(save.seen).length, 1] },
+  { id: "fed10", tier: "common", name: "Snack time", how: "Give 10 snacks", test: () => [cnt("fed"), 10] },
+  { id: "pet25", tier: "common", name: "Gentle hands", how: "Pet your glowlings 25 times", test: () => [cnt("petted"), 25] },
+  { id: "decor", tier: "common", name: "Home sweet home", how: "Buy a decoration for the nest", test: () => [Object.keys(save.decor).filter(id => id !== "rug").length, 1] },
+  { id: "moon1", tier: "common", name: "Moonstruck", how: "Open a moon egg", test: () => [save.moon ? 1 : 0, 1] },
+  { id: "play5", tier: "common", name: "Playmate", how: "Play 5 mini-games", test: () => [cnt("played"), 5] },
+  { id: "tasksAll", tier: "common", name: "Busy day", how: "Finish all of a day's tasks", test: () => [cnt("taskDays"), 1] },
+  { id: "cracked50", tier: "rare", name: "Stonebreaker", how: "Crack 50 eggs", test: () => [stat.cracked(), 50] },
+  { id: "species10", tier: "rare", name: "Collector", how: "Meet 10 kinds of glowlings", test: () => [stat.species(), 10] },
+  { id: "geodes10", tier: "rare", name: "Rockhound", how: "Find 10 kinds of geodes", test: () => [Object.keys(save.geodes).length, 10] },
+  { id: "stars30", tier: "rare", name: "Starry-eyed", how: "Earn 30 stars", test: () => [totalStars(), 30] },
+  { id: "grown", tier: "rare", name: "All grown up", how: "Raise a glowling to level 10", test: () => [stat.level(), 10] },
+  { id: "hybrid", tier: "rare", name: "Matchmaker", how: "Hatch a hybrid", test: () => [save.creatures.some(c => c.mix) ? 1 : 0, 1] },
+  { id: "forge5", tier: "rare", name: "Blacksmith", how: "Buy 5 upgrades at the Forge", test: () => [Object.values(save.forge || {}).reduce((a, b) => a + b, 0), 5] },
+  { id: "streak3", tier: "rare", name: "Night owl", how: "Open moon eggs 3 nights in a row", test: () => [stat.streak(), 3] },
+  { id: "room2", tier: "rare", name: "More room", how: "Add a room to your home", test: () => [(save.rooms || []).length, 2] },
+  { id: "echo5", tier: "rare", name: "Good ear", how: "Sing back 5 tunes in Echo song", test: () => [save.echoBest || 0, 5] },
+  { id: "cracked250", tier: "epic", name: "Quarry lord", how: "Crack 250 eggs", test: () => [stat.cracked(), 250] },
+  { id: "species20", tier: "epic", name: "Glowpedia scholar", how: "Meet 20 kinds of glowlings", test: () => [stat.species(), 20] },
+  { id: "stars60", tier: "epic", name: "Constellation", how: "Earn 60 stars", test: () => [totalStars(), 60] },
+  { id: "radiant", tier: "epic", name: "Radiant", how: "Raise a glowling to level 15", test: () => [stat.level(), 15] },
+  { id: "shiny", tier: "epic", name: "Something shiny", how: "Hatch a shiny glowling", test: () => [save.creatures.some(c => c.shiny) || cnt("shiny") ? 1 : 0, 1] },
+  { id: "vault", tier: "epic", name: "Into the Vault", how: "Reach the fourth cave", test: () => [unlocked(19) ? 1 : 0, 1] },
+  { id: "streak7", tier: "epic", name: "Moon keeper", how: "Open moon eggs 7 nights in a row", test: () => [stat.streak(), 7] },
+  { id: "event", tier: "epic", name: "In season", how: "Meet a limited event glowling", test: () => [SPECIES.some(sp => sp.event && save.seen[sp.id]) ? 1 : 0, 1] },
+  { id: "arsenal", tier: "epic", name: "Arsenal", how: "Own every tool at the Forge", test: () => [TOOL_SKINS.filter(k => !k.cost || (save.toolSkins || {})[k.id]).length, TOOL_SKINS.length] },
+  { id: "legend", tier: "legendary", name: "Legend", how: "Meet a legendary glowling", test: () => [legendOk() ? 1 : 0, 1] },
+  { id: "allClear", tier: "legendary", name: "Heart of the grotto", how: "Clear all 24 levels", test: () => [unlocked(LEVELS + 1) ? 1 : 0, 1] },
+  { id: "stars72", tier: "legendary", name: "Flawless", how: "Earn all 72 stars", test: () => [totalStars(), LEVELS * 3] },
+  { id: "level20", tier: "legendary", name: "Brightest of all", how: "Raise a glowling to level 20", test: () => [stat.level(), MAX_LEVEL] },
+  { id: "story", tier: "legendary", name: "The whole story", how: "Hear every part of Mossa's story", test: () => [STORY.filter(p => talkSeen(p.id)).length, STORY.length] },
+  { id: "everyone", tier: "legendary", name: "Every last one", how: "Meet every kind of glowling", test: () => [stat.species(), SPECIES.length] }
+];
+const awardQueue = [];
+let awardShowing = false;
+/** Hand out what you've earned. The first time (or with quiet) they arrive together, with one word in the corner. */
+function checkAwards(quiet) {
+  if (coopSession) return;
+  const first = !save.awards;
+  save.awards = save.awards || {};
+  const got = [];
+  for (const a of AWARDS) {
+    if (save.awards[a.id]) continue;
+    const [now, goal] = a.test();
+    if (now < goal) continue;
+    save.awards[a.id] = Date.now();
+    save.shards += AWARD_TIER[a.tier].shards;
+    got.push(a);
+  }
+  if (!got.length) { if (first) persist(); return; }
+  persist(); updateTopbar();
+  if (first || quiet) { toast(tr("{0} awards earned ✦ see them in the Book", got.length)); return; }
+  awardQueue.push(...got);
+  showAward();
+}
+/** A trophy slides down from the top, like a console achievement. */
+function showAward() {
+  if (awardShowing || !awardQueue.length) return;
+  const a = awardQueue.shift(), t = AWARD_TIER[a.tier], el = $("award");
+  awardShowing = true;
+  el.className = "glass on " + a.tier;
+  el.innerHTML = `${ic("trophy_" + a.tier, "big")}<span><small>${tr(t.one)} · +${t.shards} ✦</small><b>${tr(a.name)}</b></span>`;
+  sfx.levelUp(); buzz([10, 40, 10]);
+  setTimeout(() => { el.classList.remove("on"); setTimeout(() => { awardShowing = false; showAward(); }, 450); }, 3400);
+}
+setInterval(() => { if (game.scene !== "menu" && !talkNow) checkAwards(); }, 1500);
+
 // ---------- the daily moon egg ----------
 
 const MOON_STONE = Object.assign(["#d7d9f2", "#9ea3cc", "#f6f6ff"], { moon: true });
@@ -5843,6 +6042,7 @@ function finishMoon() {
   const y = new Date(); y.setDate(y.getDate() - 1);
   const streak = save.moon && save.moon.last === dayKey(y) ? save.moon.streak + 1 : 1;
   save.moon = { last: dayKey(), streak };
+  if (streak > cnt("moonBest")) save.counts = { ...save.counts, moonBest: streak };
   // every moon egg brings a firefly square; every third night in a row, a star bar
   giveBar(streak % 3 ? "firefly" : "star");
   taskDone("moon");
@@ -6069,6 +6269,7 @@ function finishSnack(sn) {
   cr.energy = clamp(cr.energy - sn.s.tummy * 0.25 - (cr.tummy > 85 ? 6 : 0), 0, 100);
   if (cr.energy < 40 && a) setTimeout(() => { emote(a, "🥱", 1.8); sfx.yawn(); }, 1500);
   cr.messT = (cr.messT || 0) + 15;
+  bump("fed");
   cr.joy = clamp(cr.joy + sn.s.joy + (sn.fav ? 15 : 0), 0, 100);
   addXP(cr, sn.fav ? 12 : 6);
   spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
@@ -8951,6 +9152,7 @@ function endCatch() {
   $("cdXp").textContent = "+" + xp;
   $("cdShards").textContent = "+" + shards;
   sfx.levelUp();
+  bump("played");
   show("catchDone", true);
   taskDone("catch");
 }
@@ -9062,6 +9264,7 @@ function endEcho() {
   const best = g.score > (save.echoBest || 0);
   if (best) save.echoBest = g.score;
   if (best && g.score >= 3) giveBar("nut");
+  bump("played");
   const joy = Math.min(35, g.score * 4 + 5), xp = g.score * 2 + 5, shards = Math.floor(g.score / 2);
   cr.joy = clamp(cr.joy + joy, 0, 100);
   save.shards += shards;
@@ -9475,7 +9678,7 @@ function pet(x, y, d) {
     n.petDist = 0;
     heart(x, y - 10);
     if (!tipDone("pet")) { markTip("pet"); setHint(nestHint()); }
-    if (!pointer || !pointer.petted) { if (pointer) pointer.petted = true; taskDone("pet"); }
+    if (!pointer || !pointer.petted) { if (pointer) pointer.petted = true; taskDone("pet"); bump("petted"); }
     cr.joy = clamp(cr.joy + 1.2, 0, 100);
     if (performance.now() - n.petXpT > 1500) { n.petXpT = performance.now(); addXP(cr, 1); persist(); renderNest(); }
   }
@@ -10080,7 +10283,16 @@ function renderLib() {
   const geos = CRYSTALS.filter(c => save.geodes[c.id]).length;
   const hyN = save.creatures.filter(c => c.mix).length;
   $("libSub").textContent = tr("{0} of {1} glowlings · {2} of {3} geodes", found, SPECIES.length, geos, CRYSTALS.length) + (hyN ? ` · ${hyN} ${pl(hyN, "hybrid", "hybrids")}` : "") + tr(" · {0} in your nest", save.creatures.length);
-  if (game.libTab === "st") {
+  if (game.libTab === "aw") {
+    const earned = save.awards || {};
+    $("libGrid").innerHTML = `<div class="aw-list">` + AWARD_TIERS.slice().reverse().map(t => {
+      const list = AWARDS.filter(a => a.tier === t.id), have = list.filter(a => earned[a.id]).length;
+      return `<h3 class="aw-h ${t.id}">${tr(t.name)} <span>${have}/${list.length} · +${t.shards} ✦</span></h3>` + list.map(a => {
+        const got = earned[a.id], [now, goal] = a.test(), k = Math.min(1, now / goal);
+        return `<div class="aw ${t.id}${got ? " got" : ""}">${ic("trophy_" + t.id, "big")}<span><b>${tr(a.name)}</b><small>${tr(a.how)}</small>${got ? `<em>${new Date(got).toLocaleDateString(LANG === "uk" ? "uk-UA" : "en-US", { day: "numeric", month: "short", year: "numeric" })}</em>` : goal > 1 ? `<i class="aw-bar" style="--k:${k}"><u>${Math.min(now, goal)}/${goal}</u></i>` : ""}</span></div>`;
+      }).join("");
+    }).join("") + "</div>";
+  } else if (game.libTab === "st") {
     $("libGrid").innerHTML = STORY.map((p, i) => {
       const open = unlocked(p.at) && talkSeen(p.id);
       return `<button data-st="${i}" class="${open ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("Part {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${pxIcon(p.who.name.toLowerCase())}" alt=""${open ? "" : ' style="filter:brightness(0) opacity(.5)"'}></span><b>${open ? tr(p.title) : "???"}</b><small>${open ? tr(p.who.name) : p.at > LEVELS ? tr("Open every geode") : tr("Reach level {0}", p.at)}</small></button>`;
