@@ -692,6 +692,20 @@
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
   #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
+  /* the keeper sheet */
+  .me-label { display: block; text-align: left; font-size: 14px; color: var(--soft); margin: 4px 2px; }
+  #meName { width: 100%; box-sizing: border-box; font: inherit; font-size: 20px; padding: 8px 10px; color: #fff; background: var(--px-deep); border: 0; box-shadow: var(--px-frame); }
+  .me-form { margin: 10px 0 4px; font-size: 14px; color: var(--soft); }
+  .me-form .seg button { font-size: 14px !important; padding: 5px 8px; }
+  .me-level { margin: 14px 0 6px; text-align: left; }
+  .me-level b { display: block; color: #ffe9a8; font-weight: 400; font-size: 19px; }
+  .me-level small { color: var(--soft); }
+  .me-level .aw-bar { position: relative; display: block; height: 12px; margin-top: 6px; background: linear-gradient(90deg, var(--px-gold) calc(var(--k) * 100%), var(--px-deep) 0); box-shadow: 0 0 0 2px var(--px-ink); }
+  .me-level .aw-bar u { position: absolute; right: 4px; top: -1px; font-size: 11px; line-height: 14px; text-decoration: none; color: #fff; }
+  #meSkills h3 { display: flex; justify-content: space-between; }
+  #meSkills h3 span { color: var(--px-gold); letter-spacing: 0; }
+  .forge.skill { cursor: default; }
+  .forge.skill .act { margin-left: auto; padding: 6px 12px; }
   /* Wick's wares, and the gossip that comes free */
   #wickList img.em { width: 40px; height: 40px; image-rendering: pixelated; object-fit: contain; flex: none; }
   .wick-gossip { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; padding: 10px 12px; text-align: left; font-size: 15px; color: var(--soft); background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
@@ -754,7 +768,7 @@
 
   /* awards: a trophy drops in from the top, and the book keeps them by rarity */
   #award { position: fixed; z-index: 40; left: 50%; top: calc(var(--top) + 8px); display: flex; align-items: center; gap: 12px; min-width: min(300px, calc(100vw - 24px)); padding: 10px 16px 10px 12px;
-    transform: translate(-50%, calc(-100% - var(--top) - 40px)); visibility: hidden; transition: transform .4s cubic-bezier(.2, .9, .3, 1.2), visibility 0s .4s; pointer-events: none; text-align: left; background: var(--px-raise) !important;
+    transform: translate(-50%, calc(-100% - var(--top) - 40px)); visibility: hidden; transition: transform .4s cubic-bezier(.2, .9, .3, 1.2), visibility 0s .4s; pointer-events: auto; cursor: pointer; text-align: left; background: var(--px-raise) !important;
     box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep) !important; }
   #award.on { transform: translate(-50%, 0); visibility: visible; transition: transform .4s cubic-bezier(.2, .9, .3, 1.2); }
   #award .ic { width: 40px; height: 40px; flex: none; }
@@ -1034,6 +1048,7 @@
     <div id="menuSheet" class="glass" hidden>
       <button class="act" id="mapCoop"><i class="ic" data-ic="duo"></i>Play together</button>
       <button class="act" id="copyLive" hidden><i class="ic" data-ic="nest"></i>Copy my nest from live</button>
+      <button class="act" id="meBtn"><i class="ic" data-ic="star"></i>Keeper</button>
       <button class="act" id="backupBtn" aria-label="Back up your nest"><i class="ic" data-ic="scroll"></i>Back up nest</button>
       <button class="act mute" data-label="1" aria-label="Mute sound"><i class="ic" data-ic="sound"></i>Sound on</button>
       <button class="act faq-btn menu-only"><i class="ic" data-ic="help"></i>Questions &amp; answers</button>
@@ -1188,6 +1203,18 @@
     <p class="sub" id="homeSub"></p>
     <div id="homeList"></div>
     <button class="ghost" id="homeClose">close</button>
+  </div>
+</div>
+<div id="meSheet" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Keeper</h2>
+    <p class="sub" id="meFirst" hidden>Mossa would like to know what to call you.</p>
+    <label class="me-label" for="meName">Your name</label>
+    <input id="meName" maxlength="18" autocomplete="nickname" placeholder="your name">
+    <div id="meForm" class="me-form"><span>Звертатися до мене:</span><div class="seg"><button data-form="f">як до неї</button><button data-form="m">як до нього</button><button data-form="n">нейтрально</button></div></div>
+    <div id="meLevel" class="me-level"></div>
+    <div id="meSkills"></div>
+    <button class="ghost" id="meClose">done</button>
   </div>
 </div>
 <div id="wickSheet" class="overlay modal hidden">
@@ -2074,6 +2101,28 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Keeper": "Про тебе",
+  "friend": "друже",
+  "Your name": "Твоє ім'я",
+  "your name": "твоє ім'я",
+  "Mossa would like to know what to call you.": "Мосса хоче знати, як до тебе звертатися.",
+  "Keeper level {0}": "Твій рівень: {0}",
+  "Skills": "Навички",
+  "{0} points to spend": "очок для навичок: {0}",
+  "+1 skill point": "+1 очко навичок",
+  "Strength": "Сила",
+  "Care": "Турбота",
+  "Luck": "Удача",
+  "glowlings grow {0}% faster": "глоулінги ростуть на {0}% швидше",
+  "shiny glowlings and bars in the rubble a little more often (+{0})": "сяйливі глоулінги й батончики в уламках трохи частіше (+{0})",
+  "Pebble finder": "Камінчики й знахідки",
+  "Stone tapper": "Стук по каменю",
+  "Keeper's apprentice": "Учнівство Хранителя",
+  "Gloom chaser": "Гроза Мли",
+  "Keeper of sparks": "Варта іскор",
+  "Heartlight keeper": "Варта Серцесвіту",
+  "Legend of the grotto": "Легенда гроту",
+  "Oh! And we've never been properly introduced. What should I call you?": "Ой! Ми ж так і не познайомились як слід. Як мені тебе називати?",
   "fills the lantern to the brim": "наповнює ліхтарик ущерть",
   "Wick's wares": "Крамничка Ґнотика",
   "see you": "до зустрічі",
@@ -3713,7 +3762,7 @@ function moodOf(cr) {
 
 function addXP(cr, n) {
   if (cr.level >= MAX_LEVEL) return;
-  cr.xp += Math.round(n);
+  cr.xp += Math.round(n * (1 + skill("care") * 0.1));
   while (cr.level < MAX_LEVEL && cr.xp >= xpNeed(cr.level)) {
     cr.xp -= xpNeed(cr.level);
     const before = stageOf(cr.level);
@@ -5045,7 +5094,7 @@ function newEgg(conf, animate = true) {
   const crystal = conf.forced ? conf.forced.crystal : pick(CRYSTALS.filter(c => c.rarity === rarity));
   const species = conf.forced ? conf.forced.species : pick(SPECIES.filter(s => s.crystal === crystal.id && !s.moon));
   game.egg = {
-    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04), stone: conf.moon ? moonStone() : pick(STONES),
+    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04) + (conf.coop ? 0 : skill("luck") * 0.006), stone: conf.moon ? moonStone() : pick(STONES),
     state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
     hp: conf.hp, damage: 0, taps: 0, crits: 0, gems: 0, combo: 0, lastTap: -9, hits: [], seed: coopId(),
     net: { segs: [], tips: [] }, painted: 0,
@@ -5365,7 +5414,7 @@ function flashButton(id) {
 function tapPower() {
   if (game.egg && game.egg.conf.coop) return { power: 1, echo: false };
   const echo = Math.random() < forgeLvl("echo") * 0.1;
-  return { power: Math.round((1 + forgeLvl("heft") * 0.15) * (echo ? 1.6 : 1) * 100) / 100, echo };
+  return { power: Math.round((1 + forgeLvl("heft") * 0.15) * (1 + skill("str") * 0.05) * (echo ? 1.6 : 1) * 100) / 100, echo };
 }
 
 function openForge() {
@@ -5666,7 +5715,7 @@ function showFound() {
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
   save.shards += shards;
   // now and then a bar turns up in the rubble
-  const r = Math.random(), rubble = conf.coop || conf.moon ? null : r < 0.03 ? "nut" : r < 0.13 ? "firefly" : null;
+  const r = Math.random(), rubble = conf.coop || conf.moon ? null : r < 0.03 * (1 + skill("luck") * 0.25) ? "nut" : r < 0.13 * (1 + skill("luck") * 0.25) ? "firefly" : null;
   if (rubble) giveBar(rubble);
   const { isNew, note, mine } = adopt(e);
   if (!conf.coop && e.shiny) talkLater.push(["shiny", mine]);
@@ -5727,6 +5776,7 @@ const TALKS = {
   intro: () => [[MOSSA, "Oh! A visitor. Hello, hello."], [MOSSA, "I'm Mossa. I've watched over this grotto since before the moss was green."],
     [MOSSA, "Glowlings sleep inside the stone eggs down here. Crack one open, and whoever's inside will need a home.", "#crackTab"],
     [MOSSA, "This empty nest is yours. Let's go and find your first one!", "#firstEgg"]],
+  meet: () => [[MOSSA, "Oh! And we've never been properly introduced. What should I call you?"]],
   firstPet: () => { const cr = firstPet(), g = glowVoice(cr); return [[g, "Pip?", spotActor], [g, "...pip-pip! ♥", spotActor],
     [MOSSA, tr("{0} likes you already. Glowlings remember a kind hand.", cr.name), spotActor],
     [MOSSA, "Stroke it, feed it, play with it, and tuck it in when it's sleepy. That's how it grows.", "#nestBottom .acts"],
@@ -5839,9 +5889,10 @@ function updateSpot() {
   t.classList.toggle("up", low);
 }
 
+let afterTalk = null, afterMe = null;
 function nextTalk() {
   const lines = talkQueue.shift();
-  if (!lines) { talkNow = null; $("talk").hidden = true; updateSpot(); return; }
+  if (!lines) { talkNow = null; $("talk").hidden = true; updateSpot(); if (afterTalk) { const f = afterTalk; afterTalk = null; f(); } return; }
   talkNow = { lines, i: -1 };
   $("talk").hidden = false;
   nextLine();
@@ -5889,6 +5940,7 @@ function talkMoments(scene) {
   if (!["nest", "map", "lib"].includes(scene) || !$("found").classList.contains("hidden")) return;
   while (talkLater.length) talk(...talkLater.shift());
   if (scene === "nest" && save.creatures.length) talk("firstPet");
+  if (scene === "nest" && save.creatures.length && !(save.me && save.me.name) && !talkSeen("meet") && talk("meet")) afterTalk = () => openMe(true);
   if (scene === "map") talk("firstGrotto");
   for (const k of [1, 2, 3]) if (unlocked(k * 6 + 1)) talk("ch" + k);
   if (unlocked(LEVELS + 1)) talk("allClear");
@@ -6060,6 +6112,65 @@ function fitTopbar() {
   if (over()) body.classList.add("tighter");
 }
 
+// ---------- you, the keeper: your name, how Mossa speaks to you, and a keeper level with skills to grow ----------
+
+/** How the Ukrainian lines address you: she, he, or neither (the default). */
+const me = () => (save.me = save.me || { name: "", form: "n", xp: 0, pts: 0, skill: { str: 0, care: 0, luck: 0 } });
+const myName = () => me().name || tr("friend");
+/** Pick the right ending for you in Ukrainian: gform("знайшла", "знайшов", "знайшли"). English has one form. */
+const gform = (f, m, n) => LANG !== "uk" ? f : me().form === "f" ? f : me().form === "m" ? m : n;
+const KEEPER_TITLES = [[1, "Pebble finder"], [3, "Stone tapper"], [5, "Keeper's apprentice"], [8, "Gloom chaser"], [12, "Keeper of sparks"], [16, "Heartlight keeper"], [20, "Legend of the grotto"]];
+const SKILLS = [
+  { id: "str", name: "Strength", icon: "hammer", what: l => tr("taps hit {0}% harder", l * 5) },
+  { id: "care", name: "Care", icon: "heart", what: l => tr("glowlings grow {0}% faster", l * 10) },
+  { id: "luck", name: "Luck", icon: "sparkle", what: l => tr("shiny glowlings and bars in the rubble a little more often (+{0})", l) },
+];
+const SKILL_MAX = 5;
+const keeperNeed = l => 60 + l * 40;
+/** Your keeper level and how far into the next one you are. */
+function keeperLevel() {
+  let xp = me().xp, l = 1;
+  while (xp >= keeperNeed(l)) { xp -= keeperNeed(l); l++; }
+  return { l, xp, need: keeperNeed(l) };
+}
+const keeperTitle = l => tr(KEEPER_TITLES.filter(([at]) => l >= at).pop()[1]);
+const skill = id => (save.me && save.me.skill && save.me.skill[id]) || 0;
+/** Keeper XP for the things you do; each level brings a skill point. */
+const KEEPER_XP = { cracked: 12, harvested: 6, fed: 2, petted: 1, played: 4, taskDays: 15, wickBought: 3, rescued: 40 };
+function keeperXP(n) {
+  if (!n || coopSession || game.coopTouched) return;
+  const before = keeperLevel().l;
+  me().xp += n;
+  const after = keeperLevel().l;
+  if (after > before) {
+    me().pts += after - before;
+    awardQueue.push({ keeper: true, level: after });
+    showAward();
+  }
+}
+function openMe(first) {
+  sfx.tick();
+  const m = me(), k = keeperLevel();
+  $("meName").value = m.name;
+  $("meForm").hidden = LANG !== "uk";
+  $$("#meForm [data-form]").forEach(b => b.classList.toggle("on", b.dataset.form === m.form));
+  $("meLevel").innerHTML = `<b>${tr("Keeper level {0}", k.l)}</b><small>${keeperTitle(k.l)}</small><i class="aw-bar" style="--k:${k.xp / k.need}"><u>${k.xp}/${k.need}</u></i>`;
+  $("meSkills").innerHTML = `<h3>${tr("Skills")} <span>${m.pts ? tr("{0} points to spend", m.pts) : ""}</span></h3>` + SKILLS.map(sk => {
+    const l = skill(sk.id);
+    return `<div class="forge skill">${ic(sk.icon, "big")}<span class="txt"><b>${tr(sk.name)}</b><span class="pips">${Array.from({ length: SKILL_MAX }, (_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l ? sk.what(l) : sk.what(1).replace(/^/, tr("next: "))}</small></span><button class="act" data-skill="${sk.id}" ${!m.pts || l >= SKILL_MAX ? "disabled" : ""}>+1</button></div>`;
+  }).join("");
+  $("meFirst").hidden = !first;
+  $$("#meSkills [data-skill]").forEach(b => b.addEventListener("click", () => {
+    const mm = me(); if (!mm.pts || skill(b.dataset.skill) >= SKILL_MAX) return;
+    mm.pts--; mm.skill[b.dataset.skill] = skill(b.dataset.skill) + 1; sfx.levelUp(); persist(); openMe();
+  }));
+  show("meSheet", true);
+}
+function saveMe() {
+  const m = me(), name = $("meName").value.trim().slice(0, 18);
+  if (name !== m.name) { m.name = name; persist(); }
+}
+
 // ---------- awards: achievements in four rarities, each with a few shards and a trophy in the book ----------
 
 const AWARD_TIERS = [
@@ -6071,7 +6182,7 @@ const AWARD_TIERS = [
 const AWARD_TIER = Object.fromEntries(AWARD_TIERS.map(t => [t.id, t]));
 /** Counters for the things the save didn't count before: eggs cracked, snacks, pets, games, finished days. */
 const cnt = k => (save.counts && save.counts[k]) || 0;
-function bump(k, n = 1) { save.counts = { ...save.counts, [k]: cnt(k) + n }; }
+function bump(k, n = 1) { save.counts = { ...save.counts, [k]: cnt(k) + n }; keeperXP((KEEPER_XP[k] || 0) * n); }
 const stat = {
   // older nests counted every hatch in the glowpedia, so cracking starts from there
   cracked: () => Math.max(cnt("cracked"), Object.values(save.seen).reduce((a, v) => a + (v.count || 0), 0)),
@@ -6133,6 +6244,7 @@ function checkAwards(quiet) {
     if (now < goal) continue;
     earned[a.id] = Date.now();
     save.shards += AWARD_TIER[a.tier].shards;
+    me().xp += { common: 20, rare: 50, epic: 100, legendary: 250 }[a.tier];
     got.push(a);
   }
   // nothing new: the save stays exactly as it was
@@ -6146,10 +6258,16 @@ function checkAwards(quiet) {
 /** A trophy slides down from the top, like a console achievement. */
 function showAward() {
   if (awardShowing || !awardQueue.length) return;
-  const a = awardQueue.shift(), t = AWARD_TIER[a.tier], el = $("award");
+  const a = awardQueue.shift(), el = $("award");
   awardShowing = true;
-  el.className = "glass on " + a.tier;
-  el.innerHTML = `${ic("trophy_" + a.tier, "big")}<span><small>${tr(t.one)} · +${t.shards} ✦</small><b>${tr(a.name)}</b></span>`;
+  if (a.keeper) {
+    el.className = "glass on legendary";
+    el.innerHTML = `${ic("star", "big")}<span><small>${tr("Keeper level {0}", a.level)} · ${tr("+1 skill point")}</small><b>${keeperTitle(a.level)}</b></span>`;
+  } else {
+    const t = AWARD_TIER[a.tier];
+    el.className = "glass on " + a.tier;
+    el.innerHTML = `${ic("trophy_" + a.tier, "big")}<span><small>${tr(t.one)} · +${t.shards} ✦</small><b>${tr(a.name)}</b></span>`;
+  }
   sfx.levelUp(); buzz([10, 40, 10]);
   setTimeout(() => { el.classList.remove("on"); setTimeout(() => { awardShowing = false; showAward(); }, 450); }, 3400);
 }
@@ -10696,6 +10814,11 @@ $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
 $("gardenClose").addEventListener("click", () => show("gardenSheet", false));
 $("wickClose").addEventListener("click", () => show("wickSheet", false));
+$("meBtn").addEventListener("click", () => { setMenu(false); openMe(); });
+$("meClose").addEventListener("click", () => { saveMe(); show("meSheet", false); if (afterMe) { const f = afterMe; afterMe = null; f(); } });
+$("meName").addEventListener("change", saveMe);
+$$("#meForm [data-form]").forEach(b => b.addEventListener("click", () => { me().form = b.dataset.form; persist(); sfx.tick(); $$("#meForm [data-form]").forEach(x => x.classList.toggle("on", x === b)); }));
+$("award").addEventListener("click", () => { if ($("award").classList.contains("legendary") && awardShowing) openMe(); });
 $("homeClose").addEventListener("click", () => show("homeSheet", false));
 $("homePill").addEventListener("click", openHome);
 $("residentsBtn").addEventListener("click", openHome);
