@@ -7014,13 +7014,13 @@ function renderNest(full) {
   $("nestTop").title = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name);
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
   for (const [k, id] of [["tummy", "Tummy"], ["joy", "Joy"], ["energy", "Energy"]]) {
-    // four icons per need, like an old handheld pet: the hungrier (more bored, sleepier) it is, the more of them light up
-    const need = 100 - cr[k], el = $("b" + id), full = Math.ceil(need / 25);
+    // four icons per need, like an old handheld pet (and like the Sims: a full Hunger bar means a full tummy)
+    const el = $("b" + id), full = Math.ceil(cr[k] / 25);
     if (el.dataset.full !== String(full)) { el.dataset.full = full; el.innerHTML = [0, 1, 2, 3].map(i => ic(el.dataset.need, i < full ? "" : "off")).join(""); }
     el.classList.toggle("low", cr[k] < 25);
     const btn = document.querySelector(`.acts [data-fill="${k}"]`);
     if (btn) { btn.style.setProperty("--fill", full / 4); btn.classList.toggle("lowfill", cr[k] < 25); }
-    $("v" + id).textContent = Math.round(need);
+    $("v" + id).textContent = Math.round(cr[k]);
   }
   $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Sleepiness");
   $("sleepBtn").setAttribute("aria-label", cr.sleeping ? tr("Wake") : tr("Sleep"));
@@ -7069,7 +7069,7 @@ function openSnacks() {
   $("snackSub").textContent = tr("You have ✦ {0} shards. {1}s love {2}.", save.shards, sp.name, LANG === "uk" ? snack : snack.replace(/([^aeiou])y$/, "$1ie") + "s");
   const pantry = save.pantry || {};
   const row = ([id, s]) =>
-    `<button class="snack" data-id="${id}" ${!pantry[id] && save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>${tr("hunger −{0}", s.tummy)}${s.energy ? " · " + tr("sleepiness −{0}", s.energy) : ""}${id === sp.snack ? tr(" · favorite!") : ""}</small></span><span class="cost">${pantry[id] ? `🧺 ×${pantry[id]}` : `✦ ${s.cost}`}</span></button>`;
+    `<button class="snack" data-id="${id}" ${!pantry[id] && save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>${tr("Hunger")} +${s.tummy}${s.energy ? ` · ${tr("Sleepiness")} +${s.energy}` : ""}${id === sp.snack ? tr(" · favorite!") : ""}</small></span><span class="cost">${pantry[id] ? `🧺 ×${pantry[id]}` : `✦ ${s.cost}`}</span></button>`;
   const all = Object.entries(SNACKS);
   $("snackList").innerHTML = `<h3 class="forge-h">${tr("Snacks")}</h3>` + all.filter(([, s]) => !s.drink).map(row).join("")
     + `<h3 class="forge-h">${tr("Drinks")}</h3><p class="me-hint">${tr("A sip doesn't fill the tummy or make anyone drowsy. Tea and Starfizz perk a sleepy glowling up.")}</p>` + all.filter(([, s]) => s.drink).map(row).join("");
@@ -10220,10 +10220,23 @@ function drawEmote(a, v) {
 function dustSpots() {
   const out = [];
   for (const cr of save.creatures) (cr.dust || []).forEach(([u, v], i) => {
-    const x = lerp(N.x0, N.x1, 0.06 + u * 0.88), y = lerp(N.y0, N.y1, 0.2 + v * 0.75);
+    const [x, y] = N.iso ? isoDustAt(u, v) : [lerp(N.x0, N.x1, 0.06 + u * 0.88), lerp(N.y0, N.y1, 0.2 + v * 0.75)];
     out.push({ cr, i, x, y, r: N.base * 0.26 * depth(y) });
   });
   return out;
+}
+
+/** A dust bunny's place on the isometric floor: where it fell, or the nearest spot that's free and in plain sight. */
+function isoDustAt(u, v) {
+  const m = isoMargin(0.42), want = [m + u * (1 - 2 * m), m + v * (1 - 2 * m)];
+  let best = want, bd = Infinity;
+  for (let i = 0; i <= 10; i++) for (let j = 0; j <= 10; j++) {
+    const cu = m + i / 10 * (1 - 2 * m), cv = m + j / 10 * (1 - 2 * m), U = cu * ISO_G, V = cv * ISO_G;
+    if (!cellFree(Math.floor(U * 2), Math.floor(V * 2)) || hiddenSpot(U, V)) continue;
+    const d = Math.hypot(cu - want[0], cv - want[1]);
+    if (d < bd) { bd = d; best = [cu, cv]; }
+  }
+  return isoAt(...best);
 }
 
 function drawDust() {
@@ -10332,37 +10345,46 @@ function isoOrder(items) {
   return [...back.sort((p, q) => p.y - q.y), ...loose, ...out, ...top.sort((p, q) => (p.after ? 1 : 0) - (q.after ? 1 : 0))];
 }
 
-/** Glowlings drawn before a piece that covers them on screen are drawn again, faintly, over it. */
+/** Glowlings drawn before a piece that covers them on screen are drawn again, faintly, over it (only where it covers them). */
 function ghostBehind(order) {
   const pieces = [];
   order.forEach((it, k) => {
-    if (it.box && it.box.id && it.box.id !== "bed" && it.box.id !== "rug") {
-      const xs = [[it.box.u0, it.box.v0], [it.box.u1, it.box.v0], [it.box.u0, it.box.v1], [it.box.u1, it.box.v1]].map(([u, v]) => isoAt(u / ISO_G, v / ISO_G));
-      pieces.push({ k, x0: Math.min(...xs.map(q => q[0])), x1: Math.max(...xs.map(q => q[0])), y1: Math.max(...xs.map(q => q[1])) });
-    }
+    const id = it.box && it.box.id;
+    if (!id || id === "rug") return;
+    const h = pieceHits[id === "bedroof" || id === "bedpost" ? "bed" : id];
+    if (h && h.c) pieces.push({ k, x0: h.x, x1: h.x + h.c.width * PX, y0: h.y, y1: h.y + h.c.height * PX, bed: id === "bed" });
   });
   order.forEach((it, k) => {
     const a = it.actor;
     if (!a || it.after) return;
-    const v = actorView(a), r = v.size * 0.35;
-    if (!pieces.some(p => p.k > k && v.x + r > p.x0 && v.x - r < p.x1 && a.y < p.y1)) return;
+    const v = actorView(a), r = v.size * 0.4;
+    // (the bed's soft base never hides anyone standing behind it: it's low)
+    if (!pieces.some(p => p.k > k && !p.bed && v.x + r > p.x0 && v.x - r < p.x1 && v.y > p.y0 && v.y - v.size * 0.6 < p.y1)) return;
     const cr = save.creatures.find(c => c.id === a.id);
     if (!cr) return;
     // drawn on a sheet of its own, with the glowlings in front cut out of it, then laid over the room faintly
-    const real = ctx, cv = ghostSheet(real.canvas);
-    ctx = cv.getContext("2d");
-    ctx.setTransform(real.getTransform()); ctx.clearRect(0, 0, cv.width, cv.height);
-    const sprite = (b, c) => { const w = actorView(b); drawSprite(w.x, w.y, w.size, specOf(c), { acc: c.acc, level: c.level, shiny: c.shiny, mood: b === a ? moodOf(c) : "happy", hop: b.hop, t: game.time + b.id * 997, glow: false, cap: b.state === "sleep" }); };
+    const real = ctx, cv = ghostSheet(real.canvas), g = cv.getContext("2d");
+    g.setTransform(1, 0, 0, 1, 0, 0); g.globalCompositeOperation = "source-over"; g.globalAlpha = 1; g.clearRect(0, 0, cv.width, cv.height);
+    g.setTransform(real.getTransform());
+    ctx = g;
+    const sprite = (b, c) => { const w = actorView(b); drawSprite(w.x, w.y, w.size, specOf(c), { ...actorLook(b, c), glow: false }); };
     try {
       sprite(a, cr);
       ctx.globalCompositeOperation = "destination-out";
       for (const o of order.slice(k + 1)) { const oc = o.actor && save.creatures.find(c => c.id === o.actor.id); if (oc) sprite(o.actor, oc); }
-    } finally { ctx.globalCompositeOperation = "source-over"; ctx = real; }
-    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.45; ctx.drawImage(cv, 0, 0); ctx.restore();
+    } finally { g.globalCompositeOperation = "source-over"; ctx = real; }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.45; ctx.imageSmoothingEnabled = false; ctx.drawImage(cv, 0, 0); ctx.restore();
   });
 }
 let ghostCv = null;
 const ghostSheet = like => { if (!ghostCv || ghostCv.width !== like.width || ghostCv.height !== like.height) { ghostCv = document.createElement("canvas"); ghostCv.width = like.width; ghostCv.height = like.height; } return ghostCv; };
+
+/** How a glowling looks this moment: its face, its nightcap, a bite in its mouth. */
+function actorLook(a, cr) {
+  const act = activeCreature(), mine = act && a.id === act.id, asleep = a.state === "sleep" || a.state === "nap";
+  const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || a.state === "visit" || (a.emote && a.emote.text === "♥") ? "happy" : moodOf(cr);
+  return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, cap: a.state === "sleep", hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 };
+}
 
 function drawActor(a) {
   const act = activeCreature();
@@ -10377,8 +10399,7 @@ function drawActor(a) {
       ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.5, v.size * 0.13, 0, 0, TAU); ctx.stroke();
     }
     const asleep = a.state === "sleep" || a.state === "nap";
-    const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || a.state === "visit" || (a.emote && a.emote.text === "♥") ? "happy" : moodOf(cr);
-    drawSprite(v.x, v.y, v.size, sp, { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, cap: a.state === "sleep", hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 });
+    drawSprite(v.x, v.y, v.size, sp, actorLook(a, cr));
     if (asleep) {
       fx.font = `400 ${Math.round(Math.max(14, v.size * 0.2))}px ${PIXEL_FONT}`;
       fx.fillStyle = "#d2bfff";
