@@ -254,7 +254,7 @@ function wherePlace() {
   const k = save.rooms[save.room]?.kind;
   return { yard: "garden", lab: "lab", shop: "shop", forge: "forge", camp: "trail" }[k] || "nest";
 }
-const WM_KEEPERS = { grotto: "mossa", shop: "tansy", forge: "ember", trail: "pip", lab: "ollo" };
+const WM_KEEPERS = { grotto: "mossa", shop: "tansy", forge: "ember", trail: "pip", lab: "ollo", garden: "fennel" };
 function openWorld() {
   sfx.tick();
   worldBase();
@@ -262,7 +262,7 @@ function openWorld() {
   const map = $("worldMap"), fresh = save.mapFresh || [], here = wherePlace(), cr = activeCreature();
   map.style.width = WM_W * K + "px"; map.style.height = WM_H * K + "px";
   map.innerHTML = `<canvas id="worldCv" width="${WM_W}" height="${WM_H}"></canvas>` + WORLD.map(w => {
-    const ok = placeOk(w.id), isNew = fresh.includes(w.id), keeper = ok && (WM_KEEPERS[w.id] || (w.id === "garden" && wickHere() ? "wick" : ""));
+    const ok = placeOk(w.id), isNew = fresh.includes(w.id), keeper = ok && WM_KEEPERS[w.id];
     return `<button class="wplace${ok && w.call && w.call() ? " call" : ""}${isNew ? " fresh" : ""}${ok ? "" : " locked"}" data-place="${w.id}" style="left:${w.at[0] * K}px;top:${(w.at[1] - 32) * K}px" ${ok ? "" : "disabled"}>`
       + `<span class="wplace-hit" style="width:${40 * K}px;height:${36 * K}px"></span>`
       + (keeper ? `<img class="wkeeper" src="${pxIcon(keeper)}" alt="">` : "")

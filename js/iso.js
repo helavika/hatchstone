@@ -629,9 +629,10 @@ const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1
   shelves: { fw: 2, fd: 1, at: [1, 0] }, shelves2: { fw: 1, fd: 2, at: [0, 2] }, counter: { fw: 2, fd: 1, at: [2, 3] }, crates: { fw: 1, fd: 1, at: [5, 4] }, sacks: { fw: 1, fd: 1, at: [4, 0] }, barrel: { fw: 1, fd: 1, at: [0, 5] },
   furnace: { fw: 2, fd: 2, at: [1, 0] }, anvil: { fw: 1, fd: 1, at: [3, 3] }, coalbin: { fw: 1, fd: 1, at: [0, 3] }, rack: { fw: 2, fd: 1, at: [4, 0] }, barrel2: { fw: 1, fd: 1, at: [5, 4] },
   tent: { fw: 2, fd: 2, at: [3, 0] }, campfire: { fw: 1, fd: 1, at: [2, 3] }, logs: { fw: 2, fd: 1, at: [0, 4] }, packs: { fw: 1, fd: 1, at: [1, 1] }, camplamp: { fw: 1, fd: 1, at: [5, 3] },
+  greenhouse: { fw: 2, fd: 2, at: [0, 0] }, potting: { fw: 1, fd: 2, at: [0, 2] }, sunflowers: { fw: 1, fd: 1, at: [5, 3] }, barrow: { fw: 1, fd: 1, at: [3, 0] },
   labdesk: { fw: 2, fd: 1, at: [2, 0] }, jars: { fw: 1, fd: 1, at: [0, 1] }, scope: { fw: 1, fd: 1, at: [4, 4] }, books: { fw: 1, fd: 1, at: [5, 0] } };
 /** What each kind of room comes with (anything not listed has just its bed). */
-const ROOM_FIXED = { yard: ["bed", "garden"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
+const ROOM_FIXED = { yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
 /** The places' own furniture: not decorations to play with. */
 const PLACE_PROPS = new Set(Object.values(ROOM_FIXED).flat().filter(id => !["bed", "garden", "incubator"].includes(id)));
 
@@ -975,6 +976,46 @@ const ISO_ART = {
     ring(7, t * 0.34, t * 0.14, t * 0.07, t * 0.12, IC.g0, IC.g1, 0.65);
     ring(5, t * 0.2, t * 0.1, t * 0.13, t * 0.16, IC.b0, IC.g0, 1.2);
     T.ball(cx, top - t * 0.16, Math.max(1.5, t * 0.05), IC.white, IC.b0, IC.g0);
+  },
+  // ---- the garden
+  greenhouse(t, T, ax, ay) {
+    // a little glasshouse: a white frame, panes catching the light, ferns and tomatoes inside, a peaked glass roof
+    const a = t * 0.95, b = t * 0.95, h = Math.round(t * 1.1), x = ax, y = ay + 2;
+    const q = T.box(x, y, a, b, h, IC.b0, (px, py) => (px + py) % 5 === 0 ? IC.white : pxHash(px, py) > 0.75 ? IC.g1 : IC.b1, (px, py) => (px + py) % 5 === 0 ? IC.b0 : pxHash(px, py) > 0.8 ? IC.g2 : IC.b2);
+    for (const [p0, p1] of [[q.Bv, q.Buv], [q.Buv, q.Bu]]) for (let k = 0; k <= 4; k++) { const f = k / 4, px = p0[0] + (p1[0] - p0[0]) * f, py = p0[1] + (p1[1] - p0[1]) * f; T.line(px, py, px, py - h, IC.white); }
+    T.line(q.Bv[0], q.Bv[1] - h * 0.5, q.Buv[0], q.Buv[1] - h * 0.5, IC.white); T.line(q.Buv[0], q.Buv[1] - h * 0.5, q.Bu[0], q.Bu[1] - h * 0.5, IC.white);
+    const top = [q.top, [q.Bu[0], q.Bu[1] - h], [q.Buv[0], q.Buv[1] - h], [q.Bv[0], q.Bv[1] - h]], ridge0 = [(top[0][0] + top[3][0]) / 2, (top[0][1] + top[3][1]) / 2 - t * 0.5], ridge1 = [(top[1][0] + top[2][0]) / 2, (top[1][1] + top[2][1]) / 2 - t * 0.5];
+    T.poly([top[3], top[2], ridge1, ridge0], (px, py) => (px - py) % 6 === 0 ? IC.white : IC.b0);
+    T.poly([top[2], top[1], ridge1], IC.b1);
+    T.line(ridge0[0], ridge0[1], ridge1[0], ridge1[1], IC.white);
+    for (let k = 0; k < 4; k++) T.px(q.Bv[0] + 4 + k * 5, q.Bv[1] + 2 + k * 2.5 - h * 0.3, k % 2 ? IC.r1 : IC.y1);
+  },
+  potting(t, T, ax, ay) {
+    // a potting bench along the wall: terracotta pots of seedlings, a trowel, a watering can
+    const a = t * 0.3, b = t - 2, h = Math.round(t * 0.6), x = ax, y = ay + 1;
+    T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
+    for (let k = 0; k < 4; k++) { const px = x - 2 * b * (k + 0.6) / 4.4 + a, py = y + b * (k + 0.6) / 4.4 + a / 2 - h; T.cyl(px, py, t * 0.09, Math.round(t * 0.16), IC.r1, IC.r1, IC.r2); T.px(px, py - t * 0.2, IC.g0); T.px(px - 1, py - t * 0.24, IC.g1); T.px(px + 1, py - t * 0.26, IC.g0); }
+    const cx = x - b * 0.4, cy = y + b + 2;
+    T.cyl(cx, cy, t * 0.12, Math.round(t * 0.2), IC.s1, IC.s2, IC.s3); T.line(cx + t * 0.12, cy - t * 0.12, cx + t * 0.3, cy - t * 0.25, IC.s2);
+  },
+  sunflowers(t, T, ax, ay) {
+    // three tall sunflowers nodding at the moon
+    const cx = ax, cy = ay + t / 2;
+    for (const [dx, hh, k0] of [[-t * 0.24, 1.45, 0.85], [t * 0.18, 1.85, 1], [t * 0.0, 1.1, 0.75]]) {
+      const top = cy - t * hh, r = t * 0.17 * k0, x = cx + dx;
+      for (let y = cy; y > top; y--) { T.px(x, y, IC.g2); T.px(x + 1, y, IC.g3); }
+      for (const [ly, side] of [[0.35, -1], [0.55, 1]]) T.ball(x + side * r * 0.9, cy - t * hh * ly, r * 0.55, IC.g0, IC.g1, IC.g2, r * 0.3);
+      T.ball(x, top, r * 1.45, IC.y0, IC.y1, IC.w1, r * 1.2);
+      T.ball(x, top, r * 0.65, IC.w2, IC.w3, IC.w3, r * 0.55);
+    }
+  },
+  barrow(t, T, ax, ay) {
+    // a wheelbarrow full of soil, with a spade stuck in it
+    const cx = ax, cy = ay + t / 2;
+    T.disc(cx + t * 0.3, cy, t * 0.12, IC.s3);
+    T.box(cx - t * 0.25, cy - t * 0.4, t * 0.34, t * 0.22, Math.round(t * 0.26), IC.w3, IC.r2, IC.r3);
+    T.line(cx - t * 0.55, cy - t * 0.05, cx - t * 0.25, cy - t * 0.2, IC.w2);
+    T.line(cx + t * 0.05, cy - t * 0.62, cx + t * 0.12, cy - t * 0.12, IC.w2); T.box(cx + t * 0.04, cy - t * 0.72, 2, 1, 3, IC.s1, IC.s2, IC.s3);
   },
   // ---- the shop
   shelves(t, T, ax, ay) {

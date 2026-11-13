@@ -155,7 +155,7 @@ function openShop() {
   if (st.tab === "look") {
     const now = currentTheme(), view = roomView();
     body = `<h3>${tr("View")}</h3><div class="seg view-seg"><button data-view="front" class="${view === "front" ? "on" : ""}">${tr("Straight on")}</button><button data-view="iso" class="${view === "iso" ? "on" : ""}">${tr("Isometric")}</button></div>`
-      + `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "Outside, the garden is always under the open sky." : !save.room ? "The nest is always tucked away in a cave, a grotto or a hollow." : "This room can take any backdrop you've found.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
+      + `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : !save.room ? "The nest is always tucked away in a cave, a grotto or a hollow." : "This room can take any backdrop you've found.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
         const ok = t.ok();
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
       }).join("")}</div>`;
@@ -231,7 +231,7 @@ const WORLD = [
   { id: "nest", name: "Nest", icon: "nest", at: [82, 170], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
   { id: "lab", name: "Laboratory", icon: "flask", at: [186, 172], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => arriveAt("lab") },
   { id: "shop", name: "Shop", icon: "stall", at: [170, 256], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: () => arriveAt("shop") },
-  { id: "garden", name: "Garden", icon: "sun", at: [92, 238], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : wickHere() ? tr("Wick is visiting today") : tr("grows what no shop sells"), call: () => ripePlots() > 0 || wickHere(), go: () => toRoomKind("yard") },
+  { id: "garden", name: "Garden", icon: "sun", at: [92, 238], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : wickHere() ? tr("Wick is visiting today") : tr("grows what no shop sells"), call: () => ripePlots() > 0 || wickHere(), go: () => arriveAt("yard") },
   { id: "trail", name: "Expeditions", icon: "compass", at: [196, 318], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: () => arriveAt("camp") },
 ];
 const placeOk = id => { const w = WORLD.find(x => x.id === id); return !w.ok || w.ok(); };
@@ -709,7 +709,7 @@ function setView(v) {
 /** The rooms you can add, in order: each starts on its own backdrop if you have it. */
 const ROOM_KINDS = [
   { id: "nest", name: "Nest" },
-  { id: "yard", name: "Outside", outdoor: true },
+  { id: "yard", name: "Garden", outdoor: true, place: true },
   { id: "play", name: "Playroom", cost: 250 },
   { id: "garden", name: "Garden room", cost: 500, theme: "glowcap" },
   { id: "study", name: "Crystal study", cost: 900, theme: "celestite" },
@@ -749,6 +749,7 @@ function stepRoom(dir) {
 const TANSY = { name: "Tansy", face: () => pxIcon("tansy"), voice: { f: 330, wave: "triangle", spread: 0.25, glide: 1.05, gain: 0.06, len: 0.06 } };
 const EMBER = { name: "Ember", face: () => pxIcon("ember"), voice: { f: 150, wave: "square", spread: 0.18, glide: 0.9, gain: 0.03, len: 0.08 } };
 const PIP = { name: "Pip", face: () => pxIcon("pip"), voice: { f: 520, wave: "sine", spread: 0.35, glide: 1.15, gain: 0.07, len: 0.05 } };
+const FENNEL = { name: "Fennel", face: () => pxIcon("fennel"), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
 const OLLO = { name: "Ollo", face: () => pxIcon("ollo"), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
 const HEROES = {
   shop: { who: TANSY, icon: "tansy", at: [0.5, 0.42], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
@@ -760,6 +761,9 @@ const HEROES = {
   camp: { who: PIP, icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
     hello: ["Oh! Hello! I'm Pip, I map the tunnels. Well, I try.", "Send me a glowling and we'll go exploring for a few hours.", "We always come back with something: seeds, shards, the odd geode."],
     lines: ["I've drawn this map three times. The tunnels keep moving.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it."] },
+  yard: { who: FENNEL, icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sun", "Garden bed", () => openGarden()]],
+    hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
+    lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."] },
   lab: { who: OLLO, icon: "ollo", at: [0.55, 0.36], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
     hello: ["Hoo. A visitor. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby mixes them both.", "Stroke the egg to keep it warm. It hatches faster."],
     lines: ["Fascinating. Truly fascinating. Hoo.", "No two mixed eggs are alike. I've checked. Many times.", "Glowlings glow brighter when they're happy. I measured it.", "Please don't touch the green jar."] },
@@ -824,6 +828,10 @@ function arriveAt(kind) {
   toRoomKind(kind);
   const h = HEROES[kind];
   if (h && !(save.heroTalk || {})[kind]) setTimeout(tapHero, 500);
+  else if (kind === "yard") {
+    const g = garden(), dry = g.slots.map((q, i) => [q, i]).filter(([q, i]) => q && waterPlot(i, FENNEL));
+    if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
+  }
 }
 /** Which room a decoration stands in, or -1 if it's in storage. */
 function decorRoom(id) {
