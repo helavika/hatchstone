@@ -271,7 +271,6 @@
   #foundNest small { display: block; font-size: 15px; line-height: 1; opacity: .8; }
   #found .plate { display: table; }
 
-  #snackList { max-height: min(62dvh, 560px); overflow-y: auto; }
   #snackList .forge-h:first-child { margin-top: 0; }
   .snack { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .08); border-radius: 16px; padding: 10px 14px; margin-top: 8px; cursor: pointer; text-align: left; }
   .snack:disabled { opacity: .4; cursor: default; }
@@ -404,7 +403,7 @@
   .ghost:active { transform: scale(.96); }
   #startCoop { display: block; margin: 14px auto 0; }
   /* the button that closes a sheet looks the same in every sheet: one width, centered at the bottom */
-  .overlay .card > .ghost[id$="Close"] { display: flex; width: min(100%, 280px); margin: 14px auto 0; }
+
   .pillbtn { border-color: rgba(255, 233, 168, .3); }
 
   #libGrid { gap: 12px; }
@@ -446,7 +445,7 @@
   #start #play, #start #startCoop { box-sizing: border-box; width: min(100%, 250px); height: 56px; padding: 0 12px; justify-content: center; }
   #start #play { display: flex; align-items: center; margin-left: auto; margin-right: auto; }
   #startCorner { position: absolute; top: calc(var(--top) + 12px); right: 16px; z-index: 1; display: flex; gap: 8px; }
-  #faqList { text-align: left; max-height: min(62vh, 560px); }
+  #faqList { text-align: left; }
   #faqList details { border-top: 3px solid var(--px-raise); padding: 10px 2px; }
   #faqList summary { cursor: pointer; color: var(--px-gold); font-size: 19px; list-style: none; }
   #faqList summary::-webkit-details-marker { display: none; }
@@ -591,7 +590,7 @@
   .forge-h { margin: 12px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
   .forge .skin-img { width: 40px; height: 40px; image-rendering: pixelated; flex: 0 0 40px; }
   .decor.legend:not([disabled]) b { color: var(--px-gold); }
-  #jukeList { max-height: 56vh; overflow-y: auto; }
+
   #jukeList h3 { margin: 10px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
   #jukeList .snack.on { border-color: var(--px-gold) !important; background: var(--px-gold-lo) !important; }
   #jukeList .snack img.em { width: 34px; height: 34px; object-fit: cover; image-rendering: pixelated; }
@@ -1109,6 +1108,24 @@
   body.calm *, body.calm *::before, body.calm *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .05s !important; }
   /* bigger text */
   body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigtext #toast, body.bigtext #nestBottom, body.bigtext #award { zoom: 1.12; }
+  /* a popup covers the whole screen, so it may use all of it: one column, and only its list scrolls, only when it has to */
+  .overlay.modal { padding: max(12px, env(safe-area-inset-top)) 12px max(12px, env(safe-area-inset-bottom)); }
+  .overlay.modal .card { position: relative; max-height: calc(100dvh - 24px - env(safe-area-inset-top) - env(safe-area-inset-bottom)); display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+  .overlay.modal .card > * { flex-shrink: 0; }
+  .overlay.modal .card > .scroll { flex: 0 1 auto; min-height: 60px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+  .overlay.modal .card:has(> .scroll) { overflow-y: hidden; }
+  .scroll .snack > span, .scroll .forge .txt { min-width: 0; overflow-wrap: anywhere; }
+  .cat-chips { flex-wrap: wrap; overflow-x: visible; }
+  .snack, .forge { box-sizing: border-box; max-width: 100%; }
+  .fb-details pre { max-height: none; overflow: visible; }
+  .cat-chips button { flex: 1 1 auto; }
+  /* closing is one small ✕ in the corner, the same in every popup; a big button is only for doing something (like saving) */
+  .overlay .card > .x-close { position: absolute; top: 10px; right: 10px; z-index: 4; width: 36px; height: 36px; min-height: 0; margin: 0; padding: 0; display: grid; place-items: center;
+    font: 400 20px/1 system-ui, sans-serif; color: var(--soft); background: var(--px-deep, rgba(0, 0, 0, .3)); border: 0; border-radius: 0; box-shadow: var(--px-frame, none); cursor: pointer; text-decoration: none; }
+  .overlay .card > .x-close:hover { color: #fff; }
+  .overlay .card > .x-close:active { transform: translateY(1px); }
+  .overlay .card:has(> .x-close) > h2:first-of-type { padding: 0 34px; }
+  #meSave { margin: 12px auto 0; }
 </style>
 </head>
 <body>
@@ -1300,7 +1317,7 @@
   <div class="card glass dark">
     <h2>Who lives where</h2>
     <p class="sub" id="homeSub"></p>
-    <div id="homeList"></div>
+    <div class="scroll" id="homeList"></div>
     <button class="ghost" id="homeClose">close</button>
   </div>
 </div>
@@ -1335,6 +1352,7 @@
     <div id="meLevel" class="me-level"></div>
     <div id="meSkills"></div>
     </div>
+    <button class="cta" id="meSave" hidden>Save</button>
     <button class="ghost" id="meClose">done</button>
   </div>
 </div>
@@ -1366,7 +1384,7 @@
   <div class="card glass dark">
     <h2>Music box</h2>
     <p class="sub" id="jukeSub"></p>
-    <div id="jukeList"></div>
+    <div class="scroll" id="jukeList"></div>
     <button class="ghost" id="jukeClose">close</button>
   </div>
 </div>
@@ -1386,7 +1404,7 @@
   <div class="card glass dark">
     <h2>Snacks & drinks</h2>
     <p class="sub" id="snackSub"></p>
-    <div id="snackList"></div>
+    <div class="scroll" id="snackList"></div>
     <button class="ghost" id="snackClose">not now</button>
   </div>
 </div>
@@ -2244,6 +2262,8 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Saved ✓": "Збережено ✓",
+  "Save": "Зберегти",
   "2 dewdrops and 2 mint teas for the pantry": "2 росинки й 2 м'ятні чаї в комору",
   "Snacks": "Смаколики",
   "Drinks": "Напої",
@@ -6613,6 +6633,7 @@ function openMe(first) {
   sfx.tick();
   const m = me(), k = keeperLevel();
   $("meName").value = m.name;
+  $("meSave").hidden = !first; $("meSave").dataset.first = first ? "1" : "";
   $("meForm").hidden = LANG !== "uk";
   $$("#meForm [data-form]").forEach(b => b.classList.toggle("on", b.dataset.form === m.form));
   const nextTitle = KEEPER_TITLES.find(([at]) => at > k.l);
@@ -7493,6 +7514,16 @@ function sendFeedback(kind) {
   window.open(`https://github.com/helavika/hatchstone/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`, "_blank", "noopener");
 }
 
+/** The buttons that only close their popup become one small ✕ in its corner (their words stay as the label for screen readers). */
+function cornerCloses() {
+  for (const b of document.querySelectorAll('.overlay .card > button[id$="Close"]')) {
+    b.classList.remove("ghost", "cta"); b.classList.add("x-close");
+    b.setAttribute("aria-label", tr("Close")); b.title = tr("Close");
+    b.removeAttribute("style"); b.textContent = "✕";
+    b.parentElement.prepend(b);
+  }
+}
+
 // ---------- the music box: pick the nest's song from the ones you've unlocked, and play the game's sounds ----------
 const JUKE_SOUNDS = [
   { name: "Lullaby", emoji: "🌙", play: () => sfx.lullaby() },
@@ -7973,6 +8004,13 @@ function pushOutOfPieces(a) {
     moved = true;
     if (d > 1e-4) { U = nx + dx / d * BODY_R; V = ny + dy / d * BODY_R; }
     else [U, V] = [[i - BODY_R, V, U - i], [i + 1 + BODY_R, V, i + 1 - U], [U, j - BODY_R, V - j], [U, j + 1 + BODY_R, j + 1 - V]].sort((p, q) => p[2] - q[2])[0];
+  }
+  // the gazebo's posts are round and thin: slide round them
+  for (const [pu, pv] of gazeboPosts()) {
+    const dx = U - pu, dy = V - pv, d = Math.hypot(dx, dy), r = BODY_R * 0.8 + 0.06;
+    if (d >= r) continue;
+    moved = true;
+    if (d > 1e-4) { U = pu + dx / d * r; V = pv + dy / d * r; } else U = pu + r;
   }
   if (moved) [a.x, a.y] = isoAt(U / ISO_G, V / ISO_G);
 }
@@ -8931,7 +8969,7 @@ const ISO_ART = {
     for (let i = 0; i < 7; i++) { if ((i + f) % 3 === 0) continue; T.px(cx + Math.round((pxHash(i, 5) - 0.5) * t * 1.5), cy - Math.round(t * (1.1 + pxHash(5, i) * 1.0)) - ((i + f) % 4), i % 2 ? B.white : B.pale); }
   },
   bed(t, T, ax, ay, o = {}) {
-    if (o.style && o.style !== "nest" && BED_ART[o.style]) return BED_ART[o.style](t, T, ax, ay);
+    if (o.style && o.style !== "nest" && BED_ART[o.style]) return BED_ART[o.style](t, T, ax, ay, o);
     // a big round, puffy nest-bed over two tiles each way, all fabric: an oval base, a plump rim of cushions all round
     // (like a doughnut), a soft white middle with pillows, and a striped pink quilt tucked in at the front
     const cx = ax, cy = ay + t, rx = t * 1.75, ry = rx / 2, lift = Math.max(3, Math.round(t * 0.14));
@@ -8981,21 +9019,25 @@ const BEDS = [
 const BED_FOR_ROOM = { nest: "nest", yard: "gazebo", play: "hammock", garden: "basket", study: "canopy" };
 /** The bed in the room you're in: the one you picked for it, or the one that suits its kind. */
 const bedStyle = (i = save.room) => { const b = (save.rooms && save.rooms[i] && (save.rooms[i].bed || BED_FOR_ROOM[save.rooms[i].kind])) || "nest"; return b === "leaves" ? "gazebo" : b; };
+const GAZEBO_A = 0.88; // how far the gazebo's posts stand from its middle, in tiles
 const BED_ART = {
-  gazebo(t, T, ax, ay) {
-    // a wooden deck over the two tiles, four white posts, a peaked red roof with fairy lights round the eaves, cushions inside
-    const a = t * 0.88, x = ax, y = ay + t - a, dh = Math.max(2, Math.round(t * 0.14)), ph = Math.round(t * 1.3);
-    T.box(x, y, a, a, dh, IC.w1, IC.w2, IC.w3);
+  gazebo(t, T, ax, ay, o = {}) {
+    // a wooden deck over the two tiles, four white posts, a peaked red roof with fairy lights round the eaves, cushions inside.
+    // In the room it's drawn in two parts (o.part): "base" goes under the sleepers, "roof" (the front post and the roof) over them
+    const base = !o.part || o.part === "base", front = !o.part || o.part === "post", roof = !o.part || o.part === "roof";
+    const a = GAZEBO_A * t, x = ax, y = ay + t - a, dh = Math.max(2, Math.round(t * 0.14)), ph = Math.round(t * 1.3);
+    if (base) T.box(x, y, a, a, dh, IC.w1, IC.w2, IC.w3);
     const top = y - dh, c = [[x, top], [x + 2 * a, top + a], [x - 2 * a, top + a], [x, top + 2 * a]], mid = (p, q, u) => [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u];
     // planks
-    for (const u of [0.2, 0.4, 0.6, 0.8]) { const [x0, y0] = mid(c[0], c[2], u), [x1, y1] = mid(c[1], c[3], u); T.line(x0, y0, x1, y1, IC.w0); }
+    if (base) for (const u of [0.2, 0.4, 0.6, 0.8]) { const [x0, y0] = mid(c[0], c[2], u), [x1, y1] = mid(c[1], c[3], u); T.line(x0, y0, x1, y1, IC.w0); }
     const post = ([px, py]) => { for (let k = 0; k < ph; k++) { T.px(px - 2, py - k, IC.white); T.px(px - 1, py - k, IC.white); T.px(px, py - k, IC.s0); T.px(px + 1, py - k, IC.s1); T.px(px + 2, py - k, IC.s2); } };
-    post(c[0]); post(c[1]); post(c[2]);
-    // cushions heaped along the back, a small one at the front
     const cy = top + a;
-    for (const [dx, dy, r, cols] of [[0, -0.45, 0.5, [IC.p0, IC.p1, IC.p2]], [-0.9, -0.05, 0.44, [IC.l0, IC.l2, IC.l3]], [0.9, -0.05, 0.44, [IC.b0, IC.b1, IC.b2]], [-0.3, 0.1, 0.36, [IC.white, IC.s0, IC.s1]], [0.45, 0.35, 0.32, [IC.y0, IC.y1, IC.w1]]])
+    if (base) post(c[0]), post(c[1]), post(c[2]);
+    // cushions heaped along the back, a small one at the front
+    if (base) for (const [dx, dy, r, cols] of [[0, -0.45, 0.5, [IC.p0, IC.p1, IC.p2]], [-0.9, -0.05, 0.44, [IC.l0, IC.l2, IC.l3]], [0.9, -0.05, 0.44, [IC.b0, IC.b1, IC.b2]], [-0.3, 0.1, 0.36, [IC.white, IC.s0, IC.s1]], [0.45, 0.35, 0.32, [IC.y0, IC.y1, IC.w1]]])
       T.ball(x + dx * a, cy + dy * a - t * 0.12, t * r, ...cols, t * r * 0.72);
-    post(c[3]);
+    if (front) post(c[3]);
+    if (!roof) return;
     // the roof: the eaves stick out past the posts, the peak stands high above the middle
     const ex = ([px, py]) => [x + (px - x) * 1.1, cy - ph + (py - cy) * 1.1], e = c.map(ex), apex = [x, cy - ph - t * 1.25];
     T.poly([e[2], e[3], apex], IC.r1);
@@ -9386,7 +9428,14 @@ function isoOnBed(x, y) {
   const [u, v] = isoFrom(x, y), U = u * ISO_G, V = v * ISO_G;
   return U > p.i + 0.15 && U < p.i + p.fw - 0.05 && V > p.j + 0.05 && V < p.j + p.fd - 0.15;
 }
-const isoBedTop = () => N.isoW / ISO_G * 0.22;
+const isoBedTop = () => N.isoW / ISO_G * (bedStyle() === "gazebo" ? 0.14 : 0.22);
+/** The gazebo's four posts, as floor points in tiles: nobody walks through them. */
+function gazeboPosts() {
+  const p = N.iso && bedStyle() === "gazebo" && isoLayout().placed.bed;
+  if (!p) return [];
+  const cu = p.i + p.fw / 2, cv = p.j + p.fd / 2;
+  return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([su, sv]) => [cu + su * GAZEBO_A, cv + sv * GAZEBO_A]);
+}
 
 /** Each sleeper's own place on the bed: a 2×2 spread on the big isometric bed, side by side on the straight-on one. */
 function bedSpot(id) {
@@ -9654,6 +9703,17 @@ function drawRoomIso() {
     if (p.id === "swing") { items.push({ y: fy, box, draw: () => drawSwingIso(p) }); continue; }
     const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
     const extra = pieceExtra(p);
+    if (p.id === "bed" && extra.style === "gazebo") {
+      // whoever lies or stands on the deck goes between its two layers: under the roof, behind the front post
+      extra.part = "base";
+      items.push({ y: fy, box: { ...box, id: "bedpost" }, roofOf: "bed", draw: () => drawBaked(isoPiece(p, { ...extra, part: "post" }), 0, bob) });
+      // with someone under it, the roof turns see-through, the way a cutaway does
+      items.push({ y: fy, box: { ...box, id: "bedroof" }, roofOf: "bed", after: "bedpost", draw: () => {
+        const under = [...actors.values()].some(a => a.state === "sleep" || a.onBed);
+        game.roofK = lerp(game.roofK ?? 1, under ? 0.62 : 1, 0.12);
+        ctx.save(); ctx.globalAlpha = game.roofK; drawBaked(isoPiece(p, { ...extra, part: "roof" }), 0, bob); ctx.restore();
+      } });
+    }
     items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); } });
   }
   if (hasDecor("shelf")) items.push({ y: -2, draw: drawShelfIso });
@@ -10249,6 +10309,9 @@ function isoOrder(items) {
     // is a in front of b?
     if (a.after && a.after === b.box?.id) return true;
     if (b.after && b.after === a.box?.id) return false;
+    // a roof goes over its piece and over everyone on that piece
+    if (a.roofOf && (b.after === a.roofOf || b.box?.id === a.roofOf)) return true;
+    if (b.roofOf && (a.after === b.roofOf || a.box?.id === b.roofOf)) return false;
     const A = a.box, B = b.box, e = 0.001;
     const aU = A.u0 >= B.u1 - e, aV = A.v0 >= B.v1 - e, bU = B.u0 >= A.u1 - e, bV = B.v0 >= A.v1 - e;
     if ((aU || aV) && !(bU || bV)) return true;
@@ -10285,11 +10348,21 @@ function ghostBehind(order) {
     if (!pieces.some(p => p.k > k && v.x + r > p.x0 && v.x - r < p.x1 && a.y < p.y1)) return;
     const cr = save.creatures.find(c => c.id === a.id);
     if (!cr) return;
-    ctx.save(); ctx.globalAlpha = 0.45;
-    drawSprite(v.x, v.y, v.size, specOf(cr), { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood: moodOf(cr), hop: a.hop, t: game.time + a.id * 997, glow: false });
-    ctx.restore();
+    // drawn on a sheet of its own, with the glowlings in front cut out of it, then laid over the room faintly
+    const real = ctx, cv = ghostSheet(real.canvas);
+    ctx = cv.getContext("2d");
+    ctx.setTransform(real.getTransform()); ctx.clearRect(0, 0, cv.width, cv.height);
+    const sprite = (b, c) => { const w = actorView(b); drawSprite(w.x, w.y, w.size, specOf(c), { acc: c.acc, level: c.level, shiny: c.shiny, mood: b === a ? moodOf(c) : "happy", hop: b.hop, t: game.time + b.id * 997, glow: false, cap: b.state === "sleep" }); };
+    try {
+      sprite(a, cr);
+      ctx.globalCompositeOperation = "destination-out";
+      for (const o of order.slice(k + 1)) { const oc = o.actor && save.creatures.find(c => c.id === o.actor.id); if (oc) sprite(o.actor, oc); }
+    } finally { ctx.globalCompositeOperation = "source-over"; ctx = real; }
+    ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.45; ctx.drawImage(cv, 0, 0); ctx.restore();
   });
 }
+let ghostCv = null;
+const ghostSheet = like => { if (!ghostCv || ghostCv.width !== like.width || ghostCv.height !== like.height) { ghostCv = document.createElement("canvas"); ghostCv.width = like.width; ghostCv.height = like.height; } return ghostCv; };
 
 function drawActor(a) {
   const act = activeCreature();
@@ -11667,6 +11740,9 @@ $("fbCopy").addEventListener("click", async () => {
 $("optsClose").addEventListener("click", () => show("optsSheet", false));
 $("meBtn").addEventListener("click", () => { setMenu(false); openMe(); });
 $("meClose").addEventListener("click", () => { saveMe(); show("meSheet", false); if (afterMe) { const f = afterMe; afterMe = null; f(); } });
+// a Save button shows up once there's something to save (and always the first time, when Mossa asks your name)
+$("meName").addEventListener("input", () => { $("meSave").hidden = !$("meSave").dataset.first && $("meName").value.trim().slice(0, 18) === me().name; });
+$("meSave").addEventListener("click", () => { const first = !!$("meSave").dataset.first; saveMe(); sfx.tick(); if (first) $("meClose").click(); else { $("meSave").hidden = true; toast(tr("Saved ✓")); } });
 $("meName").addEventListener("change", saveMe);
 $$("#meForm [data-form]").forEach(b => b.addEventListener("click", () => { me().form = b.dataset.form; persist(); sfx.tick(); $$("#meForm [data-form]").forEach(x => x.classList.toggle("on", x === b)); }));
 $("award").addEventListener("click", () => { if ($("award").classList.contains("legendary") && awardShowing) openMe(); });
@@ -11693,6 +11769,7 @@ $("glowRename").addEventListener("click", () => {
 });
 $("glowClose").addEventListener("click", () => show("glowCard", false));
 $("spClose").addEventListener("click", () => show("spCard", false));
+cornerCloses();
 // the test copy: a badge, and a way to bring your real nest over (a copy: the live one is never touched)
 if (STAGING) {
   $("testBadge").hidden = false; $("copyLive").hidden = false;
