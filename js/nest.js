@@ -709,7 +709,7 @@ const ROOM_KINDS = [
   { id: "garden", name: "Garden room", cost: 500, theme: "glowcap", note: "moss underfoot, glowcaps overhead" },
   { id: "study", name: "Crystal study", cost: 900, theme: "celestite", note: "quiet, blue and full of crystals" },
   { id: "lab", name: "Laboratory", place: true, theme: "celestite" },
-  { id: "shop", name: "Shop", place: true, theme: "abbey" },
+  { id: "shop", name: "Shop", place: true, theme: "smithy" },
   { id: "forge", name: "The Forge", place: true, theme: "smithy" },
   { id: "camp", name: "Explorers' camp", place: true, theme: "glowcap" },
   { id: "grotto", name: "Grotto", place: true, theme: "amethyst" },
@@ -731,6 +731,7 @@ function ensureLab() { return ensurePlace("lab"); }
 function ensurePlace(kind) {
   const had = save.rooms.find(r => r.kind === kind);
   if (had && kind === "forge" && had.theme === "malachite") had.theme = "smithy";
+  if (had && kind === "shop" && had.theme === "abbey") had.theme = "smithy";
   if (save.rooms.some(r => r.kind === kind)) return false;
   return !!save.rooms.push({ kind, on: [], theme: ROOM_KINDS.find(k => k.id === kind).theme });
 }

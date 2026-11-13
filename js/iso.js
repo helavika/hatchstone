@@ -523,7 +523,8 @@ const TEX_RAMPS = [
 let texIndex = null;
 function texShade(kind, x, y) {
   // positive: lighter, negative: darker
-  if (kind === "wood") { const g = pxNoise(x * 0.035, y * 0.3 + Math.floor(x / 31) * 3.1); if (pxHash(x >> 2, y >> 1) > 0.997) return -2; return g > 0.62 ? -1 : g < 0.2 ? 1 : 0; }
+  // thin grain lines, a few knots: texture, not blotches, so the shapes on a piece still read
+  if (kind === "wood") { const g = pxNoise(x * 0.12, y * 0.9 + Math.floor(x / 19) * 3.1); if (pxHash(x >> 1, y >> 1) > 0.998) return -2; return Math.abs(g - 0.5) < 0.035 ? -1 : g > 0.82 ? 1 : 0; }
   if (kind === "stone") { const g = pxFbm(x * 0.16, y * 0.16), sp = pxHash(x, y); return sp > 0.988 ? 1 : sp < 0.01 ? -1 : g > 0.69 ? -1 : g < 0.25 ? 1 : 0; }
   if (kind === "metal") { const sc = Math.abs(pxNoise(x * 0.04 + y * 0.12, y * 0.04) - 0.5) < 0.02; return sc ? 1 : pxHash(x, y) > 0.97 ? -1 : 0; }
   if (kind === "cloth") return (x + y) % 4 === 0 && pxHash(x >> 1, y >> 1) > 0.5 ? -1 : 0;
@@ -536,8 +537,8 @@ function texturize(d, w, h, glowPx) {
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const o = (y * w + x) * 4; if (d[o + 3] === 0 || glowPx.has(y * w + x)) continue;
     const m = texIndex.get((d[o] << 16) | (d[o + 1] << 8) | d[o + 2]); if (!m) continue;
-    // wood is darkened a step overall: real timber is brown, not orange
-    const sh = texShade(m.kind, x, y) + (m.kind === "wood" ? -1 : 0); if (!sh) continue;
+    // wood's brightest shade drops a step (real timber is brown, not orange); the others keep their contrast
+    const sh = texShade(m.kind, x, y) + (m.kind === "wood" && m.i === m.ramp.length - 1 ? -1 : 0); if (!sh) continue;
     // (wood never brightens into its top highlight: that reads as straw)
     const top = m.kind === "wood" && m.i < m.ramp.length - 1 ? m.ramp.length - 2 : m.ramp.length - 1;
     const c = m.ramp[clamp(m.i + sh, 0, Math.max(top, m.i))]; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2];
@@ -766,19 +767,41 @@ if (LANG === "uk") for (const p of PAINTINGS) p.name = tr(p.name);
 
 /** Every piece's picture: (ax, ay) inside it is the back corner of its footprint. t is one tile's width in art pixels. */
 /** A shop shelf along a wall (along u when dir is 1, along v when -1): planks of jars, packets and loaves. */
+/** A shop shelf along a wall (along u when dir is 1, along v when -1): four oak planks of clay jars, blue crocks, bottles, loaves and bolts of cloth. */
 function shopShelf(T, x, y, a, b, h, dir) {
-  const q = T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
-  const cols = [IC.p1, IC.b1, IC.y1, IC.g1, IC.r1, IC.l2, IC.w0];
-  const face = dir > 0 ? [q.Bv, q.Buv] : [q.Buv, q.Bu], [f0, f1] = face, len = Math.hypot(f1[0] - f0[0], f1[1] - f0[1]);
-  for (let s = 0; s < 4; s++) {
-    const lift = Math.round(h * (0.12 + s * 0.23));
-    for (let k = 0; k <= len; k++) { const f = k / len; T.px(f0[0] + (f1[0] - f0[0]) * f, f0[1] + (f1[1] - f0[1]) * f - lift, IC.w3); }
-    for (let k = 0; k < 6; k++) {
-      const f = (k + 0.6) / 6.4, px = f0[0] + (f1[0] - f0[0]) * f, py = f0[1] + (f1[1] - f0[1]) * f - lift - 1, c = cols[(k * 3 + s * 2) % cols.length], tall = 2 + ((k + s) % 3);
-      for (let j = 0; j < tall; j++) { T.px(px, py - j, c); T.px(px + 1, py - j, c); }
-      T.px(px, py - tall, IC.white);
+  const q = T.box(x, y, a, b, h, IC.w2, IC.w2, IC.w3);
+  const [f0, f1] = dir > 0 ? [q.Bv, q.Buv] : [q.Buv, q.Bu], len = Math.hypot(f1[0] - f0[0], f1[1] - f0[1]);
+  const at = (f, lift) => [f0[0] + (f1[0] - f0[0]) * f, f0[1] + (f1[1] - f0[1]) * f - lift];
+  // the dark back of the shelves, then the planks
+  T.poly([at(0.04, h * 0.06), at(0.96, h * 0.06), at(0.96, h * 0.94), at(0.04, h * 0.94)], IC.w3);
+  const rows = 4, rowH = h * 0.88 / rows;
+  for (let r = 0; r < rows; r++) {
+    const lift = h * 0.06 + r * rowH;
+    for (let k = 0; k <= len; k++) { const [px, py] = at(k / len, lift); T.px(px, py, IC.w1); T.px(px, py + 1, IC.w2); }
+    // goods along the plank, by row: crocks, jars, bottles, loaves and cloth
+    const kind = ["crock", "jar", "bottle", "bread"][r];
+    for (let n = 0; n < 5; n++) {
+      const f = 0.1 + n * 0.19, [px, py] = at(f, lift + 1), size = rowH * 0.62;
+      if (kind === "crock") { T.cyl(px, py, size * 0.38, Math.round(size * 0.55), IC.b0, IC.b1, IC.b2); T.disc(px, py - size * 0.55, size * 0.2, IC.b3); }
+      else if (kind === "jar") { T.cyl(px, py, size * 0.32, Math.round(size * 0.62), IC.r1, IC.r2, IC.r3); T.disc(px, py - size * 0.62, size * 0.32, IC.w3); T.line(px - size * 0.3, py - size * 0.3, px + size * 0.3, py - size * 0.3, IC.y0); }
+      else if (kind === "bottle") { T.cyl(px, py, size * 0.2, Math.round(size * 0.45), IC.g1, IC.g1, IC.g2); T.line(px, py - size * 0.45, px, py - size * 0.75, IC.g2); T.px(px, py - size * 0.78, IC.w3); }
+      else { T.ball(px, py - size * 0.25, size * 0.42, IC.w0, IC.w1, IC.w2, size * 0.26); T.line(px - size * 0.2, py - size * 0.4, px + size * 0.1, py - size * 0.3, IC.w2); }
     }
   }
+}
+/** Apothecary drawers along a wall: a grid of little drawers with brass pulls, a ledge on top with a mortar and pestle. */
+function shopDrawers(T, x, y, a, b, h) {
+  const q = T.box(x, y, a, b, h, IC.w2, IC.w2, IC.w3);
+  const [f0, f1] = [q.Buv, q.Bu], at = (f, up) => [f0[0] + (f1[0] - f0[0]) * f, f0[1] + (f1[1] - f0[1]) * f - up];
+  const cols = 4, rows = 6;
+  for (let r = 0; r <= rows; r++) for (let k = 0; k <= 40; k++) { const [px, py] = at(k / 40, h * 0.06 + r * h * 0.88 / rows); T.px(px, py, IC.w3); }
+  for (let c = 0; c <= cols; c++) for (let k = 0; k <= h * 0.88; k++) { const [px, py] = at(c / cols, h * 0.06 + k); T.px(px, py, IC.w3); }
+  for (let r = 0; r < rows; r++) for (let c = 0; c < cols; c++) {
+    const lo = h * 0.06 + r * h * 0.88 / rows, hi = lo + h * 0.88 / rows, c0 = (c + 0.1) / cols, c1 = (c + 0.9) / cols;
+    T.poly([at(c0, lo + 1), at(c1, lo + 1), at(c1, hi - 1), at(c0, hi - 1)], IC.w1);
+    const [px, py] = at((c + 0.5) / cols, (lo + hi) / 2); T.px(px, py, IC.y0); T.px(px + 1, py, IC.y1);
+  }
+  const [mx, my] = at(0.7, h); T.cyl(mx, my, 3, 3, IC.s1, IC.s2, IC.s3); T.line(mx, my - 3, mx + 3, my - 8, IC.w2);
 }
 /** A wooden barrel with iron hoops, full to the top. */
 function woodBarrel(t, T, cx, cy, fill) {
@@ -1111,24 +1134,27 @@ const ISO_ART = {
   },
   // ---- the shop
   shelves(t, T, ax, ay) {
-    // tall shelves against the wall, full of jars, packets and loaves
-    shopShelf(T, ax, ay + 1, t - 2, t * 0.24, Math.round(t * 2.1), 1);
+    // tall oak shelves against the wall, full of crocks, jars, bottles and loaves; a garland of herbs and onions hangs above
+    const h = Math.round(t * 2.1);
+    shopShelf(T, ax, ay + 1, t - 2, t * 0.3, h, 1);
+    for (let k = 0; k < 9; k++) { const f = (k + 0.5) / 9, x = ax - t * 0.6 + (2 * (t - 2)) * f, y = ay + 1 - h - 3 + (t - 2) * f; T.line(x, y, x, y + 4 + (k % 3) * 2, IC.w3); k % 3 === 1 ? T.ball(x, y + 7 + (k % 3) * 2, 2, IC.p0, IC.p1, IC.p2, 2.2) : (T.px(x - 1, y + 6, IC.g1), T.px(x, y + 7, IC.g0), T.px(x + 1, y + 6, IC.g2)); }
   },
   shelves2(t, T, ax, ay) {
-    // the same along the other wall: seed packets, in rows
-    shopShelf(T, ax, ay + 1, t * 0.24, t - 2, Math.round(t * 2.1), -1);
+    // apothecary drawers along the other wall
+    shopDrawers(T, ax, ay + 1, t * 0.3, t - 2, Math.round(t * 1.8));
   },
   counter(t, T, ax, ay) {
-    // a wooden counter with a cloth runner, a cookie jar, a basket of berries, scales and a brass bell
-    const a = t - 2, b = t * 0.4, h = Math.round(t * 0.8), x = ax, y = ay + t * 0.1;
-    const q = T.box(x, y, a, b, h, IC.w0, IC.w2, IC.w3);
-    for (let k = 1; k < 4; k++) T.line(q.Bv[0] + k * a / 2, q.Bv[1] + k * a / 4 - 1, q.Bv[0] + k * a / 2, q.Bv[1] + k * a / 4 - h + 2, IC.w3);
-    T.box(x + 2, y + 1 - h, a - 2, b * 0.45, 1, IC.p1, IC.p2, IC.p3, false);
+    // a plank counter with panelled front, and on top: brass scales, a ledger, a cash box and a jar of sweets
+    const a = t - 2, b = t * 0.42, h = Math.round(t * 0.85), x = ax, y = ay + t * 0.08;
+    const q = T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
+    // panels on the front face, a darker plinth at the bottom
+    for (let k = 0; k < 4; k++) { const f0 = k / 4 + 0.03, f1 = (k + 1) / 4 - 0.03, p = f => [q.Bv[0] + (q.Buv[0] - q.Bv[0]) * f, q.Bv[1] + (q.Buv[1] - q.Bv[1]) * f];
+      const [a0, a1] = [p(f0), p(f1)]; T.poly([[a0[0], a0[1] - h * 0.18], [a1[0], a1[1] - h * 0.18], [a1[0], a1[1] - h * 0.85], [a0[0], a0[1] - h * 0.85]], IC.w3); T.poly([[a0[0] + 1, a0[1] - h * 0.22], [a1[0] - 1, a1[1] - h * 0.22], [a1[0] - 1, a1[1] - h * 0.8], [a0[0] + 1, a0[1] - h * 0.8]], IC.w2); }
     const on = f => [x - b + a * f * 2, y + b / 2 + a * f - h];
-    { const [jx, jy] = on(0.3); T.cyl(jx, jy, t * 0.17, Math.round(t * 0.4), IC.b0, IC.b0, IC.b1); T.cyl(jx, jy - Math.round(t * 0.4), t * 0.12, 1, IC.w1, IC.w1, IC.w2); for (const [dx, dy] of [[-1, -2], [1, -4], [0, -6], [-2, -5]]) T.px(jx + dx, jy + dy, IC.w1); }
-    { const [bx, by] = on(0.62); T.cyl(bx, by, t * 0.18, Math.round(t * 0.16), IC.w1, IC.w1, IC.w2); for (let k = 0; k < 6; k++) T.ball(bx - 3 + (k % 3) * 3, by - t * 0.16 - 1 - Math.floor(k / 3) * 2, 1.4, IC.l1, IC.l3, IC.l4); }
-    { const [sx, sy] = on(0.9); T.line(sx, sy, sx, sy - t * 0.45, IC.w2); T.line(sx - 5, sy - t * 0.45, sx + 5, sy - t * 0.45, IC.y1); T.disc(sx - 5, sy - t * 0.3, 3, IC.y1); T.disc(sx + 5, sy - t * 0.3, 3, IC.y1); }
-    { const [bx, by] = on(1.15); T.ball(bx, by - 2, 2.2, IC.y0, IC.y1, IC.w2); T.px(bx, by - 5, IC.w2); }
+    { const [sx, sy] = on(0.22); T.line(sx, sy, sx, sy - t * 0.5, IC.y1); T.line(sx - 6, sy - t * 0.5, sx + 6, sy - t * 0.5, IC.y0); for (const d of [-6, 6]) { T.line(sx + d, sy - t * 0.5, sx + d - 2, sy - t * 0.32, IC.y1); T.line(sx + d, sy - t * 0.5, sx + d + 2, sy - t * 0.32, IC.y1); T.disc(sx + d, sy - t * 0.31, 3, IC.y1, 1.2); } T.cyl(sx, sy, 3, 1, IC.y1, IC.y1, IC.w2); }
+    { const [lx, ly] = on(0.55); T.poly([[lx - 7, ly - 1], [lx + 1, ly + 3], [lx + 8, ly - 1], [lx, ly - 5]], IC.s0); T.line(lx, ly - 5, lx + 1, ly + 3, IC.s2); for (let k = 0; k < 3; k++) T.line(lx - 5 + k, ly - 1 - k * 0.5, lx - 1 + k, ly + 1 - k * 0.5, IC.s2); }
+    { const [cx2, cy2] = on(0.85); T.box(cx2 - 3, cy2 - 4, 4, 3, 4, IC.w1, IC.w2, IC.w3); T.px(cx2 - 1, cy2 - 3, IC.y0); }
+    { const [jx, jy] = on(1.08); T.cyl(jx, jy, t * 0.12, Math.round(t * 0.3), IC.b0, IC.b0, IC.b1); for (const [dx, dy, c] of [[-1, -2, IC.r1], [1, -3, IC.y1], [0, -5, IC.p1]]) T.px(jx + dx, jy + dy, c); }
   },
   crates(t, T, ax, ay) {
     const cx = ax, cy = ay + t / 2, a = t * 0.4, b = t * 0.4, h = Math.round(t * 0.46);
@@ -1143,7 +1169,16 @@ const ISO_ART = {
       T.ball(cx + dx, cy + dy - r, r, ...c, r * 1.15); T.px(cx + dx, cy + dy - r * 2.2, IC.w3); T.px(cx + dx + 1, cy + dy - r * 2.3, IC.w3);
     }
   },
-  barrel(t, T, ax, ay) { woodBarrel(t, T, ax, ay + t / 2, IC.b1); },
+  barrel(t, T, ax, ay) {
+    // two barrels lying on a cradle, taps on their ends
+    const cx = ax, cy = ay + t / 2;
+    T.box(cx - t * 0.1, cy - t * 0.3, t * 0.45, t * 0.12, 3, IC.w2, IC.w3, IC.w3);
+    for (const [dx, dy] of [[-t * 0.2, t * 0.08], [t * 0.12, -t * 0.08]]) {
+      T.ball(cx + dx, cy + dy - t * 0.32, t * 0.26, IC.w1, IC.w2, IC.w3, t * 0.24);
+      for (const k of [-0.15, 0.15]) T.line(cx + dx + t * k - 1, cy + dy - t * 0.55, cx + dx + t * k + 1, cy + dy - t * 0.1, IC.s3);
+      T.disc(cx + dx - t * 0.2, cy + dy - t * 0.3, t * 0.12, IC.w2, t * 0.16); T.px(cx + dx - t * 0.3, cy + dy - t * 0.28, IC.y1);
+    }
+  },
   barrel2(t, T, ax, ay) {
     // the slack tub by the anvil: a wide half-barrel of dark water for quenching, a wisp of steam over it
     const cx = ax, cy = ay + t / 2, r = t * 0.36, h = Math.round(t * 0.38);
