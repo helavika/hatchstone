@@ -758,6 +758,34 @@
   #arrangeBar .cta { margin-top: 0; padding: 8px 18px; font-size: 18px; }
   body.arranging #nestBottom { visibility: hidden; }
   .decor img.px-thumb { width: 48px; height: 48px; object-fit: contain; image-rendering: pixelated; flex: 0 0 48px; }
+  .shop-tabs { position: sticky; top: 0; z-index: 2; display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; padding: 3px 3px 10px; background: var(--px-panel); }
+  .shop-tabs button { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 2px 6px; border: 0; cursor: pointer; color: var(--soft); background: var(--px-deep); box-shadow: var(--px-frame); font: inherit; font-size: 15px; }
+  .shop-tabs button .ic { width: 28px; height: 28px; margin: 0; }
+  .shop-tabs button.on { background: var(--px-gold); color: var(--px-ink); }
+  /* the catalogue keeps one size whichever tab is open */
+  #shop .card.wide, #faq .card.wide { height: calc(100vh - var(--top) - var(--bottom) - 150px); height: calc(100dvh - var(--top) - var(--bottom) - 150px); max-height: 760px; }
+  #shop .scroll, #faq .scroll { flex: 1; }
+  #shop .card.wide > .orn, #shop #shopSub { display: none; }
+  #shop .space-bar { margin-top: 4px; }
+  .cat-chips { display: flex; gap: 6px; overflow-x: auto; padding: 3px 3px 8px; scrollbar-width: none; }
+  .cat-chips button { flex: 1 0 auto; border: 0; padding: 5px 8px; cursor: pointer; font: inherit; font-size: 15px; color: var(--soft); background: rgba(255, 255, 255, .06); box-shadow: 0 0 0 2px var(--px-ink); }
+  .cat-chips button.on { color: var(--px-ink); background: #ffe9a8; }
+  .tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); grid-auto-rows: 1fr; gap: 10px; padding: 8px 3px; }
+  .tile { position: relative; display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 10px 4px 8px; border: 0; cursor: pointer; color: inherit; font: inherit;
+    background: linear-gradient(rgba(255, 233, 168, .07), rgba(255, 255, 255, .03)); box-shadow: var(--px-frame); }
+  .tile .em { font-size: 34px; width: 56px; height: 56px; display: grid; place-items: center; object-fit: contain; image-rendering: pixelated; margin: 0; }
+  .tile b { font-weight: 400; font-size: 15px; line-height: 1.1; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .tile small { margin-top: auto; color: var(--px-gold); font-size: 14px; text-align: center; }
+  .tile.placed small { color: #b9e88a; }
+  .tile.dim, .tile:disabled { opacity: .45; }
+  .tile.on { outline: 3px solid var(--px-gold); outline-offset: -3px; background: rgba(255, 233, 168, .16); }
+  .tile.legend { background: linear-gradient(rgba(255, 210, 120, .2), rgba(255, 255, 255, .03)); }
+  .shop-pick { display: flex; align-items: center; gap: 10px; margin-top: 10px; padding: 8px 10px; background: var(--px-deep); box-shadow: var(--px-frame); text-align: left; }
+  .shop-pick .em { font-size: 28px; width: 44px; height: 44px; flex: none; object-fit: contain; image-rendering: pixelated; display: grid; place-items: center; margin: 0; }
+  .shop-pick > span { flex: 1; min-width: 0; }
+  .shop-pick b { display: block; color: #ffe9a8; font-weight: 400; }
+  .shop-pick small { font-size: 14px; color: var(--soft); }
+  .shop-pick .act { flex: none; padding: 8px 12px; font-size: 16px; }
   .space-bar { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; margin: 12px 2px 0; font-size: 16px; color: var(--soft); }
   .space-bar b { color: var(--px-gold); font-weight: 400; }
   .space-bar i { grid-column: 1 / -1; height: 8px; background: linear-gradient(90deg, var(--px-gold) calc(var(--k) * 100%), var(--px-deep) 0); box-shadow: 0 0 0 3px var(--px-ink); }
@@ -1048,6 +1076,7 @@
     <h2>Decorate the nest</h2>
     <p class="sub" id="shopSub"></p>
     <div class="scroll" id="shopList"></div>
+    <div id="shopPick" class="shop-pick" hidden></div>
     <button class="ghost" id="shopClose">done</button>
   </div>
 </div>
@@ -1867,6 +1896,21 @@ const UK = {
   "Well, I'll be. I'm going to tell everyone!": "Оце так! Розкажу всім-всім!",
   "I'll write this one down... right after a little nap.": "Я це запишу... одразу після коротенької дрімоти.",
   "Thank you, friend. I can finally rest easy on my watch.": "Дякую, друже. Тепер я можу спокійно стояти на варті.",
+  "Furniture": "Меблі",
+  "Look": "Вигляд",
+  "Wear": "Вбрання",
+  "All": "Усе",
+  "Comfort": "Затишок",
+  "Light": "Світло",
+  "Pretty things": "Прикраси",
+  "Toys": "Іграшки",
+  "Place here": "Поставити тут",
+  "Buy": "Купити",
+  "Basics": "Основи",
+  "Friends & saving": "Друзі й збереження",
+  "About": "Про гру",
+  "Each room has its own furniture, backdrop and bed. Switch rooms with the arrows at the sides of the nest.": "У кожної кімнати свої меблі, тло й ліжечко. Перемикай кімнати стрілками з боків гніздечка.",
+  "Accessories for {0}: buy once, then any glowling can wear it. Tap to put on or take off.": "Прикраси для {0}: купуєш один раз, і носити може будь-який глоулінг. Торкнись, щоб одягнути або зняти.",
   "Spring Bloom": "Весняне цвітіння",
   "Firefly Nights": "Ночі світлячків",
   "Harvest Moon": "Місяць урожаю",
@@ -5922,26 +5966,50 @@ function finishSnack(sn) {
 
 const hasDecor = id => save.decor[id] && save.decor[id].on;
 
+/** The Decor sheet works like a catalogue: tabs along the top, then a grid of things, and a strip at the bottom for the one you picked. */
+const SHOP_TABS = [["decor", "candle", "Furniture"], ["look", "grotto", "Look"], ["rooms", "nest", "Rooms"], ["wear", "heart", "Wear"]];
+const DECOR_CATS = [["all", "All"], ["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
+const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
+  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty" };
+const shopOf = () => (game.shop = game.shop || { tab: "decor", cat: "all", pick: null });
 function openShop() {
   sfx.tick();
+  const st = shopOf(), iso = N.iso;
   $("shopSub").innerHTML = tr("You have {0}. Glowlings visit the things they love.", ic("shard") + save.shards);
-  const now = currentTheme();
-  const view = roomView();
-  const viewSeg = `<h3>${tr("View")}</h3><div class="seg view-seg"><button data-view="front" class="${view === "front" ? "on" : ""}">${tr("Straight on")}</button><button data-view="iso" class="${view === "iso" ? "on" : ""}">${tr("Isometric")}</button></div>`;
-  const themes = viewSeg + `<h3>${tr("Backdrop")}</h3><div class="themes">${THEMES.map(t => {
-    const ok = t.ok();
-    return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
-  }).join("")}</div><h3>${tr("Decorations")}</h3>`;
-  const iso = N.iso, used = isoSpaceUsed();
-  const space = iso ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "";
-  const rearr = iso ? `<button class="act arrange-btn" id="arrangeOpen">✥ ${tr("Rearrange the room")}</button>` : "";
-  $("shopList").innerHTML = roomsList() + themes + space + rearr + DECOR.filter(d => iso || !d.wall || DRAW_DECOR[d.id]).map(d => {
-    const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
-    const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
-    const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
-    return `<button class="decor${owned ? " owned" : ""}${d.legend ? " legend" : ""}" data-id="${d.id}" ${locked || (!owned && save.shards < d.cost) ? "disabled" : ""}>${decorThumb(d)}<span><b>${d.name}</b><small>${note}</small></span><span class="cost">${owned ? (owned.on ? tr("placed ✓") : decorRoom(d.id) >= 0 ? tr("in {0}", roomName(decorRoom(d.id))) : tr("stored")) : "✦ " + d.cost}</span></button>`;
-  }).join("") + accessoryList();
-  $$("#shopList .decor:not(.acc)").forEach(b => b.addEventListener("click", () => buyDecor(b.dataset.id)));
+  const tabs = `<div class="shop-tabs">${SHOP_TABS.map(([id, icon, name]) => `<button data-shoptab="${id}" class="${st.tab === id ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`;
+  let body = "";
+  if (st.tab === "look") {
+    const now = currentTheme(), view = roomView();
+    body = `<h3>${tr("View")}</h3><div class="seg view-seg"><button data-view="front" class="${view === "front" ? "on" : ""}">${tr("Straight on")}</button><button data-view="iso" class="${view === "iso" ? "on" : ""}">${tr("Isometric")}</button></div>`
+      + `<h3>${tr("Backdrop")}</h3><div class="themes">${THEMES.map(t => {
+        const ok = t.ok();
+        return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
+      }).join("")}</div>`;
+  } else if (st.tab === "rooms") {
+    body = roomsList() + `<p class="sub">${tr("Each room has its own furniture, backdrop and bed. Switch rooms with the arrows at the sides of the nest.")}</p>`;
+  } else if (st.tab === "wear") {
+    body = accessoryList();
+  } else {
+    const used = isoSpaceUsed();
+    const items = DECOR.filter(d => (iso || !d.wall || DRAW_DECOR[d.id]) && (st.cat === "all" || DECOR_CAT[d.id] === st.cat));
+    body = `<div class="cat-chips">${DECOR_CATS.map(([id, name]) => `<button data-cat="${id}" class="${st.cat === id ? "on" : ""}">${tr(name)}</button>`).join("")}</div>`
+      + (iso ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "")
+      + `<div class="tiles">${items.map(d => {
+        const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
+        const tag = owned ? (owned.on ? tr("placed ✓") : decorRoom(d.id) >= 0 ? tr("in {0}", roomName(decorRoom(d.id))) : tr("stored")) : locked ? ic("lock") : "✦ " + d.cost;
+        return `<button class="tile${owned ? " owned" : ""}${owned && owned.on ? " placed" : ""}${d.legend ? " legend" : ""}${locked || (!owned && save.shards < d.cost) ? " dim" : ""}${st.pick === d.id ? " on" : ""}" data-pick="${d.id}">${decorThumb(d)}<b>${d.name}</b><small>${tag}</small></button>`;
+      }).join("")}</div>`
+      + (iso ? `<button class="act arrange-btn" id="arrangeOpen">✥ ${tr("Rearrange the room")}</button>` : "");
+  }
+  $("shopList").innerHTML = tabs + `<div class="shop-body">${body}</div>`;
+  renderShopPick();
+  $$("#shopList [data-shoptab]").forEach(b => b.addEventListener("click", () => { st.tab = b.dataset.shoptab; st.pick = null; openShop(); }));
+  $$("#shopList [data-cat]").forEach(b => b.addEventListener("click", () => { st.cat = b.dataset.cat; st.pick = null; openShop(); }));
+  $$("#shopList [data-pick]").forEach(b => b.addEventListener("click", () => {
+    sfx.tick(); st.pick = b.dataset.pick;
+    $$("#shopList [data-pick]").forEach(x => x.classList.toggle("on", x === b));
+    renderShopPick();
+  }));
   $$("#shopList .acc").forEach(b => b.addEventListener("click", () => wearAccessory(b.dataset.acc)));
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
   $$("#shopList [data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
@@ -5949,6 +6017,19 @@ function openShop() {
   $$("#shopList [data-room]").forEach(b => b.addEventListener("click", () => { goRoom(Number(b.dataset.room)); openShop(); }));
   $("roomAdd")?.addEventListener("click", addRoom);
   show("shop", true);
+}
+/** The strip under the grid: what the picked thing is, who loves it, and the one button that buys, places or puts it away. */
+function renderShopPick() {
+  const st = shopOf(), d = st.tab === "decor" && DECO[st.pick], box = $("shopPick");
+  box.hidden = !d;
+  if (!d) return;
+  const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
+  const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
+  const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
+  const where = owned && !owned.on && decorRoom(d.id) >= 0 ? ` · ${tr("in {0}", roomName(decorRoom(d.id)))}` : "";
+  const label = owned ? (owned.on ? tr("Put away") : tr("Place here")) : `${tr("Buy")} ✦ ${d.cost}`;
+  box.innerHTML = `${decorThumb(d)}<span><b>${d.name}</b><small>${note}${where}</small></span><button class="act${owned ? "" : " buy"}" id="shopPickGo" ${locked || (!owned && save.shards < d.cost) ? "disabled" : ""}>${label}</button>`;
+  $("shopPickGo").addEventListener("click", () => buyDecor(d.id));
 }
 
 // ---------- the music box: pick the nest's song from the ones you've unlocked, and play the game's sounds ----------
@@ -5990,11 +6071,11 @@ function accessoryList() {
   const cr = activeCreature();
   if (!cr) return "";
   const owned = save.wardrobe || {};
-  return `<h3>${tr("Accessories for {0}", cr.name)}</h3>` + ACCESSORIES.map(a => {
+  return `<p class="sub">${tr("Accessories for {0}: buy once, then any glowling can wear it. Tap to put on or take off.", cr.name)}</p><div class="tiles">` + ACCESSORIES.map(a => {
     const has = owned[a.id], on = cr.acc === a.id;
     const img = `<img class="em px-thumb" src="${creatureImage(specOf(cr), { art: 24, level: cr.level, shiny: cr.shiny, acc: a.id })}" alt="">`;
-    return `<button class="decor acc${has ? " owned" : ""}" data-acc="${a.id}" ${!has && save.shards < a.cost ? "disabled" : ""}>${img}<span><b>${a.emoji} ${a.name}</b><small>${has ? (on ? tr("tap to take it off") : tr("tap to put it on")) : tr("any glowling can wear it")}</small></span><span class="cost">${on ? tr("worn ✓") : has ? tr("owned") : "✦ " + a.cost}</span></button>`;
-  }).join("");
+    return `<button class="tile acc${has ? " owned" : ""}${on ? " placed on" : ""}" data-acc="${a.id}" ${!has && save.shards < a.cost ? "disabled" : ""}>${img}<b>${a.name}</b><small>${on ? tr("worn ✓") : has ? tr("owned") : "✦ " + a.cost}</small></button>`;
+  }).join("") + "</div>";
 }
 function wearAccessory(id) {
   const cr = activeCreature(), a = ACCESSORIES.find(x => x.id === id);
@@ -9655,13 +9736,17 @@ $("taskPill").addEventListener("click", openTasks);
 $("oilPill").addEventListener("click", () => { sfx.tick(); openLantern(); });
 $("lanternClose").addEventListener("click", () => show("lantern", false));
 setInterval(() => { if ($("topbar").classList.contains("on")) renderOilPill(); }, 1000);
+const FAQ_SECTIONS = [["basics", "egg", "Basics", [0, 1, 4]], ["pets", "heart", "Glowlings", [2, 5, 3]], ["save", "duo", "Friends & saving", [6, 7, 9]], ["about", "help", "About", [8, 10]]];
 const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now. A well-rested, happy glowling also cheers you on when you crack an egg: a few more shards."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."], ["Who made Hatchstone?", "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new)."]];
 function openFaq() {
   sfx.tick();
   const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
   // [words](https://…) in an answer becomes a link that opens in a new tab
   const links = t => t.replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, (_, w, u) => `<a href="${u}" target="_blank" rel="noopener">${w}</a>`);
-  $("faqList").innerHTML = FAQ.map(([q, a], i) => `<details${i ? "" : " open"}><summary>${esc(tr(q))}</summary><p>${links(esc(tr(a)))}</p></details>`).join("");
+  const sec = FAQ_SECTIONS.find(x => x[0] === openFaq.tab) || FAQ_SECTIONS[0];
+  $("faqList").innerHTML = `<div class="shop-tabs">${FAQ_SECTIONS.map(([id, icon, name]) => `<button data-faqtab="${id}" class="${id === sec[0] ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`
+    + sec[3].map((n, i) => { const [q, a] = FAQ[n]; return `<details${i ? "" : " open"}><summary>${esc(tr(q))}</summary><p>${links(esc(tr(a)))}</p></details>`; }).join("");
+  $$("#faqList [data-faqtab]").forEach(b => b.addEventListener("click", () => { openFaq.tab = b.dataset.faqtab; openFaq(); }));
   show("faq", true);
 }
 $$(".faq-btn").forEach(b => b.addEventListener("click", ev => { ev.stopPropagation(); setMenu(false); openFaq(); }));
