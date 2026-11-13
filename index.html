@@ -692,6 +692,39 @@
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
   #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
+  /* one cell for everyone: the glowling you look after, its mood, and the room's count */
+  #nestBottom .switch-wrap, #homePill { display: none !important; }
+  #residentsBtn { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px 4px 6px; position: relative; }
+  #residentsBtn img { width: 36px; height: 36px; image-rendering: pixelated; }
+  #residentsBtn span { display: flex; flex-direction: column; align-items: flex-start; line-height: 1.05; }
+  #residentsBtn b { font-weight: 400; color: #ffe9a8; font-size: 17px; }
+  #residentsBtn small { font-size: 13px; color: var(--soft); }
+  #residentsBtn > .ic:last-child { width: 22px; height: 22px; margin: 0 0 0 4px; opacity: .8; }
+  .ic.mood { width: 16px; height: 16px; margin: 0; }
+  #residentsBtn .mood { position: absolute; left: 32px; top: 2px; }
+  .ic.mood.want { animation: pxBob .8s steps(2) infinite; }
+  i.mood.zz { font-style: normal; font-size: 13px; color: #b8e6f5; }
+  #residentsBtn i.mood.zz { position: absolute; left: 36px; top: 0; }
+  /* the residents sheet: a drop zone per room */
+  .res-zone { margin: 8px 0; padding: 4px 8px 8px; background: rgba(255, 255, 255, .03); box-shadow: 0 0 0 2px var(--px-deep); transition: background .15s; }
+  .res-zone.here { box-shadow: 0 0 0 2px var(--px-edge); }
+  .res-zone.drop { background: rgba(255, 233, 168, .14); box-shadow: 0 0 0 3px var(--px-gold); }
+  .res-zone h3 { display: flex; justify-content: space-between; margin: 6px 0; }
+  .res-zone h3 span { color: var(--soft); letter-spacing: 0; }
+  .res-zone .sub { grid-column: 1 / -1; margin: 6px 0; font-size: 14px; }
+  .res { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 2px; border: 0; cursor: grab; touch-action: none; user-select: none; -webkit-user-select: none;
+    color: inherit; font: inherit; background: var(--px-deep); box-shadow: var(--px-frame); }
+  .res.on { background: var(--px-gold-lo); }
+  .res img { width: 40px; height: 40px; image-rendering: pixelated; pointer-events: none; }
+  .res small { font-size: 12px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .res .mood { position: absolute; top: 3px; right: 3px; }
+  .res.out img { opacity: .5; filter: grayscale(.5); }
+  .res .away { color: var(--soft); font-size: 11px; }
+  .res.lifted { opacity: .35; }
+  .res-ghost { position: fixed; z-index: 60; width: 64px; pointer-events: none; transform: translate(-50%, -60%) rotate(-6deg) scale(1.1); background: var(--px-raise); }
+  #homeSheet .card { max-height: calc(100dvh - 40px); display: flex; flex-direction: column; }
+  #homeList { overflow: auto; min-height: 0; }
+
   /* awards: a trophy drops in from the top, and the book keeps them by rarity */
   #award { position: fixed; z-index: 40; left: 50%; top: calc(var(--top) + 8px); display: flex; align-items: center; gap: 12px; min-width: min(300px, calc(100vw - 24px)); padding: 10px 16px 10px 12px;
     transform: translate(-50%, -140%); transition: transform .4s cubic-bezier(.2, .9, .3, 1.2); pointer-events: none; text-align: left; background: var(--px-raise) !important;
@@ -1101,6 +1134,7 @@
     <button class="act" id="playBtn" data-fill="joy"><i class="ic" data-ic="sparkle"></i>Play</button>
     <button class="act" id="sleepBtn" data-fill="energy"><i class="ic" data-ic="moon"></i>Sleep</button>
   </div>
+  <button class="act" id="residentsBtn" aria-label="Who lives where"></button>
   <div class="switch-wrap"><button class="sw-arrow" id="swPrev" aria-label="Previous glowlings">‹</button><div id="switcher"></div><button class="sw-arrow" id="swNext" aria-label="More glowlings">›</button></div>
 </div>
 
@@ -1123,7 +1157,7 @@
 
 <div id="homeSheet" class="overlay modal hidden">
   <div class="card glass dark">
-    <h2>Who's at home</h2>
+    <h2>Who lives where</h2>
     <p class="sub" id="homeSub"></p>
     <div id="homeList"></div>
     <button class="ghost" id="homeClose">close</button>
@@ -1869,7 +1903,7 @@ const UK = {
   "{0} came home ✦": "{0} вже вдома ✦",
   "{0} is out exploring: tap to call it home": "{0} досліджує грот: торкнись, щоб покликати додому",
   "The nest is cozy, but small: {0} glowlings fit at home at once.": "Гніздечко затишне, але маленьке: вдома вміщається {0} глоулінгів одночасно.",
-  "The others are out exploring the grotto, having a lovely time. Tap one in the row below to call it home.": "Інші досліджують грот і чудово проводять час. Торкнись когось у рядку внизу, щоб покликати додому.",
+  "The others are out exploring the grotto, having a lovely time. Tap the glowlings button below to see who lives where, and call them home.": "Інші досліджують грот і чудово проводять час. Торкнись кнопки з глоулінгами внизу, щоб побачити, хто де живе, і покликати додому.",
   "Music box": "Музична шафа",
   "sways to the music box": "погойдується під музику",
   "meet a legendary glowling": "зустрінь легендарного глоулінга",
@@ -1996,6 +2030,16 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "No space in the {0}: move someone out first": "Місць немає ({0}): спершу когось переселити",
+  "{0} now lives in the {1} ✦": "{0} тепер живе тут: {1} ✦",
+  "{0} went exploring 🧭 the longer the trip, the more it brings back": "{0} вирушає досліджувати 🧭 що довша мандрівка, то більше гостинців",
+  "Each room fits {0} glowlings. Drag one onto another room to move it in, or tap it to look after it.": "У кожній кімнаті вміщається {0} глоулінгів. Перетягни когось в іншу кімнату, щоб переселити, або торкнись, щоб доглянути.",
+  "empty: drag someone here": "порожньо: перетягни когось сюди",
+  "Exploring": "У мандрах",
+  "drag someone here to send them exploring": "перетягни сюди, щоб відправити в мандри",
+  "+{0} elsewhere": "+{0} деінде",
+  "everyone's here": "усі тут",
+  "Who lives where": "Хто де живе",
   "Awards": "Нагороди",
   "Common": "Звичайні",
   "Rare": "Рідкісні",
@@ -5560,7 +5604,7 @@ const TALKS = {
   firstGrotto: () => [[MOSSA, "This is the Grotto. Every level is a geode, each a little harder than the last.", "#mapList .lvl.next"],
     [MOSSA, "Find the weak spot and you'll need fewer taps. Fewer taps, more stars.", "#mapList .lvl.next"],
     [MOSSA, "And look up: once a day a moon egg appears. Something special sleeps in it.", "#moonBtn"]],
-  firstExplore: cap => [[MOSSA, tr("The nest is cozy, but small: {0} glowlings fit at home at once.", cap)], [MOSSA, "The others are out exploring the grotto, having a lovely time. Tap one in the row below to call it home.", "#nestBottom .switch-wrap"]],
+  firstExplore: cap => [[MOSSA, tr("The nest is cozy, but small: {0} glowlings fit at home at once.", cap)], [MOSSA, "The others are out exploring the grotto, having a lovely time. Tap the glowlings button below to see who lives where, and call them home.", "#residentsBtn"]],
   firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine.", spotEgg], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.", "#polishDone"]],
   firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
     [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it.", "#forgeList"]],
@@ -6213,12 +6257,19 @@ function renderNest(full) {
   $("playBtn").classList.toggle("want", wants === "lonely");
   $("sleepBtn").classList.toggle("want", wants === "sleepy");
   $("playBtn").disabled = cr.sleeping;
+  renderResidentsBtn(cr);
   if (full) {
     $("switcher").innerHTML = save.creatures.map(c =>
       `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}${c.out ? " out" : ""}" title="${c.out ? tr("{0} is out exploring: tap to call it home", c.name) : c.name}"><img class="px2" style="width:40px;height:40px" src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="${c.name}"></button>`).join("");
     $$("#switcher button").forEach(b => b.addEventListener("click", () => selectCreature(Number(b.dataset.id))));
     requestAnimationFrame(switchArrows);
   }
+}
+/** The one cell under the needs: who you're looking after, their mood, and how full this room is. Tap for everyone, room by room. */
+function renderResidentsBtn(cr) {
+  const here = residents(save.room).length, others = save.creatures.length - here;
+  const html = `<img src="${creatureImage(specOf(cr), { art: 20, level: cr.level, shiny: cr.shiny, acc: cr.acc })}" alt="">${moodIcon(cr)}<span><b>${here}/${homeCap()}</b><small>${others ? tr("+{0} elsewhere", others) : tr("everyone's here")}</small></span>${ic("nest")}`;
+  if ($("residentsBtn").dataset.h !== html) { $("residentsBtn").dataset.h = html; $("residentsBtn").innerHTML = html; }
 }
 /** The arrows beside the glowling row show only where there are more glowlings to scroll to. */
 function switchArrows() {
@@ -6460,7 +6511,11 @@ function goRoom(i) {
   isoLayoutCache = null;
   persist();
   [N.bedX, N.bedY] = roomSpot("bed");
-  // everyone comes along, and wanders in from the middle of the room
+  // the room's own glowlings are here; the one you look after is one of them
+  syncActors();
+  const here = residents(i);
+  if (here.length && !here.some(c => c.id === save.active)) save.active = here[0].id;
+  // they wander in from the middle of the room
   for (const a of actors.values()) { const [x, y] = roomSpot("rug"); a.x = a.tx = x + rand(-1, 1) * N.base * 0.6; a.y = a.ty = y + rand(-0.5, 0.5) * N.base * 0.3; a.goal = a.friend = a.decor = null; if (a.state !== "sleep") { a.state = "idle"; a.t = rand(0.5, 1.5); } }
   sfx.tick();
   renderNest(true);
@@ -6556,18 +6611,51 @@ const NEST_UP_COST = [150, 300, 500];
  */
 function settleHome() {
   const cap = homeCap(), sent = [];
-  let home = save.creatures.filter(c => !c.out);
-  while (home.length > cap) {
-    const free = home.filter(c => c.id !== save.active), awake = free.filter(c => !c.sleeping);
-    const c = (awake.length ? awake : free).sort((p, q) => (p.homeAt || p.born || 0) - (q.homeAt || q.born || 0))[0];
-    if (!c) break;
-    c.out = true; c.outAt = Date.now(); c.sleeping = false; c.selfSlept = false;
-    home = home.filter(h => h !== c); sent.push(c);
+  for (let r = 0; r < save.rooms.length; r++) {
+    let home = residents(r);
+    while (home.length > cap) {
+      const free = home.filter(c => c.id !== save.active), awake = free.filter(c => !c.sleeping);
+      const c = (awake.length ? awake : free).sort((p, q) => (p.homeAt || p.born || 0) - (q.homeAt || q.born || 0))[0];
+      if (!c) break;
+      c.out = true; c.outAt = Date.now(); c.sleeping = false; c.selfSlept = false;
+      home = home.filter(h => h !== c); sent.push(c);
+    }
   }
-  const away = save.creatures.filter(c => c.out).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
-  while (home.length < cap && away.length) { const c = away.shift(); exploreFind(c); c.out = false; c.homeAt = Date.now(); c.last = Date.now(); home.push(c); }
+  // explorers come back to their own room if it has space, or to any room that has (not the ones you sent out on purpose)
+  const away = save.creatures.filter(c => c.out && !c.roam).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
+  for (const c of away) {
+    const r = [roomOf(c), ...save.rooms.map((_, i) => i)].find(i => residents(i).length < cap);
+    if (r === undefined) break;
+    exploreFind(c); c.out = false; c.room = r; c.homeAt = Date.now(); c.last = Date.now();
+  }
   if (sent.length) { persist(); if (typeof updateTopbar === "function") updateTopbar(); }
   return sent;
+}
+/** Which room a glowling lives in (the nest, if its room is gone), and who lives in a room. */
+function roomOf(c) { return (c.room || 0) < save.rooms.length ? c.room || 0 : 0; }
+function residents(r) { return save.creatures.filter(c => !c.out && roomOf(c) === r); }
+/** Move a glowling to a room (calling it home if it's out): false if that room is full. */
+function moveGlowling(id, r) {
+  const c = save.creatures.find(c => c.id === id);
+  if (!c || (!c.out && roomOf(c) === r)) return false;
+  if (residents(r).length >= homeCap()) { toast(tr("No space in the {0}: move someone out first", roomName(r).toLowerCase())); sfx.tick(); return false; }
+  const found = c.out ? exploreFind(c) : null;
+  c.out = false; c.roam = false; c.room = r; c.homeAt = c.last = Date.now();
+  if (r !== save.room && save.active === id) save.active = residents(save.room)[0]?.id ?? id;
+  sfx.chirp(specOf(c).voice);
+  toast(tr("{0} now lives in the {1} ✦", c.name, roomName(r).toLowerCase()) + findNote(c, found));
+  persist(); syncActors(); renderNest(true); updateTopbar();
+  return true;
+}
+/** Send a glowling out exploring on purpose: it stays out until you call it back. */
+function sendExploring(id) {
+  const c = save.creatures.find(c => c.id === id);
+  if (!c || c.out) return false;
+  c.out = true; c.roam = true; c.outAt = Date.now(); c.sleeping = false; c.selfSlept = false;
+  if (save.active === id) save.active = residents(save.room)[0]?.id ?? id;
+  toast(tr("{0} went exploring 🧭 the longer the trip, the more it brings back", c.name));
+  persist(); syncActors(); renderNest(true); updateTopbar();
+  return true;
 }
 /**
  * Back from exploring with something found on the way: shards for the time away (a few for a short walk, up to 30
@@ -6603,26 +6691,26 @@ function callHome(id) {
   const c = save.creatures.find(c => c.id === id);
   if (!c || !c.out) return;
   const found = exploreFind(c);
-  c.out = false; c.homeAt = Date.now(); c.last = Date.now();
+  c.out = false; c.roam = false; c.room = save.room; c.homeAt = Date.now(); c.last = Date.now();
   save.active = id;
   const sent = settleHome();
   toast((sent.length ? tr("{0} came home, and {1} went exploring 🧭", c.name, sent[0].name) : tr("{0} came home ✦", c.name)) + findNote(c, found));
   persist(); updateTopbar();
 }
-/** Who's at home and who's out exploring, with what that means; tap an explorer to call it home. */
+/** A glowling's mood in one small icon: what it needs most, or a heart when all is well. */
+const MOOD_ICON = { hungry: "cookie", sleepy: "moon", messy: "broom", lonely: "heart" };
+function moodIcon(c) { return  c.out ? "" : c.sleeping ? `<i class="mood zz">z</i>` : ic(MOOD_ICON[callOf(c)] || "heart", "mood" + (callOf(c) ? " want" : "")); }
+/** Everyone, room by room: drag a glowling onto another room to move it (or onto Exploring to send it off), tap to look after it. */
 function openHome() {
   sfx.tick();
-  const cap = homeCap(), home = save.creatures.filter(c => !c.out), away = save.creatures.filter(c => c.out);
-  $("homeSub").textContent = tr("The nest fits {0} glowlings at once. The others are exploring the grotto and need nothing while they're away. Tap an explorer to call it home: if the nest is full, the one home longest goes out instead.", cap) + " " + tr("The longer they're away, the more they bring back.");
-  const card = c => `<button class="pillbtn${c.out ? " out" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt=""><small>${c.name}</small>${c.out ? `<small class="away">${awayFor(c)}</small>` : ""}</button>`;
-  $("homeList").innerHTML = `<h3>${tr("At home · {0}/{1}", home.length, cap)}</h3><div class="home-grid">${home.map(card).join("")}</div>`
-    + (away.length ? `<h3>${tr("Exploring · {0}", away.length)}</h3><div class="home-grid">${away.map(card).join("")}</div>` : "")
+  const cap = homeCap(), away = save.creatures.filter(c => c.out);
+  $("homeSub").textContent = tr("Each room fits {0} glowlings. Drag one onto another room to move it in, or tap it to look after it.", cap);
+  const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><small>${c.name}</small>${c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
+  const zone = (r, title, list, empty) => `<section class="res-zone${r === save.room ? " here" : ""}" data-room="${r}"><h3>${title}</h3><div class="home-grid">${list.map(card).join("") || `<p class="sub">${empty}</p>`}</div></section>`;
+  $("homeList").innerHTML = save.rooms.map((_, r) => zone(r, `${roomName(r)} <span>${residents(r).length}/${cap}</span>`, residents(r), tr("empty: drag someone here"))).join("")
+    + zone("out", `${tr("Exploring")} <span>${away.length}</span>`, away, tr("drag someone here to send them exploring"))
     + ((save.nestUp || 0) < NEST_UP_COST.length ? `<button class="act" id="nestUp" ${save.shards < NEST_UP_COST[save.nestUp || 0] ? "disabled" : ""}>${ic("nest")}${tr("Room for one more · ✦ {0}", NEST_UP_COST[save.nestUp || 0])}</button>` : `<p class="sub">${tr("The nest is as roomy as it gets ✦")}</p>`);
-  $$("#homeList [data-id]").forEach(b => b.addEventListener("click", () => {
-    const id = Number(b.dataset.id);
-    if (save.creatures.find(c => c.id === id)?.out) callHome(id); else save.active = id;
-    persist(); syncActors(); renderNest(true); updateTopbar(); openHome();
-  }));
+  $$("#homeList .res").forEach(b => b.addEventListener("pointerdown", dragResident));
   $("nestUp")?.addEventListener("click", () => {
     const cost = NEST_UP_COST[save.nestUp || 0];
     if (!cost || save.shards < cost) return;
@@ -6632,10 +6720,42 @@ function openHome() {
   });
   show("homeSheet", true);
 }
-/** The glowlings in the room: everyone at home. */
+/** Pick a glowling up in the residents sheet and drop it on a room; a tap without moving looks after it instead. */
+function dragResident(ev) {
+  const b = ev.currentTarget, id = Number(b.dataset.id), x0 = ev.clientX, y0 = ev.clientY;
+  let ghost = null, over = null;
+  b.setPointerCapture(ev.pointerId);
+  const move = e => {
+    if (!ghost && Math.hypot(e.clientX - x0, e.clientY - y0) < 8) return;
+    if (!ghost) { ghost = b.cloneNode(true); ghost.className = "res res-ghost"; document.body.appendChild(ghost); b.classList.add("lifted"); sfx.tick(); buzz(6); }
+    ghost.style.left = `${e.clientX}px`; ghost.style.top = `${e.clientY}px`;
+    const z = document.elementsFromPoint(e.clientX, e.clientY).find(el => el.classList && el.classList.contains("res-zone"));
+    if (z !== over) { over?.classList.remove("drop"); over = z; over?.classList.add("drop"); }
+  };
+  const up = () => {
+    b.removeEventListener("pointermove", move); b.removeEventListener("pointerup", up); b.removeEventListener("pointercancel", up);
+    if (!ghost) { tapResident(id); return; }
+    ghost.remove(); b.classList.remove("lifted"); over?.classList.remove("drop");
+    const r = over && over.dataset.room;
+    if (r === "out") sendExploring(id); else if (r != null) moveGlowling(id, Number(r));
+    openHome();
+  };
+  b.addEventListener("pointermove", move); b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up);
+}
+/** Tap in the sheet: an explorer comes home to this room; anyone else is picked, and you go to their room. */
+function tapResident(id) {
+  const c = save.creatures.find(c => c.id === id);
+  if (!c) return;
+  if (c.out) { if (moveGlowling(id, save.room)) openHome(); return; }
+  show("homeSheet", false);
+  if (roomOf(c) !== save.room) goRoom(roomOf(c));
+  selectCreature(id);
+}
+
+/** The glowlings in the room you're in: the ones who live here. */
 function roomCreatures() {
   if (settleHome().length && game.scene === "nest") talk("firstExplore", homeCap());
-  return save.creatures.filter(c => !c.out);
+  return residents(save.room);
 }
 
 const roomPoint = () => N.iso ? freeFloorPoint() : floorAt(rand(0.08, 0.92), rand(0.05, 0.95));
@@ -6860,6 +6980,34 @@ function chooseNext(a, list) {
   if (b === "flutter" && Math.random() < 0.4) emote(a, "✦", 1);
 }
 
+/** Two glowlings meet: a hug, a high five, a game of tag, a little duet, or (if both are tired) a nap side by side. It cheers them both up. */
+function meetFriend(a, f, cr) {
+  const fc = save.creatures.find(c => c.id === f.id);
+  a.hop = 1; f.hop = 1;
+  if (!fc || f.state === "sleep" || f.state === "toBed") { emote(a, "♥"); sfx.chirp(specOf(cr).voice * 1.1); return; }
+  const va = actorView(a), vf = actorView(f), mx = (va.x + vf.x) / 2, my = Math.min(va.y, vf.y) - va.size * 0.35;
+  const kind = cr.energy < 45 && fc.energy < 45 ? "snuggle" : pick(["hug", "hug", "highfive", "tag", "sing"]);
+  if (kind === "hug") {
+    for (let i = 0; i < 4; i++) setTimeout(() => heart(mx + rand(-14, 14), my + rand(-6, 6)), i * 120);
+    emote(a, "♥"); emote(f, "♥"); sfx.chirp(specOf(cr).voice * 1.1);
+  } else if (kind === "highfive") {
+    burst(mx, my, 10, ["#ffffff", "#ffe9a8", "#ffc4da"], 0.8); emote(a, "✦"); emote(f, "✦"); sfx.shimmer();
+  } else if (kind === "tag") {
+    // tag, you're it: the friend runs off and this one chases after
+    emote(a, "!"); emote(f, "♪");
+    [f.tx, f.ty] = roomPoint(); f.state = "walk"; f.goal = f.friend = null;
+    a.state = "walk"; a.tx = f.tx + rand(-0.6, 0.6) * N.base; a.ty = f.ty;
+    sfx.chirp(specOf(fc).voice * 1.25);
+  } else if (kind === "sing") {
+    emote(a, "♪", 1.8); emote(f, "♫", 1.8);
+    sfx.chirp(specOf(cr).voice); setTimeout(() => sfx.chirp(specOf(fc).voice * 1.2), 220); setTimeout(() => sfx.chirp(specOf(cr).voice * 1.1), 440);
+  } else {
+    a.state = f.state = "nap"; a.t = f.t = rand(5, 8); emote(a, "zz", 2.5); emote(f, "zz", 2.5);
+  }
+  // friends remember each other, and a good meeting cheers both up
+  for (const [c, o] of [[cr, fc], [fc, cr]]) { c.joy = clamp(c.joy + 3, 0, 100); c.pals = { ...c.pals, [o.id]: ((c.pals || {})[o.id] || 0) + 1 }; }
+}
+
 function updateActors(dt) {
   syncActors();
   game.nest.obst = roomObstacles();
@@ -6967,7 +7115,7 @@ function updateActors(dt) {
     } else if (a.state === "walk") {
       a.state = "idle"; a.t = rand(1.2, 3.5);
       const f = a.friend && actors.get(a.friend);
-      if (f) { emote(a, pick(["♥", "♪", "✦"])); emote(f, pick(["♥", "♪", "!"])); f.hop = 1; a.hop = 1; sfx.chirp(specOf(cr).voice * 1.1); }
+      if (f) meetFriend(a, f, cr);
       a.friend = null;
     } else if (a.state === "toBed" && d <= 8) a.state = "sleep";
     keepInRoom(a);
@@ -10116,6 +10264,7 @@ $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
 $("homeClose").addEventListener("click", () => show("homeSheet", false));
 $("homePill").addEventListener("click", openHome);
+$("residentsBtn").addEventListener("click", openHome);
 $("playBtn").addEventListener("click", openGames);
 $("roomPrev").addEventListener("click", () => goRoom(save.room - 1));
 $("roomNext").addEventListener("click", () => goRoom(save.room + 1));
