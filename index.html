@@ -723,6 +723,16 @@
   #meSkills h3 span { color: var(--px-gold); letter-spacing: 0; }
   .forge.skill { cursor: default; }
   .forge.skill .act { margin-left: auto; padding: 6px 12px; }
+  /* expeditions */
+  .trip-who { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
+  .trip-where .theme small { display: block; font-size: 12px; }
+  .trip-hrs { display: flex; width: fit-content; margin: 4px auto 0; }
+  #tripGo { display: block; margin: 16px auto 4px; }
+  .trip-away { display: flex; align-items: center; gap: 10px; padding: 6px 10px; margin-bottom: 6px; text-align: left; background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
+  .trip-away img { width: 36px; height: 36px; image-rendering: pixelated; }
+  .trip-away b { display: block; font-weight: 400; }
+  .trip-away small { color: var(--soft); font-size: 13px; }
+  #tripsList h3 { margin: 14px 0 6px; text-align: left; }
   /* Wick's wares, and the gossip that comes free */
   #wickList img.em { width: 40px; height: 40px; image-rendering: pixelated; object-fit: contain; flex: none; }
   .wick-gossip { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; padding: 10px 12px; text-align: left; font-size: 15px; color: var(--soft); background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
@@ -1293,6 +1303,14 @@
     <div id="meSkills"></div>
     </div>
     <button class="ghost" id="meClose">done</button>
+  </div>
+</div>
+<div id="tripsSheet" class="overlay modal hidden">
+  <div class="card glass dark wide">
+    <h2>Expeditions</h2>
+    <p class="sub" id="tripsSub"></p>
+    <div class="scroll" id="tripsList"></div>
+    <button class="ghost" id="tripsClose">close</button>
   </div>
 </div>
 <div id="wickSheet" class="overlay modal hidden">
@@ -2179,6 +2197,34 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Expeditions": "Експедиції",
+  "{0} away exploring": "у мандрах: {0}",
+  "send a glowling to explore for a few hours": "відправ глоулінга досліджувати на кілька годин",
+  "Send a glowling off to explore. It's away for a while, needs nothing, and comes back by itself with finds and a story. The longer the trip, the more it finds.": "Відправ глоулінга досліджувати. Поки малюк у мандрах, йому нічого не треба, а повернеться сам — зі знахідками й історією. Що довша мандрівка, то більше знахідок.",
+  "Away now": "Зараз у мандрах",
+  "back in {0}": "повернеться за {0}",
+  "Who goes": "Хто піде",
+  "Everyone's asleep or away. Wake someone up first.": "Усі сплять або в мандрах. Спершу когось розбуди.",
+  "Where to": "Куди",
+  "How long": "Надовго",
+  "geodes": "жеоди",
+  "seeds": "насіння",
+  "bars": "батончики",
+  "Send off": "Вирушати!",
+  "{0} set off for {1} 🧭 back in {2}": "{0} вирушає: {1} 🧭 повернеться за {2}",
+  "Brought back: {0}": "Принесено: {0}",
+  "Explorer's map": "Карта мандрівника",
+  "Send glowlings on 5 expeditions": "Відправ глоулінгів у 5 експедицій",
+  "{0} found a purple crystal humming in the dark and hummed back until it stopped.": "{0} знайшло фіолетовий кристал, що мугикав у темряві, і мугикало йому у відповідь, аж поки той не замовк.",
+  "{0} got lost in the Amethyst Hollow, then found the way out by following the echo.": "{0} заблукало в Аметистовій западині, але вийшло, слідуючи за луною.",
+  "{0} napped under a glowing mushroom and woke up covered in spores. Very sparkly spores.": "{0} подрімало під сяйним грибом і прокинулося все в спорах. Дуже блискучих спорах.",
+  "{0} chased a firefly all the way round the wood and back.": "{0} ганялося за світлячком через увесь ліс і назад.",
+  "{0} found a hidden pool in the Celestite Grotto and came back humming.": "{0} знайшло приховане озерце в Целестиновому гроті й повернулося, мугикаючи.",
+  "{0} counted every blue crystal in the grotto. Twice. Lost count both times.": "{0} рахувало кожен блакитний кристал у гроті. Двічі. Обидва рази збилося.",
+  "{0} followed the green bands in the Malachite Deep like a map, and they led to a geode.": "{0} йшло за зеленими смугами Малахітових глибин, як за мапою, і вони привели до жеоди.",
+  "{0} met Dorma in a quiet corner of the Deep. They both had a little nap.": "{0} зустріло Дорму в тихому куточку глибин. Вони обоє трохи подрімали.",
+  "{0} saw the Labradorite Vault flash blue and gold, and wouldn't stop talking about it.": "{0} бачило, як Лабрадоритове склепіння спалахує синім і золотим, і досі не може про це замовкнути.",
+  "{0} felt the Gloom's cold somewhere deep, turned round and came straight home. Brave.": "{0} відчуло холод Мли десь у глибині, розвернулося й одразу прийшло додому. Сміливо.",
   "For this room": "Для цієї кімнати",
   "Garden bench": "Садова лавка",
   "sits on the bench": "сидить на лавці",
@@ -6178,6 +6224,7 @@ function talkMoments(scene) {
   if (!["nest", "map", "lib"].includes(scene) || !$("found").classList.contains("hidden")) return;
   while (talkLater.length) talk(...talkLater.shift());
   if (scene === "nest" && save.creatures.length) talk("firstPet");
+  if (scene === "nest") tellTrips();
   if (scene === "nest" && save.creatures.length && !(save.me && save.me.name) && !talkSeen("meet") && talk("meet")) afterTalk = () => openMe(true);
   if (scene === "map") talk("firstGrotto");
   for (const k of [1, 2, 3]) if (unlocked(k * 6 + 1)) talk("ch" + k);
@@ -6403,7 +6450,7 @@ function keeperLevel() {
 const keeperTitle = l => tr(KEEPER_TITLES.filter(([at]) => l >= at).pop()[1]);
 const skill = id => (save.me && save.me.skill && save.me.skill[id]) || 0;
 /** Keeper XP for the things you do; each level brings a skill point. */
-const KEEPER_XP = { cracked: 12, harvested: 6, fed: 2, petted: 1, played: 4, taskDays: 15, wickBought: 3, rescued: 40 };
+const KEEPER_XP = { trips: 5, cracked: 12, harvested: 6, fed: 2, petted: 1, played: 4, taskDays: 15, wickBought: 3, rescued: 40 };
 function keeperXP(n) {
   if (!n || coopSession || game.coopTouched) return;
   const before = keeperLevel().l;
@@ -6490,6 +6537,7 @@ const AWARDS = [
   { id: "room2", tier: "rare", name: "More room", how: "Add a room to your home", test: () => [(save.rooms || []).length, 2] },
   { id: "echo5", tier: "rare", name: "Good ear", how: "Sing back 5 tunes in Echo song", test: () => [save.echoBest || 0, 5] },
   { id: "wick3", tier: "rare", name: "A good customer", how: "Buy 3 things from Wick", test: () => [cnt("wickBought"), 3] },
+  { id: "trips5", tier: "rare", name: "Explorer's map", how: "Send glowlings on 5 expeditions", test: () => [cnt("trips"), 5] },
   { id: "harvest25", tier: "rare", name: "Harvest festival", how: "Pick 25 harvests", test: () => [cnt("harvested"), 25] },
   { id: "biteleaf", tier: "epic", name: "It bites", how: "Grow and pick a biteleaf", test: () => [cnt("biteleaf"), 1] },
   { id: "rescue1", tier: "rare", name: "First light", how: "Free a spark from the Gloom", test: () => [cnt("rescued"), 1] },
@@ -6767,8 +6815,11 @@ function renderMap() {
   const forgeCard = `<button class="moonbtn forgebtn${ready ? " ready" : ""}" id="forgeBtn">${ic("hammer", "big")}<span><b>${tr("The Forge")}${ready ? ` <em class="tag">${tr("upgrade ready")}</em>` : ""}</b><small>${tr("spend shards on your hammer: harder taps, keener eyes")}</small></span></button>`;
   const ev = eventNow(), evLeft = ev && eventDaysLeft(ev);
   const evCard = ev ? `<div class="evbar"><span class="em">${ev.emoji}</span><span><b>${eventName(ev)}</b><small>${tr(evLeft === 1 ? "last day" : "{0} days left", evLeft)}${save.seen[ev.sp] ? tr(" · you've met {0} ✓", SP[ev.sp].name) : tr(" · a limited glowling sleeps in the moon egg")}</small></span></div>` : "";
-  $("mapList").innerHTML = forgeCard + evCard + moonCard + html;
+  const away = onTrip().length;
+  const tripCard = `<button class="moonbtn" id="tripBtn"><span class="em">🧭</span><span><b>${tr("Expeditions")}</b><small>${away ? tr("{0} away exploring", away) : tr("send a glowling to explore for a few hours")}</small></span></button>`;
+  $("mapList").innerHTML = forgeCard + evCard + moonCard + tripCard + html;
   $("forgeBtn").addEventListener("click", openForge);
+  $("tripBtn").addEventListener("click", openTrips);
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
   $("moonBtn").addEventListener("click", startMoon);
 }
@@ -7158,6 +7209,80 @@ function buyWare(id) {
   persist(); updateTopbar(); openWick();
 }
 
+// ---------- expeditions: send a glowling off to a place on the map for a few hours; it comes back with finds and a story ----------
+
+const TRIP_PLACES = [
+  { id: "amethyst", theme: "amethyst", ok: () => true, finds: ["geode0", "shards"],
+    tales: ["{0} found a purple crystal humming in the dark and hummed back until it stopped.", "{0} got lost in the Amethyst Hollow, then found the way out by following the echo."] },
+  { id: "glowcap", theme: "glowcap", ok: () => true, finds: ["seeds", "nut"],
+    tales: ["{0} napped under a glowing mushroom and woke up covered in spores. Very sparkly spores.", "{0} chased a firefly all the way round the wood and back."] },
+  { id: "celestite", theme: "celestite", ok: () => unlocked(7), finds: ["geode1", "seeds", "shards"],
+    tales: ["{0} found a hidden pool in the Celestite Grotto and came back humming.", "{0} counted every blue crystal in the grotto. Twice. Lost count both times."] },
+  { id: "malachite", theme: "malachite", ok: () => unlocked(13), finds: ["geode2", "nut", "shards"],
+    tales: ["{0} followed the green bands in the Malachite Deep like a map, and they led to a geode.", "{0} met Dorma in a quiet corner of the Deep. They both had a little nap."] },
+  { id: "labradorite", theme: "labradorite", ok: () => unlocked(19), finds: ["geode3", "star", "shards"],
+    tales: ["{0} saw the Labradorite Vault flash blue and gold, and wouldn't stop talking about it.", "{0} felt the Gloom's cold somewhere deep, turned round and came straight home. Brave."] },
+];
+const TRIP_HOURS = [1, 4, 8];
+const tripPlace = id => TRIP_PLACES.find(t => t.id === id);
+const placeName = pl => THEME[pl.theme].name;
+/** Who's on an expedition right now. */
+const onTrip = () => save.creatures.filter(c => c.trip);
+/** Bring back anyone whose expedition is over, with their finds; returns what they said. */
+function tripsHome() {
+  const now = Date.now(), back = [];
+  for (const c of save.creatures) {
+    if (!c.trip || now < c.trip.until) continue;
+    const pl = tripPlace(c.trip.place) || TRIP_PLACES[0], k = c.trip.hrs, got = [];
+    for (const f of pl.finds) {
+      if (f.startsWith("geode")) {
+        const cave = Number(f.slice(5)), pool = CRYSTALS.filter(x => x.rarity === (Math.random() < 0.15 * k / 4 + cave * 0.05 ? "rare" : "common"));
+        if (Math.random() < 0.35 + k * 0.06) { const g = pick(pool), geo = save.geodes[g.id] || { count: 0, shine: -1 }; geo.count++; save.geodes[g.id] = geo; got.push(`💎 ${g.name}`); }
+      } else if (f === "shards") { const n = Math.round(6 * k + rand(0, 6 * k)); save.shards += n; got.push(`✦ ${n}`); }
+      else if (f === "seeds") { const sd = pick(["glowberry", "moonmint", "cookiecorn"]), n = 1 + Math.floor(k / 4); garden().seeds[sd] = (garden().seeds[sd] || 0) + n; got.push(`${seedName(sd)} ×${n}`); }
+      else if (Math.random() < 0.25 + k * 0.08) { giveBar(f); got.push(barName(f)); }
+    }
+    addXP(c, 6 * k);
+    c.trip = null; c.roam = false; c.outAt = c.outAt || now;
+    back.push(tr(pick(pl.tales), c.name) + (got.length ? " " + tr("Brought back: {0}", got.join(" · ")) : ""));
+  }
+  if (back.length) { settleHome(); persist(); updateTopbar(); }
+  return back;
+}
+function openTrips() {
+  sfx.tick();
+  const g = game.trip = game.trip || { who: null, place: "amethyst", hrs: 4 };
+  const home = save.creatures.filter(c => !c.out && !c.sleeping);
+  if (!home.some(c => c.id === g.who)) g.who = home[0]?.id ?? null;
+  const now = Date.now(), away = onTrip();
+  $("tripsSub").textContent = tr("Send a glowling off to explore. It's away for a while, needs nothing, and comes back by itself with finds and a story. The longer the trip, the more it finds.");
+  $("tripsList").innerHTML = (away.length ? `<h3>${tr("Away now")}</h3>` + away.map(c => `<div class="trip-away"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt=""><span><b>${c.name}</b><small>${placeName(tripPlace(c.trip.place))} · ${tr("back in {0}", fmtLeft(c.trip.until - now))}</small></span></div>`).join("") : "")
+    + `<h3>${tr("Who goes")}</h3>` + (home.length ? `<div class="trip-who">${home.map(c => `<button class="res${c.id === g.who ? " on" : ""}" data-who="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt=""><small>${c.name}</small></button>`).join("")}</div>` : `<p class="me-hint">${tr("Everyone's asleep or away. Wake someone up first.")}</p>`)
+    + `<h3>${tr("Where to")}</h3><div class="themes trip-where">${TRIP_PLACES.map(pl => `<button class="theme${pl.id === g.place ? " on" : ""}${pl.ok() ? "" : " locked"}" data-place="${pl.id}" ${pl.ok() ? "" : "disabled"}><img src="${themeThumb(pl.theme)}" alt=""><b>${placeName(pl)}</b><small>${pl.ok() ? pl.finds.map(f => tr(f.startsWith("geode") ? "geodes" : f === "seeds" ? "seeds" : f === "shards" ? "shards" : "bars")).join(", ") : ic("lock") + tr(THEME[pl.theme].how)}</small></button>`).join("")}</div>`
+    + `<h3>${tr("How long")}</h3><div class="seg trip-hrs">${TRIP_HOURS.map(h => `<button data-hrs="${h}" class="${h === g.hrs ? "on" : ""}">${tr("{0} h", h)}</button>`).join("")}</div>`
+    + `<button class="cta" id="tripGo" ${g.who == null ? "disabled" : ""}>${tr("Send off")}</button>`;
+  $$("#tripsList [data-who]").forEach(b => b.addEventListener("click", () => { g.who = Number(b.dataset.who); openTrips(); }));
+  $$("#tripsList [data-place]").forEach(b => b.addEventListener("click", () => { g.place = b.dataset.place; openTrips(); }));
+  $$("#tripsList [data-hrs]").forEach(b => b.addEventListener("click", () => { g.hrs = Number(b.dataset.hrs); openTrips(); }));
+  $("tripGo")?.addEventListener("click", sendTrip);
+  show("tripsSheet", true);
+}
+function sendTrip() {
+  const g = game.trip, c = save.creatures.find(x => x.id === g.who), pl = tripPlace(g.place);
+  if (!c || c.out || !pl || !pl.ok()) return;
+  c.out = true; c.roam = true; c.outAt = Date.now(); c.sleeping = false; c.selfSlept = false;
+  c.trip = { place: pl.id, hrs: g.hrs, until: Date.now() + g.hrs * 3600e3 };
+  if (save.active === c.id) save.active = residents(save.room)[0]?.id ?? c.id;
+  bump("trips"); sfx.chirp(specOf(c).voice * 1.2);
+  toast(tr("{0} set off for {1} 🧭 back in {2}", c.name, placeName(pl), tr("{0} h", g.hrs)));
+  persist(); syncActors(); renderNest(true); updateTopbar(); openTrips();
+}
+/** Coming back to the nest: anyone home from a trip tells you about it. */
+function tellTrips() {
+  const back = tripsHome();
+  back.forEach((t, i) => setTimeout(() => toast(t), i * 2800));
+}
+
 // ---------- the music box: pick the nest's song from the ones you've unlocked, and play the game's sounds ----------
 const JUKE_SOUNDS = [
   { name: "Lullaby", emoji: "🌙", play: () => sfx.lullaby() },
@@ -7395,7 +7520,7 @@ function settleHome() {
     }
   }
   // explorers come back to their own room if it has space, or to any room that has (not the ones you sent out on purpose)
-  const away = save.creatures.filter(c => c.out && !c.roam).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
+  const away = save.creatures.filter(c => c.out && !c.roam && !c.trip).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
   for (const c of away) {
     const r = [roomOf(c), ...save.rooms.map((_, i) => i)].find(i => residents(i).length < cap);
     if (r === undefined) break;
@@ -7412,7 +7537,8 @@ function moveGlowling(id, r) {
   const c = save.creatures.find(c => c.id === id);
   if (!c || (!c.out && roomOf(c) === r)) return false;
   if (residents(r).length >= homeCap()) { toast(tr("No space in the {0}: move someone out first", roomName(r).toLowerCase())); sfx.tick(); return false; }
-  const found = c.out ? exploreFind(c) : null;
+  const found = c.out && !c.trip ? exploreFind(c) : null;
+  c.trip = null;
   c.out = false; c.roam = false; c.room = r; c.homeAt = c.last = Date.now();
   if (r !== save.room && save.active === id) save.active = residents(save.room)[0]?.id ?? id;
   sfx.chirp(specOf(c).voice);
@@ -7478,7 +7604,7 @@ function openHome() {
   sfx.tick();
   const cap = homeCap(), away = save.creatures.filter(c => c.out);
   $("homeSub").textContent = tr("Each room fits {0} glowlings. Drag one onto another room to move it in, or tap it to look after it.", cap);
-  const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><small>${c.name}</small>${c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
+  const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><small>${c.name}</small>${c.trip ? `<small class="away">🧭 ${fmtLeft(Math.max(0, c.trip.until - Date.now()))}</small>` : c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
   const zone = (r, title, list, empty) => `<section class="res-zone${r === save.room ? " here" : ""}" data-room="${r}"><h3>${title}</h3><div class="home-grid">${list.map(card).join("") || `<p class="sub">${empty}</p>`}</div></section>`;
   $("homeList").innerHTML = save.rooms.map((_, r) => zone(r, `${roomName(r)} <span>${residents(r).length}/${cap}</span>`, residents(r), tr("empty: drag someone here"))).join("")
     + zone("out", `${tr("Exploring")} <span>${away.length}</span>`, away, tr("drag someone here to send them exploring"))
@@ -11268,6 +11394,7 @@ $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
 $("gardenClose").addEventListener("click", () => show("gardenSheet", false));
 $("wickClose").addEventListener("click", () => show("wickSheet", false));
+$("tripsClose").addEventListener("click", () => { show("tripsSheet", false); if (game.scene === "map") renderMap(); });
 $("startMore").addEventListener("click", ev => { ev.stopPropagation(); const c = $("startCorner"); c.classList.toggle("open"); $("startMore").setAttribute("aria-expanded", String(c.classList.contains("open"))); sfx.tick(); });
 document.addEventListener("click", ev => { if (!ev.target.closest("#startCorner")) $("startCorner").classList.remove("open"); });
 $("optsBtn").addEventListener("click", () => { setMenu(false); openOpts(); });
