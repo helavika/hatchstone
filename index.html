@@ -3524,7 +3524,10 @@ function makeMotes() {
 function bgFor(scene) {
   const id = currentTheme();
   // in the nest, the backdrop's ground meets the room: a clearing or a ruined hall stands on the land, a cave hollow opens onto the cave floor
-  const kind = ROOM_KIND[id] || "cave", floor = scene === "nest" && N.back ? (kind === "cave" ? N.front : N.back + 1) / H : 0.86;
+  // in the isometric room the land goes on around it: outdoors the horizon lies behind the room, so the clearing is part of the
+  // meadow and the hills, trees and mushrooms stand beyond it; a cave's floor opens out level with the room's side corners
+  const kind = ROOM_KIND[id] || "cave", outdoor = kind === "yard" || kind === "wood";
+  const floor = scene !== "nest" || !N.back ? 0.86 : N.iso ? (outdoor ? N.isoTop - N.isoWall * 0.35 : N.back) / H : (kind === "cave" ? N.front : N.back + 1) / H;
   const key = `${id}|${floor.toFixed(3)}`;
   if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor));
   return [id, key];
@@ -7345,8 +7348,8 @@ function paintRoomIso(id) {
   const ink = pxHex("#0b0614"), at = (u, v) => [cx + (u - v) * hw, top + (u + v) * hh];
   const wood = [pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")], stone = [pxHex("#22143a"), pxHex("#3a3440"), pxHex("#5d5666"), pxHex("#8a8494")];
 
-  // the slab under the floor: its two front faces, the left one lit, the right one in shade
-  for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
+  // the slab under the floor: its two front faces, the left one lit, the right one in shade (outdoors the room is part of the land: no slab)
+  if (indoor) for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
     const edgeY = top + hh + (hh - Math.abs(x - cx) * hh / hw) * 1, left = x < cx;
     for (let k = 0; k < slab; k++) {
       const y = edgeY + k, col = indoor ? pxPick(wallR, (left ? 0.45 : 0.22) - k * 0.03 + pxFbm(x * 0.2, y * 0.2) * 0.15, x, y)
