@@ -9103,7 +9103,7 @@ function isoPiece(p, extra = {}) {
   // (where it stands on screen is part of the key: a resized window can move the room without changing its size)
   const [bx, by] = isoAt(p.i / ISO_G, p.j / ISO_G);
   const key = `${p.id}|${p.i},${p.j}|${p.flip}|${tw.toFixed(2)}|${Math.round(bx)},${Math.round(by)}|${JSON.stringify(extra)}`;
-  return cachedSprite(isoPieces, p.id, key, () => {
+  return cachedSprite(isoPieces, p.id + (extra.part || ""), key, () => {
     let c = isoArt(w, h, T => ISO_ART[p.id](tw, T, ax0, ay, extra)), ax = ax0;
     if (p.flip) {
       // turned to face the other wall: a mirror image (the back corner stays the back corner)
@@ -9708,12 +9708,8 @@ function drawRoomIso() {
       // whoever lies or stands on the deck goes between its two layers: under the roof, behind the front post
       extra.part = "base";
       items.push({ y: fy, box: { ...box, id: "bedpost" }, roofOf: "bed", draw: () => drawBaked(isoPiece(p, { ...extra, part: "post" }), 0, bob) });
-      // with someone under it, the roof turns see-through, the way a cutaway does
-      items.push({ y: fy, box: { ...box, id: "bedroof" }, roofOf: "bed", after: "bedpost", draw: () => {
-        const under = [...actors.values()].some(a => a.state === "sleep" || a.onBed);
-        game.roofK = lerp(game.roofK ?? 1, under ? 0.62 : 1, 0.12);
-        ctx.save(); ctx.globalAlpha = game.roofK; drawBaked(isoPiece(p, { ...extra, part: "roof" }), 0, bob); ctx.restore();
-      } });
+      // whoever naps there hides under the roof
+      items.push({ y: fy, box: { ...box, id: "bedroof" }, roofOf: "bed", after: "bedpost", draw: () => drawBaked(isoPiece(p, { ...extra, part: "roof" }), 0, bob) });
     }
     items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); } });
   }
@@ -10353,13 +10349,13 @@ function ghostBehind(order) {
     const id = it.box && it.box.id;
     if (!id || id === "rug") return;
     const h = pieceHits[id === "bedroof" || id === "bedpost" ? "bed" : id];
-    if (h && h.c) pieces.push({ k, x0: h.x, x1: h.x + h.c.width * PX, y0: h.y, y1: h.y + h.c.height * PX, bed: id === "bed" });
+    if (h && h.c) pieces.push({ k, x0: h.x, x1: h.x + h.c.width * PX, y0: h.y, y1: h.y + h.c.height * PX, bed: id === "bed" || id === "bedroof" || id === "bedpost" });
   });
   order.forEach((it, k) => {
     const a = it.actor;
     if (!a || it.after) return;
     const v = actorView(a), r = v.size * 0.4;
-    // (the bed's soft base never hides anyone standing behind it: it's low)
+    // (the bed never gets a ghost: its base is low, and under the gazebo's roof is a place to hide)
     if (!pieces.some(p => p.k > k && !p.bed && v.x + r > p.x0 && v.x - r < p.x1 && v.y > p.y0 && v.y - v.size * 0.6 < p.y1)) return;
     const cr = save.creatures.find(c => c.id === a.id);
     if (!cr) return;
