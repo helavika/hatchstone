@@ -26,7 +26,10 @@ const KC = Object.fromEntries(Object.entries({
 
 /** Folds down a cloth: darker lines every few pixels across a polygon's span. */
 function kFolds(T, x0, x1, y0, y1, col, every = 4) {
-  for (let x = x0 + 2; x < x1 - 1; x += every) for (let y = y0 + 3; y < y1 - 1; y++) if (T.has(x, y) && pxHash(x, y >> 2) > 0.25) T.px(x, y, col);
+  for (let x = x0 + 2; x < x1 - 1; x += every) for (let y = y0 + 3; y < y1 - 1; y++) if (T.has(x, y) && pxHash(x, y >> 2) > 0.25) {
+    // drawn finely, the folds are one real pixel wide
+    if (T.S) for (let j = 0; j < T.S; j++) T.raw.px(x * T.S + (T.S >> 1) + Math.round(Math.sin((y * T.S + j) / 9) * 1.2), y * T.S + j, col); else T.px(x, y, col);
+  }
 }
 /** A body's cloak or coat: a trapezoid from shoulders to hem, lit on the left, with folds and a ragged hem if asked. */
 function kCloak(T, cx, top, bottom, wTop, wBot, [dark, mid, light], ragged = false) {
@@ -141,20 +144,61 @@ const KEEPER_ART = {
     else { T.line(cx + 2, 13, cx + 5, 13, C.toad0); T.px(cx + 3, 14, C.glowY); T.px(cx + 4, 14, C.ink); }
   },
 };
+/**
+ * The same drawing tools, S times finer: shapes keep their outline but get S×S as many pixels, so a keeper can stand
+ * in a room on the room's own pixel grid (lines and dots stay one "keeper pixel" wide, i.e. S real pixels).
+ */
+function scaledT(T, S) {
+  const k = v => v * S, col = c => typeof c === "function" ? (x, y) => c(x / S, y / S) : c;
+  const quad = (x0, y0, x1, y1, w, c) => { const dx = x1 - x0, dy = y1 - y0, len = Math.hypot(dx, dy) || 1, nx = -dy / len * w / 2, ny = dx / len * w / 2; T.poly([[x0 + nx, y0 + ny], [x1 + nx, y1 + ny], [x1 - nx, y1 - ny], [x0 - nx, y0 - ny]], c); };
+  return {
+    // a dot is round and a little smaller than its square, so details read as details, not as big pixels
+    px: (x, y, c) => T.disc(Math.round(x) * S + S / 2, Math.round(y) * S + S / 2, S * 0.5, c, S * 0.5),
+    S, raw: T,
+    has: (x, y) => T.has(Math.round(x) * S + (S >> 1), Math.round(y) * S + (S >> 1)),
+    poly: (pts, c) => T.poly(pts.map(([x, y]) => [k(x), k(y)]), col(c)),
+    ball: (cx, cy, r, l, m, d, ry = r) => T.ball(k(cx + 0.5), k(cy + 0.5), k(r), l, m, d, k(ry)),
+    disc: (cx, cy, rx, c, ry = rx / 2) => T.disc(k(cx + 0.5), k(cy + 0.5), k(rx), col(c), k(ry)),
+    line: (x0, y0, x1, y1, c) => { quad(k(x0 + 0.5), k(y0 + 0.5), k(x1 + 0.5), k(y1 + 0.5), S, c); T.disc(k(x0 + 0.5), k(y0 + 0.5), S / 2, c, S / 2); T.disc(k(x1 + 0.5), k(y1 + 0.5), S / 2, c, S / 2); },
+    glow: (cx, cy, r, c, kk) => T.glow(k(cx + 0.5), k(cy + 0.5), k(r), c, kk),
+  };
+}
 const keeperCache = {};
-/** A keeper's full-length picture (a data URL), eyes open or mid-blink. */
-function keeperImage(id, blink = false) {
-  const key = id + (blink ? ":b" : "");
+/** A keeper's full-length picture as a canvas, S real pixels to each of its own (S = 1 is the small 34×46 version). */
+function keeperCanvas(id, blink = false, S = 1) {
+  const key = `${id}|${blink ? 1 : 0}|${S}`;
   if (keeperCache[key]) return keeperCache[key];
+  return keeperCache[key] = isoArt(KW * S, KH * S, T => KEEPER_ART[id](S === 1 ? T : scaledT(T, S), blink));
+}
+/** The same as a data URL (for the dialog box, the place bar and the map). */
+function keeperImage(id, blink = false, S = 1) {
   if (!KEEPER_ART[id]) return pxIcon(id);
-  return keeperCache[key] = isoArt(KW, KH, T => KEEPER_ART[id](T, blink)).toDataURL();
+  const key = `url|${id}|${blink ? 1 : 0}|${S}`;
+  return keeperCache[key] || (keeperCache[key] = keeperCanvas(id, blink, S).toDataURL());
 }
 /** Just the head and shoulders, for the dialog box. */
 function keeperFace(id) {
   const key = id + ":face";
   if (keeperCache[key]) return keeperCache[key];
   if (!KEEPER_ART[id]) return pxIcon(id);
-  const full = isoArt(KW, KH, T => KEEPER_ART[id](T, false)), c = document.createElement("canvas"); c.width = c.height = 30;
+  const full = keeperCanvas(id, false, 1), c = document.createElement("canvas"); c.width = c.height = 30;
   c.getContext("2d").drawImage(full, -2, 0);
+  return keeperCache[key] = c.toDataURL();
+}
+/** A tiny keeper for the map: a third the size, each map pixel the colour most of its 3×3 block has. */
+function keeperMini(id) {
+  const key = id + ":mini";
+  if (keeperCache[key]) return keeperCache[key];
+  if (!KEEPER_ART[id]) return pxIcon(id);
+  const full = keeperCanvas(id, false, 1), d = full.getContext("2d").getImageData(0, 0, KW, KH).data, w = Math.ceil(KW / 3), h = Math.ceil(KH / 3);
+  const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d"), im = g.createImageData(w, h);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const seen = new Map(); let opaque = 0;
+    for (let j = 0; j < 3; j++) for (let i = 0; i < 3; i++) { const X = x * 3 + i, Y = y * 3 + j; if (X >= KW || Y >= KH) continue; const o = (Y * KW + X) * 4; if (d[o + 3] < 128) continue; opaque++; const key2 = (d[o] << 16) | (d[o + 1] << 8) | d[o + 2]; seen.set(key2, (seen.get(key2) || 0) + (key2 === 0x0b0614 ? 0.6 : 1)); }
+    if (opaque < 4) continue;
+    const best = [...seen].sort((p, q) => q[1] - p[1])[0][0], o = (y * w + x) * 4;
+    im.data[o] = best >> 16; im.data[o + 1] = (best >> 8) & 255; im.data[o + 2] = best & 255; im.data[o + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
   return keeperCache[key] = c.toDataURL();
 }

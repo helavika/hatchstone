@@ -375,7 +375,7 @@ function openWorld() {
     const ok = placeOk(w.id), isNew = fresh.includes(w.id), keeper = ok && WM_KEEPERS[w.id];
     return `<button class="wplace${ok && w.call && w.call() ? " call" : ""}${isNew ? " fresh" : ""}${ok ? "" : " locked"}${w.id === here ? " here" : ""}" data-place="${w.id}" ${ok ? "" : "disabled"}>`
       + `<span class="wplace-hit"></span>`
-      + (keeper ? `<img class="wkeeper" src="${keeperImage(keeper)}" alt="">` : "")
+      + (keeper ? `<img class="wkeeper" src="${keeperMini(keeper)}" alt="">` : "")
       + (ok && w.id === here && cr ? `<img class="where" src="${creatureImage(specOf(cr), { art: 20, level: cr.level, shiny: cr.shiny, acc: cr.acc })}" alt="">` : "")
       + `<span class="wbanner"><b>${ok ? tr(w.name) : ic("lock") + "???"}</b><small>${ok ? (isNew ? tr("new! ✦") : w.note()) : w.how()}</small></span></button>`;
   }).join("");

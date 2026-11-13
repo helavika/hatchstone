@@ -770,15 +770,16 @@ const heroSpot = () => { const h = heroHere(); return isoAt(h.at[0], h.at[1]); }
 const heroImgs = {};
 function drawHero() {
   if (heroHere().none) return;
-  const h = heroHere(), blink = game.time % 3700 < 140, key = h.icon + (blink ? ":b" : ""), img = heroImgs[key] || (heroImgs[key] = Object.assign(new Image(), { src: keeperImage(h.icon, blink) }));
+  // drawn on the room's own pixel grid: S of the room's pixels to each of the keeper's, as tall as about one and a half glowlings
+  const h = heroHere(), blink = game.time % 3700 < 140, S = Math.max(1, Math.round(N.base * 1.55 / PX / KH)), img = keeperCanvas(h.icon, blink, S);
   const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time, me = game.hero && game.hero.room === save.room ? game.hero : null;
   const since = me ? t - me.t : 1e9, jump = me && me.startle ? 0.45 : 0.18;
   const hop = since < 500 ? Math.sin(since / 500 * Math.PI) * s * jump : 0;
   const breathe = 1 + Math.sin(t * 0.004) * 0.03;
   ctx.fillStyle = "rgba(5,0,20,.35)"; ctx.beginPath(); ctx.ellipse(x, y, s * 0.36, s * 0.1, 0, 0, TAU); ctx.fill();
   ctx.imageSmoothingEnabled = false;
-  // full-length keepers stand taller than they are wide
-  const wid = Math.round(s * 1.15), px = wid / KW, left = Math.round(x - wid / 2), hgt = Math.round(wid * KH / KW * breathe), top = Math.round(y - hgt - hop);
+  // (breathing is a one-pixel rise and fall, so the pixels stay square)
+  const wid = img.width * PX, px = S * PX, left = Math.round((x - wid / 2) / PX) * PX, hgt = img.height * PX, top = Math.round((y - hgt - hop - (Math.sin(t * 0.004) > 0.4 ? PX : 0)) / PX) * PX;
   if (me && me.curl && since < 2600) {
     // poked once too often: Tansy rolls into a ball of spines, Fennel pulls into his shell
     const wob = Math.sin(t * 0.03) * px, r = s * 0.36, shell = h.who === FENNEL;
@@ -787,7 +788,7 @@ function drawHero() {
     if (shell) { for (let k = -1; k <= 1; k++) ctx.fillRect(Math.round(x + wob + k * r * 0.6 - px * 2), Math.round(y - r * 1.1), Math.ceil(px * 4), Math.ceil(px * 3)); }
     else
     for (let k = 0; k < 14; k++) { const an = k / 14 * TAU + 0.2; ctx.fillRect(Math.round(x + wob + Math.cos(an) * r * 1.05 - px), Math.round(y - r + Math.sin(an) * r * 1.05 - px), Math.ceil(px * 2), Math.ceil(px * 2)); }
-  } else if (img.complete) {
+  } else {
     // Ollo looks the other way now and then
     const turned = h.quirk === "turn" && Math.sin(t * 0.0011) > 0.75;
     if (turned) { ctx.save(); ctx.translate(left * 2 + wid, 0); ctx.scale(-1, 1); }
