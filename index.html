@@ -6922,7 +6922,9 @@ function isoPiece(p, extra = {}) {
   const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3, base = pieceDims(p.id, false);
   const w = Math.ceil((base.fw + base.fd) * tw + pad * 2), h = (base.fw + base.fd) * tw / 2 + tw * 2 + pad;
   const ax0 = base.fd * tw + pad, ay = tw * 2 + pad / 2;
-  const key = `${p.id}|${p.i},${p.j}|${p.flip}|${tw.toFixed(2)}|${JSON.stringify(extra)}`;
+  // (where it stands on screen is part of the key: a resized window can move the room without changing its size)
+  const [bx, by] = isoAt(p.i / ISO_G, p.j / ISO_G);
+  const key = `${p.id}|${p.i},${p.j}|${p.flip}|${tw.toFixed(2)}|${Math.round(bx)},${Math.round(by)}|${JSON.stringify(extra)}`;
   return cachedSprite(isoPieces, p.id, key, () => {
     let c = isoArt(w, h, T => ISO_ART[p.id](tw, T, ax0, ay, extra)), ax = ax0;
     if (p.flip) {
@@ -6931,7 +6933,6 @@ function isoPiece(p, extra = {}) {
       const g = m.getContext("2d"); g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(c, 0, 0);
       c = m; ax = c.width - ax0;
     }
-    const [bx, by] = isoAt(p.i / ISO_G, p.j / ISO_G);
     return { c, x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX };
   });
 }
@@ -6944,7 +6945,7 @@ function drawShelfIso() {
   const pad = Math.ceil(tw * 0.6) + 4, w = Math.ceil(tw * 1.5 + pad * 2), h = Math.ceil(tw * 1.1 + pad);
   // the plank starts a little before the slot's middle and runs along the wall
   const [bx, by] = m.wall === "R" ? isoAt(c - half / 2, 0) : isoAt(0, c - half / 2), lift = N.isoWall * 0.5;
-  const f = cachedSprite(isoPieces, "shelf", `${m.wall}|${m.s}|${tw.toFixed(2)}|${JSON.stringify(best)}|${spark}`, () => {
+  const f = cachedSprite(isoPieces, "shelf", `${m.wall}|${m.s}|${tw.toFixed(2)}|${Math.round(bx)},${Math.round(by)}|${JSON.stringify(best)}|${spark}`, () => {
     const ax = pad, ay = Math.round(tw * 0.75);
     let cv = isoArt(w, h, T => ISO_ART.shelf(tw, T, ax, ay, { gems: best, spark })), x0 = ax;
     if (m.wall === "L") { const mm = document.createElement("canvas"); mm.width = cv.width; mm.height = cv.height; const g = mm.getContext("2d"); g.translate(cv.width, 0); g.scale(-1, 1); g.drawImage(cv, 0, 0); cv = mm; x0 = cv.width - ax; }
@@ -7286,7 +7287,7 @@ function decorThumb(d) {
 /** The rug, in pixel rings on the floor (a 2:1 ellipse, as circles on the floor are). */
 function isoRug(starry) {
   const [rx, ry] = rugSize(), [cx, cy] = roomSpot("rug"), art = Math.ceil(rx / PX) * 2 + 6;
-  return cachedSprite(isoPieces, "rug", `${rx}|${PX}|${starry}|${starry ? Math.floor(game.time / 400) : ""}`, () => {
+  return cachedSprite(isoPieces, "rug", `${rx}|${Math.round(cx)},${Math.round(cy)}|${PX}|${starry}|${starry ? Math.floor(game.time / 400) : ""}`, () => {
     const R = rx / PX, c = isoArt(art, art / 2 + 4, T => {
       const ox = art / 2, oy = art / 4 + 2;
       if (starry) {
