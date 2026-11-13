@@ -3,7 +3,7 @@
 const STAGING = self.registration.scope.includes("/staging/");
 const CACHE = (STAGING ? "staging-" : "") + "hatchstone-v44";
 const SHELL = [
-  "./", "index.html", "style.css", "js/i18n.js", "js/core.js", "js/data.js", "js/pixel.js", "js/save.js", "js/glowlings.js", "js/crack.js", "js/scenes.js", "js/nest.js", "js/world.js", "js/iso.js", "js/play.js", "js/coop.js", "js/ui.js", "js/main.js",
+  "./", "index.html", "style.css", "js/i18n.js", "js/core.js", "js/data.js", "js/pixel.js", "js/save.js", "js/glowlings.js", "js/crack.js", "js/scenes.js", "js/nest.js", "js/world.js", "js/iso.js", "js/keepers.js", "js/play.js", "js/coop.js", "js/ui.js", "js/main.js",
   "coop-link.js", "coop-invite.js", "coop-state.js", "vendor/peerjs-1.5.5.min.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png", "icons/favicon-32.png", "fonts/jersey15-latin.woff2", "fonts/jersey10-latin.woff2", "fonts/handjet700-cyrillic.woff2", "fonts/handjet800-cyrillic.woff2",

@@ -742,11 +742,11 @@ function stepRoom(dir) {
 }
 // ---------- the places' keepers: each place on the map has someone who runs it ----------
 
-const TANSY = { name: "Tansy", face: () => pxIcon("tansy"), voice: { f: 330, wave: "triangle", spread: 0.25, glide: 1.05, gain: 0.06, len: 0.06 } };
-const EMBER = { name: "Ember", face: () => pxIcon("ember"), voice: { f: 150, wave: "square", spread: 0.18, glide: 0.9, gain: 0.03, len: 0.08 } };
-const PIP = { name: "Pip", face: () => pxIcon("pip"), voice: { f: 520, wave: "sine", spread: 0.35, glide: 1.15, gain: 0.07, len: 0.05 } };
-const FENNEL = { name: "Fennel", face: () => pxIcon("fennel"), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
-const OLLO = { name: "Ollo", face: () => pxIcon("ollo"), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
+const TANSY = { name: "Tansy", face: () => keeperFace("tansy"), voice: { f: 330, wave: "triangle", spread: 0.25, glide: 1.05, gain: 0.06, len: 0.06 } };
+const EMBER = { name: "Ember", face: () => keeperFace("ember"), voice: { f: 150, wave: "square", spread: 0.18, glide: 0.9, gain: 0.03, len: 0.08 } };
+const PIP = { name: "Pip", face: () => keeperFace("pip"), voice: { f: 520, wave: "sine", spread: 0.35, glide: 1.15, gain: 0.07, len: 0.05 } };
+const FENNEL = { name: "Fennel", face: () => keeperFace("fennel"), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
+const OLLO = { name: "Ollo", face: () => keeperFace("ollo"), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
 const HEROES = {
   shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.5, 0.42], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
     hello: ["Welcome, welcome! Mind the sacks, they're full of seeds.", "Food, furniture, seeds: if it's on a shelf, it's for sale.", "Furniture goes into your chest. Food goes into your basket."],
@@ -770,14 +770,15 @@ const heroSpot = () => { const h = heroHere(); return isoAt(h.at[0], h.at[1]); }
 const heroImgs = {};
 function drawHero() {
   if (heroHere().none) return;
-  const h = heroHere(), img = heroImgs[h.icon] || (heroImgs[h.icon] = Object.assign(new Image(), { src: pxIcon(h.icon) }));
+  const h = heroHere(), blink = game.time % 3700 < 140, key = h.icon + (blink ? ":b" : ""), img = heroImgs[key] || (heroImgs[key] = Object.assign(new Image(), { src: keeperImage(h.icon, blink) }));
   const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time, me = game.hero && game.hero.room === save.room ? game.hero : null;
   const since = me ? t - me.t : 1e9, jump = me && me.startle ? 0.45 : 0.18;
   const hop = since < 500 ? Math.sin(since / 500 * Math.PI) * s * jump : 0;
   const breathe = 1 + Math.sin(t * 0.004) * 0.03;
   ctx.fillStyle = "rgba(5,0,20,.35)"; ctx.beginPath(); ctx.ellipse(x, y, s * 0.36, s * 0.1, 0, 0, TAU); ctx.fill();
   ctx.imageSmoothingEnabled = false;
-  const px = s / 18, left = Math.round(x - s / 2), top = Math.round(y - s * breathe - hop), hgt = Math.round(s * breathe);
+  // full-length keepers stand taller than they are wide
+  const wid = Math.round(s * 1.15), px = wid / KW, left = Math.round(x - wid / 2), hgt = Math.round(wid * KH / KW * breathe), top = Math.round(y - hgt - hop);
   if (me && me.curl && since < 2600) {
     // Tansy, poked once too often: a ball of spines, wobbling
     const wob = Math.sin(t * 0.03) * px, r = s * 0.36;
@@ -787,16 +788,14 @@ function drawHero() {
   } else if (img.complete) {
     // Ollo looks the other way now and then
     const turned = h.quirk === "turn" && Math.sin(t * 0.0011) > 0.75;
-    if (turned) { ctx.save(); ctx.translate(left * 2 + s, 0); ctx.scale(-1, 1); }
-    ctx.drawImage(img, left, top, s, hgt);
-    // a blink every few seconds
-    if (t % 3700 < 130) for (const [ex, ey, ew, eh, col] of h.eyes || []) { ctx.fillStyle = col; ctx.fillRect(left + (ex + 1) * px, top + (ey + 1) * px * breathe, ew * px, eh * px * breathe); }
+    if (turned) { ctx.save(); ctx.translate(left * 2 + wid, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(img, left, top, wid, hgt);
     if (turned) ctx.restore();
     if (me && me.startle && since < 900) { ctx.fillStyle = "#ffe9a8"; ctx.font = `400 ${Math.round(s * 0.5)}px ${PIXEL_FONT}`; ctx.textAlign = "center"; ctx.fillText("!", x + s * 0.45, top - s * 0.05); }
   }
   // what they just said, in a little bubble over their head
   const say = me && since < 4200 ? me.line : "";
-  if (say) drawBubble(x, y - s * 1.1 - hop, say, clamp(1 - (since - 3600) / 600, 0, 1));
+  if (say) drawBubble(x, top - 4, say, clamp(1 - (since - 3600) / 600, 0, 1));
 }
 function drawBubble(x, y, text, alpha = 1) {
   const size = Math.round(clamp(N.base * 0.2, 14, 18)), maxW = Math.min(W * 0.7, 260);
@@ -812,7 +811,7 @@ function drawBubble(x, y, text, alpha = 1) {
   rows.forEach((r, k) => fx.fillText(r, bx + 8, by + 6 + k * lh));
   fx.restore();
 }
-const heroAt = (x, y) => { if (!heroHere() || heroHere().none || !N.iso) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.55 && y < hy + N.base * 0.15 && y > hy - N.base * 1.2; };
+const heroAt = (x, y) => { if (!heroHere() || heroHere().none || !N.iso) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.6 && y < hy + N.base * 0.15 && y > hy - N.base * 1.6; };
 const propAt = (x, y) => Object.values(isoLayout().placed).find(p => PLACE_PROPS.has(p.id) && pieceHits[p.id] && spriteHit(pieceHits[p.id].c, pieceHits[p.id].x, pieceHits[p.id].y, x, y))?.id || null;
 /** Things in a place that do something of their own when tapped. */
 const PROP_TAP = {
@@ -888,7 +887,7 @@ function renderPlaceBar() {
   const h = isPlace() && heroHere(), bar = $("placeBar");
   bar.hidden = !h || game.scene !== "nest";
   if (!h) return;
-  $("placeFace").src = pxIcon(h.icon); $("placeFace").classList.toggle("small", !!h.none);
+  $("placeFace").src = h.none ? pxIcon(h.icon) : keeperFace(h.icon); $("placeFace").classList.toggle("small", !!h.none);
   $("placeWho").textContent = tr(h.who.name);
   $("placeRole").textContent = tr(h.role);
   $("placeActs").innerHTML = h.act.map(([icon, name], k) => `<button class="act buy" data-act="${k}">${ic(icon)}${tr(name)}</button>`).join("")

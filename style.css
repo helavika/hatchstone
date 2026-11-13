@@ -1130,7 +1130,7 @@ body.compact .place-who img { width: 36px; height: 36px; }
 .wplace.fresh .wbanner { box-shadow: var(--px-frame), 0 0 0 3px var(--px-gold); }
 .wplace.call .wbanner::after { content: "!"; position: absolute; margin-left: 4px; transform: translate(50%, -60%); right: 0; width: 18px; height: 18px; display: grid; place-items: center; font-size: 13px; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame); }
 .wbanner { position: relative; }
-.wkeeper { position: absolute; left: 4%; top: 18%; width: calc(var(--k) * 13px); height: calc(var(--k) * 13px); image-rendering: pixelated; animation: pxBob 1.2s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
+.wkeeper { position: absolute; left: 0; top: 6%; width: calc(var(--k) * 13px); height: calc(var(--k) * 17.6px); image-rendering: pixelated; animation: pxBob 1.2s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
 .where { position: absolute; right: 2%; top: 4%; width: calc(var(--k) * 15px); height: calc(var(--k) * 15px); image-rendering: pixelated; animation: pxBob .9s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
 .wplace:active .wbanner { transform: translateY(2px); }
 
