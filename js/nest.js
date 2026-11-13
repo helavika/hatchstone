@@ -771,7 +771,7 @@ const heroImgs = {};
 function drawHero() {
   if (heroHere().none) return;
   // drawn on the room's own pixel grid: S of the room's pixels to each of the keeper's, as tall as about one and a half glowlings
-  const h = heroHere(), blink = game.time % 3700 < 140, S = Math.max(1, Math.round(N.base * 1.55 / PX / KH)), img = keeperCanvas(h.icon, blink, S);
+  const h = heroHere(), blink = game.time % 3700 < 140, S = Math.max(1, Math.round(N.base * 1.9 / PX / KH)), img = keeperCanvas(h.icon, blink, S);
   const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time, me = game.hero && game.hero.room === save.room ? game.hero : null;
   const since = me ? t - me.t : 1e9, jump = me && me.startle ? 0.45 : 0.18;
   const hop = since < 500 ? Math.sin(since / 500 * Math.PI) * s * jump : 0;

@@ -2,7 +2,7 @@
 // Hatchstone · the keepers of the places, drawn full-length: dark-fantasy folk of the valley, each with their trade in hand.
 // All the game's scripts share one global scope and load in order (see index.html).
 
-const KW = 34, KH = 46; // each keeper is 34×46 art pixels, standing on the bottom middle
+const KW = 40, KH = 64; // each keeper is 40×64 art pixels (a head about a seventh of their height), standing on the bottom middle
 const KC = Object.fromEntries(Object.entries({
   plum0: "#1f1029", plum1: "#3b2147", plum2: "#5a3570", plum3: "#7d4f96",
   cream0: "#8a6f52", cream1: "#c9b08a", cream2: "#ead7b4",
@@ -37,111 +37,185 @@ function kCloak(T, cx, top, bottom, wTop, wBot, [dark, mid, light], ragged = fal
   kFolds(T, Math.floor(cx - wBot), Math.ceil(cx + wBot), top, bottom, dark, 5);
   if (ragged) for (let x = Math.floor(cx - wBot); x <= cx + wBot; x++) if (pxHash(x, 3) > 0.55) T.px(x, bottom + 1, dark);
 }
-const glowEye = (T, x, y, col) => { T.px(x, y, col); T.glow(x, y, 3, col, 0.5); };
+
+/** A tapered limb from a to b (widths w0 → w1), its far side in shade; joints are drawn round at the ends. */
+function kLimb(T, a, b, w0, w1, col, shade) {
+  const [x0, y0] = a, [x1, y1] = b, dx = x1 - x0, dy = y1 - y0, L = Math.hypot(dx, dy) || 1, nx = -dy / L, ny = dx / L;
+  T.poly([[x0 + nx * w0 / 2, y0 + ny * w0 / 2], [x1 + nx * w1 / 2, y1 + ny * w1 / 2], [x1 - nx * w1 / 2, y1 - ny * w1 / 2], [x0 - nx * w0 / 2, y0 - ny * w0 / 2]], col);
+  if (shade) T.poly([[x0 + nx * w0 / 2, y0 + ny * w0 / 2], [x1 + nx * w1 / 2, y1 + ny * w1 / 2], [x1 + nx * w1 * 0.1, y1 + ny * w1 * 0.1], [x0 + nx * w0 * 0.1, y0 + ny * w0 * 0.1]], shade);
+  T.disc(x1, y1, w1 / 2, col, w1 / 2);
+}
+/** An arm: shoulder → elbow → wrist, with a hand (or gauntlet) at the end. */
+function kArm(T, sh, el, wr, [col, shade], hand, w = 3.2) { kLimb(T, sh, el, w, w * 0.85, col, shade); kLimb(T, el, wr, w * 0.85, w * 0.7, col, shade); T.ball(wr[0], wr[1] + 0.8, w * 0.45, hand[0], hand[1], hand[2], w * 0.5); }
+/** A leg: hip → knee → ankle, and a boot pointing a little outward. */
+function kLeg(T, hip, knee, ankle, [col, shade], boot, out = 1, w = 3.8) {
+  kLimb(T, hip, knee, w, w * 0.8, col, shade); kLimb(T, knee, ankle, w * 0.8, w * 0.62, col, shade);
+  T.poly([[ankle[0] - w * 0.4, ankle[1] - 1.5], [ankle[0] + w * 0.4, ankle[1] - 1.5], [ankle[0] + w * 0.45 + out * 2.2, ankle[1] + 2.4], [ankle[0] - w * 0.45 + out * 0.6, ankle[1] + 2.4]], boot);
+}
+/** A torso: shoulders, a narrower waist, hips. */
+function kTorso(T, cx, top, waist, hips, wSh, wWa, wHi, col) { T.poly([[cx - wSh, top + 1], [cx - wSh + 1, top], [cx + wSh - 1, top], [cx + wSh, top + 1], [cx + wWa, waist], [cx + wHi, hips], [cx - wHi, hips], [cx - wWa, waist]], col); }
+const glowEye = (T, x, y, col, r = 0.6) => { T.disc(x, y, r, col, r); T.glow(x, y, 2.5, col, 0.45); };
 
 const KEEPER_ART = {
   tansy(T, blink) {
-    // a hedgehog merchant in a dark hooded mantle, spines bristling out of the hood, brass scales at her belt
-    const cx = 17, C = KC;
-    T.poly([[11, 42], [15, 42], [15, 45], [10, 45]], C.hide0); T.poly([[19, 42], [23, 42], [24, 45], [19, 45]], C.hide0);
-    kCloak(T, cx, 22, 42, 6, 10, [C.plum1, C.plum2, C.plum3], true);
-    T.line(9, 33, 25, 33, C.brass1); T.px(13, 33, C.brass2);
-    T.line(22, 33, 22, 37, C.brass1); T.line(19, 37, 25, 37, C.brass1); T.disc(19, 38, 1.5, C.brass2, 0.8); T.disc(25, 38, 1.5, C.brass2, 0.8);
-    T.poly([[11, 23], [8, 31], [10, 32], [13, 25]], C.plum2); T.ball(9, 32, 1.6, C.cream2, C.cream1, C.cream0);
-    T.poly([[23, 23], [26, 30], [24, 31], [21, 25]], C.plum1); T.ball(25, 31, 1.6, C.cream1, C.cream1, C.cream0);
-    // spines through the hood, then the hood, then the face
-    for (let k = 0; k < 15; k++) { const an = Math.PI * (1.05 + k / 14 * 0.9), r0 = 7, r1 = 11 + pxHash(k, 1) * 3; T.line(cx + Math.cos(an) * r0, 15 + Math.sin(an) * r0, cx + Math.cos(an) * r1, 15 + Math.sin(an) * r1 * 0.9, k % 2 ? C.spine2 : C.spine1); }
-    T.ball(cx, 15, 8.5, C.plum3, C.plum2, C.plum1, 8);
-    T.ball(cx, 17, 5.2, C.cream2, C.cream1, C.cream0, 5);
-    T.poly([[cx - 2, 19], [cx + 2, 19], [cx, 23]], C.cream1); T.px(cx, 23, C.ink); T.px(cx, 22, C.spine0);
-    if (blink) { T.line(cx - 3, 17, cx - 2, 17, C.cream0); T.line(cx + 2, 17, cx + 3, 17, C.cream0); }
-    else for (const ex of [cx - 3, cx + 2]) { T.px(ex, 16, C.ink); T.px(ex + 1, 16, C.ink); T.px(ex, 17, C.ink); T.px(ex + 1, 17, C.glowA); T.glow(ex + 1, 17, 3, C.glowA, 0.35); }
-    T.px(cx - 4, 19, C.pink); T.px(cx + 4, 19, C.pink); T.line(cx - 1, 21, cx + 1, 21, C.cream0);
+    // the shop's hedgehog: spines down her back, a long merchant's dress with a corset belt, a knitted shawl, brass scales and a ring of keys
+    const cx = 20, C = KC;
+    // spines behind the head and shoulders
+    // spines down the back of the head and the back, pointing back and up
+    for (let k = 0; k < 24; k++) { const f = k / 23, bx = cx - 2 - 6 * f, by = 4.5 + 22 * f, an = Math.PI * (1.18 - 0.25 * f) + (pxHash(k, 2) - 0.5) * 0.3, len = 4.5 - 1.5 * f + pxHash(k, 1) * 1.5;
+      T.line(bx, by, bx + Math.cos(an) * len, by + Math.sin(an) * len, k % 2 ? C.spine2 : C.spine1); }
+    kLeg(T, [cx - 3, 33], [cx - 3.5, 46], [cx - 3.5, 58], [C.cream1, C.cream0], C.hide0, -1, 3);
+    kLeg(T, [cx + 3, 33], [cx + 3.5, 46], [cx + 3.5, 58], [C.cream1, C.cream0], C.hide0, 1, 3);
+    // the skirt, long and heavy, with folds
+    T.poly([[cx - 6, 29], [cx + 6, 29], [cx + 11, 58], [cx - 11, 58]], (x, y) => x < cx - 4 ? C.plum3 : x > cx + 5 ? C.plum1 : C.plum2);
+    kFolds(T, cx - 10, cx + 10, 31, 58, C.plum1, 4);
+    for (let x = cx - 11; x <= cx + 11; x += 2) T.px(x, 58, C.plum0);
+    kTorso(T, cx, 15, 26, 30, 7, 4.5, 6, C.plum2);
+    T.poly([[cx - 4.5, 24], [cx + 4.5, 24], [cx + 5, 30], [cx - 5, 30]], C.hide1);
+    for (const y of [25.5, 27.5]) T.line(cx - 2, y, cx + 2, y + 0.5, C.brass1);
+    // shawl over the shoulders, fringed
+    T.poly([[cx - 8, 15], [cx + 8, 15], [cx + 6, 21], [cx, 24], [cx - 6, 21]], (x, y) => (Math.floor(x) + Math.floor(y)) % 2 ? C.cream1 : C.cream2);
+    for (let x = cx - 6; x <= cx + 6; x += 1.5) T.px(x, 21 + (Math.abs(x - cx) < 3 ? 2 : 0), C.cream0);
+    // left arm down with a ring of keys, right arm holding the scales
+    kArm(T, [cx - 7, 17], [cx - 9, 25], [cx - 8.5, 32], [C.plum2, C.plum1], [C.cream2, C.cream1, C.cream0], 2.8);
+    T.disc(cx - 8, 35, 1.5, C.brass1, 1.5); T.line(cx - 8.5, 35, cx - 9, 38, C.brass2); T.line(cx - 7.5, 35, cx - 7, 37.5, C.brass2);
+    kArm(T, [cx + 7, 17], [cx + 10, 24], [cx + 13, 21], [C.plum2, C.plum1], [C.cream2, C.cream1, C.cream0], 2.8);
+    T.line(cx + 13, 20, cx + 13, 14, C.brass1); T.line(cx + 9, 14, cx + 17, 14, C.brass2);
+    for (const sx of [cx + 9, cx + 17]) { T.line(sx, 14, sx - 1, 17, C.brass0); T.line(sx, 14, sx + 1, 17, C.brass0); T.disc(sx, 17.5, 1.6, C.brass2, 0.6); }
+    // the head: a pointed hedgehog face under a hood
+    T.ball(cx - 1, 8.5, 4.6, C.plum3, C.plum2, C.plum1, 5);
+    T.ball(cx + 0.5, 9.5, 3.4, C.cream2, C.cream1, C.cream0, 3.3);
+    T.poly([[cx + 2.5, 8.5], [cx + 7, 10.5], [cx + 2.5, 12]], C.cream1); T.disc(cx + 7, 10.5, 0.8, C.ink, 0.8);
+    if (blink) T.line(cx + 1, 8.8, cx + 2.5, 8.8, C.cream0); else glowEye(T, cx + 1.8, 8.8, C.glowA, 0.7);
+    T.px(cx + 1, 11, C.pink);
   },
   ember(T, blink) {
-    // a salamander smith: tall, horned, scales the colour of embers, a scorched leather apron and a heavy hammer
-    const cx = 16, C = KC;
-    T.poly([[26, 40], [31, 38], [33, 41], [29, 44], [24, 44]], C.scale1); T.px(32, 40, C.scale2);
-    T.poly([[11, 41], [15, 41], [15, 45], [10, 45]], C.scale0); T.poly([[18, 41], [22, 41], [23, 45], [18, 45]], C.scale0);
-    kCloak(T, cx, 20, 41, 7, 8, [C.scale0, C.scale1, C.scale2]);
-    for (let k = 0; k < 18; k++) T.px(cx - 6 + pxHash(k, 2) * 12, 21 + pxHash(k, 3) * 18, C.scale3);
-    T.poly([[cx - 5, 25], [cx + 5, 25], [cx + 6, 41], [cx - 6, 41]], (x, y) => pxHash(x, y) > 0.9 ? C.hide0 : x < cx - 2 ? C.hide2 : C.hide1);
-    T.line(cx - 5, 25, cx - 7, 21, C.hide0); T.line(cx + 5, 25, cx + 7, 21, C.hide0);
-    // arms: the right one holds the hammer up
-    T.poly([[cx - 7, 21], [cx - 10, 31], [cx - 8, 32], [cx - 5, 23]], C.scale1); T.ball(cx - 9, 32, 1.8, C.scale2, C.scale1, C.scale0);
-    T.poly([[cx + 7, 21], [cx + 11, 26], [cx + 9, 28], [cx + 5, 24]], C.scale1); T.ball(cx + 11, 26, 1.8, C.scale2, C.scale1, C.scale0);
-    T.line(cx + 11, 26, cx + 15, 12, C.hide2); T.line(cx + 12, 26, cx + 16, 12, C.hide1);
-    T.poly([[cx + 12, 9], [cx + 19, 11], [cx + 18, 15], [cx + 11, 13]], C.steel1); T.line(cx + 12, 9, cx + 19, 11, C.steel3);
-    T.glow(cx + 15, 11, 4, C.glowA, 0.3);
-    // a long head with a horned brow and burning eyes
-    T.ball(cx, 14, 7, C.scale3, C.scale2, C.scale1, 6);
-    T.ball(cx + 1, 17, 5, C.scale2, C.scale2, C.scale1, 3);
-    T.poly([[cx - 6, 10], [cx - 9, 4], [cx - 4, 9]], C.velvet1); T.poly([[cx + 5, 9], [cx + 8, 3], [cx + 7, 10]], C.velvet1);
-    T.line(cx - 3, 19, cx + 4, 19, C.scale0);
-    if (blink) { T.line(cx - 4, 13, cx - 2, 13, C.scale0); T.line(cx + 2, 13, cx + 4, 13, C.scale0); }
-    else { glowEye(T, cx - 3, 13, C.glowY); glowEye(T, cx + 3, 13, C.glowY); T.px(cx - 3, 12, C.glowW); T.px(cx + 3, 12, C.glowW); }
+    // the forge's salamander: tall and horned, a mail shirt under a scorched leather apron, a steel pauldron and gauntlets, greaves, the hammer on one shoulder
+    const cx = 19, C = KC;
+    // tail, curling behind
+    T.poly([[cx + 3, 34], [cx + 7, 36], [cx + 14, 48], [cx + 17, 58], [cx + 13, 60], [cx + 11, 50], [cx + 4, 40]], C.scale1);
+    T.line(cx + 6, 38, cx + 14, 54, C.scale2);
+    // legs: dark leather breeches, steel greaves, heavy boots
+    kLeg(T, [cx - 3.5, 34], [cx - 4, 47], [cx - 4, 59], [C.hide1, C.hide0], C.hide0, -1, 4.4);
+    kLeg(T, [cx + 3.5, 34], [cx + 4, 47], [cx + 4, 59], [C.hide1, C.hide0], C.hide0, 1, 4.4);
+    for (const lx of [cx - 4, cx + 4]) { T.poly([[lx - 2.2, 48], [lx + 2.2, 48], [lx + 1.8, 57], [lx - 1.8, 57]], (x) => x < lx ? C.steel3 : C.steel2); T.disc(lx, 47.5, 1.8, C.steel3, 1.4); }
+    // mail shirt, the apron over it, a belt with tongs
+    kTorso(T, cx, 15, 27, 34, 8.5, 6, 7, (x, y) => (Math.floor(x * 2) + Math.floor(y * 2)) % 3 ? C.steel1 : C.steel2);
+    T.poly([[cx - 5, 19], [cx + 5, 19], [cx + 7, 46], [cx - 7, 46]], (x, y) => pxHash(Math.floor(x), Math.floor(y)) > 0.93 ? C.hide0 : x < cx - 2 ? C.hide2 : C.hide1);
+    T.line(cx - 5, 19, cx - 7, 15, C.hide0); T.line(cx + 5, 19, cx + 7, 15, C.hide0);
+    T.line(cx - 7, 31, cx + 7, 31, C.hide0); T.disc(cx, 31, 1, C.brass1, 1);
+    T.line(cx - 8, 31, cx - 9, 40, C.steel2); T.line(cx - 7, 31, cx - 7.5, 40, C.steel2);
+    // left arm down in a gauntlet; the right raised, the hammer resting on its shoulder
+    kArm(T, [cx - 8, 16], [cx - 10.5, 26], [cx - 10, 34], [C.scale2, C.scale1], [C.steel3, C.steel2, C.steel1], 3.6);
+    T.poly([[cx - 12, 33], [cx - 8, 33], [cx - 8, 36], [cx - 12, 36]], C.steel2);
+    T.ball(cx - 8.5, 16, 4, C.steel3, C.steel2, C.steel1, 3);
+    kArm(T, [cx + 8, 16], [cx + 12, 23], [cx + 9, 17], [C.scale2, C.scale1], [C.steel3, C.steel2, C.steel1], 3.6);
+    T.line(cx + 9, 18, cx + 18, 3, C.hide2); T.line(cx + 10, 18, cx + 19, 3.5, C.hide1);
+    T.poly([[cx + 15, 0], [cx + 22, 3], [cx + 20, 8], [cx + 13, 5]], (x) => x < cx + 17 ? C.steel3 : C.steel1);
+    T.glow(cx + 18, 4, 4, C.glowA, 0.25);
+    // neck and head: a long lizard skull, horns sweeping back, ember eyes
+    kLimb(T, [cx, 15], [cx + 0.5, 11], 4, 3.5, C.scale2, C.scale1);
+    T.ball(cx, 8, 4.4, C.scale3, C.scale2, C.scale1, 3.8);
+    T.poly([[cx + 2, 6.5], [cx + 8.5, 8.5], [cx + 8, 10.5], [cx + 2, 11]], C.scale2); T.line(cx + 3, 10, cx + 8, 9.8, C.scale0);
+    T.poly([[cx - 2, 5], [cx - 7, 0], [cx - 3, 4.5]], C.velvet1); T.poly([[cx + 1, 4.5], [cx - 1, -0.5], [cx + 2.5, 4]], C.velvet1);
+    if (blink) T.line(cx + 1.5, 7.5, cx + 3.5, 7.5, C.scale0); else { glowEye(T, cx + 2.5, 7.5, C.glowY, 0.75); }
+    for (let k = 0; k < 6; k++) T.px(cx - 3 + pxHash(k, 9) * 5, 6 + pxHash(k, 3) * 5, C.scale3);
   },
   pip(T, blink) {
-    // a crow-folk scout who maps the tunnels: blue-black feathers, a tattered feathered cloak, a scarf, a rolled map under one wing
-    const cx = 17, C = KC;
-    T.line(13, 42, 12, 45, C.beak1); T.line(15, 42, 15, 45, C.beak1); T.line(19, 42, 19, 45, C.beak1); T.line(21, 42, 22, 45, C.beak1);
-    T.px(11, 45, C.beak1); T.px(16, 45, C.beak1); T.px(18, 45, C.beak1); T.px(23, 45, C.beak1);
-    kCloak(T, cx, 22, 42, 7, 10, [C.crow0, C.crow1, C.crow2], true);
-    for (let x = 8; x <= 26; x += 2) T.poly([[x, 40], [x + 2, 40], [x + 1, 43 + (x % 4 ? 1 : 0)]], x % 4 ? C.crow1 : C.crow2);
-    T.poly([[cx - 6, 22], [cx + 6, 22], [cx + 5, 26], [cx - 5, 26]], C.scale1); T.poly([[cx + 3, 25], [cx + 6, 25], [cx + 5, 31], [cx + 3, 30]], C.scale1);
-    T.poly([[4, 28], [14, 25], [15, 28], [5, 31]], C.map1); T.line(5, 31, 15, 28, C.map0); T.px(9, 28, C.scale2); T.px(9, 29, C.scale2);
-    T.poly([[cx - 7, 23], [cx - 11, 30], [cx - 8, 31], [cx - 5, 25]], C.crow2);
-    T.poly([[cx + 7, 23], [cx + 10, 31], [cx + 8, 32], [cx + 5, 25]], C.crow1);
-    T.line(cx + 9, 32, cx + 11, 34, C.beak1); T.line(cx + 8, 32, cx + 8, 35, C.beak1);
-    // the head: a ruff of feathers, a long grey beak, one bright eye
-    for (let k = 0; k < 7; k++) T.poly([[cx - 6 + k * 2, 8], [cx - 5 + k * 2, 3 + (k % 3)], [cx - 4 + k * 2, 8]], k % 2 ? C.crow2 : C.crow1);
-    T.ball(cx, 14, 7, C.crow3, C.crow2, C.crow0, 7);
-    T.poly([[cx + 3, 14], [cx + 13, 17], [cx + 3, 18]], C.beak1); T.line(cx + 3, 16, cx + 12, 17, C.beak0);
-    if (blink) { T.line(cx - 1, 13, cx + 1, 13, C.crow0); } else { T.disc(cx, 13, 1.4, C.glowW, 1.4); T.px(cx, 13, C.ink); T.glow(cx, 13, 3, C.glowW, 0.3); }
+    // the camp's crow-folk scout: a riveted leather brigandine, bracers and tall boots, a feathered cloak, a short sword, the rolled map
+    const cx = 20, C = KC;
+    // the cloak behind, feathered at the hem
+    T.poly([[cx - 8, 15], [cx + 8, 15], [cx + 12, 52], [cx - 12, 52]], C.crow1);
+    for (let x = cx - 12; x <= cx + 11; x += 2) T.poly([[x, 51], [x + 2, 51], [x + 1, 55 + (Math.floor(x) % 4 ? 1 : 0)]], Math.floor(x) % 4 ? C.crow1 : C.crow2);
+    kLeg(T, [cx - 3, 34], [cx - 3.5, 46], [cx - 3.5, 58], [C.coat1, C.coat0], C.hide1, -1, 3.4);
+    kLeg(T, [cx + 3, 34], [cx + 3.5, 46], [cx + 3.5, 58], [C.coat1, C.coat0], C.hide1, 1, 3.4);
+    for (const lx of [cx - 3.5, cx + 3.5]) { T.poly([[lx - 2, 47], [lx + 2, 47], [lx + 1.8, 58], [lx - 1.8, 58]], C.hide1); T.line(lx - 2, 50, lx + 2, 50, C.brass1); }
+    // the brigandine, riveted, belted
+    kTorso(T, cx, 15, 28, 34, 7.5, 5.2, 6, (x) => x < cx - 3 ? C.hide2 : C.hide1);
+    for (let y = 18; y < 33; y += 3) for (let x = cx - 4; x <= cx + 4; x += 4) T.px(x, y, C.brass1);
+    T.line(cx - 6, 31, cx + 6, 31, C.hide0); T.disc(cx, 31, 0.9, C.brass2, 0.9);
+    // a short sword at the left hip, a satchel at the right
+    T.line(cx - 6, 30, cx - 11, 42, C.hide0); T.line(cx - 7, 29, cx - 4, 30.5, C.brass1);
+    T.poly([[cx + 5, 30], [cx + 10, 30], [cx + 10, 36], [cx + 5, 36]], C.hide2); T.line(cx + 5, 32, cx + 10, 32, C.hide0);
+    // arms: the left holds the map against the chest, the right hangs, gloved, a bracer on each
+    kArm(T, [cx + 7, 17], [cx + 9, 26], [cx + 8.5, 34], [C.crow2, C.crow1], [C.hide1, C.hide1, C.hide0], 3);
+    T.poly([[cx + 7.2, 28], [cx + 10.2, 28], [cx + 10, 32], [cx + 7, 32]], C.hide1);
+    kArm(T, [cx - 7, 17], [cx - 8, 26], [cx - 1, 23], [C.crow2, C.crow1], [C.hide1, C.hide1, C.hide0], 3);
+    T.poly([[cx - 9, 20], [cx + 4, 18], [cx + 5, 21], [cx - 8, 23.5]], C.map1); T.line(cx - 8, 23.5, cx + 5, 21, C.map0); T.px(cx - 2, 20.5, C.scale2); T.px(cx - 2, 21.5, C.scale2);
+    // the red scarf and the hood fallen back
+    T.poly([[cx - 6, 13.5], [cx + 6, 13.5], [cx + 4, 17], [cx - 4, 17]], C.scale1); T.poly([[cx + 2, 16], [cx + 4, 16], [cx + 3, 22], [cx + 1.5, 21]], C.scale1);
+    T.ball(cx - 1, 13, 4.5, C.crow2, C.crow1, C.crow0, 2.2);
+    // the head: a crow's, crested, with a long grey beak and one bright eye
+    for (let k = 0; k < 5; k++) T.poly([[cx - 3 + k * 1.4, 5], [cx - 3.5 + k * 1.4, 1 + (k % 2)], [cx - 2 + k * 1.4, 5]], k % 2 ? C.crow2 : C.crow1);
+    T.ball(cx, 8, 4, C.crow3, C.crow2, C.crow0, 4.2);
+    T.poly([[cx + 2.5, 7.5], [cx + 10, 9.5], [cx + 2.5, 11]], C.beak1); T.line(cx + 3, 9.5, cx + 9.5, 9.5, C.beak0);
+    if (blink) T.line(cx + 0.5, 7.2, cx + 2, 7.2, C.crow0); else { T.disc(cx + 1.2, 7.2, 1, C.glowW, 1); T.disc(cx + 1.4, 7.2, 0.45, C.ink, 0.45); }
   },
   ollo(T, blink) {
-    // an owl alchemist in a high-collared midnight robe, a monocle in one great eye, a glowing vial held up
-    const cx = 17, C = KC;
-    kCloak(T, cx, 22, 44, 7, 11, [C.robe0, C.robe1, C.robe2]);
-    for (let y = 26; y < 44; y += 3) T.px(cx, y, C.robe3);
-    T.poly([[cx - 9, 20], [cx - 6, 26], [cx, 24], [cx + 6, 26], [cx + 9, 20], [cx + 6, 23], [cx, 21], [cx - 6, 23]], C.robe2);
-    T.disc(cx, 25, 1.4, KC.steel3, 1);
-    // the vial, glowing green
-    T.poly([[cx + 7, 23], [cx + 12, 27], [cx + 10, 29], [cx + 5, 26]], C.robe1);
-    T.line(cx + 12, 25, cx + 12, 20, C.steel3); T.ball(cx + 12, 27, 2, C.glowG, C.glowG, C.moss3); T.glow(cx + 12, 26, 6, C.glowG, 0.4);
-    T.poly([[cx - 7, 23], [cx - 10, 33], [cx - 7, 34], [cx - 5, 26]], C.robe1);
-    // the head: tufted, a pale face-disc, two huge amber eyes
-    T.poly([[cx - 8, 6], [cx - 6, 1], [cx - 4, 7]], C.owl0); T.poly([[cx + 8, 6], [cx + 6, 1], [cx + 4, 7]], C.owl0);
-    T.ball(cx, 13, 9, C.owl2, C.owl1, C.owl0, 8.5);
-    T.ball(cx - 3.5, 13, 3.6, C.owl3, C.owl3, C.owl2); T.ball(cx + 3.5, 13, 3.6, C.owl3, C.owl3, C.owl2);
-    if (blink) { T.line(cx - 6, 13, cx - 2, 13, C.owl1); T.line(cx + 2, 13, cx + 6, 13, C.owl1); }
-    else { T.disc(cx - 3.5, 13, 2.2, C.glowA, 2.2); T.disc(cx + 3.5, 13, 2.2, C.glowA, 2.2); T.px(cx - 3, 13, C.ink); T.px(cx + 4, 13, C.ink); T.px(cx - 4, 12, C.glowW); T.px(cx + 3, 12, C.glowW); }
-    for (let k = 0; k < 12; k++) { const an = k / 12 * TAU; T.px(cx + 3.5 + Math.cos(an) * 3.4, 13 + Math.sin(an) * 3.4, C.brass2); }
-    T.line(cx + 6, 15, cx + 8, 22, C.brass1);
-    T.poly([[cx - 1, 16], [cx + 1, 16], [cx, 19]], C.brass1);
+    // the lab's owl alchemist: a floor-length midnight robe, a mantle of feathers, a belt of vials, a staff with a crystal, a glowing vial held up
+    const cx = 19, C = KC;
+    // the staff on the left, taller than Ollo
+    T.line(cx - 11, 61, cx - 11, 6, C.hide1); T.line(cx - 10.5, 61, cx - 10.5, 6, C.hide2);
+    T.poly([[cx - 11, 0], [cx - 9, 4], [cx - 11, 8], [cx - 13, 4]], (x) => x < cx - 11 ? C.owl3 : C.l2 || C.owl2); T.glow(cx - 11, 4, 5, C.owl3, 0.4);
+    // the robe to the floor, two golden trims, toes of talons peeking out
+    T.poly([[cx - 6.5, 16], [cx + 6.5, 16], [cx + 10, 61], [cx - 10, 61]], (x) => x < cx - 3 ? C.robe2 : x > cx + 4 ? C.robe0 : C.robe1);
+    kFolds(T, cx - 9, cx + 9, 26, 61, C.robe0, 4);
+    T.line(cx, 24, cx, 61, C.brass1);
+    for (const tx of [cx - 3, cx + 3]) for (let k = -1; k <= 1; k++) T.px(tx + k, 62, C.brass1);
+    T.line(cx - 6, 31, cx + 6, 31, C.hide1);
+    for (const [vx, c] of [[cx - 4, C.glowG], [cx - 1.5, C.pink], [cx + 3, C.glowY]]) { T.disc(vx, 33, 0.9, c, 1.4); T.px(vx, 31.5, C.steel3); }
+    // the mantle of feathers over the shoulders, the high collar
+    T.poly([[cx - 9, 16], [cx + 9, 16], [cx + 8, 24], [cx, 26], [cx - 8, 24]], C.owl1);
+    for (let k = 0; k < 8; k++) T.poly([[cx - 8 + k * 2.2, 22], [cx - 6.5 + k * 2.2, 22], [cx - 7.2 + k * 2.2, 25.5]], k % 2 ? C.owl0 : C.owl2);
+    T.poly([[cx - 5, 12], [cx - 4, 17], [cx + 4, 17], [cx + 5, 12], [cx + 3, 15], [cx - 3, 15]], C.robe2);
+    // arms in wide sleeves: the left on the staff, the right holding the vial up
+    kArm(T, [cx - 8, 18], [cx - 10, 26], [cx - 10.5, 30], [C.robe1, C.robe0], [C.owl2, C.owl1, C.owl0], 3.6);
+    kArm(T, [cx + 8, 18], [cx + 11, 25], [cx + 13, 19], [C.robe1, C.robe0], [C.owl2, C.owl1, C.owl0], 3.6);
+    T.line(cx + 13, 18, cx + 13, 15, C.steel3); T.ball(cx + 13, 14, 1.6, C.glowG, C.glowG, C.moss3, 2); T.glow(cx + 13, 14, 5, C.glowG, 0.45);
+    // the head: tufted, a pale face-disc, great amber eyes, a monocle on a chain
+    T.poly([[cx - 4.5, 4], [cx - 5, -0.5], [cx - 2.5, 3]], C.owl0); T.poly([[cx + 4.5, 4], [cx + 5, -0.5], [cx + 2.5, 3]], C.owl0);
+    T.ball(cx, 8, 5, C.owl2, C.owl1, C.owl0, 4.8);
+    T.ball(cx - 2, 8, 2.2, C.owl3, C.owl3, C.owl2); T.ball(cx + 2, 8, 2.2, C.owl3, C.owl3, C.owl2);
+    if (blink) { T.line(cx - 3.2, 8, cx - 1, 8, C.owl1); T.line(cx + 1, 8, cx + 3.2, 8, C.owl1); }
+    else { T.disc(cx - 2, 8, 1.3, C.glowA, 1.3); T.disc(cx + 2, 8, 1.3, C.glowA, 1.3); T.disc(cx - 2, 8, 0.5, C.ink, 0.5); T.disc(cx + 2, 8, 0.5, C.ink, 0.5); }
+    for (let k = 0; k < 14; k++) { const an = k / 14 * TAU; T.px(cx + 2 + Math.cos(an) * 2.3, 8 + Math.sin(an) * 2.3, C.brass2); }
+    T.line(cx + 4, 9, cx + 6, 16, C.brass1);
+    T.poly([[cx - 0.8, 10], [cx + 0.8, 10], [cx, 12]], C.brass1);
   },
   fennel(T, blink) {
-    // a turtle-folk gardener: a great mossy shell with little plants growing on it, a beaked old face, a lantern on a staff
-    const cx = 15, C = KC;
-    T.line(28, 6, 26, 45, C.hide1); T.line(29, 6, 27, 45, C.hide2);
-    T.line(28, 6, 32, 8, C.hide1); T.line(32, 8, 32, 11, C.steel2);
-    T.poly([[30, 11], [34, 11], [34, 16], [30, 16]], C.steel1); T.poly([[31, 12], [33, 12], [33, 15], [31, 15]], C.glowY); T.glow(32, 13, 8, C.glowY, 0.4);
-    // the shell behind, plated, with moss and sprouts on top
-    T.ball(cx - 1, 27, 12, C.shell3, C.shell2, C.shell1, 13);
-    for (const [px, py] of [[cx - 6, 20], [cx + 3, 21], [cx - 2, 28], [cx - 8, 31], [cx + 6, 30], [cx - 1, 36]]) { T.disc(px, py, 3, C.shell1, 2.2); T.disc(px, py, 2, C.shell2, 1.5); }
-    for (let k = 0; k < 9; k++) T.px(cx - 9 + pxHash(k, 3) * 16, 15 + pxHash(k, 4) * 6, C.moss3);
-    for (const [px, c] of [[cx - 7, C.pink], [cx - 1, C.glowY], [cx + 5, C.owl3]]) { T.line(px, 15, px, 11, C.moss2); T.px(px, 10, c); T.px(px - 1, 11, c); T.px(px + 1, 11, c); }
-    // a plain gardener's smock in front, wrinkled green arms and legs
-    T.poly([[cx - 5, 42], [cx - 1, 42], [cx - 1, 45], [cx - 6, 45]], C.toad1); T.poly([[cx + 2, 42], [cx + 6, 42], [cx + 7, 45], [cx + 2, 45]], C.toad1);
-    kCloak(T, cx + 1, 24, 42, 6, 7, [C.straw0, C.straw1, C.straw2]);
-    T.poly([[cx + 6, 25], [cx + 12, 27], [cx + 12, 29], [cx + 6, 28]], C.toad2);
-    T.poly([[cx - 4, 26], [cx - 7, 33], [cx - 5, 34], [cx - 2, 28]], C.toad2);
-    // the head on a wrinkled neck: an old beak, heavy-lidded eyes
-    T.poly([[cx - 1, 19], [cx + 4, 19], [cx + 4, 25], [cx - 1, 25]], C.toad1); T.line(cx, 22, cx + 3, 22, C.toad0);
-    T.ball(cx + 2, 15, 6, C.toad3, C.toad2, C.toad1, 5);
-    T.poly([[cx + 6, 15], [cx + 10, 17], [cx + 6, 19]], C.brass0);
-    if (blink) T.line(cx + 2, 14, cx + 5, 14, C.toad0);
-    else { T.line(cx + 2, 13, cx + 5, 13, C.toad0); T.px(cx + 3, 14, C.glowY); T.px(cx + 4, 14, C.ink); }
+    // the garden's turtle-folk: an old gardener whose great mossy shell is armour enough, a leather jerkin full of pockets, a broad hat, a lantern on a staff
+    const cx = 18, C = KC;
+    // the lantern staff on the right
+    T.line(cx + 14, 61, cx + 14, 7, C.hide1); T.line(cx + 14.5, 61, cx + 14.5, 7, C.hide2);
+    T.line(cx + 14, 7, cx + 18, 9, C.hide1); T.line(cx + 18, 9, cx + 18, 12, C.steel2);
+    T.poly([[cx + 16, 12], [cx + 20, 12], [cx + 20, 18], [cx + 16, 18]], C.steel1); T.poly([[cx + 17, 13], [cx + 19, 13], [cx + 19, 17], [cx + 17, 17]], C.glowY); T.glow(cx + 18, 15, 7, C.glowY, 0.4);
+    // the shell: a broad plated dome behind the shoulders, moss and sprouts on top
+    T.ball(cx - 1.5, 27, 12, C.shell3, C.shell2, C.shell1, 15);
+    for (const [px, py] of [[cx - 7, 19], [cx + 3, 18], [cx - 2, 28], [cx - 9, 31], [cx + 6, 30], [cx - 3, 38]]) { T.disc(px, py, 3.2, C.shell1, 2.4); T.disc(px, py, 2.2, C.shell2, 1.6); }
+    for (let k = 0; k < 12; k++) T.px(cx - 10 + pxHash(k, 3) * 17, 13 + pxHash(k, 4) * 5, C.moss3);
+    for (const [px, c] of [[cx - 8, C.pink], [cx - 2, C.glowY], [cx + 4, C.owl3]]) { T.line(px, 13, px, 9, C.moss2); T.disc(px, 8.5, 1, c, 1); }
+    // sturdy legs, big bare feet
+    kLeg(T, [cx - 3.5, 37], [cx - 4.5, 48], [cx - 4.5, 58], [C.toad2, C.toad1], C.toad1, -1, 4.4);
+    kLeg(T, [cx + 3.5, 37], [cx + 4.5, 48], [cx + 4.5, 58], [C.toad2, C.toad1], C.toad1, 1, 4.4);
+    for (const lx of [cx - 4.5, cx + 4.5]) T.poly([[lx - 2.4, 44], [lx + 2.4, 44], [lx + 2.2, 47], [lx - 2.2, 47]], C.straw0);
+    // the jerkin with pockets, an apron, a belt with a trowel
+    kTorso(T, cx, 18, 30, 38, 8, 7, 7.5, (x) => x < cx - 3 ? C.straw2 : C.straw1);
+    T.poly([[cx - 6, 28], [cx + 6, 28], [cx + 7, 44], [cx - 7, 44]], C.hide2);
+    for (const [px, py] of [[cx - 4, 33], [cx + 2, 33]]) { T.poly([[px, py], [px + 3, py], [px + 3, py + 3], [px, py + 3]], C.hide1); T.line(px, py, px + 3, py, C.hide0); }
+    T.line(cx - 7, 28, cx + 7, 28, C.hide0); T.line(cx + 6, 28, cx + 8, 34, C.steel2);
+    // thick arms: the right on the staff, the left holding a little pot of seedlings
+    kArm(T, [cx + 8, 20], [cx + 11.5, 28], [cx + 13.5, 25], [C.toad2, C.toad1], [C.toad3, C.toad2, C.toad1], 4);
+    kArm(T, [cx - 8, 20], [cx - 10, 28], [cx - 6, 31], [C.toad2, C.toad1], [C.toad3, C.toad2, C.toad1], 4);
+    T.poly([[cx - 7, 29], [cx - 3, 29], [cx - 3.5, 33], [cx - 6.5, 33]], C.scale2); T.line(cx - 5, 29, cx - 5, 26, C.moss3); T.px(cx - 6, 26, C.moss3); T.px(cx - 4, 25.5, C.moss3);
+    // neck forward, a hooked beak, wise heavy-lidded eyes, the broad tattered hat
+    kLimb(T, [cx + 1, 19], [cx + 3, 14], 4, 3.4, C.toad2, C.toad1);
+    T.ball(cx + 3.5, 11, 3.8, C.toad3, C.toad2, C.toad1, 3.4);
+    T.poly([[cx + 6, 10.5], [cx + 9, 12], [cx + 7.5, 14], [cx + 6, 13]], C.brass0);
+    T.line(cx + 2, 13.5, cx + 6, 13.5, C.toad0);
+    if (blink) T.line(cx + 3.5, 10.5, cx + 6, 10.5, C.toad0); else { T.line(cx + 3.5, 9.8, cx + 6, 9.8, C.toad0); T.disc(cx + 4.8, 10.6, 0.6, C.glowY, 0.6); }
+    T.poly([[cx - 8, 7.5], [cx + 14, 6.5], [cx + 11, 9], [cx - 5, 9.5]], (x, y) => (Math.floor(x) + Math.floor(y)) % 3 ? C.straw1 : C.straw2);
+    T.poly([[cx - 1, 2], [cx + 7, 1.5], [cx + 8, 7], [cx - 2, 7.5]], (x, y) => (Math.floor(x * 2) + Math.floor(y)) % 5 ? C.straw1 : C.straw0);
+    T.line(cx - 2, 6, cx + 8, 5.5, C.scale1);
   },
 };
 /**
@@ -181,8 +255,9 @@ function keeperFace(id) {
   const key = id + ":face";
   if (keeperCache[key]) return keeperCache[key];
   if (!KEEPER_ART[id]) return pxIcon(id);
-  const full = keeperCanvas(id, false, 1), c = document.createElement("canvas"); c.width = c.height = 30;
-  c.getContext("2d").drawImage(full, -2, 0);
+  // head and shoulders, drawn twice as fine as the small version
+  const full = keeperCanvas(id, false, 2), c = document.createElement("canvas"); c.width = c.height = 52;
+  c.getContext("2d").drawImage(full, -14, -2);
   return keeperCache[key] = c.toDataURL();
 }
 /** A tiny keeper for the map: a third the size, each map pixel the colour most of its 3×3 block has. */
