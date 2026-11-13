@@ -2179,6 +2179,19 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "For this room": "Для цієї кімнати",
+  "Garden bench": "Садова лавка",
+  "sits on the bench": "сидить на лавці",
+  "Lantern post": "Ліхтарний стовп",
+  "circles the lantern": "кружляє біля ліхтаря",
+  "Birdbath": "Купальня",
+  "splashes in the birdbath": "хлюпається в купальні",
+  "Little drum": "Барабанчик",
+  "bangs the drum": "барабанить",
+  "Toy blocks": "Кубики",
+  "stacks the blocks": "будує з кубиків",
+  "Telescope": "Телескоп",
+  "looks at the stars": "дивиться на зорі",
   "Nest-bed": "Ліжко-гніздо",
   "Pile of leaves": "Купа листя",
   "Hammock": "Гамак",
@@ -3298,6 +3311,12 @@ DECOR.push(
   { id: "chest", name: "Toy chest", emoji: "🧸", cost: 40, lovers: ["hop"], verb: "digs through the toy chest", emote: "!", iso: true },
   { id: "plant", name: "Crystal plant", emoji: "🪴", cost: 35, lovers: ["flutter", "swim"], verb: "sniffs the crystal plant", emote: "✦", iso: true },
   { id: "musicbox", name: "Music box", emoji: "🎼", cost: 120, lovers: ["dance", "flutter"], verb: "sways to the music box", emote: "♪", iso: true, legend: true, how: "meet a legendary glowling" },
+  { id: "bench", name: "Garden bench", emoji: "🪑", cost: 45, lovers: ["nap", "curious"], verb: "sits on the bench", emote: "♥", iso: true, rooms: ["yard", "garden"] },
+  { id: "lamppost", name: "Lantern post", emoji: "🏮", cost: 55, lovers: ["flutter"], verb: "circles the lantern", emote: "✦", iso: true, rooms: ["yard", "garden"] },
+  { id: "birdbath", name: "Birdbath", emoji: "⛲", cost: 60, lovers: ["swim", "flutter"], verb: "splashes in the birdbath", emote: "💧", iso: true, rooms: ["yard", "garden"] },
+  { id: "drum", name: "Little drum", emoji: "🥁", cost: 50, lovers: ["dance", "hop"], verb: "bangs the drum", emote: "♪", iso: true, rooms: ["play"] },
+  { id: "blocks", name: "Toy blocks", emoji: "🧱", cost: 35, lovers: ["hop", "curious"], verb: "stacks the blocks", emote: "!", iso: true, rooms: ["play", "nest"] },
+  { id: "telescope", name: "Telescope", emoji: "🔭", cost: 90, lovers: ["curious", "flutter"], verb: "looks at the stars", emote: "✦", iso: true, rooms: ["study", "yard"] },
   { id: "painting", name: "Moon painting", emoji: "🖼️", cost: 55, lovers: ["curious", "dance"], verb: "admires the painting", emote: "✦", iso: true, wall: true },
 );
 if (LANG === "uk") for (const d of DECOR) if (d.iso) { d.name = tr(d.name); d.verb = tr(d.verb); if (d.how) d.how = tr(d.how); }
@@ -4068,7 +4087,7 @@ const ROOM_SLOTS = {
   spring: [0.98, 0.06], cushion: [0.5, 0], bed: [0.97, 0.94],
   rug: [0.5, 0.56],
   // the pieces drawn for the isometric room stand here when the room is seen straight on
-  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98],
+  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98], bench: [0.6, 0.04], lamppost: [0.08, 0.02], birdbath: [0.62, 0.98], drum: [0.24, 0.96], blocks: [0.84, 0.97], telescope: [0.9, 0.05],
 };
 // a wide, shallow room (a computer screen) spreads the front pieces inward instead, so they don't stand in front of the middle ones
 const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 0.96], bed: [0.85, 0.9] };
@@ -6878,10 +6897,10 @@ const hasDecor = id => save.decor[id] && save.decor[id].on;
 
 /** The Decor sheet works like a catalogue: tabs along the top, then a grid of things, and a strip at the bottom for the one you picked. */
 const SHOP_TABS = [["decor", "candle", "Furniture"], ["look", "grotto", "Look"], ["rooms", "nest", "Rooms"], ["wear", "heart", "Wear"]];
-const DECOR_CATS = [["all", "All"], ["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
+const DECOR_CATS = [["here", "For this room"], ["all", "All"], ["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
-  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty" };
-const shopOf = () => (game.shop = game.shop || { tab: "decor", cat: "all", pick: null });
+  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty" };
+const shopOf = () => (game.shop = game.shop || { tab: "decor", cat: "here", pick: null });
 function openShop() {
   sfx.tick();
   const st = shopOf(), iso = N.iso;
@@ -6903,7 +6922,10 @@ function openShop() {
     body = accessoryList();
   } else {
     const used = isoSpaceUsed();
-    const items = DECOR.filter(d => (iso || !d.wall || DRAW_DECOR[d.id]) && (st.cat === "all" || DECOR_CAT[d.id] === st.cat));
+    // "for this room": what suits the kind of room you're in (anything without a room of its own suits the indoor ones)
+    const kind = save.rooms[save.room]?.kind || "nest", suits = d => d.rooms ? d.rooms.includes(kind) : kind !== "yard";
+    const items = DECOR.filter(d => (iso || !d.wall || DRAW_DECOR[d.id]) && (st.cat === "all" || (st.cat === "here" ? suits(d) : DECOR_CAT[d.id] === st.cat)))
+      .sort((p, q) => st.cat === "here" ? (q.rooms?.includes(kind) ? 1 : 0) - (p.rooms?.includes(kind) ? 1 : 0) : 0);
     body = `<div class="cat-chips">${DECOR_CATS.map(([id, name]) => `<button data-cat="${id}" class="${st.cat === id ? "on" : ""}">${tr(name)}</button>`).join("")}</div>`
       + (iso ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "")
       + `<div class="tiles">${items.map(d => {
@@ -8109,6 +8131,12 @@ const ISO_PLACES = {
   mushrooms: { fw: 1, fd: 1, at: [[5, 5], [4, 5], [5, 4]] },
   swing: { fw: 1, fd: 1, at: [[2, 0], [3, 0], [1, 0], [0, 2], [0, 3]] },
   musicbox: { fw: 1, fd: 1, at: [[0, 3], [3, 0], [5, 2], [2, 5]] },
+  bench: { fw: 1, fd: 1, at: [[0, 2], [2, 0], [5, 3]] },
+  lamppost: { fw: 1, fd: 1, at: [[0, 0], [5, 0], [0, 5]] },
+  birdbath: { fw: 1, fd: 1, at: [[4, 4], [3, 5], [5, 4]] },
+  drum: { fw: 1, fd: 1, at: [[3, 4], [4, 3], [2, 5]] },
+  blocks: { fw: 1, fd: 1, at: [[1, 2], [2, 1], [4, 5]] },
+  telescope: { fw: 1, fd: 1, at: [[0, 1], [1, 0], [5, 1]] },
 };
 /** Pieces on the walls: which wall (L is the left one, along j; R the right one, along i) and the slot along it, in tiles. */
 const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.64 } };
@@ -8454,6 +8482,53 @@ const ISO_ART = {
     // the boards between the plots
     for (const f of [1 / 3, 2 / 3]) for (let k = 0; k <= 4; k++) { const v = k / 4; T.px(x0 + 2 * ia * f - 2 * ib * v, y0 + ia * f + ib * v, IC.w1); }
     (o.p || []).forEach((q, k) => { if (q) { const f = (k + 0.5) / 3; gardenPlant(T, x0 + 2 * ia * f - ib, y0 + ia * f + ib / 2 + 1, q[0], q[1], t * 2.2); } });
+  },
+  bench(t, T, ax, ay) {
+    // a wooden garden bench: four legs, a seat of planks, a back
+    const cx = ax, cy = ay + t / 2, a = t * 0.42, b = t * 0.16, lift = Math.round(t * 0.3), x = cx - a + b, y = cy - (a + b) / 2;
+    for (const [lx, ly] of [[x, y], [x + 2 * a, y + a], [x - 2 * b, y + b], [x + 2 * a - 2 * b, y + a + b]]) for (let k = 0; k < lift; k++) T.px(lx, ly - k, IC.w3);
+    T.box(x, y - lift, a, b, 2, IC.w0, IC.w1, IC.w2);
+    T.box(x, y - lift - 2, a, 1, Math.round(t * 0.32), IC.w1, IC.w1, IC.w2);
+  },
+  lamppost(t, T, ax, ay) {
+    // an iron post with a little lantern at the top, glowing
+    const cx = ax, cy = ay + t / 2, top = cy - t * 1.7;
+    T.glow(cx, top + 3, t * 1.1, IC.y0, 0.4);
+    T.disc(cx, cy, t * 0.16, IC.s3);
+    for (let y = Math.round(top + 6); y < cy; y++) { T.px(cx - 1, y, IC.s2); T.px(cx, y, IC.s3); }
+    T.box(cx, top, 3, 3, 7, IC.s2, IC.y0, IC.y1);
+    T.poly([[cx - 6, top - 7], [cx, top - 11], [cx + 6, top - 7], [cx, top - 4]], IC.s3);
+  },
+  birdbath(t, T, ax, ay) {
+    // a stone bowl on a pedestal, full of water that catches the light
+    const cx = ax, cy = ay + t / 2, h = Math.round(t * 0.45), r = t * 0.42;
+    T.cyl(cx, cy, t * 0.1, h, IC.s1, IC.s1, IC.s3);
+    T.cyl(cx, cy - h, r, 2, IC.s0, IC.s1, IC.s2);
+    T.disc(cx, cy - h - 2, r * 0.8, (x, y) => pxHash(x, y) > 0.85 ? IC.b0 : IC.b1);
+    T.px(cx - r * 0.3, cy - h - 3, IC.white);
+  },
+  drum(t, T, ax, ay) {
+    // a little red drum with a white skin, and two sticks resting on it
+    const cx = ax, cy = ay + t / 2, h = Math.round(t * 0.38), r = t * 0.36;
+    T.cyl(cx, cy, r, h, IC.white, IC.r1, IC.r2);
+    for (let k = 0; k < 6; k++) { const x = cx - r + k * r / 2.5; T.line(x, cy - h + 1, x + 2, cy - 1, IC.y1); }
+    T.line(cx - r * 0.5, cy - h - 3, cx + r * 0.4, cy - h + 1, IC.w2); T.line(cx - r * 0.2, cy - h - 4, cx + r * 0.6, cy - h, IC.w2);
+  },
+  blocks(t, T, ax, ay) {
+    // three toy blocks stacked crooked, each a colour, each with a mark
+    const cx = ax, cy = ay + t / 2, s = t * 0.2;
+    const block = (x, y, z, col) => { const B = T.box(x, y - z, s, s, Math.round(s * 1.6), col[0], col[1], col[2]); T.px(B.top[0], B.top[1] + s, IC.white); };
+    block(cx - s * 1.2, cy - s, 0, [IC.p0, IC.p1, IC.p2]);
+    block(cx + s * 0.9, cy - s * 0.6, 0, [IC.b0, IC.b1, IC.b2]);
+    block(cx - s * 0.2, cy - s * 1.3, Math.round(s * 1.6), [IC.y0, IC.y1, IC.w1]);
+  },
+  telescope(t, T, ax, ay) {
+    // a brass telescope on a wooden tripod, pointing up at the sky
+    const cx = ax, cy = ay + t / 2, top = cy - t * 0.8;
+    for (const dx of [-t * 0.35, 0, t * 0.3]) T.line(cx + dx, cy + (dx ? 0 : 2), cx, top, IC.w2);
+    T.poly([[cx - t * 0.45, top + 4], [cx - t * 0.4, top + 7], [cx + t * 0.45, top - t * 0.35], [cx + t * 0.38, top - t * 0.42]], IC.b2);
+    T.poly([[cx - t * 0.45, top + 4], [cx - t * 0.43, top + 5], [cx + t * 0.42, top - t * 0.4], [cx + t * 0.38, top - t * 0.42]], IC.b1);
+    T.ball(cx + t * 0.43, top - t * 0.39, 2, IC.y0, IC.y1, IC.w2);
   },
   table(t, T, ax, ay) {
     const cx = ax, cy = ay + t / 2, lift = Math.round(t * 0.42), rx = t * 0.4;
@@ -9656,6 +9731,22 @@ function playDecor(hit) {
       if (sfx.ready()) { sfx.grain(t, 0.25, 500, 0.7, 0.25, "lowpass"); sfx.grain(t + 0.02, 0.12, 2200, 1, 0.08); }
       if (N.iso) startWeather();
       else spawnChips(x, y - b * 0.2, 10, 0.5, ["#ffffff", "#e6e0ff", "#f3eefc"]);
+      break;
+    case "drum":
+      if (sfx.ready()) { sfx.tone(t, 110, 0.25, 0.35, "sine", 60); sfx.grain(t, 0.08, 400, 1.2, 0.15, "lowpass"); }
+      for (let i = 0; i < 4; i++) game.ripples.push({ x, y: y - b * 0.2, t: -i * 0.1, r: b * 0.6, h: 0.5 });
+      break;
+    case "blocks":
+      if (sfx.ready()) for (let i = 0; i < 3; i++) sfx.tone(t + i * 0.09, 700 - i * 120, 0.06, 0.08, "triangle");
+      spawnChips(x, y - b * 0.3, 6, 0.6, ["#ffc4da", "#b8e6f5", "#fff0b5"]);
+      break;
+    case "birdbath":
+      if (sfx.ready()) sfx.tone(t, rand(1500, 1900), 0.06, 0.3, "sine", null, true);
+      for (let i = 0; i < 8; i++) game.sparks.push({ x: x + rand(-8, 8), y: y - b * 0.5, vx: rand(-40, 40), vy: rand(-120, -60), t: 0, life: rand(0.4, 0.8), s: rand(2, 3), color: pick(["#9fe3e0", "#d4f3ff", "#fff"]) });
+      break;
+    case "lamppost": case "telescope": case "bench":
+      if (sfx.ready()) sfx.tone(t, hit.id === "telescope" ? 1760 : 1320, 0.04, 0.6, "sine", null, true);
+      for (let i = 0; i < 6; i++) game.sparks.push({ x: x + rand(-10, 10), y: y - b * rand(0.6, 1.4), vx: rand(-20, 20), vy: rand(-50, -20), t: 0, life: rand(0.6, 1), s: rand(2, 3), color: "#fff0b5" });
       break;
     case "spring":
       if (sfx.ready()) { sfx.tone(t, rand(1300, 1700), 0.08, 0.4, "sine", null, true); sfx.tone(t + 0.04, 2600, 0.03, 0.3, "sine"); }
