@@ -692,6 +692,22 @@
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
   #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
+  /* the garden sheet: three plots, then the seeds */
+  .plots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 2px 6px; }
+  .plot { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; background: var(--px-deep); box-shadow: var(--px-frame); }
+  .plot.ripe { background: rgba(255, 233, 168, .12); box-shadow: var(--px-frame), 0 0 0 5px var(--px-gold); }
+  .plot .plot-img { width: 66px; height: 78px; image-rendering: pixelated; display: grid; place-items: center; }
+  .plot.empty .plot-img .ic { width: 28px; height: 28px; }
+  .plot b { font-weight: 400; font-size: 15px; text-align: center; line-height: 1.1; }
+  .plot small { font-size: 13px; color: var(--soft); text-align: center; }
+  .plot .act { margin-top: auto; padding: 6px 8px; font-size: 14px; }
+  .seed { display: flex; align-items: center; gap: 10px; }
+  .seed img.em { width: 44px; height: 52px; image-rendering: pixelated; flex: none; }
+  .seed b em { font-style: normal; color: var(--px-gold); }
+  .seed.locked { opacity: .55; }
+  .seed-btns { margin-left: auto; display: flex; gap: 6px; flex: none; }
+  .seed-btns .act { padding: 6px 9px; font-size: 14px; }
+
   /* the lantern's rules: one quiet line, and more behind the ? */
   .oil-facts { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px 0 6px; font-size: 14px; color: var(--soft); }
   #oilHelp { flex: none; width: 22px; height: 22px; padding: 0; border: 0; cursor: pointer; font: inherit; font-size: 14px; line-height: 22px; color: var(--px-ink); background: var(--px-gold); box-shadow: 0 0 0 2px var(--px-ink); }
@@ -1168,6 +1184,14 @@
     <p class="sub" id="homeSub"></p>
     <div id="homeList"></div>
     <button class="ghost" id="homeClose">close</button>
+  </div>
+</div>
+<div id="gardenSheet" class="overlay modal hidden">
+  <div class="card glass dark wide">
+    <h2>Garden bed</h2>
+    <p class="sub" id="gardenSub"></p>
+    <div class="scroll" id="gardenList"></div>
+    <button class="ghost" id="gardenClose">close</button>
   </div>
 </div>
 <div id="jukebox" class="overlay modal hidden">
@@ -2038,6 +2062,41 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Garden bed": "Грядка",
+  "pokes around in the garden": "порпається на грядці",
+  "Garden": "Сад",
+  "Glowberry": "Світлоягода",
+  "Moon mint": "Місячна м'ята",
+  "Cookie sprout": "Печивний паросток",
+  "Crystal bloom": "Кришталевий цвіт",
+  "Biteleaf": "Кусь-лист",
+  "3 moonberries for the pantry": "3 місячні ягоди в кошик",
+  "4 dewdrops for the pantry": "4 росинки в кошик",
+  "3 stardust cookies, right off the stalk": "3 зоряні печива просто зі стебла",
+  "45 shards, and now and then a geode": "45 осколків, а часом і жеода",
+  "a star bar and 30 shards. It bites": "зоряний батончик і 30 осколків. Кусається",
+  "reach chapter III": "дійди до розділу III",
+  "Empty": "Порожньо",
+  "pick a seed below": "вибери насінину нижче",
+  "ready to pick!": "можна збирати!",
+  "ripe in {0}": "дозріє за {0}",
+  "Pick": "Зібрати",
+  "watered ✓": "полито ✓",
+  "Water": "Полити",
+  "Seeds": "Насіння",
+  "Plant": "Посадити",
+  "Seeds grow in real time, even while you're away. Watering helps them along; your hoppers and swimmers water now and then too.": "Насіння росте в реальному часі, навіть коли тебе немає. Полив пришвидшує ріст, а стрибунці й плавунці часом поливають самі.",
+  "{0} planted 🌱": "Посаджено: {0} 🌱",
+  "a seed": "насінина",
+  "CHOMP! The biteleaf bit you, then let go ✦": "КУСЬ! Кусь-лист куснув тебе й відпустив ✦",
+  "Picked: {0}": "Зібрано: {0}",
+  "{0} watered the {1} 💧": "{0} поливає: {1} 💧",
+  "Green thumb": "Зелені руки",
+  "Pick your first harvest": "Збери перший урожай",
+  "Harvest festival": "Свято врожаю",
+  "Pick 25 harvests": "Збери 25 урожаїв",
+  "It bites": "Воно кусається",
+  "Grow and pick a biteleaf": "Вирости й збери Кусь-лист",
   "1 per trip": "1 за похід",
   "+1 every {0} min": "+1 кожні {0} хв",
   "★★★ levels free": "рівні з ★★★ безкоштовно",
@@ -2983,6 +3042,7 @@ DECOR.push(
   { id: "chest", name: "Toy chest", emoji: "🧸", cost: 40, lovers: ["hop"], verb: "digs through the toy chest", emote: "!", iso: true },
   { id: "plant", name: "Crystal plant", emoji: "🪴", cost: 35, lovers: ["flutter", "swim"], verb: "sniffs the crystal plant", emote: "✦", iso: true },
   { id: "musicbox", name: "Music box", emoji: "🎼", cost: 120, lovers: ["dance", "flutter"], verb: "sways to the music box", emote: "♪", iso: true, legend: true, how: "meet a legendary glowling" },
+  { id: "garden", name: "Garden bed", emoji: "🌱", cost: 60, lovers: ["hop", "swim"], verb: "pokes around in the garden", emote: "🌱", iso: true },
   { id: "painting", name: "Moon painting", emoji: "🖼️", cost: 55, lovers: ["curious", "dance"], verb: "admires the painting", emote: "✦", iso: true, wall: true },
 );
 if (LANG === "uk") for (const d of DECOR) if (d.iso) { d.name = tr(d.name); d.verb = tr(d.verb); if (d.how) d.how = tr(d.how); }
@@ -3731,7 +3791,7 @@ const ROOM_SLOTS = {
   spring: [0.98, 0.06], cushion: [0.5, 0], bed: [0.97, 0.94],
   rug: [0.5, 0.56],
   // the pieces drawn for the isometric room stand here when the room is seen straight on
-  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98],
+  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98], garden: [0.6, 0.98],
 };
 // a wide, shallow room (a computer screen) spreads the front pieces inward instead, so they don't stand in front of the middle ones
 const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 0.96], bed: [0.85, 0.9] };
@@ -5964,6 +6024,7 @@ const AWARDS = [
   { id: "decor", tier: "common", name: "Home sweet home", how: "Buy a decoration for the nest", test: () => [Object.keys(save.decor).filter(id => id !== "rug").length, 1] },
   { id: "moon1", tier: "common", name: "Moonstruck", how: "Open a moon egg", test: () => [save.moon ? 1 : 0, 1] },
   { id: "play5", tier: "common", name: "Playmate", how: "Play 5 mini-games", test: () => [cnt("played"), 5] },
+  { id: "greenThumb", tier: "common", name: "Green thumb", how: "Pick your first harvest", test: () => [cnt("harvested"), 1] },
   { id: "tasksAll", tier: "common", name: "Busy day", how: "Finish all of a day's tasks", test: () => [cnt("taskDays"), 1] },
   { id: "cracked50", tier: "rare", name: "Stonebreaker", how: "Crack 50 eggs", test: () => [stat.cracked(), 50] },
   { id: "species10", tier: "rare", name: "Collector", how: "Meet 10 kinds of glowlings", test: () => [stat.species(), 10] },
@@ -5975,6 +6036,8 @@ const AWARDS = [
   { id: "streak3", tier: "rare", name: "Night owl", how: "Open moon eggs 3 nights in a row", test: () => [stat.streak(), 3] },
   { id: "room2", tier: "rare", name: "More room", how: "Add a room to your home", test: () => [(save.rooms || []).length, 2] },
   { id: "echo5", tier: "rare", name: "Good ear", how: "Sing back 5 tunes in Echo song", test: () => [save.echoBest || 0, 5] },
+  { id: "harvest25", tier: "rare", name: "Harvest festival", how: "Pick 25 harvests", test: () => [cnt("harvested"), 25] },
+  { id: "biteleaf", tier: "epic", name: "It bites", how: "Grow and pick a biteleaf", test: () => [cnt("biteleaf"), 1] },
   { id: "cracked250", tier: "epic", name: "Quarry lord", how: "Crack 250 eggs", test: () => [stat.cracked(), 250] },
   { id: "species20", tier: "epic", name: "Glowpedia scholar", how: "Meet 20 kinds of glowlings", test: () => [stat.species(), 20] },
   { id: "stars60", tier: "epic", name: "Constellation", how: "Earn 60 stars", test: () => [totalStars(), 60] },
@@ -6316,8 +6379,9 @@ function openSnacks() {
   // (English plurals: a moonberry, moonberries)
   const snack = SNACKS[sp.snack].name.toLowerCase();
   $("snackSub").textContent = tr("You have ✦ {0} shards. {1}s love {2}.", save.shards, sp.name, LANG === "uk" ? snack : snack.replace(/([^aeiou])y$/, "$1ie") + "s");
+  const pantry = save.pantry || {};
   $("snackList").innerHTML = Object.entries(SNACKS).map(([id, s]) =>
-    `<button class="snack" data-id="${id}" ${save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>${tr("tummy +{0}", s.tummy)}${id === sp.snack ? tr(" · favorite!") : ""}</small></span><span class="cost">✦ ${s.cost}</span></button>`).join("");
+    `<button class="snack" data-id="${id}" ${!pantry[id] && save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>${tr("tummy +{0}", s.tummy)}${id === sp.snack ? tr(" · favorite!") : ""}</small></span><span class="cost">${pantry[id] ? `🧺 ×${pantry[id]}` : `✦ ${s.cost}`}</span></button>`).join("");
   $$("#snackList .snack").forEach(b => b.addEventListener("click", () => feed(b.dataset.id)));
   show("snacks", true);
 }
@@ -6326,8 +6390,12 @@ function feed(id) {
   const cr = activeCreature(), s = SNACKS[id], sp = specOf(cr);
   show("snacks", false);
   if (cr.tummy >= 88) { refuseWith(cr, tr("no thanks, I'm full")); return; }
-  if (save.shards < s.cost) { toast(tr("Not enough shards: crack a geode to earn more ✦")); return; }
-  save.shards -= s.cost;
+  // grown in your garden: free
+  if (save.pantry && save.pantry[id] > 0) save.pantry = { ...save.pantry, [id]: save.pantry[id] - 1 };
+  else {
+    if (save.shards < s.cost) { toast(tr("Not enough shards: crack a geode to earn more ✦")); return; }
+    save.shards -= s.cost;
+  }
   game.nest.feedCall = { t: game.time, id: cr.id };
   const v = actorView(activeActor());
   game.nest.snack = { emoji: s.emoji, x: v.x, y: v.y - N.base * 2, ty: v.y, vy: 0, fav: id === sp.snack, s };
@@ -6362,9 +6430,9 @@ const hasDecor = id => save.decor[id] && save.decor[id].on;
 
 /** The Decor sheet works like a catalogue: tabs along the top, then a grid of things, and a strip at the bottom for the one you picked. */
 const SHOP_TABS = [["decor", "candle", "Furniture"], ["look", "grotto", "Look"], ["rooms", "nest", "Rooms"], ["wear", "heart", "Wear"]];
-const DECOR_CATS = [["all", "All"], ["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
+const DECOR_CATS = [["all", "All"], ["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"], ["garden", "Garden"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
-  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty" };
+  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", garden: "garden" };
 const shopOf = () => (game.shop = game.shop || { tab: "decor", cat: "all", pick: null });
 function openShop() {
   sfx.tick();
@@ -6424,6 +6492,129 @@ function renderShopPick() {
   const label = owned ? (owned.on ? tr("Put away") : tr("Place here")) : `${tr("Buy")} ✦ ${d.cost}`;
   box.innerHTML = `${decorThumb(d)}<span><b>${d.name}</b><small>${note}${where}</small></span><button class="act${owned ? "" : " buy"}" id="shopPickGo" ${locked || (!owned && save.shards < d.cost) ? "disabled" : ""}>${label}</button>`;
   $("shopPickGo").addEventListener("click", () => buyDecor(d.id));
+}
+
+// ---------- the garden: plant seeds in the garden bed, water them, and pick what grows (in real time) ----------
+
+const SEEDS = {
+  glowberry: { name: "Glowberry", hrs: 2, cost: 8, gives: { pantry: { berry: 3 } }, note: "3 moonberries for the pantry" },
+  moonmint: { name: "Moon mint", hrs: 3, cost: 6, gives: { pantry: { dew: 4 } }, note: "4 dewdrops for the pantry" },
+  cookiecorn: { name: "Cookie sprout", hrs: 4, cost: 10, gives: { pantry: { cookie: 3 } }, note: "3 stardust cookies, right off the stalk" },
+  crystalbloom: { name: "Crystal bloom", hrs: 8, cost: 30, gives: { shards: 45 }, note: "45 shards, and now and then a geode" },
+  biteleaf: { name: "Biteleaf", hrs: 12, cost: 60, gives: { shards: 30, bar: "star" }, note: "a star bar and 30 shards. It bites", ok: () => unlocked(13), how: "reach chapter III" },
+};
+const GARDEN_SLOTS = 3, WATER_EVERY = 30 * 60e3, WATER_BOOST = 0.15;
+const garden = () => (save.garden = save.garden || { slots: Array(GARDEN_SLOTS).fill(null), seeds: { glowberry: 2, moonmint: 1 } });
+/** How far along a plant is, 0 to 1 (watering moves its planting time back a little). */
+const growth = q => clamp((Date.now() - q.at) / (SEEDS[q.seed].hrs * 3600e3), 0, 1);
+const stageOf2 = q => { const g = growth(q); return g >= 1 ? 3 : g >= 0.5 ? 2 : g >= 0.12 ? 1 : 0; };
+/** What the bed shows: each spot's plant and stage (only changes when a stage does, so the picture is cached). */
+const gardenView = () => garden().slots.map(q => q ? [q.seed, stageOf2(q)] : null);
+
+/** One plant in pixels, standing on the soil at (x, y): a seed mound, a sprout, a young plant, then the ripe one by kind. */
+function gardenPlant(T, x, y, kind, stage, t) {
+  x = Math.round(x); y = Math.round(y);
+  const u = Math.max(1, t / 16);
+  if (stage === 0) { T.px(x, y - 1, IC.w2); T.px(x + 1, y - 1, IC.w2); T.px(x, y - 2, IC.g1); return; }
+  const tall = Math.round((stage === 1 ? 3 : stage === 2 ? 6 : 8) * u);
+  for (let k = 1; k <= tall; k++) T.px(x, y - k, k > tall - 2 ? IC.g0 : IC.g1);
+  const leaf = (k, side, col) => { T.px(x + side, y - k, col); T.px(x + side * 2, y - k - 1, col); };
+  leaf(Math.round(tall * 0.4), -1, IC.g1); leaf(Math.round(tall * 0.6), 1, IC.g2);
+  if (stage === 1) return;
+  leaf(Math.round(tall * 0.8), -1, IC.g0);
+  if (stage === 2) return;
+  const top = y - tall;
+  if (kind === "glowberry") {
+    T.ball(x, top + 1, 2.5 * u, IC.g0, IC.g1, IC.g2);
+    for (const [dx, dy] of [[-2, 0], [1, -1], [2, 2], [-1, 2]]) { T.px(x + dx * u, top + dy * u + 1, IC.l2); T.px(x + dx * u, top + dy * u, IC.l1); }
+  } else if (kind === "moonmint") {
+    for (const s of [-1, 1]) for (let k = 0; k < 3 * u; k++) T.px(x + s * (1 + k), top + 2 - k, IC.b0);
+    T.px(x, top - 1, IC.y0); T.px(x + 1, top - 2, IC.y0);
+  } else if (kind === "cookiecorn") {
+    for (const [dx, dy] of [[-2, 1], [2, 0], [0, -2]]) { T.ball(x + dx * u, top + dy * u, 1.6 * u, IC.w0, IC.w1, IC.w2); T.px(x + dx * u, top + dy * u, IC.w3); }
+  } else if (kind === "crystalbloom") {
+    const h = 4 * u;
+    T.poly([[x, top - h], [x - 2 * u, top], [x, top + u]], IC.l1); T.poly([[x, top - h], [x + 2 * u, top], [x, top + u]], IC.l3);
+    T.px(x - 1, top - h * 0.5, IC.white);
+  } else if (kind === "biteleaf") {
+    // a trap of two red jaws with white teeth, mouth open toward you
+    const w = 3 * u;
+    T.poly([[x - w, top - w], [x + w, top - w], [x, top - 1]], IC.r2);
+    T.poly([[x - w, top + 1], [x + w, top + 1], [x, top - 1]], IC.r1);
+    for (let k = -2; k <= 2; k += 2) { T.px(x + k * u * 0.8, top - 1 - u, IC.white); T.px(x + k * u * 0.8 + u, top, IC.white); }
+  }
+}
+const plantImage = (kind, stage) => isoArt(22, 26, T => { T.poly([[3, 20], [19, 20], [19, 24], [3, 24]], IC.w3); gardenPlant(T, 11, 20, kind, stage, 22); }).toDataURL();
+const seedName = id => tr(SEEDS[id].name);
+
+function openGarden() {
+  sfx.tick();
+  const g = garden(), now = Date.now();
+  const slot = (q, i) => {
+    if (!q) return `<div class="plot empty"><span class="plot-img">${ic("heart", "off")}</span><b>${tr("Empty")}</b><small>${tr("pick a seed below")}</small></div>`;
+    const st = stageOf2(q), left = SEEDS[q.seed].hrs * 3600e3 * (1 - growth(q)), wet = q.wet && now - q.wet < WATER_EVERY;
+    return `<div class="plot${st === 3 ? " ripe" : ""}"><img class="plot-img" src="${plantImage(q.seed, st)}" alt=""><b>${seedName(q.seed)}</b><small>${st === 3 ? tr("ready to pick!") : tr("ripe in {0}", fmtLeft(left))}</small>`
+      + (st === 3 ? `<button class="act buy" data-pick="${i}">${tr("Pick")}</button>` : `<button class="act" data-water="${i}" ${wet ? "disabled" : ""}>${wet ? tr("watered ✓") : "💧 " + tr("Water")}</button>`) + `</div>`;
+  };
+  const free = g.slots.findIndex(q => !q);
+  $("gardenSub").textContent = tr("Seeds grow in real time, even while you're away. Watering helps them along; your hoppers and swimmers water now and then too.");
+  $("gardenList").innerHTML = `<div class="plots">${g.slots.map(slot).join("")}</div><h3>${tr("Seeds")}</h3>` + Object.entries(SEEDS).map(([id, sd]) => {
+    const have = g.seeds[id] || 0, locked = sd.ok && !sd.ok();
+    return `<div class="snack seed${locked ? " locked" : ""}"><img class="em" src="${plantImage(id, 3)}" alt=""><span><b>${seedName(id)} <em>×${have}</em></b><small>${locked ? ic("lock") + tr(sd.how) : `${tr(sd.note)} · ${tr("{0} h", sd.hrs)}`}</small></span>`
+      + `<span class="seed-btns">${have && free >= 0 && !locked ? `<button class="act" data-plant="${id}">${tr("Plant")}</button>` : ""}<button class="act" data-seed="${id}" ${locked || save.shards < sd.cost ? "disabled" : ""}>+1 ✦ ${sd.cost}</button></span></div>`;
+  }).join("");
+  $$("#gardenList [data-plant]").forEach(b => b.addEventListener("click", () => plantSeed(b.dataset.plant)));
+  $$("#gardenList [data-seed]").forEach(b => b.addEventListener("click", () => buySeed(b.dataset.seed)));
+  $$("#gardenList [data-water]").forEach(b => b.addEventListener("click", () => waterPlot(Number(b.dataset.water))));
+  $$("#gardenList [data-pick]").forEach(b => b.addEventListener("click", () => pickPlot(Number(b.dataset.pick))));
+  show("gardenSheet", true);
+}
+function buySeed(id) {
+  const sd = SEEDS[id], g = garden();
+  if (save.shards < sd.cost || (sd.ok && !sd.ok())) return;
+  save.shards -= sd.cost; g.seeds[id] = (g.seeds[id] || 0) + 1;
+  sfx.tick(); persist(); updateTopbar(); openGarden();
+}
+function plantSeed(id) {
+  const g = garden(), i = g.slots.findIndex(q => !q);
+  if (i < 0 || !g.seeds[id]) return;
+  g.seeds[id]--; g.slots[i] = { seed: id, at: Date.now() };
+  sfx.grain && sfx.ready() && sfx.grain(sfx.ac.currentTime, 0.15, 700, 0.8, 0.15, "lowpass");
+  toast(tr("{0} planted 🌱", seedName(id)));
+  persist(); openGarden();
+}
+/** A drink for a plant: it grows a little at once. Once every half hour per plant. */
+function waterPlot(i, who) {
+  const q = garden().slots[i];
+  if (!q || stageOf2(q) === 3 || (q.wet && Date.now() - q.wet < WATER_EVERY)) return false;
+  q.at -= SEEDS[q.seed].hrs * 3600e3 * WATER_BOOST; q.wet = Date.now();
+  if (!who) { sfx.tone && sfx.ready() && sfx.tone(sfx.ac.currentTime, 1400, 0.05, 0.3, "sine", 900, true); openGarden(); }
+  persist();
+  return true;
+}
+function pickPlot(i) {
+  const g = garden(), q = g.slots[i];
+  if (!q || stageOf2(q) !== 3) return;
+  const sd = SEEDS[q.seed], got = [];
+  g.slots[i] = null;
+  for (const [k, n] of Object.entries(sd.gives.pantry || {})) { save.pantry = { ...save.pantry, [k]: ((save.pantry || {})[k] || 0) + n }; got.push(`${SNACKS[k].emoji}×${n}`); }
+  if (sd.gives.shards) { save.shards += sd.gives.shards; got.push(`✦ ${sd.gives.shards}`); }
+  if (sd.gives.bar) { giveBar(sd.gives.bar); got.push(barName(sd.gives.bar)); }
+  if (q.seed === "crystalbloom" && Math.random() < 0.3) {
+    const k = pick(CRYSTALS.filter(c => c.rarity === "rare")), geo = save.geodes[k.id] || { count: 0, shine: -1 };
+    geo.count++; save.geodes[k.id] = geo; got.push(`💎 ${k.name}`);
+  }
+  // seeds come back now and then, so the garden keeps going
+  if (Math.random() < 0.5) { g.seeds[q.seed] = (g.seeds[q.seed] || 0) + 1; got.push(tr("a seed")); }
+  bump("harvested"); if (q.seed === "biteleaf") { bump("biteleaf"); sfx.knock(1); buzz([20, 30, 20]); toast(tr("CHOMP! The biteleaf bit you, then let go ✦")); }
+  else sfx.shimmer();
+  setTimeout(() => toast(tr("Picked: {0}", got.join(" · "))), q.seed === "biteleaf" ? 1400 : 0);
+  persist(); updateTopbar(); openGarden();
+}
+/** Hoppers and swimmers who visit the garden bed water a thirsty plant. */
+function gardenHelp(cr) {
+  const g = garden(), i = g.slots.findIndex(q => q && stageOf2(q) < 3 && !(q.wet && Date.now() - q.wet < WATER_EVERY));
+  if (i >= 0 && waterPlot(i, cr)) toast(tr("{0} watered the {1} 💧", cr.name, seedName(g.slots[i].seed).toLowerCase()));
 }
 
 // ---------- the music box: pick the nest's song from the ones you've unlocked, and play the game's sounds ----------
@@ -7132,6 +7323,7 @@ function updateActors(dt) {
       a.t = d.id === "cushion" ? rand(6, 10) : rand(3, 6);
       emote(a, d.emote, 2);
       if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
+      if (d.id === "garden" && Math.random() < 0.5) gardenHelp(cr);
     } else if (a.state === "walk" && a.rain) {
       // under the cloud: a little dance in the rain (or snow)
       a.rain = false; a.state = "dance"; a.t = rand(0.9, 1.6); a.hop = 1;
@@ -7374,6 +7566,7 @@ const ISO_PLACES = {
   mushrooms: { fw: 1, fd: 1, at: [[5, 5], [4, 5], [5, 4]] },
   swing: { fw: 1, fd: 1, at: [[2, 0], [3, 0], [1, 0], [0, 2], [0, 3]] },
   musicbox: { fw: 1, fd: 1, at: [[0, 3], [3, 0], [5, 2], [2, 5]] },
+  garden: { fw: 1, fd: 1, at: [[2, 4], [4, 4], [1, 4], [4, 1]] },
 };
 /** Pieces on the walls: which wall (L is the left one, along j; R the right one, along i) and the slot along it, in tiles. */
 const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.64 } };
@@ -7709,6 +7902,15 @@ const ISO_ART = {
     ring(7, t * 0.34, t * 0.14, t * 0.07, t * 0.12, IC.g0, IC.g1, 0.65);
     ring(5, t * 0.2, t * 0.1, t * 0.13, t * 0.16, IC.b0, IC.g0, 1.2);
     T.ball(cx, top - t * 0.16, Math.max(1.5, t * 0.05), IC.white, IC.b0, IC.g0);
+  },
+  garden(t, T, ax, ay, o) {
+    // a wooden planter box filling most of its tile, a rim of lighter boards, dark soil inside
+    const s2 = t * 0.4, h = Math.max(3, Math.round(t * 0.26)), x = ax, y = ay + t / 2 - s2;
+    T.box(x, y, s2, s2, h, IC.w0, IC.w2, IC.w3);
+    const i = s2 - 1.5, y0 = y + (s2 - i) - h;
+    T.poly([[x, y0], [x + 2 * i, y0 + i], [x, y0 + 2 * i], [x - 2 * i, y0 + i]], (px, py) => pxHash(px, py) > 0.8 ? IC.w2 : IC.w3);
+    // three spots along the bed, back to front
+    (o.p || []).forEach((q, k) => { if (q) gardenPlant(T, x + (k - 1) * i * 0.9, y0 + i + (k - 1) * i * 0.45, q[0], q[1], t); });
   },
   table(t, T, ax, ay) {
     const cx = ax, cy = ay + t / 2, lift = Math.round(t * 0.42), rx = t * 0.4;
@@ -8685,7 +8887,7 @@ const DRAW_DECOR = {
 /** Where each piece was drawn last, for tapping it (see spriteHit). */
 const pieceHits = {};
 /** What a piece's picture depends on right now (the lamp being off, the pond's ripple frame...). */
-const pieceExtra = p => p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
+const pieceExtra = p => p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
 
 const decorFx = {};
 let swingPush = 0;
@@ -8773,6 +8975,10 @@ function playDecor(hit) {
       break;
     case "musicbox":
       openJukebox();
+      break;
+    case "garden":
+      if (sfx.ready()) { sfx.grain(t, 0.12, 900, 0.8, 0.12, "lowpass"); }
+      openGarden();
       break;
     case "painting": {
       save.paintScene = ((save.paintScene || 0) + 1) % PAINTINGS.length; persist();
@@ -10287,6 +10493,7 @@ $("foundMap").addEventListener("click", () => { if (coopSession) coopEnd("naviga
 $("feedBtn").addEventListener("click", openSnacks);
 $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
+$("gardenClose").addEventListener("click", () => show("gardenSheet", false));
 $("homeClose").addEventListener("click", () => show("homeSheet", false));
 $("homePill").addEventListener("click", openHome);
 $("residentsBtn").addEventListener("click", openHome);
