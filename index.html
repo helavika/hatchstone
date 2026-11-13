@@ -2013,10 +2013,10 @@ const UK = {
   "Part {0}": "Частина {0}",
   "Reach level {0}": "Дійди до рівня {0}",
   "Open every geode": "Відкрий усі жеоди",
-  "Wick": "Вік",
+  "Wick": "Ґнотик",
   "Dorma": "Дорма",
   "The Heartlight": "Серцесвіт",
-  "The lantern moth": "Міль-ліхтарниця",
+  "The lantern moth": "Міль із ліхтариком",
   "The keeper": "Вартова",
   "The sleepy library": "Сонна бібліотека",
   "A gift": "Дарунок",
@@ -2027,11 +2027,11 @@ const UK = {
   "Long ago a great light lived at the very bottom of this grotto. We called it the Heartlight.": "Колись давно на самому дні цього гроту жило велике світло. Ми звали його Серцесвіт.",
   "One night it went quiet and scattered into a thousand sparks. Each spark curled up in the rock to keep warm.": "Одної ночі воно затихло й розсипалося на тисячу іскор. Кожна іскра згорнулася в камені, щоб зігрітися.",
   "That's what a glowling is: a little piece of the Heartlight, dreaming.": "Ось що таке глоулінг: маленька частинка Серцесвіту, що бачить сни.",
-  "Psst! Up here! The name's Wick. I trade in glimmers and gossip.": "Пс-с! Я тут, угорі! Мене звати Вік. Торгую блискітками й плітками.",
+  "Psst! Up here! The name's Wick. I trade in glimmers and gossip.": "Пс-с! Я тут, угорі! Мене звати Ґнотик. Торгую блискітками й плітками.",
   "So the old stone told you about the Heartlight? Ha. Did she tell you who was keeping watch the night it went dark?": "Стара брила розповіла тобі про Серцесвіт? Ха. А чи сказала, хто стояв на варті тієї ночі, коли він згас?",
-  "...That's enough, Wick.": "...Досить, Віку.",
+  "...That's enough, Wick.": "...Досить, Ґнотику.",
   "Touchy! I'll be around. I always am.": "Ой, які ми ніжні! Я буду поруч. Як завжди.",
-  "Wick isn't wrong. I was the Heartlight's keeper.": "Вік має рацію. Я була вартовою Серцесвіту.",
+  "Wick isn't wrong. I was the Heartlight's keeper.": "Ґнотик має рацію. Я була вартовою Серцесвіту.",
   "That night sleep found me on my watch. When I woke, the light was gone.": "Тієї ночі сон зморив мене на варті. А коли я прокинулась, світла вже не було.",
   "I've been listening for its sparks in the stone ever since, hoping someone kind would come and wake them.": "Відтоді я прислухаюся до його іскор у камені й чекаю, що прийде хтось добрий і розбудить їх.",
   "And then you came along.": "І ось ти тут.",
@@ -8530,7 +8530,11 @@ function paintRoomIso(id) {
           const rough = 0.18 * pxNoise(x * 0.3 + seed, y * 0.3) + 0.08 * pxNoise(x * 0.9, y * 0.9 + seed);
           const r = Math.hypot(lx * 0.95, (hy - 0.58) / 0.21);
           if (r > 1.05 + rough) continue;
-          if (r > 0.86 + rough) { put(x, y, wallC[lx > 0 ? 0 : 1]); continue; }
+          // a lip of rock round the hole: lit along its lower left, in shadow up top
+          if (r > 0.9 + rough) { put(x, y, wallC[lx < 0 && hy < 0.6 ? 3 : 0]); continue; }
+          // the rock is thick: you look down a short tunnel to the sky, its sides lit from inside on the left, dark on the right
+          const ri = Math.hypot((lx - 0.2) * 1.3, (hy - 0.6) / 0.15);
+          if (ri > 1 + rough * 0.6) { const k = clamp((r - 0.35) / 0.55, 0, 1); put(x, y, pxPick(wallC, lx < 0.2 ? 0.2 + 0.45 * k : 0.08 + 0.12 * k, x, y)); continue; }
         } else {
           // the sill: a ledge under the window, a little wider than it, lit on top
           if (hy >= 0.28 && hy < 0.335 && Math.abs(lx) < 1.12) { put(x, y, hy > 0.315 ? wallC[Math.min(4, wallC.length - 1)] : wallC[1]); continue; }
@@ -8548,8 +8552,10 @@ function paintRoomIso(id) {
           else {
             const st = pxHash(x, y + seed);
             if (st > 0.985) col = white; else if (st > 0.96) col = sky[3];
-            const md = Math.hypot(lx - 0.38, (hy - 0.68) * 4);
-            if (md < 0.24) col = moon; else if (md < 0.36 && PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.4) col = sky[3];
+            // the moon is round on screen, whatever the wall's slant
+            const mt = 0.5 + 0.14 * (kind === "cave" ? 0.32 : 0.38), mr = Math.max(2.5, hw * 0.04);
+            const md = Math.hypot(x - (cx - hw * mt), y - (top + mt * hh - (kind === "cave" ? 0.66 : 0.68) * wall)) / mr;
+            if (md < 1) col = md > 0.7 && pxHash(x, y) > 0.6 ? sky[3] : moon; else if (md < 1.5 && PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.4) col = sky[3];
           }
           // a faint shine slanting across the glass
           if (glazed && ((x + y * 2) % 23 + 23) % 23 < 2 && hy > 0.5) col = sky[3];
