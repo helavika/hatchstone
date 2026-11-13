@@ -440,6 +440,9 @@
   #startBack .lead { font-size: 20px; margin-bottom: 4px; }
   #startCoop { display: flex; width: fit-content; align-items: center; gap: 8px; }
   #startCoop img { width: 28px; height: 28px; image-rendering: pixelated; margin: -4px 0; }
+  /* the two start buttons are one size, whatever their words: the main one stands out by its gold, not its width */
+  #start #play, #start #startCoop { box-sizing: border-box; width: min(100%, 250px); height: 56px; padding: 0 12px; justify-content: center; }
+  #start #play { display: flex; align-items: center; margin-left: auto; margin-right: auto; }
   #startCorner { position: absolute; top: calc(var(--top) + 12px); right: 16px; z-index: 1; display: flex; gap: 8px; }
   #faqList { text-align: left; max-height: min(62vh, 560px); }
   #faqList details { border-top: 3px solid var(--px-raise); padding: 10px 2px; }
