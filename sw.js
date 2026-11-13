@@ -1,7 +1,7 @@
 // Hatchstone offline support: the page itself is fetched fresh when online, everything else from the cache.
 // The test copy lives under /staging/ on the same site with its own worker: each keeps to its own caches and pages.
 const STAGING = self.registration.scope.includes("/staging/");
-const CACHE = (STAGING ? "staging-" : "") + "hatchstone-v40";
+const CACHE = (STAGING ? "staging-" : "") + "hatchstone-v41";
 const SHELL = [
   "./", "index.html", "coop-link.js", "coop-invite.js", "coop-state.js", "vendor/peerjs-1.5.5.min.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
