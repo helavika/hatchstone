@@ -639,6 +639,7 @@
   body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; }
   .subtitle { margin: -8px 0 12px; font-size: 20px; color: var(--px-gold); letter-spacing: 2px; }
   /* dialog: an old RPG text box with a face, typed out letter by letter */
+  #testBadge { position: fixed; left: 50%; top: calc(var(--top) + 2px); transform: translateX(-50%); z-index: 9; padding: 1px 10px; font-size: 14px; letter-spacing: 2px; color: #fff; background: #b8323b; box-shadow: 0 0 0 2px #160c26; pointer-events: none; }
   #talk { position: fixed; inset: 0; z-index: 9; background: rgba(8, 5, 26, .35); cursor: pointer; touch-action: none; }
   #talk[hidden] { display: none; }
   .talk-box { position: absolute; left: 50%; bottom: calc(var(--bottom) + 18px); transform: translateX(-50%); width: min(520px, calc(100% - 32px));
@@ -840,6 +841,7 @@
     <button class="pill glass btn round" id="menuBtn" aria-label="Menu" aria-expanded="false" aria-controls="menuSheet"><i class="ic" data-ic="gear"></i></button>
     <div id="menuSheet" class="glass" hidden>
       <button class="act" id="mapCoop"><i class="ic" data-ic="duo"></i>Play together</button>
+      <button class="act" id="copyLive" hidden><i class="ic" data-ic="nest"></i>Copy my nest from live</button>
       <button class="act" id="backupBtn" aria-label="Back up your nest"><i class="ic" data-ic="scroll"></i>Back up nest</button>
       <button class="act mute" data-label="1" aria-label="Mute sound"><i class="ic" data-ic="sound"></i>Sound on</button>
       <button class="act faq-btn menu-only"><i class="ic" data-ic="help"></i>Questions &amp; answers</button>
@@ -920,6 +922,7 @@
   </div>
 </div>
 
+<div id="testBadge" hidden>TEST</div>
 <div id="talk" hidden>
   <div id="talkSpot" aria-hidden="true"></div>
   <div class="talk-box glass dark" role="dialog" aria-live="polite">
@@ -1188,6 +1191,11 @@
 <script>
 "use strict";
 
+// ---------- the test copy: the same game under /staging/, for trying things before they go live ----------
+// It keeps its own save (same site, so it would otherwise share the real one), its own Telegram cloud copy and says TEST in the corner.
+const STAGING = /\/staging\//.test(location.pathname);
+const LIVE_SAVE_KEY = "hatchstone.save";
+
 // ---------- languages: English, and Ukrainian for anyone whose browser speaks it (or who picks it in the menu) ----------
 const LANG = (() => {
   try { const l = localStorage.getItem("hatchstone.lang"); if (l === "en" || l === "uk") return l; } catch (e) {}
@@ -1296,6 +1304,9 @@ const UK = {
   "Leave": "Піти",
   "Snack time": "Час смаколиків",
   "not now": "не зараз",
+  "Copy my nest from live": "Скопіювати гніздечко з лайву",
+  "No live nest on this device yet": "На цьому пристрої ще немає лайв-гніздечка",
+  "Replace the test nest with a copy of your live one ({0} {1})? The live nest stays as it is.": "Замінити тестове гніздечко копією лайв-гніздечка ({0} {1})? Лайв-гніздечко не зміниться.",
   "Lantern": "Ліхтарик",
   "lantern": "ліхтарик",
   "The lantern is out": "Ліхтарик згас",
@@ -2990,7 +3001,7 @@ function levelConf(n) {
 // ---------- save ----------
 
 // Progress is precious: a main save, a "last good" copy, and care when several tabs are open.
-const SAVE_KEY = "hatchstone.save", BAK_KEY = "hatchstone.save.bak";
+const SAVE_KEY = STAGING ? "hatchstone.staging.save" : LIVE_SAVE_KEY, BAK_KEY = SAVE_KEY + ".bak";
 const SAVE_VERSION = 1;
 const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 } });
 const validSave = d => d && typeof d === "object" && Array.isArray(d.creatures) && typeof d.stars === "object";
@@ -3007,7 +3018,7 @@ function loadSave() {
       if (validSave(d)) { startedEmpty = false; return migrate(Object.assign(freshSave(), d)); }
     } catch {}
     // keep a damaged save aside instead of throwing it away
-    try { localStorage.setItem("hatchstone.save.damaged", raw); } catch {}
+    try { localStorage.setItem(SAVE_KEY + ".damaged", raw); } catch {}
   }
   return freshSave();
 }
@@ -9383,6 +9394,19 @@ $("nestName").addEventListener("click", () => {
   if (name) { cr.name = name; persist(); renderNest(true); }
 });
 $("spClose").addEventListener("click", () => show("spCard", false));
+// the test copy: a badge, and a way to bring your real nest over (a copy: the live one is never touched)
+if (STAGING) {
+  $("testBadge").hidden = false; $("copyLive").hidden = false;
+  document.title = "TEST · " + document.title;
+  $("copyLive").addEventListener("click", () => {
+    let live = null;
+    try { live = JSON.parse(localStorage.getItem(LIVE_SAVE_KEY) || "null"); } catch {}
+    if (!validSave(live)) { toast(tr("No live nest on this device yet")); return; }
+    if (!confirm(tr("Replace the test nest with a copy of your live one ({0} {1})? The live nest stays as it is.", live.creatures.length, pl(live.creatures.length, "glowling", "glowlings")))) return;
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(live)); localStorage.removeItem(BAK_KEY); } catch {}
+    location.reload();
+  });
+}
 $("backupBtn").addEventListener("click", () => {
   if ($("topbar").inert || (coopSession?.round && game.scene === "crack")) return;
   openBackup();
@@ -10395,23 +10419,25 @@ function tgBackTarget() {
 }
 const TG_CHUNK = 4000, TG_MAX = 400;
 /** The save goes to Telegram's cloud in pieces (4096 characters each at most); geode pictures stay behind, they can be redrawn. */
+/** The cloud copy's keys: s0..sN and sn, or t0..tN and tn for the test copy. */
+const TG_KEY = STAGING ? "t" : "s";
 function tgCloudPut() {
   if (!tgCloud || !validSave(save)) return;
   const copy = JSON.parse(JSON.stringify(save));
   for (const g of Object.values(copy.geodes || {})) delete g.img;
   const text = JSON.stringify(copy), n = Math.ceil(text.length / TG_CHUNK);
   if (n > TG_MAX) return;
-  for (let i = 0; i < n; i++) tg.CloudStorage.setItem("s" + i, text.slice(i * TG_CHUNK, (i + 1) * TG_CHUNK));
-  tg.CloudStorage.setItem("sn", `${n}|${copy.rev || 0}`);   // written last: a half-written save is never picked up
+  for (let i = 0; i < n; i++) tg.CloudStorage.setItem(TG_KEY + i, text.slice(i * TG_CHUNK, (i + 1) * TG_CHUNK));
+  tg.CloudStorage.setItem(TG_KEY + "n", `${n}|${copy.rev || 0}`);   // written last: a half-written save is never picked up
 }
 function tgCloudGet(done) {
-  tg.CloudStorage.getItem("sn", (err, head) => {
+  tg.CloudStorage.getItem(TG_KEY + "n", (err, head) => {
     if (err || !head) return done(null);
     const [n, rev] = head.split("|").map(Number);
     if (!(n > 0 && n <= TG_MAX) || rev <= (save.rev || 0)) return done(null);
-    tg.CloudStorage.getItems(Array.from({ length: n }, (_, i) => "s" + i), (err2, parts) => {
+    tg.CloudStorage.getItems(Array.from({ length: n }, (_, i) => TG_KEY + i), (err2, parts) => {
       if (err2 || !parts) return done(null);
-      try { done(JSON.parse(Array.from({ length: n }, (_, i) => parts["s" + i] || "").join(""))); } catch { done(null); }
+      try { done(JSON.parse(Array.from({ length: n }, (_, i) => parts[TG_KEY + i] || "").join(""))); } catch { done(null); }
     });
   });
 }

@@ -1,0 +1,43 @@
+name: Deploy
+
+# The site: the live game from main at the root, and the test copy from staging under /staging/.
+# Either branch changing redeploys both, so each always shows the latest of its own branch.
+on:
+  push:
+    branches: [main, staging]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site
+      - name: The test copy (if there is a staging branch)
+        run: |
+          if git ls-remote --exit-code --heads "https://github.com/${{ github.repository }}" staging >/dev/null; then
+            git clone --depth 1 --branch staging "https://github.com/${{ github.repository }}" staging-src
+            rm -rf staging-src/.git
+            mkdir -p site/staging && cp -a staging-src/. site/staging/
+          fi
+          rm -rf site/.git
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4

@@ -2,7 +2,7 @@ name: Verify game
 
 on:
   push:
-    branches: [main, feat/online-coop]
+    branches: [main, staging, feat/online-coop]
   pull_request:
 
 permissions:
