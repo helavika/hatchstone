@@ -1130,8 +1130,8 @@ body.compact .place-who img { width: 36px; height: 36px; }
 .wplace.fresh .wbanner { box-shadow: var(--px-frame), 0 0 0 3px var(--px-gold); }
 .wplace.call .wbanner::after { content: "!"; position: absolute; margin-left: 4px; transform: translate(50%, -60%); right: 0; width: 18px; height: 18px; display: grid; place-items: center; font-size: 13px; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame); }
 .wbanner { position: relative; }
-.wkeeper { position: absolute; left: 4%; top: 18%; width: 40px; height: 40px; image-rendering: pixelated; animation: pxBob 1.2s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
-.where { position: absolute; right: 2%; top: 4%; width: 46px; height: 46px; image-rendering: pixelated; animation: pxBob .9s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
+.wkeeper { position: absolute; left: 4%; top: 18%; width: calc(var(--k) * 13px); height: calc(var(--k) * 13px); image-rendering: pixelated; animation: pxBob 1.2s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
+.where { position: absolute; right: 2%; top: 4%; width: calc(var(--k) * 15px); height: calc(var(--k) * 15px); image-rendering: pixelated; animation: pxBob .9s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
 .wplace:active .wbanner { transform: translateY(2px); }
 
 /* the chest: the room you're in at the top, then furniture in sections */
@@ -1147,3 +1147,13 @@ body.compact .place-who img { width: 36px; height: 36px; }
 .reno .em .ic { width: 34px; height: 34px; }
 .space-acts { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .space-acts .act { justify-content: flex-start; }
+.world-zoom { position: fixed; right: 12px; top: calc(var(--top) + 112px); z-index: 3; display: flex; flex-direction: column; gap: 6px; }
+.world-zoom .x-close { position: static; font-size: 24px; line-height: 1; }
+.world-zoom .x-close:disabled { opacity: .4; }
+/* seen from afar: just the names, smaller */
+#worldMap.far .wbanner { padding: 1px 5px 2px; }
+#worldMap.far .wbanner b { font-size: 13px; }
+#worldMap.far .wbanner small { display: none; }
+#worldMap.far .wplace.locked .wbanner small { display: block; font-size: 10px; }
+#worldMap { --k: 3; }
+#worldMap.far .wplace.call .wbanner::after { width: 12px; height: 12px; font-size: 10px; transform: translate(85%, -75%); }

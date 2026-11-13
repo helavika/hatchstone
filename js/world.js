@@ -18,7 +18,7 @@ const WM_COL = Object.fromEntries(Object.entries({
 // where the river runs, from the spring in the mountains down to the sea (art pixels)
 const WM_RIVER = [[128, 52], [124, 80], [136, 108], [130, 132], [116, 152], [122, 186], [112, 214], [118, 244], [100, 276], [74, 298], [44, 322], [18, 346]];
 /** The roads: the main one from the nest up to the grotto is wider; the others are lanes. */
-const WM_ROADS = [["nest", "grotto", 2.2, 18], ["nest", "garden", 1.4, -10], ["nest", "shop", 1.6, 14], ["nest", "lab", 1.4, -12], ["lab", "forge", 1.3, 10], ["grotto", "forge", 1.2, -14], ["shop", "trail", 1.4, -12], ["garden", "shop", 1.1, 8]];
+const WM_ROADS = [["nest", "grotto", 2.2, 14], ["nest", "lab", 1.8, -14], ["lab", "shop", 1.6, 12], ["grotto", "forge", 1.4, -12], ["forge", "garden", 1.3, 10], ["garden", "shop", 1.3, -8], ["shop", "trail", 1.4, -12], ["lab", "garden", 1.1, 18]];
 const wmAt = id => WORLD.find(w => w.id === id).at;
 
 /** Points along a gentle curve from a to b (bent sideways by `bend` pixels), every pixel or so. */
@@ -98,6 +98,7 @@ function worldBase() {
   for (let k = 0; k < 22; k++) {
     const x = 6 + k * 11 + (pxHash(k, 1) - 0.5) * 8, base = 46 + pxHash(k, 2) * 40 - (Math.abs(x - 120) < 30 ? 8 : 0), size = 20 + pxHash(k, 3) * 20;
     if (Math.abs(x - gr[0]) < 24 && base > gr[1] - 34) continue;
+    const ne = wmAt("nest"); if (Math.abs(x - ne[0]) < 24 && base > ne[1] - 34) continue;
     stand.push({ y: base, draw: () => wmPeak(g, x, base, size, size * (0.9 + pxHash(k, 4) * 0.5)) });
   }
   // forests: clumps of pines and round trees where the land is green and nothing else stands
@@ -165,12 +166,15 @@ function wmPlaceArt(id) {
   return wmPlaceCache[id] = isoArt(40, 36, T => {
     const cx = 20, cy = 32;
     if (id === "nest") {
-      // a mossy hill with a round door, a lit window and a chimney
-      T.ball(cx, cy - 8, 14, IC.g0, IC.g1, IC.g2, 10);
-      T.ball(cx - 5, cy - 14, 5, IC.g0, IC.g0, IC.g1);
-      T.disc(cx - 2, cy - 4, 4, IC.w3, 5); T.disc(cx - 2, cy - 4, 3, IC.w2, 4); T.px(cx - 0, cy - 4, IC.y0);
-      T.disc(cx + 7, cy - 10, 2, IC.y1, 2); T.px(cx + 7, cy - 10, IC.y0);
-      T.box(cx + 5, cy - 19, 1, 1, 5, IC.s1, IC.s2, IC.s3);
+      // a home cut into the mountainside: a round wooden door, lit windows, a little balcony and a chimney
+      T.box(cx + 1, cy - 20, 9, 7, 18, IC.s1, IC.s2, IC.s3);
+      T.ball(cx + 2, cy - 22, 9, IC.s0, IC.s1, IC.s2, 5);
+      T.disc(cx - 5, cy - 6, 3.5, IC.w3, 4.5); T.disc(cx - 5, cy - 6, 2.6, IC.w2, 3.6); T.px(cx - 4, cy - 6, IC.y1);
+      T.disc(cx - 10, cy - 12, 1.6, IC.y0, 2); T.disc(cx + 1, cy - 9, 1.6, IC.y1, 2); T.disc(cx + 6, cy - 14, 1.6, IC.y0, 2);
+      for (let k = 0; k < 8; k++) T.px(cx - 12 + k * 2, cy - 15 + k, IC.w1);
+      for (let k = 0; k < 8; k += 2) T.line(cx - 12 + k * 2, cy - 15 + k, cx - 12 + k * 2, cy - 12 + k, IC.w2);
+      T.box(cx + 7, cy - 30, 1.5, 1.5, 6, IC.s2, IC.s3, IC.s4);
+      for (let k = 0; k < 6; k++) T.px(cx - 4 + k * 3, cy - 27 + (k % 2), IC.g1);
     } else if (id === "grotto") {
       // a cliff with a dark arch, crystals glowing at its mouth
       T.box(cx, cy - 18, 9, 7, 16, IC.s2, IC.s3, IC.s4);
@@ -178,12 +182,14 @@ function wmPlaceArt(id) {
       T.glow(cx - 6, cy - 5, 9, IC.l1, 0.55);
       for (const [dx, hh, c] of [[-11, 6, IC.l1], [-2, 5, IC.l2], [-8, 3, IC.l0]]) for (let k = 0; k < hh; k++) T.px(cx + dx, cy - 1 - k, c);
     } else if (id === "forge") {
-      // a stone smithy with a slate roof, a tall chimney and a glowing doorway
-      const q = T.box(cx, cy - 12, 7, 6, 9, IC.s1, IC.s2, IC.s3);
-      T.poly([[q.top[0] - 12, q.top[1] + 6], [q.top[0] + 2, q.top[1] - 4], [q.top[0] + 16, q.top[1] + 3], [q.top[0] + 2, q.top[1] + 13]], IC.l4);
-      T.box(cx + 8, cy - 22, 2, 2, 9, IC.s2, IC.s3, IC.s4);
-      T.poly([[cx - 7, cy - 6], [cx - 3, cy - 4], [cx - 3, cy - 10], [cx - 7, cy - 12]], IC.r1); T.px(cx - 5, cy - 8, IC.y0);
-      T.glow(cx - 5, cy - 6, 8, IC.y1, 0.4);
+      // a timber hut with a thatched roof, a stone chimney, the forge glowing through the door, an anvil outside
+      const q = T.box(cx, cy - 12, 7, 6, 9, IC.w1, IC.w2, IC.w3);
+      for (let k = 0; k < 4; k++) T.line(q.Bv[0] + k * 3.5, q.Bv[1] + k * 1.75, q.Bv[0] + k * 3.5, q.Bv[1] + k * 1.75 - 9, IC.w3);
+      T.poly([[q.top[0] - 14, q.top[1] + 7], [q.top[0] + 1, q.top[1] - 6], [q.top[0] + 17, q.top[1] + 2], [q.top[0] + 2, q.top[1] + 15]], (x, y) => (x + y) % 4 === 0 ? IC.w0 : IC.y1);
+      T.box(cx + 7, cy - 26, 2, 2, 12, IC.s1, IC.s2, IC.s3);
+      T.poly([[cx - 8, cy - 5], [cx - 4, cy - 3], [cx - 4, cy - 9], [cx - 8, cy - 11]], IC.r1); T.px(cx - 6, cy - 7, IC.y0); T.px(cx - 5, cy - 6, IC.y0);
+      T.glow(cx - 6, cy - 5, 9, IC.y1, 0.45);
+      T.box(cx + 9, cy - 2, 2, 1, 2, IC.s2, IC.s3, IC.s4); T.box(cx + 8, cy - 4, 3, 1, 1, IC.s1, IC.s2, IC.s3);
     } else if (id === "lab") {
       // a round tower with a dome and a telescope poking out
       T.cyl(cx, cy - 3, 7, 14, IC.l1, IC.l2, IC.l4);
@@ -215,7 +221,7 @@ function wmPlaceArt(id) {
 // ---------- the living map: water that sparkles, smoke from the chimneys, fireflies, clouds drifting over ----------
 
 const wm = { raf: 0, t0: 0, smoke: [], flies: [], cv: null, K: 3 };
-const WM_CHIMNEYS = { forge: [9, -22], nest: [6, -20], trail: [-2, -2] };
+const WM_CHIMNEYS = { forge: [8, -26], nest: [9, -27], trail: [-2, -2] };
 function worldFrame(now) {
   const base = worldBase(), cv = wm.cv, g = cv.getContext("2d"), C = WM_COL, t = now / 1000;
   g.imageSmoothingEnabled = false;
@@ -255,16 +261,30 @@ function wherePlace() {
   return { yard: "garden", lab: "lab", shop: "shop", forge: "forge", camp: "trail" }[k] || "nest";
 }
 const WM_KEEPERS = { grotto: "mossa", shop: "tansy", forge: "ember", trail: "pip", lab: "ollo", garden: "fennel" };
+/** How big the map is drawn: zoom 0 fits it all on screen, each step in is half as big again. */
+const WM_ZOOMS = [1, 1.6, 2.4, 3.4];
+function wmFit() {
+  const sc = $("worldScroll"), top = parseFloat(getComputedStyle($("worldMap")).marginTop) || 0, bottom = parseFloat(getComputedStyle($("worldMap")).marginBottom) || 0;
+  return Math.max(0.5, Math.min((sc.clientWidth - 16) / WM_W, (sc.clientHeight - top - bottom) / WM_H));
+}
+function layoutWorld(zoom, keep) {
+  const sc = $("worldScroll"), map = $("worldMap"), old = wm.K, cx = keep ? (sc.scrollLeft + sc.clientWidth / 2 - map.offsetLeft) / old : 0, cy = keep ? (sc.scrollTop + sc.clientHeight / 2 - map.offsetTop) / old : 0;
+  wm.zoom = clamp(zoom, 0, WM_ZOOMS.length - 1);
+  const K = wm.K = wmFit() * WM_ZOOMS[wm.zoom];
+  map.style.width = WM_W * K + "px"; map.style.height = WM_H * K + "px";
+  map.classList.toggle("far", wm.zoom === 0); map.style.setProperty("--k", K);
+  for (const b of $$("#worldMap [data-place]")) { const [x, y] = wmAt(b.dataset.place); b.style.left = x * K + "px"; b.style.top = (y - 32) * K + "px"; b.firstElementChild.style.width = 40 * K + "px"; b.firstElementChild.style.height = 36 * K + "px"; }
+  $("worldIn").disabled = wm.zoom >= WM_ZOOMS.length - 1; $("worldOut").disabled = wm.zoom <= 0;
+  if (keep) { sc.scrollLeft = map.offsetLeft + cx * K - sc.clientWidth / 2; sc.scrollTop = map.offsetTop + cy * K - sc.clientHeight / 2; }
+}
 function openWorld() {
   sfx.tick();
   worldBase();
-  const K = wm.K = clamp(Math.round(Math.max(innerWidth * 1.7, innerHeight * 1.1 * WM_W / WM_H) / WM_W), 3, 6);
   const map = $("worldMap"), fresh = save.mapFresh || [], here = wherePlace(), cr = activeCreature();
-  map.style.width = WM_W * K + "px"; map.style.height = WM_H * K + "px";
   map.innerHTML = `<canvas id="worldCv" width="${WM_W}" height="${WM_H}"></canvas>` + WORLD.map(w => {
     const ok = placeOk(w.id), isNew = fresh.includes(w.id), keeper = ok && WM_KEEPERS[w.id];
-    return `<button class="wplace${ok && w.call && w.call() ? " call" : ""}${isNew ? " fresh" : ""}${ok ? "" : " locked"}" data-place="${w.id}" style="left:${w.at[0] * K}px;top:${(w.at[1] - 32) * K}px" ${ok ? "" : "disabled"}>`
-      + `<span class="wplace-hit" style="width:${40 * K}px;height:${36 * K}px"></span>`
+    return `<button class="wplace${ok && w.call && w.call() ? " call" : ""}${isNew ? " fresh" : ""}${ok ? "" : " locked"}${w.id === here ? " here" : ""}" data-place="${w.id}" ${ok ? "" : "disabled"}>`
+      + `<span class="wplace-hit"></span>`
       + (keeper ? `<img class="wkeeper" src="${pxIcon(keeper)}" alt="">` : "")
       + (ok && w.id === here && cr ? `<img class="where" src="${creatureImage(specOf(cr), { art: 20, level: cr.level, shiny: cr.shiny, acc: cr.acc })}" alt="">` : "")
       + `<span class="wbanner"><b>${ok ? tr(w.name) : ic("lock") + "???"}</b><small>${ok ? (isNew ? tr("new! ✦") : w.note()) : w.how()}</small></span></button>`;
@@ -278,12 +298,13 @@ function openWorld() {
   }));
   show("worldSheet", true);
   setHint("");
-  // start looking at where you are
-  const sc = $("worldScroll"), [hx, hy] = wmAt(here);
-  sc.scrollLeft = hx * K - sc.clientWidth / 2; sc.scrollTop = hy * K - sc.clientHeight / 2;
+  // the whole valley at first
+  wm.K = 1; layoutWorld(0, false);
+  const sc = $("worldScroll"); sc.scrollLeft = 0; sc.scrollTop = 0;
   cancelAnimationFrame(wm.raf); wm.raf = requestAnimationFrame(worldFrame);
   litTabs();
 }
+function zoomWorld(dir) { sfx.tick(); layoutWorld(wm.zoom + dir, true); }
 function closeWorld() {
   cancelAnimationFrame(wm.raf); wm.raf = 0;
   show("worldSheet", false);

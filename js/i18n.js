@@ -677,6 +677,8 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Zoom in": "Наблизити",
+  "Zoom out": "Віддалити",
   "Home is full": "Удома тісно",
   "{0} went out exploring the grotto: each room fits {1} glowlings.": "Пішли досліджувати грот: {0}. У кожну кімнату вміщається глоулінгів: {1}.",
   "Carve a new room: {0}": "Вирізьбити нову кімнату: {0}",
