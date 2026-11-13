@@ -2062,6 +2062,9 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Outside": "Надворі",
+  "tip: tap the garden bed to plant seeds 🌱": "порада: торкнись грядки, щоб посадити насіння 🌱",
+  "Seeds grow in real time, even while you're away. Watering helps them along; hoppers and swimmers who live outside water now and then too.": "Насіння росте в реальному часі, навіть коли тебе немає. Полив пришвидшує ріст, а стрибунці й плавунці, що живуть надворі, часом поливають самі.",
   "Garden bed": "Грядка",
   "pokes around in the garden": "порпається на грядці",
   "Garden": "Сад",
@@ -3042,7 +3045,6 @@ DECOR.push(
   { id: "chest", name: "Toy chest", emoji: "🧸", cost: 40, lovers: ["hop"], verb: "digs through the toy chest", emote: "!", iso: true },
   { id: "plant", name: "Crystal plant", emoji: "🪴", cost: 35, lovers: ["flutter", "swim"], verb: "sniffs the crystal plant", emote: "✦", iso: true },
   { id: "musicbox", name: "Music box", emoji: "🎼", cost: 120, lovers: ["dance", "flutter"], verb: "sways to the music box", emote: "♪", iso: true, legend: true, how: "meet a legendary glowling" },
-  { id: "garden", name: "Garden bed", emoji: "🌱", cost: 60, lovers: ["hop", "swim"], verb: "pokes around in the garden", emote: "🌱", iso: true },
   { id: "painting", name: "Moon painting", emoji: "🖼️", cost: 55, lovers: ["curious", "dance"], verb: "admires the painting", emote: "✦", iso: true, wall: true },
 );
 if (LANG === "uk") for (const d of DECOR) if (d.iso) { d.name = tr(d.name); d.verb = tr(d.verb); if (d.how) d.how = tr(d.how); }
@@ -3304,7 +3306,7 @@ function pixelNight(id, W, H, floor = 0.86) {
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     let col;
     const gy = gnd(x), hy = hill(x), md = Math.hypot(x - mx, y - my);
-    if (y >= gy) col = pxPick(ground, 0.75 - (y - gy) / Math.max(16, (H - gy) * 0.7) + pxFbm(x * 0.3, y * 0.3) * 0.25, x, y);
+    if (y >= gy) col = pxPick(ground, Math.max(0.28, 0.75 - (y - gy) / Math.max(16, (H - gy) * 0.7)) + pxFbm(x * 0.3, y * 0.3) * 0.25, x, y);
     else if (y >= hy) col = pxPick(far, 0.55 - (y - hy) / (gy - hy) * 0.5 + pxFbm(x * 0.1, y * 0.1) * 0.3, x, y);
     else if (md < mr) col = pxPick(moonCol, 0.95 - 0.5 * (md / mr) ** 2 - 0.3 * pxSmooth(0.55, 0.7, pxFbm(x * 0.35 + seed, y * 0.35)), x, y);
     else {
@@ -3514,7 +3516,7 @@ function levelConf(n) {
 // Progress is precious: a main save, a "last good" copy, and care when several tabs are open.
 const SAVE_KEY = STAGING ? "hatchstone.staging.save" : LIVE_SAVE_KEY, BAK_KEY = SAVE_KEY + ".bak";
 const SAVE_VERSION = 1;
-const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 } });
+const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }, { kind: "yard", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 } });
 const validSave = d => d && typeof d === "object" && Array.isArray(d.creatures) && typeof d.stars === "object";
 
 let startedEmpty = true; // no nest in storage when this page opened
@@ -3547,6 +3549,8 @@ function migrate(d) {
   for (const h of d.hybrids || []) if (h.parents) h.parents = h.parents.map(renamed);
   if (!Array.isArray(d.rooms) || !d.rooms.length) { d.rooms = [{ kind: "nest", on: [] }]; d.room = 0; }
   if (!(d.room >= 0 && d.room < d.rooms.length)) d.room = 0;
+  // everyone has a way outside, to the garden
+  if (!d.rooms.some(r => r.kind === "yard")) d.rooms.push({ kind: "yard", on: [] });
   if (!d.bars) d.bars = { firefly: 2, nut: 1 };
   if (!d.oil || !Number.isFinite(d.oil.n)) d.oil = { n: 5, t: 0 };
   d.v = SAVE_VERSION;
@@ -3763,6 +3767,7 @@ function computeLayout() {
 /** Which way the room is seen: isometric (the default) or straight on. ?view=front tries it without saving. */
 function roomView() {
   const q = /[?&]view=(iso|front)\b/.exec(location.search);
+  if (save.rooms && isOutside()) return "iso";
   return q ? q[1] : save.view === "front" ? "front" : "iso";
 }
 /** Isometric floor coordinates: u runs from the back corner to the right corner, v from the back corner to the left one. */
@@ -3791,7 +3796,7 @@ const ROOM_SLOTS = {
   spring: [0.98, 0.06], cushion: [0.5, 0], bed: [0.97, 0.94],
   rug: [0.5, 0.56],
   // the pieces drawn for the isometric room stand here when the room is seen straight on
-  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98], garden: [0.6, 0.98],
+  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98],
 };
 // a wide, shallow room (a computer screen) spreads the front pieces inward instead, so they don't stand in front of the middle ones
 const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 0.96], bed: [0.85, 0.9] };
@@ -3984,6 +3989,7 @@ function makeBackground() { bgCache.clear(); }
 function currentTheme() {
   const c = game.scene === "crack" && game.egg && game.egg.conf;
   if (c) return c.moon ? "churchyard" : c.wander ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
+  if (save.rooms && isOutside()) return THEME[save.theme] && THEME[save.theme].ok() && !["cave", "hall"].includes(ROOM_KIND[save.theme]) ? save.theme : "glowcap";
   return THEME[save.theme] && THEME[save.theme].ok() ? save.theme : "amethyst";
 }
 
@@ -5853,6 +5859,7 @@ function nestHint() {
   const cr = activeCreature(), call = cr && callOf(cr);
   if (call) return { hungry: tr("{0} is hungry: give it a snack", cr.name), sleepy: tr("{0} is sleepy: tuck it in", cr.name), messy: tr("dust bunnies! tap them to sweep the nest"), lonely: tr("{0} feels lonely: pet it or play", cr.name) }[call];
   if (!tipDone("call")) return tr("tip: hold a finger on the floor to call everyone");
+  if (isOutside() && !tipDone("garden")) return tr("tip: tap the garden bed to plant seeds 🌱");
   if (!tipDone("decorTap") && DECOR.some(d => hasDecor(d.id) && d.id !== "rug")) return tr("tip: tap your decorations to play with them ✦");
   if (save.incubator && Date.now() >= save.incubator.due) return tr("the egg is ready: tap it three times to hatch ✦");
   if (!save.incubator && !tipDone("pair") && save.creatures.filter(c => !pairReason(c)).length >= 2) return tr("two of your glowlings could share an egg: tap the incubator 💞");
@@ -6430,9 +6437,9 @@ const hasDecor = id => save.decor[id] && save.decor[id].on;
 
 /** The Decor sheet works like a catalogue: tabs along the top, then a grid of things, and a strip at the bottom for the one you picked. */
 const SHOP_TABS = [["decor", "candle", "Furniture"], ["look", "grotto", "Look"], ["rooms", "nest", "Rooms"], ["wear", "heart", "Wear"]];
-const DECOR_CATS = [["all", "All"], ["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"], ["garden", "Garden"]];
+const DECOR_CATS = [["all", "All"], ["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
-  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", garden: "garden" };
+  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty" };
 const shopOf = () => (game.shop = game.shop || { tab: "decor", cat: "all", pick: null });
 function openShop() {
   sfx.tick();
@@ -6517,8 +6524,8 @@ function gardenPlant(T, x, y, kind, stage, t) {
   const u = Math.max(1, t / 16);
   if (stage === 0) { T.px(x, y - 1, IC.w2); T.px(x + 1, y - 1, IC.w2); T.px(x, y - 2, IC.g1); return; }
   const tall = Math.round((stage === 1 ? 3 : stage === 2 ? 6 : 8) * u);
-  for (let k = 1; k <= tall; k++) T.px(x, y - k, k > tall - 2 ? IC.g0 : IC.g1);
-  const leaf = (k, side, col) => { T.px(x + side, y - k, col); T.px(x + side * 2, y - k - 1, col); };
+  for (let k = 1; k <= tall; k++) { T.px(x, y - k, k > tall - 2 ? IC.g0 : IC.g1); if (u >= 1.5) T.px(x + 1, y - k, IC.g2); }
+  const leaf = (k, side, col) => { for (let j = 1; j <= Math.round(2 * u); j++) T.px(x + (side > 0 ? 1 : 0) + side * j, y - k - Math.floor(j / 2), col); };
   leaf(Math.round(tall * 0.4), -1, IC.g1); leaf(Math.round(tall * 0.6), 1, IC.g2);
   if (stage === 1) return;
   leaf(Math.round(tall * 0.8), -1, IC.g0);
@@ -6557,7 +6564,7 @@ function openGarden() {
       + (st === 3 ? `<button class="act buy" data-pick="${i}">${tr("Pick")}</button>` : `<button class="act" data-water="${i}" ${wet ? "disabled" : ""}>${wet ? tr("watered ✓") : "💧 " + tr("Water")}</button>`) + `</div>`;
   };
   const free = g.slots.findIndex(q => !q);
-  $("gardenSub").textContent = tr("Seeds grow in real time, even while you're away. Watering helps them along; your hoppers and swimmers water now and then too.");
+  $("gardenSub").textContent = tr("Seeds grow in real time, even while you're away. Watering helps them along; hoppers and swimmers who live outside water now and then too.");
   $("gardenList").innerHTML = `<div class="plots">${g.slots.map(slot).join("")}</div><h3>${tr("Seeds")}</h3>` + Object.entries(SEEDS).map(([id, sd]) => {
     const have = g.seeds[id] || 0, locked = sd.ok && !sd.ok();
     return `<div class="snack seed${locked ? " locked" : ""}"><img class="em" src="${plantImage(id, 3)}" alt=""><span><b>${seedName(id)} <em>×${have}</em></b><small>${locked ? ic("lock") + tr(sd.how) : `${tr(sd.note)} · ${tr("{0} h", sd.hrs)}`}</small></span>`
@@ -6690,6 +6697,7 @@ function setView(v) {
 /** The rooms you can add, in order: each starts on its own backdrop if you have it. */
 const ROOM_KINDS = [
   { id: "nest", name: "Nest" },
+  { id: "yard", name: "Outside", outdoor: true },
   { id: "play", name: "Playroom", cost: 250 },
   { id: "garden", name: "Garden room", cost: 500, theme: "glowcap" },
   { id: "study", name: "Crystal study", cost: 900, theme: "celestite" },
@@ -6697,6 +6705,10 @@ const ROOM_KINDS = [
 /** What each room keeps for itself (the room you're in keeps them in the save as usual; the others are packed away in save.rooms). */
 const ROOM_KEYS = ["layout", "cloud", "theme", "jukebox"];
 const roomKind = i => ROOM_KINDS.find(k => k.id === save.rooms[i].kind) || ROOM_KINDS[0];
+/** Are we outside, in the garden under the sky? */
+const isOutside = (i = save.room) => save.rooms[i]?.kind === "yard";
+/** The next room you can add (Outside comes free). */
+const nextRoomKind = () => ROOM_KINDS.find(k => k.cost && !save.rooms.some(r => r.kind === k.id));
 const roomName = i => tr(roomKind(i).name);
 /** The incubator lives in the nest; every room has its own bed. */
 const incHere = () => !save.room;
@@ -6725,6 +6737,8 @@ function goRoom(i) {
   for (const k of ROOM_KEYS) { if (r[k] == null) delete save[k]; else save[k] = r[k]; }
   isoLayoutCache = null;
   persist();
+  // outside is always seen from above: stepping out of a straight-on room lays everything out again
+  if ((roomView() === "iso") !== !!N.iso) { computeLayout(); actors.clear(); for (const k in roomSprites) delete roomSprites[k]; }
   [N.bedX, N.bedY] = roomSpot("bed");
   // the room's own glowlings are here; the one you look after is one of them
   syncActors();
@@ -6736,7 +6750,7 @@ function goRoom(i) {
   renderNest(true);
 }
 function addRoom() {
-  const kind = ROOM_KINDS[save.rooms.length];
+  const kind = nextRoomKind();
   if (!kind || save.shards < kind.cost) return;
   save.shards -= kind.cost;
   save.rooms.push({ kind: kind.id, on: [], theme: kind.theme && THEME[kind.theme].ok() ? kind.theme : null });
@@ -6747,7 +6761,7 @@ function addRoom() {
   openShop();
 }
 function roomsList() {
-  const next = ROOM_KINDS[save.rooms.length];
+  const next = nextRoomKind();
   return `<h3>${tr("Rooms")}</h3><div class="rooms">${save.rooms.map((_, i) => `<button class="pillbtn${i === save.room ? " on" : ""}" data-room="${i}">${roomName(i)}</button>`).join("")}${next
     ? `<button class="pillbtn" id="roomAdd" ${save.shards < next.cost ? "disabled" : ""}>+ ${tr(next.name)} · ✦ ${next.cost}</button>` : ""}</div>`;
 }
@@ -7166,6 +7180,11 @@ function refuseWith(cr, text) {
 
 /** Pick what to do next: nap, dance, visit a friend, or wander (flutterers chase the light motes). */
 function chooseNext(a, list) {
+  // outside, hoppers and swimmers like the garden best: they walk over and water a thirsty plant
+  const gp = isOutside() && N.iso && isoLayout().placed.garden;
+  if (gp && ["hop", "swim"].includes(a.beh) && Math.random() < 0.25) {
+    [a.tx, a.ty] = isoPieceAt(gp, 0.8); a.state = "walk"; a.garden = true; return;
+  }
   if (weatherOn() && Math.random() < 0.8) { playInWeather(a); return; }
   const r = Math.random(), b = a.beh;
   const loved = DECOR.filter(d => hasDecor(d.id) && d.lovers.includes(b));
@@ -7323,11 +7342,13 @@ function updateActors(dt) {
       a.t = d.id === "cushion" ? rand(6, 10) : rand(3, 6);
       emote(a, d.emote, 2);
       if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
-      if (d.id === "garden" && Math.random() < 0.5) gardenHelp(cr);
+
     } else if (a.state === "walk" && a.rain) {
       // under the cloud: a little dance in the rain (or snow)
       a.rain = false; a.state = "dance"; a.t = rand(0.9, 1.6); a.hop = 1;
       emote(a, weather.kind === "snow" ? "❄" : "💧", 1.2);
+    } else if (a.state === "walk" && a.garden) {
+      a.garden = false; a.state = "idle"; a.t = rand(1.5, 3); emote(a, "💧", 1.6); gardenHelp(cr);
     } else if (a.state === "walk") {
       a.state = "idle"; a.t = rand(1.2, 3.5);
       const f = a.friend && actors.get(a.friend);
@@ -7566,7 +7587,6 @@ const ISO_PLACES = {
   mushrooms: { fw: 1, fd: 1, at: [[5, 5], [4, 5], [5, 4]] },
   swing: { fw: 1, fd: 1, at: [[2, 0], [3, 0], [1, 0], [0, 2], [0, 3]] },
   musicbox: { fw: 1, fd: 1, at: [[0, 3], [3, 0], [5, 2], [2, 5]] },
-  garden: { fw: 1, fd: 1, at: [[2, 4], [4, 4], [1, 4], [4, 1]] },
 };
 /** Pieces on the walls: which wall (L is the left one, along j; R the right one, along i) and the slot along it, in tiles. */
 const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.64 } };
@@ -7582,7 +7602,7 @@ function autoFlip(id, i, j, flip) {
   if (i === 0 && j !== 0) return true;
   return flip;
 }
-const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] } };
+const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] }, garden: { fw: 2, fd: 1, at: [1, 4] } };
 
 /** A piece's size in tiles; turned to face the other wall, its two sides swap. */
 const pieceDims = (id, flip) => { const f = ISO_FIXED[id] || ISO_PLACES[id]; return flip ? { fw: f.fd, fd: f.fw } : { fw: f.fw, fd: f.fd }; };
@@ -7595,7 +7615,7 @@ function isoLayout() {
   const busy = new Set(), placed = {};
   const take = (i, j, fw, fd) => { for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) busy.add(`${i + a},${j + b}`); };
   const free = (i, j, fw, fd) => { if (i < 0 || j < 0) return false; for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) if (i + a >= ISO_G || j + b >= ISO_G || busy.has(`${i + a},${j + b}`)) return false; return true; };
-  const fixed = incHere() ? ISO_FIXED : { bed: ISO_FIXED.bed };
+  const fixed = isOutside() ? { bed: ISO_FIXED.bed, garden: ISO_FIXED.garden } : incHere() ? { bed: ISO_FIXED.bed, incubator: ISO_FIXED.incubator } : { bed: ISO_FIXED.bed };
   const all = [...Object.keys(fixed), ...out];
   for (const id of all) {
     const m = mine[id]; if (!m) continue;
@@ -7904,13 +7924,14 @@ const ISO_ART = {
     T.ball(cx, top - t * 0.16, Math.max(1.5, t * 0.05), IC.white, IC.b0, IC.g0);
   },
   garden(t, T, ax, ay, o) {
-    // a wooden planter box filling most of its tile, a rim of lighter boards, dark soil inside
-    const s2 = t * 0.4, h = Math.max(3, Math.round(t * 0.26)), x = ax, y = ay + t / 2 - s2;
-    T.box(x, y, s2, s2, h, IC.w0, IC.w2, IC.w3);
-    const i = s2 - 1.5, y0 = y + (s2 - i) - h;
-    T.poly([[x, y0], [x + 2 * i, y0 + i], [x, y0 + 2 * i], [x - 2 * i, y0 + i]], (px, py) => pxHash(px, py) > 0.8 ? IC.w2 : IC.w3);
-    // three spots along the bed, back to front
-    (o.p || []).forEach((q, k) => { if (q) gardenPlant(T, x + (k - 1) * i * 0.9, y0 + i + (k - 1) * i * 0.45, q[0], q[1], t); });
+    // a long wooden planter over two tiles, a rim of lighter boards, dark soil inside, three plots along it
+    const m = t * 0.05, a = t - 2 * m, b = t / 2 - 2 * m, h = Math.max(3, Math.round(t * 0.26)), x = ax, y = ay + 2 * m;
+    T.box(x, y, a, b, h, IC.w0, IC.w2, IC.w3);
+    const ia = a - 1.5, ib = b - 1.5, x0 = x, y0 = y + 1.5 - h;
+    T.poly([[x0, y0], [x0 + 2 * ia, y0 + ia], [x0 + 2 * ia - 2 * ib, y0 + ia + ib], [x0 - 2 * ib, y0 + ib]], (px, py) => pxHash(px, py) > 0.8 ? IC.w2 : IC.w3);
+    // the boards between the plots
+    for (const f of [1 / 3, 2 / 3]) for (let k = 0; k <= 4; k++) { const v = k / 4; T.px(x0 + 2 * ia * f - 2 * ib * v, y0 + ia * f + ib * v, IC.w1); }
+    (o.p || []).forEach((q, k) => { if (q) { const f = (k + 0.5) / 3; gardenPlant(T, x0 + 2 * ia * f - ib, y0 + ia * f + ib / 2 + 1, q[0], q[1], t * 2.2); } });
   },
   table(t, T, ax, ay) {
     const cx = ax, cy = ay + t / 2, lift = Math.round(t * 0.42), rx = t * 0.4;
@@ -8952,6 +8973,7 @@ const NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.7, 1318.5];
 
 /** Tap a decoration: it reacts with a little sound and sparkle, and the glowlings who love it come over. */
 function playDecor(hit) {
+  if (hit.id === "garden") { if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.12, 900, 0.8, 0.12, "lowpass"); markTip("garden"); openGarden(); return; }
   const d = DECO[hit.id], [x, y] = decorSpot(hit.id), b = N.base;
   decorFx[hit.id] = game.time;
   markTip("decorTap");
@@ -8975,10 +8997,6 @@ function playDecor(hit) {
       break;
     case "musicbox":
       openJukebox();
-      break;
-    case "garden":
-      if (sfx.ready()) { sfx.grain(t, 0.12, 900, 0.8, 0.12, "lowpass"); }
-      openGarden();
       break;
     case "painting": {
       save.paintScene = ((save.paintScene || 0) + 1) % PAINTINGS.length; persist();
