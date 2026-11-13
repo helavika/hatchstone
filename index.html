@@ -2062,6 +2062,9 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Outside, the garden is always under the open sky.": "Надворі сад завжди під відкритим небом.",
+  "The nest is always tucked away in a cave, a grotto or a hollow.": "Гніздечко завжди сховане в печері, гроті чи западині.",
+  "This room can take any backdrop you've found.": "У цій кімнаті може бути будь-яке з відкритих тел.",
   "Outside": "Надворі",
   "tip: tap the garden bed to plant seeds 🌱": "порада: торкнись грядки, щоб посадити насіння 🌱",
   "Seeds grow in real time, even while you're away. Watering helps them along; hoppers and swimmers who live outside water now and then too.": "Насіння росте в реальному часі, навіть коли тебе немає. Полив пришвидшує ріст, а стрибунці й плавунці, що живуть надворі, часом поливають самі.",
@@ -3989,8 +3992,16 @@ function makeBackground() { bgCache.clear(); }
 function currentTheme() {
   const c = game.scene === "crack" && game.egg && game.egg.conf;
   if (c) return c.moon ? "churchyard" : c.wander ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
-  if (save.rooms && isOutside()) return THEME[save.theme] && THEME[save.theme].ok() && !["cave", "hall", "ruin"].includes(ROOM_KIND[save.theme]) ? save.theme : "glowcap";
-  return THEME[save.theme] && THEME[save.theme].ok() ? save.theme : "amethyst";
+  const fits = roomThemes();
+  return THEME[save.theme] && THEME[save.theme].ok() && fits.includes(save.theme) ? save.theme : fits[0];
+}
+/** Which backdrops suit the room you're in: the nest is always in a cave, outside is always under the sky, the other rooms take any. */
+function roomThemes(i = save.room) {
+  const kind = save.rooms && save.rooms[i] && save.rooms[i].kind, k = id => ROOM_KIND[id] || "cave";
+  const ids = THEMES.map(t => t.id);
+  if (kind === "yard") return ids.filter(id => k(id) === "wood" || k(id) === "yard");
+  if (!kind || kind === "nest") return ids.filter(id => k(id) === "cave");
+  return ids;
 }
 
 // ---------- gothic little things: candles by the egg, bats in the dark ----------
@@ -6450,7 +6461,7 @@ function openShop() {
   if (st.tab === "look") {
     const now = currentTheme(), view = roomView();
     body = `<h3>${tr("View")}</h3><div class="seg view-seg"><button data-view="front" class="${view === "front" ? "on" : ""}">${tr("Straight on")}</button><button data-view="iso" class="${view === "iso" ? "on" : ""}">${tr("Isometric")}</button></div>`
-      + `<h3>${tr("Backdrop")}</h3><div class="themes">${THEMES.map(t => {
+      + `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "Outside, the garden is always under the open sky." : !save.room ? "The nest is always tucked away in a cave, a grotto or a hollow." : "This room can take any backdrop you've found.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
         const ok = t.ok();
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
       }).join("")}</div>`;
