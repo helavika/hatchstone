@@ -1062,6 +1062,22 @@
   body.phone #nestBottom .acts .act { padding-left: 4px !important; padding-right: 4px !important; font-size: 15px !important; gap: 4px !important; }
   body.phone #nestBottom .acts .act .ic { width: 20px; height: 20px; }
   body.narrow #nestBottom .acts .act:not(#residentsBtn) { font-size: 13px !important; }
+
+  /* settings */
+  .opt { display: block; margin: 10px 0; text-align: left; }
+  .opt span { display: flex; align-items: center; gap: 8px; font-size: 17px; }
+  .opt span .ic { width: 20px; height: 20px; margin: 0; }
+  .opt em { margin-left: auto; font-style: normal; color: var(--px-gold); font-size: 15px; }
+  .opt input[type=range] { width: 100%; margin-top: 6px; accent-color: #eec26a; }
+  .opt-toggle { display: flex; align-items: center; gap: 10px; width: 100%; margin-top: 10px; padding: 10px 12px; border: 0; cursor: pointer; text-align: left; font: inherit; color: inherit; background: var(--px-deep); box-shadow: var(--px-frame); }
+  .opt-toggle span { flex: 1; font-size: 17px; }
+  .opt-toggle small { display: block; font-size: 13px; color: var(--soft); }
+  .opt-toggle b { font-weight: 400; color: var(--soft); }
+  .opt-toggle.on b { color: var(--px-gold); }
+  /* less motion */
+  body.calm *, body.calm *::before, body.calm *::after { animation-duration: .001s !important; animation-iteration-count: 1 !important; transition-duration: .05s !important; }
+  /* bigger text */
+  body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigtext #toast, body.bigtext #nestBottom, body.bigtext #award { zoom: 1.12; }
 </style>
 </head>
 <body>
@@ -1098,6 +1114,7 @@
       <button class="act" id="mapCoop"><i class="ic" data-ic="duo"></i>Play together</button>
       <button class="act" id="copyLive" hidden><i class="ic" data-ic="nest"></i>Copy my nest from live</button>
       <button class="act" id="meBtn"><i class="ic" data-ic="star"></i>Keeper</button>
+      <button class="act" id="optsBtn"><i class="ic" data-ic="gear"></i>Settings</button>
       <button class="act" id="backupBtn" aria-label="Back up your nest"><i class="ic" data-ic="scroll"></i>Back up nest</button>
       <button class="act mute" data-label="1" aria-label="Mute sound"><i class="ic" data-ic="sound"></i>Sound on</button>
       <button class="act faq-btn menu-only"><i class="ic" data-ic="help"></i>Questions &amp; answers</button>
@@ -1253,6 +1270,13 @@
     <p class="sub" id="homeSub"></p>
     <div id="homeList"></div>
     <button class="ghost" id="homeClose">close</button>
+  </div>
+</div>
+<div id="optsSheet" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Settings</h2>
+    <div id="optsList"></div>
+    <button class="ghost" id="optsClose">done</button>
   </div>
 </div>
 <div id="meSheet" class="overlay modal hidden">
@@ -2155,6 +2179,14 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Music": "Музика",
+  "Music is the backdrops' songs and the grotto's hum; sounds are everything else: taps, chirps, voices.": "Музика — це мелодії тел і гул гроту; звуки — усе інше: удари, щебет, голоси.",
+  "Less motion": "Менше руху",
+  "no shaking or bouncing, gentler effects": "без трусіння й підстрибування, м'якші ефекти",
+  "Bigger text": "Більший текст",
+  "for the cards, dialogs and hints": "у вікнах, діалогах і підказках",
+  "on": "увімк.",
+  "off": "вимк.",
   "{0} is full of energy ({1}%). Bedtime comes below {2}%.": "{0} повне сил ({1}%). Спати можна, коли енергії менше {2}%.",
   "Settings": "Налаштування",
   "{0} of {1} awards. They come by themselves as you play; each brings shards and keeper XP, more for rarer ones.": "Нагород: {0} з {1}. Вони приходять самі, поки ти граєш; кожна дає осколки й досвід, рідкісніші — більше.",
@@ -2650,7 +2682,10 @@ const store = {
 // ---------- audio: every sound is synthesized ----------
 
 const sfx = {
-  ac: null, master: null, noise: null, muted: false, lastTick: 0, purr: null,
+  ac: null, master: null, noise: null, muted: false, lastTick: 0, purr: null, musicVol: 1, sfxVol: 1, inSong: false,
+  /** How loud a sound plays: songs by the music slider, the rest by the sounds slider (never quite zero, for the ramps). */
+  vol(gain) { return Math.max(0.0001, gain * (this.inSong ? this.musicVol : this.sfxVol)); },
+  setVolumes(music, sfx) { this.musicVol = music; this.sfxVol = sfx; if (this.padGain) this.padGain.gain.setTargetAtTime(0.035 * music, this.ac.currentTime, 0.3); },
 
   init() {
     if (this.ac) return;
@@ -2674,6 +2709,7 @@ const sfx = {
     const data = this.noise.getChannelData(0);
     for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
     this.pad();
+    if (typeof applyOpts === "function") applyOpts();
   },
 
   setMuted(m) {
@@ -2688,7 +2724,8 @@ const sfx = {
     const ac = this.ac, t = ac.currentTime;
     const g = ac.createGain();
     g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.035, t + 5); // quieter now that each backdrop has a song
+    g.gain.linearRampToValueAtTime(0.035 * this.musicVol, t + 5); // quieter now that each backdrop has a song
+    this.padGain = g;
     const lp = ac.createBiquadFilter();
     lp.type = "lowpass"; lp.frequency.value = 600;
     const lfo = ac.createOscillator(), lfoGain = ac.createGain();
@@ -2753,7 +2790,8 @@ const sfx = {
     const tick = () => {
       const m = this.song, eighth = 30 / m.bpm;
       setTimeout(tick, eighth * 1000);
-      if (!this.ready() || document.hidden || this.hush) { step++; return; }
+      if (!this.ready() || document.hidden || this.hush || this.musicVol < 0.01) { step++; return; }
+      this.inSong = true;
       if (!this.motifs || step % 128 === 0) { const a = motif(); this.motifs = [a, a, motif(), a]; }
       const t = this.ac.currentTime + 0.05, bar = Math.floor(step / 8) % 16, beat = step % 8;
       const chord = m.prog[bar % 4], g = m.gain;
@@ -2778,6 +2816,7 @@ const sfx = {
         this.tone(t, f, 0.04 * g, m.decay, m.lead, null, true);
         if (m.shine) this.tone(t, f * 2.01, 0.014 * g * m.shine, m.decay * 0.35, "sine");
       }
+      this.inSong = false;
       step++;
     };
     setTimeout(tick, 1200);
@@ -2808,7 +2847,7 @@ const sfx = {
     f.type = type; f.frequency.value = freq; f.Q.value = q;
     const g = ac.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + Math.min(0.004, dur * 0.3));
+    g.gain.exponentialRampToValueAtTime(this.vol(gain), t + Math.min(0.004, dur * 0.3));
     g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
     src.connect(f).connect(g).connect(this.master);
     src.start(t, rand(0, 1.8));
@@ -2822,7 +2861,7 @@ const sfx = {
     if (endFreq) o.frequency.exponentialRampToValueAtTime(endFreq, t + decay * 0.6);
     const g = this.ac.createGain();
     g.gain.setValueAtTime(0.0001, t);
-    g.gain.exponentialRampToValueAtTime(gain, t + 0.006);
+    g.gain.exponentialRampToValueAtTime(this.vol(gain), t + 0.006);
     g.gain.exponentialRampToValueAtTime(0.0001, t + decay);
     o.connect(g).connect(this.master);
     if (echo) g.connect(this.echo);
@@ -6276,6 +6315,35 @@ function fitTopbar() {
   const over = () => { const [l, r] = rows.map(e => e.getBoundingClientRect()); return r.right > innerWidth + 1 || l.right > r.left - 4 || $("topbar").scrollWidth > $("topbar").clientWidth + 1; };
   if (over()) body.classList.add("tight");
   if (over()) body.classList.add("tighter");
+}
+
+// ---------- settings: music and sound volumes, less motion, bigger text ----------
+
+// less motion starts on if the device asks for it
+const opts = () => ({ music: 1, sfx: 1, calm: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, big: false, ...(save.opts || {}) });
+function applyOpts() {
+  const o = opts();
+  sfx.setVolumes(o.music, o.sfx);
+  document.body.classList.toggle("calm", !!o.calm);
+  document.body.classList.toggle("bigtext", !!o.big);
+}
+function setOpt(k, v) { save.opts = { ...opts(), [k]: v }; persist(); applyOpts(); }
+function openOpts() {
+  sfx.tick();
+  const o = opts(), pct = v => `${Math.round(v * 100)}%`;
+  $("optsList").innerHTML = `
+    <label class="opt"><span>${ic("sound")}${tr("Music")}<em id="vMusic">${pct(o.music)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.music}" data-opt="music"></label>
+    <label class="opt"><span>${ic("bell")}${tr("Sounds")}<em id="vSfx">${pct(o.sfx)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.sfx}" data-opt="sfx"></label>
+    <p class="me-hint">${tr("Music is the backdrops' songs and the grotto's hum; sounds are everything else: taps, chirps, voices.")}</p>
+    <button class="opt-toggle${o.calm ? " on" : ""}" data-toggle="calm"><span>${tr("Less motion")}<small>${tr("no shaking or bouncing, gentler effects")}</small></span><b>${o.calm ? tr("on") : tr("off")}</b></button>
+    <button class="opt-toggle${o.big ? " on" : ""}" data-toggle="big"><span>${tr("Bigger text")}<small>${tr("for the cards, dialogs and hints")}</small></span><b>${o.big ? tr("on") : tr("off")}</b></button>`;
+  $$("#optsList [data-opt]").forEach(r => r.addEventListener("input", () => {
+    const v = Number(r.value); $(r.dataset.opt === "music" ? "vMusic" : "vSfx").textContent = pct(v);
+    sfx.setVolumes(r.dataset.opt === "music" ? v : opts().music, r.dataset.opt === "sfx" ? v : opts().sfx);
+  }));
+  $$("#optsList [data-opt]").forEach(r => r.addEventListener("change", () => { setOpt(r.dataset.opt, Number(r.value)); if (r.dataset.opt === "sfx") sfx.chirp(1); }));
+  $$("#optsList [data-toggle]").forEach(b => b.addEventListener("click", () => { setOpt(b.dataset.toggle, !opts()[b.dataset.toggle]); openOpts(); }));
+  show("optsSheet", true);
 }
 
 // ---------- you, the keeper: your name, how Mossa speaks to you, and a keeper level with skills to grow ----------
@@ -11020,6 +11088,8 @@ $("gardenClose").addEventListener("click", () => show("gardenSheet", false));
 $("wickClose").addEventListener("click", () => show("wickSheet", false));
 $("startMore").addEventListener("click", ev => { ev.stopPropagation(); const c = $("startCorner"); c.classList.toggle("open"); $("startMore").setAttribute("aria-expanded", String(c.classList.contains("open"))); sfx.tick(); });
 document.addEventListener("click", ev => { if (!ev.target.closest("#startCorner")) $("startCorner").classList.remove("open"); });
+$("optsBtn").addEventListener("click", () => { setMenu(false); openOpts(); });
+$("optsClose").addEventListener("click", () => show("optsSheet", false));
 $("meBtn").addEventListener("click", () => { setMenu(false); openMe(); });
 $("meClose").addEventListener("click", () => { saveMe(); show("meSheet", false); if (afterMe) { const f = afterMe; afterMe = null; f(); } });
 $("meName").addEventListener("change", saveMe);
@@ -11910,7 +11980,7 @@ function frame(now) {
   if (game.scene !== "menu") drawBats(dt);
   if (game.scene === "crack" && game.egg) {
     ctx.save();
-    if (game.shake > 0.3) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
+    if (game.shake > 0.3 && !opts().calm) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     drawCushion(L.ecx, L.floor + 4, L.ew * 0.62);
     const cx = Math.min(L.ew * 0.66, W / 2 - 8 * PX);
     drawCandle(L.ecx - cx, L.floor + 8, 12, 0); drawCandle(L.ecx + cx, L.floor + 10, 8, 2.1);
@@ -11957,6 +12027,7 @@ checkThemes();
 coopImportLocationInvite();
 quality.settle(5000); // the first seconds bake every picture: don't judge the device by them
 requestAnimationFrame(frame);
+applyOpts();
 warmUp();
 // show the page once the words are translated, the fonts are in and the first frame is on screen (or after 1.5 s whatever happens)
 Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))])
