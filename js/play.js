@@ -265,6 +265,7 @@ function drawNest() {
   const order = N.iso ? isoOrder(items) : items.sort((p, q) => p.y - q.y);
   order.forEach(it => it.draw());
   if (N.iso) ghostBehind(order);
+  if (isPlace() && N.iso) drawPlaceLife();
   const sn = game.nest.snack;
   if (sn) {
     fx.font = `${Math.round(N.base * 0.32)}px system-ui`; fx.textAlign = "center";

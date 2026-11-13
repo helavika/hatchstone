@@ -747,36 +747,53 @@ const PIP = { name: "Pip", face: () => pxIcon("pip"), voice: { f: 520, wave: "si
 const FENNEL = { name: "Fennel", face: () => pxIcon("fennel"), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
 const OLLO = { name: "Ollo", face: () => pxIcon("ollo"), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
 const HEROES = {
-  shop: { who: TANSY, icon: "tansy", at: [0.5, 0.42], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
+  shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.5, 0.42], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
     hello: ["Welcome, welcome! Mind the sacks, they're full of seeds.", "Food, furniture, seeds: if it's on a shelf, it's for sale.", "Furniture goes into your chest. Food goes into your basket."],
-    lines: ["Fresh cookies today. Well, fresh-ish.", "Moonberries are flying off the shelf!", "Starfruit? Oh no, that only grows in a garden. Not here.", "A tidy nest is a happy nest, I always say.", "Wick sells odd things. I sell sensible things."] },
-  forge: { who: EMBER, icon: "ember", at: [0.42, 0.6], role: "works the forge", act: [["hammer", "Forge", () => openForge()]],
+    lines: ["Fresh cookies today. Well, fresh-ish.", "One day I'll sell a hat. Just one. A very good hat.", "Moonberries are flying off the shelf!", "Starfruit? Oh no, that only grows in a garden. Not here.", "A tidy nest is a happy nest, I always say.", "Wick sells odd things. I sell sensible things."] },
+  forge: { who: EMBER, eyes: [[5, 3, 2, 2, "#e0634f"], [9, 3, 2, 2, "#e0634f"]], quirk: "sparks", icon: "ember", at: [0.42, 0.6], role: "works the forge", act: [["hammer", "Forge", () => openForge()]],
     hello: ["Hah! Another egg-cracker. Come in, it's warm.", "A better hammer cracks harder stone. Bring shards and I'll make you one.", "And spare geodes? Melt them down at my workbench."],
-    lines: ["Hot today. It's always hot today.", "The deeper caves have stubborn stone. Sharpen up!", "I once forged a hammer so light it floated off. Never again.", "Tap where it glows. That's the weak spot. Everyone forgets."] },
-  camp: { who: PIP, icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
+    lines: ["Hot today. It's always hot today.", "I want to forge a bell that rings in every cave at once. One day.", "The deeper caves have stubborn stone. Sharpen up!", "I once forged a hammer so light it floated off. Never again.", "Tap where it glows. That's the weak spot. Everyone forgets."] },
+  camp: { who: PIP, eyes: [[5, 6, 1, 1, "#3d2866"], [10, 6, 1, 1, "#3d2866"]], quirk: "startle", icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
     hello: ["Oh! Hello! I'm Pip, I map the tunnels. Well, I try.", "Send me a glowling and we'll go exploring for a few hours.", "We always come back with something: seeds, shards, the odd geode."],
-    lines: ["I've drawn this map three times. The tunnels keep moving.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it."] },
-  yard: { who: FENNEL, icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sun", "Garden bed", () => openGarden()]],
+    lines: ["I've drawn this map three times. The tunnels keep moving.", "Do you think the Gloom has a map? I'd like to see it. From far away.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it."] },
+  yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "croak", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sun", "Garden bed", () => openGarden()]],
     hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
-    lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."] },
-  lab: { who: OLLO, icon: "ollo", at: [0.55, 0.36], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
+    lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."] },
+  lab: { who: OLLO, eyes: [[3, 5, 3, 2, "#69b7d6"], [9, 5, 3, 2, "#69b7d6"]], quirk: "turn", icon: "ollo", at: [0.55, 0.36], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
     hello: ["Hoo. A visitor. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby mixes them both.", "Stroke the egg to keep it warm. It hatches faster."],
-    lines: ["Fascinating. Truly fascinating. Hoo.", "No two mixed eggs are alike. I've checked. Many times.", "Glowlings glow brighter when they're happy. I measured it.", "Please don't touch the green jar."] },
+    lines: ["Fascinating. Truly fascinating. Hoo.", "I am writing the great book of glowlings. Chapter one is just you.", "No two mixed eggs are alike. I've checked. Many times.", "Glowlings glow brighter when they're happy. I measured it.", "Please don't touch the green jar."] },
 };
 const heroHere = () => HEROES[save.rooms[save.room]?.kind] || null;
 const heroSpot = () => { const h = heroHere(); return isoAt(h.at[0], h.at[1]); };
 const heroImgs = {};
 function drawHero() {
   const h = heroHere(), img = heroImgs[h.icon] || (heroImgs[h.icon] = Object.assign(new Image(), { src: pxIcon(h.icon) }));
-  const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time;
-  const hop = game.hero && t - game.hero.t < 500 ? Math.sin((t - game.hero.t) / 500 * Math.PI) * s * 0.18 : 0;
+  const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time, me = game.hero && game.hero.room === save.room ? game.hero : null;
+  const since = me ? t - me.t : 1e9, jump = me && me.startle ? 0.45 : 0.18;
+  const hop = since < 500 ? Math.sin(since / 500 * Math.PI) * s * jump : 0;
   const breathe = 1 + Math.sin(t * 0.004) * 0.03;
   ctx.fillStyle = "rgba(5,0,20,.35)"; ctx.beginPath(); ctx.ellipse(x, y, s * 0.36, s * 0.1, 0, 0, TAU); ctx.fill();
   ctx.imageSmoothingEnabled = false;
-  if (img.complete) ctx.drawImage(img, Math.round(x - s / 2), Math.round(y - s * breathe - hop), s, Math.round(s * breathe));
+  const px = s / 18, left = Math.round(x - s / 2), top = Math.round(y - s * breathe - hop), hgt = Math.round(s * breathe);
+  if (me && me.curl && since < 2600) {
+    // Tansy, poked once too often: a ball of spines, wobbling
+    const wob = Math.sin(t * 0.03) * px, r = s * 0.36;
+    ctx.fillStyle = "#5e3a1c"; ctx.beginPath(); ctx.arc(x + wob, y - r, r, 0, TAU); ctx.fill();
+    ctx.fillStyle = "#946027";
+    for (let k = 0; k < 14; k++) { const an = k / 14 * TAU + 0.2; ctx.fillRect(Math.round(x + wob + Math.cos(an) * r * 1.05 - px), Math.round(y - r + Math.sin(an) * r * 1.05 - px), Math.ceil(px * 2), Math.ceil(px * 2)); }
+  } else if (img.complete) {
+    // Ollo looks the other way now and then
+    const turned = h.quirk === "turn" && Math.sin(t * 0.0011) > 0.75;
+    if (turned) { ctx.save(); ctx.translate(left * 2 + s, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(img, left, top, s, hgt);
+    // a blink every few seconds
+    if (t % 3700 < 130) for (const [ex, ey, ew, eh, col] of h.eyes || []) { ctx.fillStyle = col; ctx.fillRect(left + (ex + 1) * px, top + (ey + 1) * px * breathe, ew * px, eh * px * breathe); }
+    if (turned) ctx.restore();
+    if (me && me.startle && since < 900) { ctx.fillStyle = "#ffe9a8"; ctx.font = `400 ${Math.round(s * 0.5)}px ${PIXEL_FONT}`; ctx.textAlign = "center"; ctx.fillText("!", x + s * 0.45, top - s * 0.05); }
+  }
   // what they just said, in a little bubble over their head
-  const say = game.hero && game.hero.room === save.room && t - game.hero.t < 4200 ? game.hero.line : "";
-  if (say) drawBubble(x, y - s * 1.1 - hop, say, clamp(1 - (t - game.hero.t - 3600) / 600, 0, 1));
+  const say = me && since < 4200 ? me.line : "";
+  if (say) drawBubble(x, y - s * 1.1 - hop, say, clamp(1 - (since - 3600) / 600, 0, 1));
 }
 function drawBubble(x, y, text, alpha = 1) {
   const size = Math.round(clamp(N.base * 0.2, 14, 18)), maxW = Math.min(W * 0.7, 260);
@@ -794,14 +811,64 @@ function drawBubble(x, y, text, alpha = 1) {
 }
 const heroAt = (x, y) => { if (!heroHere() || !N.iso) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.55 && y < hy + N.base * 0.15 && y > hy - N.base * 1.2; };
 const propAt = (x, y) => Object.values(isoLayout().placed).some(p => PLACE_PROPS.has(p.id) && pieceHits[p.id] && spriteHit(pieceHits[p.id].c, pieceHits[p.id].x, pieceHits[p.id].y, x, y));
+// ---------- life in the places: sparks at the forge, embers and fireflies at the camp, bubbles in the lab, dust in the shop's light, butterflies in the garden ----------
+
+const placeLife = { list: [], last: 0 };
+const pieceCenter = (id, fx = 0.5, fy = 0.5) => { const h = pieceHits[id]; return h && h.c ? [h.x + h.c.width * PX * fx, h.y + h.c.height * PX * fy] : null; };
+/** A shower of sparks from the anvil (Ember's hammer). */
+function placeBurst(n) {
+  const at = pieceCenter("anvil", 0.45, 0.35); if (!at) return;
+  for (let k = 0; k < n; k++) placeLife.list.push({ kind: "spark", x: at[0], y: at[1], vx: rand(-60, 60), vy: rand(-140, -50), t: 0, life: rand(0.5, 0.9) });
+}
+function drawPlaceLife() {
+  const kind = save.rooms[save.room]?.kind, now = game.time, dt = Math.min(0.05, (now - (placeLife.last || now)) / 1000); placeLife.last = now;
+  if (placeLife.kind !== kind) { placeLife.kind = kind; placeLife.list = []; }
+  const L = placeLife.list, add = p => L.length < 60 && L.push({ t: 0, ...p });
+  const P = Math.max(1, Math.round(PX));
+  if (kind === "forge") { const m = pieceCenter("furnace", 0.3, 0.55); if (m && Math.random() < 0.18) add({ kind: "spark", x: m[0] + rand(-6, 6), y: m[1], vx: rand(-10, 10), vy: rand(-60, -30), life: rand(0.8, 1.4) }); }
+  if (kind === "camp") {
+    const f = pieceCenter("campfire", 0.5, 0.6); if (f && Math.random() < 0.15) add({ kind: "ember", x: f[0] + rand(-4, 4), y: f[1], vx: rand(-8, 8), vy: rand(-40, -24), life: rand(1.2, 2.2) });
+    if (L.filter(p => p.kind === "fly").length < 6) add({ kind: "fly", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base * 1.5, N.y1), ph: rand(0, TAU), life: 1e9 });
+  }
+  if (kind === "lab") { const d = pieceCenter("labdesk", rand(0.25, 0.65), 0.25); if (d && Math.random() < 0.06) add({ kind: "bubble", x: d[0], y: d[1], vx: rand(-4, 4), vy: rand(-22, -14), life: rand(1, 1.8) }); }
+  if (kind === "shop" && L.length < 22 && Math.random() < 0.08) add({ kind: "mote", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base * 2.5, N.y1 - N.base), vx: rand(-5, 5), vy: rand(-4, 4), life: rand(4, 7) });
+  if (kind === "yard" && L.filter(p => p.kind === "butterfly").length < 3) add({ kind: "butterfly", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base, N.y1), ph: rand(0, TAU), col: pick(["#ffc4da", "#fff0b5", "#b8e6f5"]), life: 1e9 });
+  ctx.save();
+  for (const p of L) {
+    p.t += dt;
+    if (p.vx !== undefined) { p.x += p.vx * dt; p.y += p.vy * dt; if (p.kind === "spark") p.vy += 160 * dt; }
+    const k = p.t / p.life, a = clamp(Math.min(p.t * 4, 1 - k), 0, 1);
+    if (p.kind === "spark") { ctx.fillStyle = k < 0.5 ? "#fff0b5" : "#e0634f"; ctx.globalAlpha = a; ctx.fillRect(Math.round(p.x), Math.round(p.y), P, P); }
+    else if (p.kind === "ember") { ctx.fillStyle = k < 0.4 ? "#eec26a" : "#e0634f"; ctx.globalAlpha = a; ctx.fillRect(Math.round(p.x + Math.sin(p.t * 4) * 3), Math.round(p.y), P, P); }
+    else if (p.kind === "bubble") { ctx.strokeStyle = "#b8e6f5"; ctx.globalAlpha = a; ctx.lineWidth = 1; ctx.strokeRect(Math.round(p.x), Math.round(p.y), P * 2, P * 2); }
+    else if (p.kind === "mote") { ctx.fillStyle = "#fff0b5"; ctx.globalAlpha = a * 0.55; ctx.fillRect(Math.round(p.x), Math.round(p.y), P, P); }
+    else if (p.kind === "fly") { const x = p.x + Math.sin(now * 0.0007 + p.ph) * N.base * 0.8, y = p.y + Math.cos(now * 0.0005 + p.ph) * N.base * 0.4; ctx.fillStyle = "#fff0b5"; ctx.globalAlpha = 0.3 + 0.7 * Math.max(0, Math.sin(now * 0.004 + p.ph)); ctx.fillRect(Math.round(x), Math.round(y), P, P); }
+    else if (p.kind === "butterfly") {
+      const x = p.x + Math.sin(now * 0.0009 + p.ph) * N.base * 1.2, y = p.y + Math.sin(now * 0.0013 + p.ph * 2) * N.base * 0.5 - N.base * 0.3, open = Math.sin(now * 0.025 + p.ph) > 0;
+      ctx.globalAlpha = 1; ctx.fillStyle = p.col;
+      if (open) { ctx.fillRect(Math.round(x - 2 * P), Math.round(y - P), P * 2, P * 2); ctx.fillRect(Math.round(x + P), Math.round(y - P), P * 2, P * 2); } else { ctx.fillRect(Math.round(x - P), Math.round(y - 2 * P), P, P * 2); ctx.fillRect(Math.round(x + P), Math.round(y - 2 * P), P, P * 2); }
+      ctx.fillStyle = "#3a2440"; ctx.fillRect(Math.round(x), Math.round(y - P), P, P * 2);
+    }
+  }
+  ctx.restore();
+  placeLife.list = L.filter(p => p.t < p.life);
+}
 /** Tapping the keeper (or their counter, anvil, fire): a hop, a line, and what they do for you. */
-function tapHero() {
+function tapHero(auto = false) {
   const h = heroHere(); if (!h) return;
   for (let k = 0; k < 4; k++) setTimeout(() => sfx.voice(h.who.voice), k * 90);
   const seen = save.heroTalk?.[save.rooms[save.room].kind] || 0;
-  const line = tr(seen < h.hello.length ? h.hello[seen] : pick(h.lines));
+  let line = tr(seen < h.hello.length ? h.hello[seen] : pick(h.lines));
   save.heroTalk = { ...save.heroTalk, [save.rooms[save.room].kind]: seen + 1 };
-  game.hero = { t: game.time, line, room: save.room };
+  // poked three times in a few seconds, Tansy curls up into a ball
+  const prev = game.heroPokes && game.heroPokes.room === save.room ? game.heroPokes.list : [];
+  const pokes = auto ? prev : [...prev.filter(p => game.time - p < 4000), game.time];
+  game.heroPokes = { room: save.room, list: pokes };
+  const curl = h.quirk === "curl" && pokes.length >= 3;
+  if (curl) { line = tr("Eep! Too much poking!"); game.heroPokes.list = []; sfx.knock && sfx.knock(0.4); }
+  if (h.quirk === "sparks") placeBurst(18);
+  if (h.quirk === "croak") setTimeout(() => sfx.voice({ ...h.who.voice, f: 70, len: 0.25 }), 380);
+  game.hero = { t: game.time, line, room: save.room, curl, startle: h.quirk === "startle" };
   persist(); renderPlaceBar();
 }
 /** The bar under a place: who runs it, and the one thing to do there. */
@@ -815,14 +882,14 @@ function renderPlaceBar() {
   $("placeActs").innerHTML = h.act.map(([icon, name], k) => `<button class="act buy" data-act="${k}">${ic(icon)}${tr(name)}</button>`).join("")
     + `<button class="act" id="placeTalk">${ic("scroll")}${tr("Chat")}</button>`;
   $$("#placeActs [data-act]").forEach(b => b.addEventListener("click", () => { sfx.tick(); h.act[Number(b.dataset.act)][2](); }));
-  $("placeTalk").addEventListener("click", tapHero);
+  $("placeTalk").addEventListener("click", () => tapHero());
 }
 /** Arriving at a place: its keeper says hello. */
 function arriveAt(kind) {
   ensurePlace(kind);
   toRoomKind(kind);
   const h = HEROES[kind];
-  if (h && !(save.heroTalk || {})[kind]) setTimeout(tapHero, 500);
+  if (h && !(save.heroTalk || {})[kind]) setTimeout(() => tapHero(true), 500);
   else if (kind === "yard") {
     const g = garden(), dry = g.slots.map((q, i) => [q, i]).filter(([q, i]) => q && waterPlot(i, FENNEL));
     if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
