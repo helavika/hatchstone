@@ -2120,6 +2120,7 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "{0} of {1} awards. They come by themselves as you play; each brings shards and keeper XP, more for rarer ones.": "Нагород: {0} з {1}. Вони приходять самі, поки ти граєш; кожна дає осколки й досвід, рідкісніші — більше.",
   "Mossa and the others will call you by it.": "Так тебе називатимуть Мосса й інші.",
   "Who you are in the grotto, and how you grow.": "Хто ти в гроті і як ти зростаєш.",
   "Your level": "Твій рівень",
@@ -11134,6 +11135,8 @@ function renderLib() {
   $("libSub").textContent = tr("{0} of {1} glowlings · {2} of {3} geodes", found, SPECIES.length, geos, CRYSTALS.length) + (hyN ? ` · ${hyN} ${pl(hyN, "hybrid", "hybrids")}` : "") + tr(" · {0} in your nest", save.creatures.length);
   if (game.libTab === "aw") {
     const earned = save.awards || {};
+    const have = AWARDS.filter(a => earned[a.id]).length;
+    $("libSub").textContent = tr("{0} of {1} awards. They come by themselves as you play; each brings shards and keeper XP, more for rarer ones.", have, AWARDS.length);
     $("libGrid").innerHTML = `<div class="aw-list">` + AWARD_TIERS.slice().reverse().map(t => {
       const list = AWARDS.filter(a => a.tier === t.id), have = list.filter(a => earned[a.id]).length;
       return `<h3 class="aw-h ${t.id}">${tr(t.name)} <span>${have}/${list.length} · +${t.shards} ✦</span></h3>` + list.map(a => {
