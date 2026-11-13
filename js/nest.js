@@ -946,21 +946,22 @@ function litTabs() {
 /** The shop's renovation corner: build a new room at home, or make room for one more glowling. */
 function marketReno() {
   const next = nextRoomKind(), nu = save.nestUp || 0, cost = NEST_UP_COST[nu];
-  return `<p class="me-hint">${tr("Tansy's cousin does the building: new rooms appear at home, a tap of the arrows away.")}</p>`
+  return `<p class="me-hint">${tr("Tansy's cousin carves new rooms into the rock: they appear at home, a tap of the arrows away.")}</p>`
     + ROOM_KINDS.filter(k => k.cost).map(k => {
       const built = save.rooms.some(r => r.kind === k.id), soon = !built && next && next.id !== k.id;
       return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.theme || "amethyst")}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small></span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${save.shards < k.cost ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;
     }).join("")
     + `<h3 class="forge-h">${tr("Space at home")}</h3><div class="snack seed reno"><span class="em">${ic("nest", "big")}</span><span><b>${tr("Room for one more")}</b><small>${tr("each room fits {0} glowlings now", homeCap())}</small></span><span class="seed-btns">${cost ? `<button class="act buy" id="nestUp" ${save.shards < cost ? "disabled" : ""}>✦ ${cost}</button>` : `<small class="only">${tr("as roomy as it gets ✦")}</small>`}</span></div>`;
 }
-function buildRoom(id) {
+function buildRoom(id, quiet = false) {
   const kind = nextRoomKind();
   if (!kind || kind.id !== id || save.shards < kind.cost) return;
   save.shards -= kind.cost;
   save.rooms.push({ kind: kind.id, on: [], theme: kind.theme && THEME[kind.theme].ok() ? kind.theme : null });
   sfx.levelUp(); buzz([12, 30, 12]);
   toast(tr("A new room: {0} ✦ find it at home with the arrows", tr(kind.name)));
-  persist(); updateTopbar(); openShop();
+  persist(); updateTopbar();
+  if (!quiet) openShop();
 }
 function buyNestUp() {
   const cost = NEST_UP_COST[save.nestUp || 0];
@@ -1049,8 +1050,10 @@ const NEST_UP_COST = [150, 300, 500];
  * if it can be helped). Room to spare: the longest-gone explorer comes back. Returns who just left.
  */
 function settleHome() {
-  const cap = homeCap(), sent = [];
-  for (let r = 0; r < save.rooms.length; r++) {
+  const cap = homeCap(), sent = [], homes = save.rooms.map((_, i) => i).filter(i => !isPlace(i));
+  // nobody lives in the map's places: anyone filed under one belongs to the nest
+  for (const c of save.creatures) if (isPlace(c.room || 0)) c.room = 0;
+  for (const r of homes) {
     let home = residents(r);
     while (home.length > cap) {
       const free = home.filter(c => c.id !== save.active), awake = free.filter(c => !c.sleeping);
@@ -1063,12 +1066,34 @@ function settleHome() {
   // explorers come back to their own room if it has space, or to any room that has (not the ones you sent out on purpose)
   const away = save.creatures.filter(c => c.out && !c.roam && !c.trip).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
   for (const c of away) {
-    const r = [roomOf(c), ...save.rooms.map((_, i) => i)].find(i => residents(i).length < cap);
+    const r = [roomOf(c), ...homes].find(i => !isPlace(i) && residents(i).length < cap);
     if (r === undefined) break;
     exploreFind(c); c.out = false; c.room = r; c.homeAt = Date.now(); c.last = Date.now();
   }
-  if (sent.length) { persist(); if (typeof updateTopbar === "function") updateTopbar(); }
+  if (sent.length) { persist(); if (typeof updateTopbar === "function") updateTopbar(); offerSpace(sent); }
   return sent;
+}
+/** Someone had to go out because home is full: say so, and offer what helps (a new room, more space, or an expedition). */
+function offerSpace(sent) {
+  if (!save.creatures.length || game.scene !== "nest" || Date.now() - (game.spaceOffer || 0) < 5 * 60e3 || !talkSeen("firstExplore")) return;
+  game.spaceOffer = Date.now();
+  const next = nextRoomKind(), cost = NEST_UP_COST[save.nestUp || 0];
+  $("spaceSub").textContent = tr("{0} went out exploring the grotto: each room fits {1} glowlings.", sent.map(c => c.name).join(", "), homeCap());
+  $("spaceActs").innerHTML = (next ? `<button class="act buy" data-space="room" ${save.shards < next.cost ? "disabled" : ""}>${ic("hammer")}${tr("Carve a new room: {0}", tr(next.name).toLowerCase())} · ✦ ${next.cost}</button>` : "")
+    + (cost ? `<button class="act" data-space="up" ${save.shards < cost ? "disabled" : ""}>${ic("nest")}${tr("Room for one more")} · ✦ ${cost}</button>` : "")
+    + (placeOk("trail") ? `<button class="act" data-space="trip">${ic("compass")}${tr("Send someone on an expedition")}</button>` : "")
+    + `<button class="act" data-space="home">${ic("heart")}${tr("Who lives where")}</button>`;
+  $$("#spaceActs [data-space]").forEach(b => b.addEventListener("click", () => {
+    show("spaceSheet", false);
+    const what = b.dataset.space;
+    if (what === "room" && next) { buildRoom(next.id, true); settleHome(); syncActors(); renderNest(true); }
+    else if (what === "up") buyNestUp();
+    else if (what === "trip") openTrips();
+    else openHome();
+  }));
+  // (after whatever someone's saying)
+  const when = () => talkNow ? setTimeout(when, 700) : show("spaceSheet", true);
+  setTimeout(when, 400);
 }
 /** Which room a glowling lives in (the nest, if its room is gone), and who lives in a room. */
 function roomOf(c) { const r = c.room || 0; return r < save.rooms.length && !isPlace(r) ? r : 0; }

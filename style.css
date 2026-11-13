@@ -1145,3 +1145,5 @@ body.compact .place-who img { width: 36px; height: 36px; }
 .reno .reno-img { width: 56px; height: 38px; object-fit: cover; image-rendering: pixelated; box-shadow: var(--px-frame); }
 .reno.built { opacity: .7; }
 .reno .em .ic { width: 34px; height: 34px; }
+.space-acts { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.space-acts .act { justify-content: flex-start; }

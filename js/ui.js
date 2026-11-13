@@ -406,6 +406,7 @@ $("worldTab").addEventListener("click", () => {
   if (worldOpen()) { sfx.tick(); closeWorld(); } else openWorld();
 });
 $("worldClose").addEventListener("click", () => { sfx.tick(); closeWorld(); });
+$("spaceClose").addEventListener("click", () => show("spaceSheet", false));
 $("tabs").addEventListener("click", e => { if (worldOpen() && !e.target.closest("#worldTab")) closeWorld(); }, true);
 $("quit").addEventListener("click", () => {
   if (coopSession) { coopEnd("left"); return; }
