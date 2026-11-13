@@ -698,11 +698,26 @@
   .me-form { margin: 10px 0 4px; font-size: 14px; color: var(--soft); }
   .me-form .seg button { font-size: 14px !important; padding: 5px 8px; }
   .me-level { margin: 14px 0 6px; text-align: left; }
+  .me-scroll { text-align: left; }
+  .me-hint { margin: 4px 2px 0; font-size: 14px; line-height: 1.35; color: var(--soft); text-align: left; }
+  .me-pts { color: var(--px-gold); font-weight: 400; }
+  #meSheet h3 { display: flex; align-items: center; gap: 8px; margin: 16px 0 6px; }
+  #meSheet .q { width: 22px; height: 22px; padding: 0; border: 0; cursor: pointer; font: inherit; font-size: 14px; line-height: 22px; color: var(--px-ink); background: var(--px-gold); box-shadow: 0 0 0 2px var(--px-ink); }
+  #meSheet .q.on { background: #ffe9a8; }
+  .me-more { margin: 8px 0 4px; padding: 8px 12px; font-size: 14px; line-height: 1.35; color: var(--soft); background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
+  .me-more[hidden] { display: none; }
+  .me-more p { margin: 0 0 6px; }
+  .me-more ul { margin: 0; padding: 0; list-style: none; }
+  .me-more li { display: flex; justify-content: space-between; gap: 8px; padding: 2px 0; }
+  .me-more li b { color: var(--px-gold); font-weight: 400; }
+  .forge.skill b em { font-style: normal; color: var(--soft); font-size: .85em; }
+  #meSheet .card { max-height: calc(100dvh - 40px); display: flex; flex-direction: column; }
+  .me-scroll { min-height: 0; }
   .me-level b { display: block; color: #ffe9a8; font-weight: 400; font-size: 19px; }
   .me-level small { color: var(--soft); }
   .me-level .aw-bar { position: relative; display: block; height: 12px; margin-top: 6px; background: linear-gradient(90deg, var(--px-gold) calc(var(--k) * 100%), var(--px-deep) 0); box-shadow: 0 0 0 2px var(--px-ink); }
   .me-level .aw-bar u { position: absolute; right: 4px; top: -1px; font-size: 11px; line-height: 14px; text-decoration: none; color: #fff; }
-  #meSkills h3 { display: flex; justify-content: space-between; }
+  #meSkills h3 { display: flex; justify-content: flex-start; }
   #meSkills h3 span { color: var(--px-gold); letter-spacing: 0; }
   .forge.skill { cursor: default; }
   .forge.skill .act { margin-left: auto; padding: 6px 12px; }
@@ -1209,11 +1224,15 @@
   <div class="card glass dark">
     <h2>Keeper</h2>
     <p class="sub" id="meFirst" hidden>Mossa would like to know what to call you.</p>
+    <p class="sub" id="meLead">Who you are in the grotto, and how you grow.</p>
+    <div class="scroll me-scroll">
     <label class="me-label" for="meName">Your name</label>
     <input id="meName" maxlength="18" autocomplete="nickname" placeholder="your name">
-    <div id="meForm" class="me-form"><span>Звертатися до мене:</span><div class="seg"><button data-form="f">як до неї</button><button data-form="m">як до нього</button><button data-form="n">нейтрально</button></div></div>
+    <p class="me-hint">Mossa and the others will call you by it.</p>
+    <div id="meForm" class="me-form"><span>Як до тебе звертатися</span><div class="seg"><button data-form="f">ти знайшла</button><button data-form="m">ти знайшов</button><button data-form="n">ти знайшли</button></div><p class="me-hint">Так персонажі говоритимуть із тобою: «ти знайшла», «ти знайшов» або нейтрально.</p></div>
     <div id="meLevel" class="me-level"></div>
     <div id="meSkills"></div>
+    </div>
     <button class="ghost" id="meClose">done</button>
   </div>
 </div>
@@ -2101,6 +2120,30 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Mossa and the others will call you by it.": "Так тебе називатимуть Мосса й інші.",
+  "Who you are in the grotto, and how you grow.": "Хто ти в гроті і як ти зростаєш.",
+  "Your level": "Твій рівень",
+  "Level {0}": "Рівень {0}",
+  "{0} of {1} XP": "{0} з {1} досвіду",
+  "You earn XP for everything you do in the game. Every new level gives you a skill point.": "Досвід (XP) додається за все, що ти робиш у грі. Кожен новий рівень дає очко навичок.",
+  "Next title at level {0}: {1}.": "Наступне звання на рівні {0}: «{1}».",
+  "Where XP comes from:": "Звідки береться досвід:",
+  "cracking an egg": "розбити яйце",
+  "freeing a spark from the Gloom": "звільнити іскру від Мли",
+  "finishing all of a day's tasks": "виконати всі завдання дня",
+  "picking a harvest": "зібрати врожай",
+  "playing a mini-game": "зіграти в міні-гру",
+  "buying from Wick": "купити щось у Ґнотика",
+  "giving a snack": "дати смаколик",
+  "petting a glowling": "попестити глоулінга",
+  "an award": "отримати нагороду",
+  "Skill points to spend: {0}.": "Очок навичок: {0}.",
+  "Skill points to spend: {0}": "Вільних очок навичок: {0}.",
+  "Put a point into a skill with its + button. Each skill goes up to {0}, and points stay with you for good.": "Вклади очко в навичку кнопкою +1. Кожна навичка росте до {0}, і вкладене лишається назавжди.",
+  "Strength makes every tap on an egg hit harder, so eggs crack in fewer taps. Care makes your glowlings earn more XP, so they grow up sooner. Luck makes shiny glowlings and bars in the rubble a little more likely. Skills don't count in eggs you crack together with a friend.": "Сила робить кожен удар по яйцю сильнішим, тож яйця розбиваються швидше. Турбота дає глоулінгам більше досвіду, тож вони швидше ростуть. Удача трохи частіше приносить сяйливих глоулінгів і батончики в уламках. У спільній грі з другом навички не діють.",
+  "now: {0}": "зараз: {0}",
+  "not yet": "ще не вкладено",
+  "+{0}% shiny chance, bars in the rubble {1}% more often": "+{0}% шансу на сяйливого, батончики в уламках на {1}% частіше",
   "the Gloom": "Мла",
   "Another little light... how annoying.": "Ще один вогник... як набридливо.",
   "These sparks are mine. They sleep in my cold, and they'll stay asleep.": "Ці іскри мої. Вони сплять у моєму холоді й спатимуть далі.",
@@ -6207,7 +6250,7 @@ const KEEPER_TITLES = [[1, "Pebble finder"], [3, "Stone tapper"], [5, "Keeper's 
 const SKILLS = [
   { id: "str", name: "Strength", icon: "hammer", what: l => tr("taps hit {0}% harder", l * 5) },
   { id: "care", name: "Care", icon: "heart", what: l => tr("glowlings grow {0}% faster", l * 10) },
-  { id: "luck", name: "Luck", icon: "sparkle", what: l => tr("shiny glowlings and bars in the rubble a little more often (+{0})", l) },
+  { id: "luck", name: "Luck", icon: "sparkle", what: l => tr("+{0}% shiny chance, bars in the rubble {1}% more often", (l * 0.6).toFixed(1), l * 25) },
 ];
 const SKILL_MAX = 5;
 const keeperNeed = l => 60 + l * 40;
@@ -6238,11 +6281,22 @@ function openMe(first) {
   $("meName").value = m.name;
   $("meForm").hidden = LANG !== "uk";
   $$("#meForm [data-form]").forEach(b => b.classList.toggle("on", b.dataset.form === m.form));
-  $("meLevel").innerHTML = `<b>${tr("Keeper level {0}", k.l)}</b><small>${keeperTitle(k.l)}</small><i class="aw-bar" style="--k:${k.xp / k.need}"><u>${k.xp}/${k.need}</u></i>`;
-  $("meSkills").innerHTML = `<h3>${tr("Skills")} <span>${m.pts ? tr("{0} points to spend", m.pts) : ""}</span></h3>` + SKILLS.map(sk => {
-    const l = skill(sk.id);
-    return `<div class="forge skill">${ic(sk.icon, "big")}<span class="txt"><b>${tr(sk.name)}</b><span class="pips">${Array.from({ length: SKILL_MAX }, (_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l ? sk.what(l) : sk.what(1).replace(/^/, tr("next: "))}</small></span><button class="act" data-skill="${sk.id}" ${!m.pts || l >= SKILL_MAX ? "disabled" : ""}>+1</button></div>`;
-  }).join("");
+  const nextTitle = KEEPER_TITLES.find(([at]) => at > k.l);
+  $("meLevel").innerHTML = `<h3>${tr("Your level")}<button class="q" data-q="lvl" aria-label="?">?</button></h3>`
+    + `<b>${tr("Level {0}", k.l)} · ${keeperTitle(k.l)}</b><i class="aw-bar" style="--k:${k.xp / k.need}"><u>${tr("{0} of {1} XP", k.xp, k.need)}</u></i>`
+    + `<p class="me-hint">${tr("You earn XP for everything you do in the game. Every new level gives you a skill point.")}${nextTitle ? " " + tr("Next title at level {0}: {1}.", nextTitle[0], tr(nextTitle[1])) : ""}</p>`
+    + `<div class="me-more" data-more="lvl" hidden><p>${tr("Where XP comes from:")}</p><ul>${[
+      [tr("cracking an egg"), KEEPER_XP.cracked], [tr("freeing a spark from the Gloom"), KEEPER_XP.rescued], [tr("finishing all of a day's tasks"), KEEPER_XP.taskDays],
+      [tr("picking a harvest"), KEEPER_XP.harvested], [tr("playing a mini-game"), KEEPER_XP.played], [tr("buying from Wick"), KEEPER_XP.wickBought],
+      [tr("giving a snack"), KEEPER_XP.fed], [tr("petting a glowling"), KEEPER_XP.petted], [tr("an award"), "20–250"]].map(([w, n]) => `<li><span>${w}</span><b>+${n}</b></li>`).join("")}</ul></div>`;
+  $("meSkills").innerHTML = `<h3>${tr("Skills")}<button class="q" data-q="sk" aria-label="?">?</button></h3>`
+    + `<p class="me-hint">${m.pts ? `<b class="me-pts">${tr("Skill points to spend: {0}", m.pts)}</b> ` : ""}${tr("Put a point into a skill with its + button. Each skill goes up to {0}, and points stay with you for good.", SKILL_MAX)}</p>`
+    + `<div class="me-more" data-more="sk" hidden><p>${tr("Strength makes every tap on an egg hit harder, so eggs crack in fewer taps. Care makes your glowlings earn more XP, so they grow up sooner. Luck makes shiny glowlings and bars in the rubble a little more likely. Skills don't count in eggs you crack together with a friend.")}</p></div>`
+    + SKILLS.map(sk => {
+      const l = skill(sk.id);
+      return `<div class="forge skill">${ic(sk.icon, "big")}<span class="txt"><b>${tr(sk.name)} <em>${l}/${SKILL_MAX}</em></b><span class="pips">${Array.from({ length: SKILL_MAX }, (_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l ? tr("now: {0}", sk.what(l)) : tr("not yet")}${l < SKILL_MAX ? ` · ${tr("next: ")}${sk.what(l + 1)}` : ""}</small></span><button class="act" data-skill="${sk.id}" ${!m.pts || l >= SKILL_MAX ? "disabled" : ""} aria-label="+1 ${tr(sk.name)}">+1</button></div>`;
+    }).join("");
+  $$("#meSheet .q").forEach(b => b.addEventListener("click", () => { const m2 = document.querySelector(`#meSheet [data-more="${b.dataset.q}"]`); m2.hidden = !m2.hidden; b.classList.toggle("on", !m2.hidden); sfx.tick(); }));
   $("meFirst").hidden = !first;
   $$("#meSkills [data-skill]").forEach(b => b.addEventListener("click", () => {
     const mm = me(); if (!mm.pts || skill(b.dataset.skill) >= SKILL_MAX) return;
