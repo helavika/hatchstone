@@ -1038,6 +1038,30 @@
   body.narrow #startCorner { top: 8px; right: 8px; }
   body.narrow #startCorner .pill { height: 34px; width: 34px; }
   body.narrow h1 { font-size: 50px; }
+
+  /* the bottom bar, last word: three tabs, the Crack button standing up in the middle, three tabs; small dots for news */
+  #tabs { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) 84px repeat(3, minmax(0, 1fr)); gap: 2px !important; width: min(100vw - 12px, 560px) !important; padding: 5px !important; align-items: stretch; }
+  #tabs button { flex: none !important; min-width: 0; padding: 7px 0 6px !important; font-size: 13px !important; line-height: 1.1; white-space: nowrap; overflow: visible; }
+  #tabs button .ic { width: 26px !important; height: 26px !important; margin: 0 0 2px !important; }
+  #tabs #crackTab { transform: translateY(-16px) !important; padding: 8px 0 6px !important; font-size: 15px !important; }
+  #tabs #crackTab .ic { width: 38px !important; height: 38px !important; }
+  #tabs #crackTab:active { transform: translateY(-13px) !important; }
+  #tabs #gardenTab.on, #tabs #decorBtn.on { background: var(--px-raise) !important; color: #ffe9a8 !important; box-shadow: inset 0 0 0 2px var(--px-edge) !important; }
+  #tabs #gardenTab.on::before { content: ""; position: absolute; left: 30%; right: 30%; bottom: 2px; height: 3px; background: var(--px-gold); }
+  #tabs button.call::after { width: 8px !important; height: 8px !important; top: 5px !important; right: calc(50% - 19px) !important; background: #e0634f !important; box-shadow: 0 0 0 2px var(--px-ink) !important; }
+  /* one row above the bar: the three needs and the glowlings cell */
+  #nestBottom .acts { width: min(100%, 520px); }
+  #residentsBtn { flex: 0 0 auto !important; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px 4px 4px !important; position: relative; }
+  #residentsBtn img { width: 32px; height: 32px; image-rendering: pixelated; }
+  #residentsBtn b { font-weight: 400; color: #ffe9a8; font-size: 15px; }
+  #residentsBtn small { font-size: 12px; color: var(--soft); }
+  #residentsBtn .mood { position: absolute; left: 26px; top: 1px; }
+  #nestBottom { bottom: calc(var(--bottom) + 118px) !important; }
+  #nestBottom .acts { gap: 5px !important; max-width: calc(100vw - 16px); }
+  #nestBottom .acts .act { min-width: 0; }
+  body.phone #nestBottom .acts .act { padding-left: 4px !important; padding-right: 4px !important; font-size: 15px !important; gap: 4px !important; }
+  body.phone #nestBottom .acts .act .ic { width: 20px; height: 20px; }
+  body.narrow #nestBottom .acts .act:not(#residentsBtn) { font-size: 13px !important; }
 </style>
 </head>
 <body>
@@ -1091,6 +1115,7 @@
 <nav id="tabs" class="glass" inert aria-hidden="true">
   <button data-tab="nest"><i class="ic" data-ic="nest"></i>Nest</button>
   <button id="decorBtn"><i class="ic" data-ic="candle"></i>Decor</button>
+  <button id="gardenTab"><i class="ic" data-ic="sun"></i>Garden</button>
   <button id="crackTab" aria-label="Crack the next egg"><i class="ic" data-ic="egg"></i>Crack<small id="crackLvl">Lv 1</small></button>
   <button data-tab="map"><i class="ic" data-ic="grotto"></i>Grotto</button>
   <button id="forgeTab"><i class="ic" data-ic="hammer"></i>Forge</button>
@@ -1200,8 +1225,8 @@
     <button class="act" id="feedBtn" data-fill="tummy"><i class="ic" data-ic="cookie"></i>Feed</button>
     <button class="act" id="playBtn" data-fill="joy"><i class="ic" data-ic="sparkle"></i>Play</button>
     <button class="act" id="sleepBtn" data-fill="energy"><i class="ic" data-ic="moon"></i>Sleep</button>
+    <button class="act" id="residentsBtn" aria-label="Who lives where"></button>
   </div>
-  <button class="act" id="residentsBtn" aria-label="Who lives where"></button>
   <div class="switch-wrap"><button class="sw-arrow" id="swPrev" aria-label="Previous glowlings">‹</button><div id="switcher"></div><button class="sw-arrow" id="swNext" aria-label="More glowlings">›</button></div>
 </div>
 
@@ -6216,7 +6241,7 @@ function setScene(scene) {
   }
   $("polishDone").hidden = !(scene === "crack" && game.egg && game.egg.state === "polish");
 
-  $$("#tabs button").forEach(b => b.classList.toggle("on", b.dataset.tab === scene));
+  litTabs();
   show("map", scene === "map");
   show("lib", scene === "lib");
   show("found", false);
@@ -6696,7 +6721,7 @@ function renderNest(full) {
 /** The one cell under the needs: who you're looking after, their mood, and how full this room is. Tap for everyone, room by room. */
 function renderResidentsBtn(cr) {
   const here = residents(save.room).length, others = save.creatures.length - here;
-  const html = `<img src="${creatureImage(specOf(cr), { art: 20, level: cr.level, shiny: cr.shiny, acc: cr.acc })}" alt="">${moodIcon(cr)}<span><b>${here}/${homeCap()}</b><small>${others ? tr("+{0} elsewhere", others) : tr("everyone's here")}</small></span>${ic("nest")}`;
+  const html = `<img src="${creatureImage(specOf(cr), { art: 20, level: cr.level, shiny: cr.shiny, acc: cr.acc })}" alt="">${moodIcon(cr)}<b>${here}/${homeCap()}</b>${others ? `<small>+${others}</small>` : ""}`;
   if ($("residentsBtn").dataset.h !== html) { $("residentsBtn").dataset.h = html; $("residentsBtn").innerHTML = html; }
 }
 /** The arrows beside the glowling row show only where there are more glowlings to scroll to. */
@@ -7150,6 +7175,13 @@ function goRoom(i) {
   for (const a of actors.values()) { const [x, y] = roomSpot("rug"); a.x = a.tx = x + rand(-1, 1) * N.base * 0.6; a.y = a.ty = y + rand(-0.5, 0.5) * N.base * 0.3; a.goal = a.friend = a.decor = null; if (a.state !== "sleep") { a.state = "idle"; a.t = rand(0.5, 1.5); } }
   sfx.tick();
   renderNest(true);
+  litTabs();
+}
+/** Light the tab for where you are: outside in the nest scene is the Garden. */
+function litTabs() {
+  const out = game.scene === "nest" && isOutside();
+  $$("#tabs [data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === game.scene && !(out && b.dataset.tab === "nest")));
+  $("gardenTab").classList.toggle("on", out);
 }
 function addRoom() {
   const kind = nextRoomKind();
@@ -10849,7 +10881,9 @@ $$(".mute").forEach(b => b.addEventListener("click", () => {
 }));
 $$("#tabs [data-tab]").forEach(b => b.addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
-  sfx.tick(); if (coopSession) coopEnd("navigation", true); setScene(b.dataset.tab);
+  sfx.tick(); if (coopSession) coopEnd("navigation", true);
+  if (b.dataset.tab === "nest" && game.scene === "nest" && isOutside()) goRoom(save.rooms.findIndex(r => r.kind === "nest"));
+  setScene(b.dataset.tab);
 }));
 // the big middle button: straight into the next egg, from anywhere
 $("crackTab").addEventListener("click", () => {
@@ -10886,6 +10920,15 @@ $("arrangeDone").addEventListener("click", () => { sfx.tick(); stopArrange(); })
 $("firstEgg").addEventListener("click", () => startLevel(nextLevel() || 1));
 $("nestShare").addEventListener("click", () => { const cr = activeCreature(); if (cr) shareCreature(cr); });
 $("polishDone").addEventListener("click", coopFinishPolish);
+$("gardenTab").addEventListener("click", () => {
+  if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
+  if (coopSession) coopEnd("navigation", true);
+  sfx.tick();
+  if (game.scene !== "nest") setScene("nest");
+  const y = save.rooms.findIndex(r => r.kind === "yard");
+  if (y >= 0) goRoom(y);
+  litTabs();
+});
 $("decorBtn").addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
   if (coopSession) coopEnd("navigation", true);
