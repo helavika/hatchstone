@@ -5543,7 +5543,7 @@ function showFound() {
   checkThemes();
   taskDone("crack");
   if (shine >= 0.8) taskDone("polish");
-  bump("cracked"); if (e.shiny && !conf.coop) bump("shiny");
+  if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); }
 
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
@@ -5980,19 +5980,21 @@ const awardQueue = [];
 let awardShowing = false;
 /** Hand out what you've earned. The first time (or with quiet) they arrive together, with one word in the corner. */
 function checkAwards(quiet) {
-  if (coopSession) return;
-  const first = !save.awards;
-  save.awards = save.awards || {};
+  // like the dialogs, awards wait while (and after) you play together, so a shared egg never changes your own save behind its back
+  if (coopSession || game.coopTouched) return;
+  const first = !save.awards, earned = save.awards || {};
   const got = [];
   for (const a of AWARDS) {
-    if (save.awards[a.id]) continue;
+    if (earned[a.id]) continue;
     const [now, goal] = a.test();
     if (now < goal) continue;
-    save.awards[a.id] = Date.now();
+    earned[a.id] = Date.now();
     save.shards += AWARD_TIER[a.tier].shards;
     got.push(a);
   }
-  if (!got.length) { if (first) persist(); return; }
+  // nothing new: the save stays exactly as it was
+  if (!got.length) return;
+  save.awards = earned;
   persist(); updateTopbar();
   if (first || quiet) { toast(tr("{0} awards earned ✦ see them in the Book", got.length)); return; }
   awardQueue.push(...got);
