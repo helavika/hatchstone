@@ -237,96 +237,34 @@ function scaledT(T, S) {
     glow: (cx, cy, r, c, kk) => T.glow(k(cx + 0.5), k(cy + 0.5), k(r), c, kk),
   };
 }
-/** Keepers drawn by hand, pixel by pixel (40×64, one character per pixel, '.' see-through), with their own palettes. */
+/**
+ * Keepers drawn by hand, pixel by pixel (40×64, one character per pixel, '.' see-through), with their own palettes:
+ * a few idle frames (breathing in lifts the upper body a pixel, the tail sways) and a blink.
+ */
 const KEEPER_PIX = {
   ember: {
-    pal: {"k": "#160a10", "1": "#3a0d1e", "2": "#6b1426", "3": "#9e2530", "4": "#cf4636", "5": "#ef7a4a", "h": "#2b2236", "H": "#4d4260", "j": "#776a8c", "y": "#ffd27a", "Y": "#fff7da", "m": "#23222c", "n": "#3e3c4a", "o": "#63606f", "p": "#9a97a6", "a": "#24130b", "b": "#3f2312", "c": "#5f381c", "d": "#85532b", "e": "#a97540", "s": "#3c4150", "t": "#6c7486", "u": "#a8b0c0", "v": "#e2e8f2", "g": "#8a5a1c", "G": "#d49a3a"},
-    // the eye, and what it becomes mid-blink
-    blink: { y: "2", Y: "2" }, eye: [9, 13, 13, 20],
-    rows: [
-      "..............................kkkkkkkkk.",
-      ".............................kuvvvvuuttk",
-      "...........kkkk.............kuvvvuuutttk",
-      "..........kjjHHkk...kkk.....kuuuutttttsk",
-      "..........kjHHHhhk.kjHHk....kttttttsssss",
-      "...........kkHHhhhkkjHhhk....ksssssssskk",
-      ".............kkhhHHkHhhk......kkkkdekk..",
-      "...............k4HHHHk............kdek..",
-      "..............k4455554kk.........kdek...",
-      ".............k4455555444kk.......kdek...",
-      ".............k45kk55444444k.....kdek....",
-      ".............k4k1yYk444444k....kkkkk....",
-      "............k34k1yyk4444444k..k5443k....",
-      "............k3444kk4443333kk..k4d43k....",
-      "............k333444422222k....k3e32k....",
-      ".............k33344433kkk......k332k....",
-      "..............kk333332k........k3432k...",
-      ".............kkkk3432kkkkkkkdekk3432k...",
-      ".......kkkkkkonopnopnoponokkkkkk3432k...",
-      "......kuvvuutkpnonopnonopkk34443k432k...",
-      ".....kuvvuuttskonopnoponkk3444443k32k...",
-      ".....kuuuutttsknonopnokkkk33333332k2k...",
-      "....kuuuttt5sskknononkdkonk2222222kk....",
-      "....kttttssssskknnonnkckonnkkkkkkkk.....",
-      ".....kssskkkkkdekkkkkkcknnmmmk..........",
-      ".....k343kknkdeeddddddcbkmmmk...........",
-      ".....k343kknkdeddddddccbkmmmk...........",
-      ".....k3442kmkdeddddadccbkmmmk...........",
-      ".....k3432kmkdedddddcccbkmmmk...........",
-      ".....k3432kmkdeddddddccbkmmmk...........",
-      ".....k3432kmkdedddddcccbkmmmk...........",
-      ".....k3432kkkdeddadddccbkmmk............",
-      ".....k4432kkkdeddddddccbkmmk............",
-      ".....k4332kkkggggGGggggggkkk............",
-      "....ktuuutkkkggggGkGgggggkkk............",
-      "....ktuvutskkdeddddddccbkmmk............",
-      "....ktuuutskkdedddddcccbkmmk............",
-      "....kstttsskkdeddddddccbkmmk............",
-      ".....kssssk.kdedddaddccbk443kk..........",
-      "......kkkk..kdeddddddccbk3443kk.........",
-      "............kdeddddddcbbkk34433k........",
-      "............kdedddddcccbk.k34443k.......",
-      "............kddddddddccbk..k3444k.......",
-      "............kdddadddcccbk...k344k.......",
-      "............kddddddcccbbk...k3443k......",
-      "............kdddddddcccbk....k343k......",
-      ".............kcdddddccbk.....k3443k.....",
-      ".............kkcccccbbkkbbk...k343k.....",
-      ".............kbkkkkkkkbccbk...k3432k....",
-      ".............kbccbk..kbccbk...k2342k....",
-      ".............kbccbk..kbccbk..k23332k....",
-      "............ktuuutk.ktuuutk.k2332kk.....",
-      "............ktuvutk.ktuvutkkk222k.......",
-      "............kstuuts.kstuutskkkkk........",
-      "............kstuutsk.kstutsk............",
-      "............kstuutsk.kstutsk............",
-      "............ksttttsk.kstttsk............",
-      "............kssttssk.kssttsk............",
-      "............kbbbbbk..kbbbbk.............",
-      "............kbccccbk.kbcccbk............",
-      "............kabbbbbbkkabbbbbk...........",
-      "............kkkkkkkkkkkkkkkkk...........",
-      "........................................",
-      "........................................",
+    pal: {"k": "#140810", "K": "#2a1420", "1": "#360c1f", "2": "#641428", "3": "#952431", "4": "#c84235", "5": "#ec7448", "6": "#ffb070", "h": "#5e4a38", "H": "#9c8462", "j": "#d6c296", "y": "#ffcf6e", "Y": "#fff6d8", "m": "#1d1c25", "n": "#36343f", "o": "#57545f", "p": "#8b8896", "a": "#1f0f08", "b": "#3a1f10", "c": "#5a3419", "d": "#7d4c25", "e": "#a06a36", "r": "#262a35", "s": "#3d4250", "t": "#69707f", "u": "#a4acb9", "v": "#e8edf4", "g": "#7a4d16", "G": "#c9902f", "L": "#f1c86a"},
+    frames: [
+      ".............................kkkkkkkkkk.............................kvvvuuuuttsk...........kk...............kvuuuuttttsk..........kjHk....kk........kuuttttssssk..........kjHHk..kHjk.......ksrrrrrrrrrk...........kHHhk.kHHk.......ktttsssssssk............khHHkkHhk........kkkkdekkkk..............kkHH566kk............kdek...............k556666544k.........kdek...............k5566665544kk........kdek...............k56kk54kkk444k......kdek................k5yk54kYyk44445k...kkkkk................k45k44kyykk4446k..k5443k................k3444444443333kk..k4de3k................k334444kkkkkk2k...k3ed2k.................k3344333222kk.....k332k..................kk222221k........k3432k..........kkkkkkkkkk1221kkkkkkkdekk3432k........kkvuuuttkonponponopnokkkkkk3432k.......kvvuuuttsskopnonnmnmnkk54443k432k......kvuuutttsrrknponnmmmmkk5444433k32k......kuuttsssrrrknpnonnmnkkk33333322k2k......kttsrrrrrrkeknponnokcknk1122222kk........ksrkkkkkkkeknnonnokbknnkkkkkkkk........k343k.knmkkekkkkkkkkbkkmmmk.............k3443k.kmkedddddddccbbkmmk..............k34432kknkedddcddddcbbkmmk...............k3432kkmkeddadcdddcbbkmmk................k3432kmkedddcddddcbbkmmk................k34332kkeddddcdddcbbkmk..................k3432kkeddddcddcccbkmk..................ktuuvtkedadddcdddcbkmk..................ktuvuttkggggGLGggggkkk..................kstuutskGGGGLkLGGGGgkk...................ksrrskgggggGLGggggkkk....................kkkkkeddddcdddccbk..........................keddddcddccbbkkk........................kedddddcdccbbk443k......................keddadddcdcbbk4443kk....................kedddddcddcbbk344433k...................keddddddcccbbkk3444432k.................kddddddcddcbbk.kk344432k................kdddaddcdccbbk...k34432k................kddddddcdcbbak...k34432k................kcdddddcccbbak..k344322k................kacddddccbbaak.k344321k..................kacaccbcbaak.k34321k....................kkaaaaaaaakkbbk32kk.....................kckkkkkkkkkcdbbk1k......................kcddbk....kcdbbk21k.....................kcddbk.....kcdbbk21k....................kcddbk.....kcdbbkkk....................kvuutsk.....kuutsk......................kuvutsk....kuvutsk......................kuuttsk....kuuttsk......................ktsrrsk....ktsrsk.......................kttssrk....kttsrk.......................kuttssk....kutssk.......................kssrrsk....ksrrsk.......................kcddcbk....kcddcbk.....................kcdddccbk...kcdddcbbk...................kbbbbbbbbk..kbbbbbbbbk..................kkkkkkkkkk..kkkkkkkkkk...............................................",
+      "............................kvvvuuuuttsk...........kk...............kvuuuuttttsk..........kjHk....kk........kuuttttssssk..........kjHHk..kHjk.......ksrrrrrrrrrk...........kHHhk.kHHk.......ktttsssssssk............khHHkkHhk........kkkkdekkkk..............kkHH566kk............kdek...............k556666544k.........kdek...............k5566665544kk........kdek...............k56kk54kkk444k......kdek................k5yk54kYyk44445k...kkkkk................k45k44kyykk4446k..k5443k................k3444444443333kk..k4de3k................k334444kkkkkk2k...k3ed2k.................k3344333222kk.....k332k..................kk222221k........k3432k..........kkkkkkkkkk1221kkkkkkkdekk3432k........kkvuuuttkonponponopnokkkkkk3432k.......kvvuuuttsskopnonnmnmnkk54443k432k......kvuuutttsrrknponnmmmmkk5444433k32k......kuuttsssrrrknpnonnmnkkk33333322k2k......kttsrrrrrrkeknponnokcknk1122222kk........ksrkkkkkkkeknnonnokbknnkkkkkkkk........k343k.knmkkekkkkkkkkbkkmmmk.............k3443k.kmkedddddddccbbkmmk..............k34432kknkedddcddddcbbkmmk...............k3432kkmkeddadcdddcbbkmmk................k3432kmkedddcddddcbbkmmk................k34332kkeddddcdddcbbkmk..................k3432kkeddddcddcccbkmk..................ktuuvtkedadddcdddcbkmk..................ktuvuttkmmmmmmmmmmmmmk..................kstuutskggggGLGggggkkk...................ksrrskGGGGGLkLGGGGgkk....................kkkkkgggggGLGggggkk.........................keddddcdddccbk..........................keddddcddccbbkkk........................kedddddcdccbbk443k......................keddadddcdcbbk4443kk....................kedddddcddcbbk344433k...................keddddddcccbbkk3444432k.................kddddddcddcbbk.kk344432k................kdddaddcdccbbk...k34432k................kddddddcdcbbak...k34432k................kcdddddcccbbak..k344322k................kacddddccbbaak.k344321k..................kacaccbcbaak.k34321k....................kkaaaaaaaakkbbk32kk.....................kckkkkkkkkkcdbbk1k......................kcddbk....kcdbbk21k.....................kcddbk.....kcdbbk21k....................kcddbk.....kcdbbkkk....................kvuutsk.....kuutsk......................kuvutsk....kuvutsk......................kuuttsk....kuuttsk......................ktsrrsk....ktsrsk.......................kttssrk....kttsrk.......................kuttssk....kutssk.......................kssrrsk....ksrrsk.......................kcddcbk....kcddcbk.....................kcdddccbk...kcdddcbbk...................kbbbbbbbbk..kbbbbbbbbk..................kkkkkkkkkk..kkkkkkkkkk...............................................",
+      "............................kvvvuuuuttsk...........kk...............kvuuuuttttsk..........kjHk....kk........kuuttttssssk..........kjHHk..kHjk.......ksrrrrrrrrrk...........kHHhk.kHHk.......ktttsssssssk............khHHkkHhk........kkkkdekkkk..............kkHH566kk............kdek...............k556666544k.........kdek...............k5566665544kk........kdek...............k56kk54kkk444k......kdek................k5yk54kYyk44445k...kkkkk................k45k44kyykk4446k..k5443k................k3444444443333kk..k4de3k................k334444kkkkkk2k...k3ed2k.................k3344333222kk.....k332k..................kk222221k........k3432k..........kkkkkkkkkk1221kkkkkkkdekk3432k........kkvuuuttkonponponopnokkkkkk3432k.......kvvuuuttsskopnonnmnmnkk54443k432k......kvuuutttsrrknponnmmmmkk5444433k32k......kuuttsssrrrknpnonnmnkkk33333322k2k......kttsrrrrrrkeknponnokcknk1122222kk........ksrkkkkkkkeknnonnokbknnkkkkkkkk........k343k.knmkkekkkkkkkkbkkmmmk.............k3443k.kmkedddddddccbbkmmk..............k34432kknkedddcddddcbbkmmk...............k3432kkmkeddadcdddcbbkmmk................k3432kmkedddcddddcbbkmmk................k34332kkeddddcdddcbbkmk..................k3432kkeddddcddcccbkmk..................ktuuvtkedadddcdddcbkmk..................ktuvuttkmmmmmmmmmmmmmk..................kstuutskggggGLGggggkkk...................ksrrskGGGGGLkLGGGGgkk....................kkkkkgggggGLGggggkk.........................keddddcdddccbk..........................keddddcddccbbkkk........................kedddddcdccbbk443k......................keddadddcdcbbk4443kk....................kedddddcddcbbk344433k...................keddddddcccbbkk3444432k.................kddddddcddcbbk..k344432k................kdddaddcdccbbk...k34432k................kddddddcdcbbak...k344432k...............kcdddddcccbbak...k344322k...............kacddddccbbaak..k344321k.................kacaccbcbaak..k34321k...................kkaaaaaaaakkbbk432kk....................kckkkkkkkkkcdbbk1k......................kcddbk....kcdbbk21k.....................kcddbk.....kcdbbk21k....................kcddbk.....kcdbbkkk....................kvuutsk.....kuutsk......................kuvutsk....kuvutsk......................kuuttsk....kuuttsk......................ktsrrsk....ktsrsk.......................kttssrk....kttsrk.......................kuttssk....kutssk.......................kssrrsk....ksrrsk.......................kcddcbk....kcddcbk.....................kcdddccbk...kcdddcbbk...................kbbbbbbbbk..kbbbbbbbbk..................kkkkkkkkkk..kkkkkkkkkk...............................................",
+      ".............................kkkkkkkkkk.............................kvvvuuuuttsk...........kk...............kvuuuuttttsk..........kjHk....kk........kuuttttssssk..........kjHHk..kHjk.......ksrrrrrrrrrk...........kHHhk.kHHk.......ktttsssssssk............khHHkkHhk........kkkkdekkkk..............kkHH566kk............kdek...............k556666544k.........kdek...............k5566665544kk........kdek...............k56kk54kkk444k......kdek................k5yk54kYyk44445k...kkkkk................k45k44kyykk4446k..k5443k................k3444444443333kk..k4de3k................k334444kkkkkk2k...k3ed2k.................k3344333222kk.....k332k..................kk222221k........k3432k..........kkkkkkkkkk1221kkkkkkkdekk3432k........kkvuuuttkonponponopnokkkkkk3432k.......kvvuuuttsskopnonnmnmnkk54443k432k......kvuuutttsrrknponnmmmmkk5444433k32k......kuuttsssrrrknpnonnmnkkk33333322k2k......kttsrrrrrrkeknponnokcknk1122222kk........ksrkkkkkkkeknnonnokbknnkkkkkkkk........k343k.knmkkekkkkkkkkbkkmmmk.............k3443k.kmkedddddddccbbkmmk..............k34432kknkedddcddddcbbkmmk...............k3432kkmkeddadcdddcbbkmmk................k3432kmkedddcddddcbbkmmk................k34332kkeddddcdddcbbkmk..................k3432kkeddddcddcccbkmk..................ktuuvtkedadddcdddcbkmk..................ktuvuttkggggGLGggggkkk..................kstuutskGGGGLkLGGGGgkk...................ksrrskgggggGLGggggkkk....................kkkkkeddddcdddccbk..........................keddddcddccbbkkk........................kedddddcdccbbk443k......................keddadddcdcbbk4443kk....................kedddddcddcbbk344433k...................keddddddcccbbkk3444432k.................kddddddcddcbbk..k344432k................kdddaddcdccbbk...k34432k................kddddddcdcbbak...k344432k...............kcdddddcccbbak...k344322k...............kacddddccbbaak..k344321k.................kacaccbcbaak..k34321k...................kkaaaaaaaakkbbk432kk....................kckkkkkkkkkcdbbk1k......................kcddbk....kcdbbk21k.....................kcddbk.....kcdbbk21k....................kcddbk.....kcdbbkkk....................kvuutsk.....kuutsk......................kuvutsk....kuvutsk......................kuuttsk....kuuttsk......................ktsrrsk....ktsrsk.......................kttssrk....kttsrk.......................kuttssk....kutssk.......................kssrrsk....ksrrsk.......................kcddcbk....kcddcbk.....................kcdddccbk...kcdddcbbk...................kbbbbbbbbk..kbbbbbbbbk..................kkkkkkkkkk..kkkkkkkkkk...............................................",
     ],
+    blink: ".............................kkkkkkkkkk.............................kvvvuuuuttsk...........kk...............kvuuuuttttsk..........kjHk....kk........kuuttttssssk..........kjHHk..kHjk.......ksrrrrrrrrrk...........kHHhk.kHHk.......ktttsssssssk............khHHkkHhk........kkkkdekkkk..............kkHH566kk............kdek...............k556666544k.........kdek...............k5566665544kk........kdek...............k56kk54kkk444k......kdek................k5kk54k4kk44445k...kkkkk................k45k44kkkkk4446k..k5443k................k3444444443333kk..k4de3k................k334444kkkkkk2k...k3ed2k.................k3344333222kk.....k332k..................kk222221k........k3432k..........kkkkkkkkkk1221kkkkkkkdekk3432k........kkvuuuttkonponponopnokkkkkk3432k.......kvvuuuttsskopnonnmnmnkk54443k432k......kvuuutttsrrknponnmmmmkk5444433k32k......kuuttsssrrrknpnonnmnkkk33333322k2k......kttsrrrrrrkeknponnokcknk1122222kk........ksrkkkkkkkeknnonnokbknnkkkkkkkk........k343k.knmkkekkkkkkkkbkkmmmk.............k3443k.kmkedddddddccbbkmmk..............k34432kknkedddcddddcbbkmmk...............k3432kkmkeddadcdddcbbkmmk................k3432kmkedddcddddcbbkmmk................k34332kkeddddcdddcbbkmk..................k3432kkeddddcddcccbkmk..................ktuuvtkedadddcdddcbkmk..................ktuvuttkggggGLGggggkkk..................kstuutskGGGGLkLGGGGgkk...................ksrrskgggggGLGggggkkk....................kkkkkeddddcdddccbk..........................keddddcddccbbkkk........................kedddddcdccbbk443k......................keddadddcdcbbk4443kk....................kedddddcddcbbk344433k...................keddddddcccbbkk3444432k.................kddddddcddcbbk.kk344432k................kdddaddcdccbbk...k34432k................kddddddcdcbbak...k34432k................kcdddddcccbbak..k344322k................kacddddccbbaak.k344321k..................kacaccbcbaak.k34321k....................kkaaaaaaaakkbbk32kk.....................kckkkkkkkkkcdbbk1k......................kcddbk....kcdbbk21k.....................kcddbk.....kcdbbk21k....................kcddbk.....kcdbbkkk....................kvuutsk.....kuutsk......................kuvutsk....kuvutsk......................kuuttsk....kuuttsk......................ktsrrsk....ktsrsk.......................kttssrk....kttsrk.......................kuttssk....kutssk.......................kssrrsk....ksrrsk.......................kcddcbk....kcddcbk.....................kcdddccbk...kcdddcbbk...................kbbbbbbbbk..kbbbbbbbbk..................kkkkkkkkkk..kkkkkkkkkk...............................................",
   },
 };
-function keeperPixCanvas(id, blink, S) {
+function keeperPixCanvas(id, blink, S, f = 0) {
   const k = KEEPER_PIX[id], c = document.createElement("canvas"); c.width = KW * S; c.height = KH * S;
-  const g = c.getContext("2d");
-  k.rows.forEach((row, y) => [...row].forEach((ch, x) => {
-    if (ch === ".") return;
-    const [y0, y1, x0, x1] = k.eye, inEye = y >= y0 && y <= y1 && x >= x0 && x <= x1;
-    g.fillStyle = k.pal[blink && inEye && k.blink[ch] ? k.blink[ch] : ch]; g.fillRect(x * S, y * S, S, S);
-  }));
+  const g = c.getContext("2d"), px = blink ? k.blink : k.frames[f % k.frames.length];
+  for (let i = 0; i < px.length; i++) { const ch = px[i]; if (ch === ".") continue; g.fillStyle = k.pal[ch]; g.fillRect((i % KW) * S, Math.floor(i / KW) * S, S, S); }
   return c;
 }
 const keeperCache = {};
 /** A keeper's full-length picture as a canvas, S real pixels to each of its own (S = 1 is the small 34×46 version). */
-function keeperCanvas(id, blink = false, S = 1) {
-  const key = `${id}|${blink ? 1 : 0}|${S}`;
+function keeperCanvas(id, blink = false, S = 1, f = 0) {
+  const key = `${id}|${blink ? 1 : 0}|${S}|${f}`;
   if (keeperCache[key]) return keeperCache[key];
-  if (KEEPER_PIX[id]) return keeperCache[key] = keeperPixCanvas(id, blink, S);
+  if (KEEPER_PIX[id]) return keeperCache[key] = keeperPixCanvas(id, blink, S, f);
   return keeperCache[key] = isoArt(KW * S, KH * S, T => KEEPER_ART[id](S === 1 ? T : scaledT(T, S), blink), { texture: false });
 }
 /** The same as a data URL (for the dialog box, the place bar and the map). */

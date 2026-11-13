@@ -508,6 +508,8 @@ const IC = Object.fromEntries(Object.entries({
   b0: "#b8e6f5", b1: "#69b7d6", b2: "#3383a8", b3: "#1d5276",
   g0: "#a3dd9b", g1: "#57ad6a", g2: "#2f7d4a", g3: "#1e5233",
   y0: "#fff0b5", y1: "#eec26a", r1: "#e0634f", r2: "#b8323b", r3: "#7d1e2c", white: "#ffffff",
+  // steel, colder than stone, for anything forged
+  m0: "#eef2f8", m1: "#a9b2c2", m2: "#6c7487", m3: "#3a4052", m4: "#1f2330",
 }).map(([k, v]) => [k, pxHex(v)]));
 
 /** A little canvas in art pixels, with tools that draw on the 2:1 grid; an ink outline goes round everything at the end. */
@@ -517,7 +519,7 @@ const IC = Object.fromEntries(Object.entries({
  * Colours stay on the palette; only where each shade falls changes.
  */
 const TEX_RAMPS = [
-  ["wood", ["w3", "w2", "w1", "w0"]], ["stone", ["s4", "s3", "s2", "s1", "s0"]], ["crystal", ["l4", "l3", "l2", "l1", "l0"]],
+  ["wood", ["w3", "w2", "w1", "w0"]], ["stone", ["s4", "s3", "s2", "s1", "s0"]], ["steel", ["m4", "m3", "m2", "m1", "m0"]], ["crystal", ["l4", "l3", "l2", "l1", "l0"]],
   ["cloth", ["p3", "p2", "p1", "p0"]], ["metal", ["b3", "b2", "b1", "b0"]], ["leaf", ["g3", "g2", "g1", "g0"]], ["cloth", ["r3", "r2", "r1"]],
 ];
 let texIndex = null;
@@ -525,7 +527,18 @@ function texShade(kind, x, y) {
   // positive: lighter, negative: darker
   // thin grain lines, a few knots: texture, not blotches, so the shapes on a piece still read
   if (kind === "wood") { const g = pxNoise(x * 0.12, y * 0.9 + Math.floor(x / 19) * 3.1); if (pxHash(x >> 1, y >> 1) > 0.998) return -2; return Math.abs(g - 0.5) < 0.035 ? -1 : g > 0.82 ? 1 : 0; }
-  if (kind === "stone") { const g = pxFbm(x * 0.16, y * 0.16), sp = pxHash(x, y); return sp > 0.988 ? 1 : sp < 0.01 ? -1 : g > 0.69 ? -1 : g < 0.25 ? 1 : 0; }
+  if (kind === "stone") {
+    const row = Math.floor(y / 5), cx = x + (row % 2) * 4, col = Math.floor(cx / 8), lx = cx - col * 8, ly = y - row * 5;
+    if (ly === 4 || lx === 7) return -1;                 // the crevice between blocks
+    if (ly === 0 || lx === 0) return pxHash(col, row) > 0.3 ? 1 : 0; // the block's lit edge
+    if (Math.abs(pxNoise(x * 0.2 + col, y * 0.2) - 0.5) < 0.02) return -1; // a crack
+    const sp = pxHash(x, y); return sp > 0.985 ? 1 : sp < 0.015 ? -1 : 0;
+  }
+  if (kind === "steel") {
+    const band = Math.floor((y + x * 0.35) / 2) % 7;    // streaks of reflected light and dark across the surface
+    if (pxHash(x, y) > 0.992) return 2;                  // a glint
+    return band === 1 ? 1 : band === 4 || band === 5 ? -1 : 0;
+  }
   if (kind === "metal") { const sc = Math.abs(pxNoise(x * 0.04 + y * 0.12, y * 0.04) - 0.5) < 0.02; return sc ? 1 : pxHash(x, y) > 0.97 ? -1 : 0; }
   if (kind === "cloth") return (x + y) % 4 === 0 && pxHash(x >> 1, y >> 1) > 0.5 ? -1 : 0;
   if (kind === "leaf") { const g = pxFbm(x * 0.3, y * 0.3); return g > 0.62 ? -1 : g < 0.32 ? 1 : 0; }
@@ -1268,11 +1281,11 @@ const ISO_ART = {
     const cx = ax, cy = ay + t / 2;
     T.cyl(cx, cy, t * 0.3, Math.round(t * 0.4), (px, py) => Math.hypot(px - cx, (py - (cy - t * 0.4)) * 2) % 3 < 1 ? IC.w2 : IC.w1, IC.w2, IC.w3);
     const top = cy - Math.round(t * 0.4);
-    T.poly([[cx - t * 0.15, top], [cx + t * 0.15, top + t * 0.07], [cx + t * 0.1, top - t * 0.12], [cx - t * 0.1, top - t * 0.18]], IC.s4);
-    T.box(cx - t * 0.2, top - t * 0.42, t * 0.42, t * 0.15, Math.round(t * 0.14), IC.s0, IC.s3, IC.s4);
-    T.poly([[cx + t * 0.64, top - t * 0.42 + t * 0.21], [cx + t * 1.05, top - t * 0.3 + t * 0.21], [cx + t * 0.64, top - t * 0.26 + t * 0.21]], (px) => px < cx + t * 0.8 ? IC.s1 : IC.s2);
+    T.poly([[cx - t * 0.15, top], [cx + t * 0.15, top + t * 0.07], [cx + t * 0.1, top - t * 0.12], [cx - t * 0.1, top - t * 0.18]], IC.m4);
+    T.box(cx - t * 0.2, top - t * 0.42, t * 0.42, t * 0.15, Math.round(t * 0.14), IC.m0, IC.m3, IC.m4);
+    T.poly([[cx + t * 0.64, top - t * 0.42 + t * 0.21], [cx + t * 1.05, top - t * 0.3 + t * 0.21], [cx + t * 0.64, top - t * 0.26 + t * 0.21]], (px) => px < cx + t * 0.8 ? IC.m1 : IC.m2);
     T.px(cx - t * 0.1, top - t * 0.34, IC.ink); T.px(cx - t * 0.1 + 1, top - t * 0.34, IC.ink);
-    T.line(cx - t * 0.62, cy, cx - t * 0.33, top - t * 0.15, IC.w2); T.box(cx - t * 0.46, top - t * 0.36, 2, 2, 3, IC.s1, IC.s2, IC.s3);
+    T.line(cx - t * 0.62, cy, cx - t * 0.33, top - t * 0.15, IC.w2); T.box(cx - t * 0.46, top - t * 0.36, 2, 2, 3, IC.m1, IC.m2, IC.m3);
   },
   coalbin(t, T, ax, ay) {
     const cx = ax, cy = ay + t / 2, a = t * 0.4, b = t * 0.34, h = Math.round(t * 0.36);
@@ -1288,10 +1301,10 @@ const ISO_ART = {
     const tools = ["tongs", "hammer", "file", "hammer2", "tongs"];
     tools.forEach((kind, k) => {
       const f = (k + 0.6) / tools.length, hx = p0[0] + (p1[0] - p0[0]) * f, hy = p0[1] + (p1[1] - p0[1]) * f - bh + 3;
-      T.px(hx, hy - 1, IC.s3);
-      if (kind === "tongs") { T.line(hx - 1, hy, hx - 2, hy + t * 0.55, IC.s3); T.line(hx + 1, hy, hx + 2, hy + t * 0.55, IC.s2); }
-      else if (kind === "file") T.line(hx, hy, hx, hy + t * 0.45, IC.s1);
-      else { const len = kind === "hammer" ? t * 0.5 : t * 0.38; T.line(hx, hy, hx, hy + len, IC.w3); T.box(hx - 2, hy + len - 1, 2, 1, 3, IC.s1, IC.s2, IC.s3); }
+      T.px(hx, hy - 1, IC.m3);
+      if (kind === "tongs") { T.line(hx - 1, hy, hx - 2, hy + t * 0.55, IC.m3); T.line(hx + 1, hy, hx + 2, hy + t * 0.55, IC.m2); }
+      else if (kind === "file") T.line(hx, hy, hx, hy + t * 0.45, IC.m1);
+      else { const len = kind === "hammer" ? t * 0.5 : t * 0.38; T.line(hx, hy, hx, hy + len, IC.w3); T.box(hx - 2, hy + len - 1, 2, 1, 3, IC.m1, IC.m2, IC.m3); }
     });
   },
   // ---- the explorers' camp
