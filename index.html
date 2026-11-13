@@ -282,6 +282,10 @@
   body.scene-catch #catchHud { opacity: 1; }
   #echoHud { position: fixed; inset: 0 0 auto 0; display: flex; justify-content: center; padding: var(--top) 14px 0; pointer-events: none; opacity: 0; transition: opacity .4s; z-index: 2; }
   body.scene-echo #echoHud { opacity: 1; }
+  /* a way out of a mini-game whenever you like: it ends the round and keeps what you've earned so far */
+  .hud-quit { position: absolute; left: 14px; top: var(--top); }
+  body.scene-catch #catchHud .hud-quit, body.scene-echo #echoHud .hud-quit { pointer-events: auto; }
+  body:not(.scene-catch) #catchHud .hud-quit, body:not(.scene-echo) #echoHud .hud-quit { visibility: hidden; }
 
   /* glowpedia */
   .seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, .08); margin: 6px auto 0; }
@@ -685,6 +689,26 @@
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
   #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
+  /* the top bar: one wallet, the lantern's drops, today's tasks; who's home only in the nest */
+  .wallet { gap: 8px; }
+  .wallet b { display: inline-flex; align-items: center; gap: 4px; }
+  .wallet .sep { width: 3px; align-self: stretch; margin: 8px 0; background: var(--px-ink); opacity: .7; }
+  #oilCount { display: inline-flex; align-items: center; gap: 5px; }
+  #oilCount .drops { display: inline-flex; gap: 2px; }
+  #oilCount .drops i { width: 6px; height: 10px; background: var(--px-ink); box-shadow: inset 0 0 0 1px rgba(255, 233, 168, .25); }
+  #oilCount .drops i.on { background: var(--px-gold); box-shadow: inset 0 -3px 0 0 var(--px-gold-lo); }
+  #oilCount em { font-style: normal; font-size: .8em; color: var(--soft); }
+  #oilPill small { display: none; }
+  body:not(.scene-nest) #homePill { display: none; }
+  /* a dot, not a shout: something waits behind this tab or pill */
+  #tabs button.call::after, #taskPill.fresh::after { content: "" !important; width: 10px !important; height: 10px !important; top: 2px !important; right: 6px !important; border-radius: 0; animation: none !important; box-shadow: 0 0 0 2px var(--px-ink) !important; }
+  #taskPill.fresh::after { right: -3px !important; top: -3px !important; }
+  /* the open tab is marked under its label too */
+  #tabs button { position: relative; }
+  #tabs button[data-tab].on::before { content: ""; position: absolute; left: 30%; right: 30%; bottom: 2px; height: 3px; background: var(--px-gold); }
+  /* out of oil: the Crack button dims and counts down to the next drop */
+  #crackTab.dry { filter: saturate(.35) brightness(.85); }
+
   .lantern-meter { display: flex; justify-content: center; gap: 4px; margin: 4px 0 12px; }
   .lantern-meter .ic { width: 30px; height: 30px; }
   .task { display: flex; align-items: center; gap: 12px; padding: 12px 0; text-align: left; border-top: 3px solid var(--px-raise); }
@@ -879,8 +903,7 @@
 <!-- grotto, nest, glowpedia -->
 <div id="topbar" class="bar-top" inert aria-hidden="true">
   <div class="row">
-    <div class="pill glass stack" title="Shards: spend them on snacks, decor and the forge"><b id="shardPill">✦ 0</b><small>shards</small></div>
-    <div class="pill glass stack" title="Stars from the grotto levels"><b id="starPill">★ 0</b><small>stars</small></div>
+    <div class="pill glass wallet" title="Shards to spend on snacks, decor and the Forge · stars from the grotto levels"><b id="shardPill">✦ 0</b><i class="sep" aria-hidden="true"></i><b id="starPill">★ 0</b></div>
     <button class="pill glass btn stack" id="oilPill" title="Lantern oil: each geode in the grotto uses one drop"><b id="oilCount"></b><small id="oilWhen">lantern</small></button>
     <button class="pill glass btn stack" id="taskPill" title="Today's little tasks"><b id="taskCount">0/3</b><small>tasks</small></button>
     <button class="pill glass btn stack" id="homePill" title="Who's at home and who's exploring" hidden><b id="homeCount"></b><small>at home</small></button>
@@ -1111,10 +1134,11 @@
 </div>
 
 <div id="catchHud">
+  <button class="pill glass btn round hud-quit" aria-label="Stop playing" title="Stop playing"><i class="ic" data-ic="close"></i></button>
   <div class="pill glass">✨ <span id="catchScore">0</span></div>
   <div class="pill glass">⏱ <span id="catchTime">20</span></div>
 </div>
-<div id="echoHud"><div class="pill glass">♪ <span id="echoRound">1</span></div></div>
+<div id="echoHud"><button class="pill glass btn round hud-quit" aria-label="Stop playing" title="Stop playing"><i class="ic" data-ic="close"></i></button><div class="pill glass">♪ <span id="echoRound">1</span></div></div>
 <div id="games" class="overlay modal hidden">
   <div class="card glass dark">
     <h2>Play time</h2>
@@ -3361,6 +3385,8 @@ function updateCalls() {
   // looks ahead on a copy: just checking must never change the save
   const n = save.creatures.filter(c => { const p = { ...c, dust: [...(c.dust || [])] }; applyTime(p); return callOf(p); }).length;
   t.classList.toggle("call", n > 0 && game.scene !== "nest");
+  document.querySelector('#tabs [data-tab="map"]')?.classList.toggle("call", !moonDone() && game.scene !== "map");
+  $("forgeTab")?.classList.toggle("call", canForge());
 }
 
 function moodOf(cr) {
@@ -5824,7 +5850,12 @@ function useBar(id) {
 }
 function renderOilPill() {
   const n = oilNow();
-  $("oilCount").innerHTML = `${ic("lantern", n ? "" : "off")}${n}/${OIL_MAX}`;
+  const drops = Array.from({ length: OIL_MAX }, (_, i) => `<i${i < n ? ' class="on"' : ""}></i>`).join("");
+  $("oilCount").innerHTML = `${ic("lantern", n ? "" : "off")}<span class="drops" aria-label="${n}/${OIL_MAX}">${drops}</span>${n > OIL_MAX ? `<em>+${n - OIL_MAX}</em>` : n < OIL_MAX ? `<em>${fmtClock(oilNext())}</em>` : ""}`;
+  // the Crack button says so when the lantern is out
+  const next = nextLevel(), dry = !n && tripCosts(next);
+  $("crackTab").classList.toggle("dry", !!dry);
+  $("crackLvl").textContent = dry ? `⏳ ${fmtClock(oilNext())}` : next ? tr("Lv {0}", next) : tr("Wander");
   $("oilWhen").textContent = n >= OIL_MAX ? tr("lantern") : fmtClock(oilNext());
   $("oilPill").classList.toggle("empty", !n);
 }
@@ -8950,7 +8981,7 @@ function updateEcho(dt) {
 
 function echoTap(x, y) {
   const g = game.echo;
-  if (!g || g.phase !== "input") return;
+  if (!g || g.done || g.phase !== "input") return;
   const { pads, r } = echoLayout(), k = pads.findIndex(([px, py]) => Math.hypot(x - px, y - py) < r);
   if (k < 0) return;
   if (k !== g.seq[g.i]) {
@@ -9800,6 +9831,11 @@ $("roomPrev").addEventListener("click", () => goRoom(save.room - 1));
 $("roomNext").addEventListener("click", () => goRoom(save.room + 1));
 $("gamesClose").addEventListener("click", () => show("games", false));
 $("sleepBtn").addEventListener("click", toggleSleep);
+$$(".hud-quit").forEach(b => b.addEventListener("click", ev => {
+  ev.stopPropagation(); sfx.tick();
+  if (game.scene === "catch" && game.catch && !game.catch.done) endCatch();
+  else if (game.scene === "echo" && game.echo && !game.echo.done) endEcho();
+}));
 $("catchBack").addEventListener("click", () => { show("catchDone", false); game.catch = game.echo = null; sfx.hush = false; setScene("nest"); });
 $("nestName").addEventListener("click", () => {
   const cr = activeCreature();
