@@ -692,14 +692,12 @@
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
   #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
-  /* the lantern's rules: three small labels, and more behind the ? */
-  .oil-facts { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px 0 4px; }
-  #oilFacts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
-  #oilFacts > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 14px; color: var(--soft); background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
-  #oilFacts .ic { width: 14px; height: 14px; margin: 0; }
-  #oilHelp { width: 30px; height: 30px; flex: none; padding: 0; }
-  #oilHelp .ic { width: 16px; height: 16px; margin: 0; }
-  .oil-more { text-align: left; margin: 6px 0 8px; }
+  /* the lantern's rules: one quiet line, and more behind the ? */
+  .oil-facts { display: flex; align-items: center; justify-content: center; gap: 8px; margin: 10px 0 6px; font-size: 14px; color: var(--soft); }
+  #oilHelp { flex: none; width: 22px; height: 22px; padding: 0; border: 0; cursor: pointer; font: inherit; font-size: 14px; line-height: 22px; color: var(--px-ink); background: var(--px-gold); box-shadow: 0 0 0 2px var(--px-ink); }
+  #oilHelp[aria-expanded="true"] { background: #ffe9a8; }
+  .oil-more { text-align: left; margin: 0 0 10px; padding: 10px 12px; background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
+  .oil-more[hidden] { display: none; }
   .oil-more p { margin: 0 0 6px; font-size: 15px; line-height: 1.35; }
   /* one cell for everyone: the glowling you look after, its mood, and the room's count */
   #nestBottom .switch-wrap, #homePill { display: none !important; }
@@ -1185,7 +1183,7 @@
     <h2 id="lanternTitle">Lantern</h2>
     <p class="sub" id="lanternSub"></p>
     <div id="lanternMeter" class="lantern-meter"></div>
-    <div class="oil-facts"><span id="oilFacts"></span><button class="pill glass btn round" id="oilHelp" aria-label="How the lantern works" aria-expanded="false"><i class="ic" data-ic="help"></i></button></div>
+    <p class="oil-facts"><span id="oilFacts"></span><button id="oilHelp" aria-label="How the lantern works" aria-expanded="false">?</button></p>
     <div class="fact oil-more" id="lanternFree" hidden></div>
     <div id="barList"></div>
     <button class="ghost" id="lanternClose">not now</button>
@@ -6189,7 +6187,7 @@ function openLantern(needed) {
   }).join("");
   $$("#barList [data-bar]").forEach(b => b.addEventListener("click", () => useBar(b.dataset.bar)));
   // the rules in three small labels, and the whole story behind the ?
-  $("oilFacts").innerHTML = `<span>${ic("lantern")}${tr("1 per trip")}</span><span>⏳ ${tr("+1 every {0} min", OIL_EVERY / 60e3)}</span><span>${tr("★★★ levels free")}</span>`;
+  $("oilFacts").textContent = [tr("1 per trip"), tr("+1 every {0} min", OIL_EVERY / 60e3), tr("★★★ levels free")].join(" · ");
   $("lanternFree").innerHTML = [
     tr("Each trip into the Grotto burns 1 drop of oil. The lantern holds {0}.", OIL_MAX),
     tr("A drop comes back every {0} minutes on its own, until the lantern is full again: from empty to full takes {1}.", OIL_EVERY / 60e3, fmtLeft(OIL_MAX * OIL_EVERY)),
