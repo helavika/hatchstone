@@ -677,6 +677,8 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "a new room": "нова кімната",
+  "Rubble. Tansy's cousin can carve a room here: ask at the shop, in Renovation": "Завал. Кузен Тенсі може вирізьбити тут кімнату: питай у крамниці, у «Ремонті»",
   "Mossa won't say what sleeps in the dark past the forge. Only that it's waiting.": "Мосса не каже, що спить у темряві за кузнею. Лише те, що воно чекає.",
   "Snow, and something glittering under it. A door of ice?": "Сніг, а під ним щось виблискує. Крижані двері?",
   "A light blinks far out at sea, every night, as if someone keeps it.": "Далеко в морі щоночі блимає вогник, ніби хтось його доглядає.",

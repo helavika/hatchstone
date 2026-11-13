@@ -17,7 +17,7 @@ function renderNest(full) {
   const sp = specOf(cr);
   $("nestName").textContent = cr.name;
   const nr = save.rooms.filter((_, i) => roomOpen(i)).length;
-  $("roomNav").hidden = $("roomLabel").hidden = nr < 2;
+  $("roomNav").hidden = nr < 2 || N.iso; $("roomLabel").hidden = nr < 2;
   $("roomName").textContent = roomName(save.room);
   $("roomPrevName").textContent = roomName(stepRoom(-1));
   $("roomNextName").textContent = roomName(stepRoom(1));
@@ -927,6 +927,80 @@ function arriveAt(kind) {
     const g = garden(), dry = g.slots.map((q, i) => [q, i]).filter(([q, i]) => q && waterPlot(i, FENNEL));
     if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
   }
+}
+// ---------- passages between rooms: dark arches in the walls, like a real cave (and a heap of rubble where a new room could be carved) ----------
+
+/** Where each wall's passage leads: the home rooms in order, and rubble to dig through when there's a room still to carve. */
+function passages() {
+  if (!N.iso || isPlace() || game.scene !== "nest" || arrange.on) return [];
+  const homes = save.rooms.map((_, i) => i).filter(i => roomOpen(i) && !isOutside(i)), at = homes.indexOf(save.room), n = homes.length, carve = !!nextRoomKind();
+  if (at < 0) return [];
+  const prev = homes[(at - 1 + n) % n], next = homes[(at + 1) % n];
+  const out = [];
+  if (n >= 2) out.push({ wall: "R", to: next });
+  else if (carve) out.push({ wall: "R", rubble: true });
+  if (n >= 3) out.push({ wall: "L", to: prev });
+  else if (n === 2 && carve) out.push({ wall: "L", rubble: true });
+  return out;
+}
+let passageShapes = [];
+/** The arch's outline on its wall, near the front end, in screen pixels. */
+function passageShape(wall) {
+  const c = 0.8, w = 0.085, hgt = Math.min(N.isoWall * 0.62, N.base * 1.6);
+  const a = wall === "R" ? isoAt(c - w, 0) : isoAt(0, c - w), b = wall === "R" ? isoAt(c + w, 0) : isoAt(0, c + w);
+  const pts = [a];
+  for (let k = 0; k <= 10; k++) { const f = k / 10, x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f - hgt * (0.72 + 0.28 * Math.sin(f * Math.PI)); pts.push([x, y]); }
+  pts.push(b);
+  return pts;
+}
+function drawPassages() {
+  passageShapes = [];
+  for (const p of passages()) {
+    const pts = passageShape(p.wall), P = Math.max(1, Math.round(PX));
+    const path = (grow = 0) => { ctx.beginPath(); pts.forEach(([x, y], k) => { const cx = (pts[0][0] + pts[pts.length - 1][0]) / 2, cy = Math.min(...pts.map(q => q[1])); const dx = x - cx, dy = y - (pts[0][1] + cy) / 2; const X = x + Math.sign(dx) * grow, Y = y + (k > 0 && k < pts.length - 1 ? -grow : 0); k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); };
+    ctx.save();
+    // a frame of rough stones, then the dark inside with a faint light from the room beyond
+    ctx.fillStyle = "#3a3440"; path(P * 3); ctx.fill();
+    ctx.fillStyle = "#5d5666"; path(P * 1.5); ctx.fill();
+    ctx.fillStyle = "#0b0614"; path(0); ctx.fill();
+    if (!p.rubble) {
+      const top = Math.min(...pts.map(q => q[1])), bot = pts[0][1], mid = (pts[0][0] + pts[pts.length - 1][0]) / 2;
+      const gr = ctx.createLinearGradient(0, bot, 0, top); gr.addColorStop(0, "rgba(255,226,150,.28)"); gr.addColorStop(1, "rgba(255,226,150,0)");
+      ctx.fillStyle = gr; path(-P * 2); ctx.fill();
+      for (let k = 0; k < 3; k++) { ctx.fillStyle = "#2a2148"; ctx.fillRect(Math.round(mid - P * 4 + k * P * 3), Math.round(bot - P * (2 + k)), P * 2, P); }
+    } else {
+      // rubble heaped in the opening: there's a room to carve here
+      const bot = pts[0][1], x0 = pts[0][0], x1 = pts[pts.length - 1][0];
+      const hgt = bot - Math.min(...pts.map(q => q[1]));
+      for (let k = 0; k < 40; k++) { const f = 0.08 + pxHash(k, 3) * 0.84, x = x0 + (x1 - x0) * f, y = bot + (pts[pts.length - 1][1] - pts[0][1]) * f - hgt * 0.62 * pxHash(k, 5) * Math.sin(f * Math.PI); const sz = P * (2 + Math.round(pxHash(k, 8) * 2)); ctx.fillStyle = ["#5d5666", "#8a8494", "#3a3440", "#6b5a9a"][k % 4]; ctx.fillRect(Math.round(x - sz), Math.round(y - sz), sz * 2, Math.round(sz * 1.6)); ctx.fillStyle = "#b9b3c0"; ctx.fillRect(Math.round(x - sz), Math.round(y - sz), P, P); }
+    }
+    // where it goes, written over the arch
+    const top = Math.min(...pts.map(q => q[1])), mid = (pts[0][0] + pts[pts.length - 1][0]) / 2;
+    const label = p.rubble ? "⛏ " + tr("a new room") : roomName(p.to);
+    fx.save(); fx.font = `400 ${Math.round(clamp(N.base * 0.2, 12, 16))}px ${PIXEL_FONT}`; fx.textAlign = "center";
+    fx.fillStyle = "#160c26"; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) fx.fillText(label, mid + dx, top - 6 + dy);
+    fx.fillStyle = p.rubble ? "#c9b8ff" : "#ffe9a8"; fx.fillText(label, mid, top - 6); fx.restore();
+    ctx.restore();
+    passageShapes.push({ p, pts });
+  }
+}
+/** Which passage (if any) is under a finger. */
+function passageAt(x, y) {
+  for (const { p, pts } of passageShapes) {
+    let inside = false;
+    for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > y) !== (yj > y) && x < (xj - xi) * (y - yi) / (yj - yi) + xi) inside = !inside; }
+    const minY = Math.min(...pts.map(q => q[1]));
+    if (inside || (Math.abs(x - (pts[0][0] + pts[pts.length - 1][0]) / 2) < N.base * 0.4 && y > minY - 24 && y < pts[0][1] + 6)) return p;
+  }
+  return null;
+}
+function goPassage(p) {
+  if (p.rubble) {
+    sfx.tick(); toast(tr("Rubble. Tansy's cousin can carve a room here: ask at the shop, in Renovation"));
+    arriveAt("shop"); const st = shopOf(); st.mode = "market"; st.tab = "reno"; st.pick = null; setTimeout(openShop, 600);
+    return;
+  }
+  sfx.tick(); goRoom(p.to);
 }
 /** Which room a decoration stands in, or -1 if it's in storage. */
 function decorRoom(id) {

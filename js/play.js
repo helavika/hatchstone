@@ -238,6 +238,7 @@ function sweepDust(x, y) {
 function drawNest() {
   // furniture and glowlings share one back-to-front order, so a glowling behind the bookcase is hidden by it
   const items = drawRoom() || [];
+  drawPassages();
   drawDust();
   // whoever lies on the bed or sits on a piece is drawn right after it (on top), not by where their feet are
   const frontOf = id => { const p = N.iso && isoLayout().placed[id]; return p ? isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1] : null; };
