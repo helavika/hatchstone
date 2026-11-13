@@ -2879,7 +2879,7 @@ const NIGHT_PROPS = {
     // giant mushrooms with spotted caps; a soft glow under each cap
     const caps = [["#8f3460", "#c25586", "#e88bb1"], ["#1d5276", "#3383a8", "#69b7d6"], ["#5c1f3f", "#8f3460", "#e88bb1"]];
     for (let i = 0; i < 6; i++) {
-      const x = Math.round(sideX(W, i, seed)), big = 0.6 + pxHash(i, 2) * 0.6, h = Math.round(H * (0.14 + 0.2 * big)), r = Math.round(W * 0.08 * big + 5);
+      const x = Math.round(sideX(W, i, seed)), big = 0.6 + pxHash(i, 2) * 0.6, h = Math.round(Math.min(H * (0.14 + 0.2 * big), fy * (0.18 + 0.22 * big))), r = Math.round(Math.min(W * 0.08 * big + 5, h * 0.45));
       const [dk, md, lt] = caps[i % 3], top = fy - h;
       const glow = g.createRadialGradient(x, top + r * 0.4, 1, x, top + r * 0.4, r * 2.2);
       glow.addColorStop(0, lt + "66"); glow.addColorStop(1, lt + "00");
@@ -3539,9 +3539,9 @@ function bgFor(scene) {
   const id = currentTheme();
   // in the nest, the backdrop's ground meets the room: a clearing or a ruined hall stands on the land, a cave hollow opens onto the cave floor
   // in the isometric room the land goes on around it: outdoors the horizon lies behind the room, so the clearing is part of the
-  // meadow and the hills, trees and mushrooms stand beyond it; a cave's floor opens out level with the room's side corners
+  // meadow and the hills, trees and mushrooms stand beyond it; a cave room stands on a rock shelf on the cave floor, crystals around it
   const kind = ROOM_KIND[id] || "cave", outdoor = kind === "yard" || kind === "wood";
-  const floor = scene !== "nest" || !N.back ? 0.86 : N.iso ? (outdoor ? N.isoTop - N.isoWall * 0.35 : N.back) / H : (kind === "cave" ? N.front : N.back + 1) / H;
+  const floor = scene !== "nest" || !N.back ? 0.86 : N.iso && outdoor ? (N.isoTop - N.isoWall * 0.35) / H : (kind === "cave" ? N.front : N.back + 1) / H;
   const key = `${id}|${floor.toFixed(3)}`;
   if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor));
   return [id, key];
