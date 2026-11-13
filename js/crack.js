@@ -494,8 +494,9 @@ function openForge() {
     const has = !k.cost || (save.toolSkins || {})[k.id], on = toolSkin().id === k.id;
     return `<button class="forge skin${on ? " maxed" : ""}" data-skin="${k.id}" ${!has && save.shards < k.cost ? "disabled" : ""}><img class="skin-img" src="${hammerImage(k)}" alt=""><span class="txt"><b>${k.name}</b><small>${k.note}</small></span><span class="cost">${on ? tr("in hand ✓") : has ? tr("owned") : `${ic("shard")}${k.cost}`}</span></button>`;
   }).join("");
-  $$("#forgeList .forge:not(.skin):not(.craft)").forEach(b => b.addEventListener("click", () => buyForge(b.dataset.id)));
+  // (all the markup first: adding to innerHTML afterwards would rebuild the buttons and drop their listeners)
   $("forgeList").innerHTML += workbenchList();
+  $$("#forgeList .forge:not(.skin):not(.craft)").forEach(b => b.addEventListener("click", () => buyForge(b.dataset.id)));
   $$("#forgeList .skin").forEach(b => b.addEventListener("click", () => pickSkin(b.dataset.skin)));
   $$("#forgeList [data-craft]").forEach(b => b.addEventListener("click", () => craft(b.dataset.craft)));
   show("forge", true);
