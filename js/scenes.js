@@ -336,6 +336,12 @@ function moonStreak() {
   return save.moon.last === dayKey() || save.moon.last === dayKey(y) ? save.moon.streak : 0;
 }
 
+/** What today's moon egg holds, in a line. */
+function moonLine() {
+  const streak = moonStreak(), sp = moonToday();
+  if (moonDone()) return tr("next one in {0}", untilTomorrow()) + (streak ? tr(" · streak {0} 🔥", streak) : "");
+  return tr("{0} sleeps inside ✦ +25 shards", sp.event && !save.seen[sp.id] ? tr("the {0} glowling", eventName(EVENT[sp.event])) : sp.moon && !save.seen[sp.id] ? tr(/^[aeiou]/.test(sp.moon) ? "an {0} moon glowling" : "a {0} moon glowling", seasonName(sp.moon)) : tr("a {0} glowling", rar(rarityOf(sp)))) + (streak ? tr(" · streak {0} 🔥", streak) : "");
+}
 function startMoon() {
   if (moonDone()) return;
   sfx.tick();
@@ -481,13 +487,6 @@ function renderMap() {
   });
   const allDone = unlocked(LEVELS + 1);
   html += `<button class="wander" data-n="0" ${allDone ? "" : "disabled"}>${tr("🌌 Wander: endless geodes from the deepest caves")}${allDone ? "" : tr(" (clear level 24)")}</button>`;
-  const streak = moonStreak(), done = moonDone(), sp = moonToday();
-  const moonCard = `<button class="moonbtn" id="moonBtn" ${done ? "disabled" : ""}><span class="em">🌙</span><span><b>${done ? tr("Moon egg opened") : tr("Today's moon egg")}</b><small>${done
-    ? tr("next one in {0}", untilTomorrow()) + (streak ? tr(" · streak {0} 🔥", streak) : "")
-    : tr("{0} sleeps inside ✦ +25 shards", sp.event && !save.seen[sp.id] ? tr("the {0} glowling", eventName(EVENT[sp.event])) : sp.moon && !save.seen[sp.id] ? tr(/^[aeiou]/.test(sp.moon) ? "an {0} moon glowling" : "a {0} moon glowling", seasonName(sp.moon)) : tr("a {0} glowling", rar(rarityOf(sp)))) + (streak ? tr(" · streak {0} 🔥", streak) : "")}</small></span></button>`;
-  const ev = eventNow(), evLeft = ev && eventDaysLeft(ev);
-  const evCard = ev ? `<div class="evbar"><span class="em">${ev.emoji}</span><span><b>${eventName(ev)}</b><small>${tr(evLeft === 1 ? "last day" : "{0} days left", evLeft)}${save.seen[ev.sp] ? tr(" · you've met {0} ✓", SP[ev.sp].name) : tr(" · a limited glowling sleeps in the moon egg")}</small></span></div>` : "";
-  $("mapList").innerHTML = evCard + moonCard + html;
+  $("mapList").innerHTML = html;
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
-  $("moonBtn").addEventListener("click", startMoon);
 }

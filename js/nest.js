@@ -760,7 +760,7 @@ const HEROES = {
   yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "croak", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sun", "Garden bed", () => openGarden()]],
     hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
     lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."] },
-  grotto: { who: { name: "Grotto" }, icon: "grotto", none: true, role: "the hall before the tunnel", act: [["egg", "Into the tunnel", () => setScene("map")], ["moon", "Moon egg", () => moonDone() ? toast(tr("Today's moon egg is open: the next one comes tomorrow 🌙")) : startMoon()], ["lantern", "Lantern", () => openLantern()]], hello: [], lines: [] },
+  grotto: { who: { name: "Grotto" }, icon: "grotto", none: true, role: "the hall before the tunnel", act: [["egg", "Into the tunnel", () => startLevel(nextLevel())], ["map", "Map of levels", () => setScene("map")]], hello: [], lines: [] },
   lab: { who: OLLO, eyes: [[3, 5, 3, 2, "#69b7d6"], [9, 5, 3, 2, "#69b7d6"]], quirk: "turn", icon: "ollo", at: [0.55, 0.36], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
     hello: ["Hoo. A visitor. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby mixes them both.", "Stroke the egg to keep it warm. It hatches faster."],
     lines: ["Fascinating. Truly fascinating. Hoo.", "I am writing the great book of glowlings. Chapter one is just you.", "No two mixed eggs are alike. I've checked. Many times.", "Glowlings glow brighter when they're happy. I measured it.", "Please don't touch the green jar."] },
@@ -815,13 +815,27 @@ const heroAt = (x, y) => { if (!heroHere() || heroHere().none || !N.iso) return 
 const propAt = (x, y) => Object.values(isoLayout().placed).find(p => PLACE_PROPS.has(p.id) && pieceHits[p.id] && spriteHit(pieceHits[p.id].c, pieceHits[p.id].x, pieceHits[p.id].y, x, y))?.id || null;
 /** Things in a place that do something of their own when tapped. */
 const PROP_TAP = {
-  tunnel: () => { sfx.tick(); setScene("map"); },
-  altar: () => moonDone() ? toast(tr("Today's moon egg is open: the next one comes tomorrow 🌙")) : startMoon(),
-  lanternpost: () => openLantern(),
-  board: () => { const ev = eventNow(); toast(ev ? tr("On the board: {0} · {1}", eventName(ev), tr(eventDaysLeft(ev) === 1 ? "last day" : "{0} days left", eventDaysLeft(ev))) : tr("The board is empty. Festivals are posted here when they come.")); },
-  cart: () => toast(tr("Geodes, waiting to be cracked. They're down the tunnel.")),
-  crystals: () => { sfx.shimmer(); toast(tr("The crystals hum softly ✦")); },
+  tunnel: () => { sfx.tick(); startLevel(nextLevel()); },
+  wallmap: () => { sfx.tick(); setScene("map"); },
+  altar: () => openThing("moon"),
+  shrine: () => eventNow() && openThing("event"),
 };
+/** A little card about one thing in a place: what it is, and the one thing to do with it. */
+function openThing(what) {
+  sfx.tick();
+  const ev = eventNow();
+  if (what === "moon") {
+    $("thingTitle").textContent = tr(moonDone() ? "Moon egg opened" : "Today's moon egg");
+    $("thingText").textContent = moonLine();
+    $("thingGo").hidden = moonDone(); $("thingGo").textContent = tr("Crack it 🌙"); $("thingGo").onclick = () => { show("thingSheet", false); startMoon(); };
+  } else if (ev) {
+    const left = eventDaysLeft(ev);
+    $("thingTitle").textContent = `${ev.emoji} ${eventName(ev)}`;
+    $("thingText").textContent = tr(left === 1 ? "last day" : "{0} days left", left) + (save.seen[ev.sp] ? tr(" · you've met {0} ✓", SP[ev.sp].name) : tr(" · a limited glowling sleeps in the moon egg"));
+    $("thingGo").hidden = moonDone() || !!save.seen[ev.sp]; $("thingGo").textContent = tr("To the moon egg 🌙"); $("thingGo").onclick = () => { show("thingSheet", false); startMoon(); };
+  }
+  show("thingSheet", true);
+}
 // ---------- life in the places: sparks at the forge, embers and fireflies at the camp, bubbles in the lab, dust in the shop's light, butterflies in the garden ----------
 
 const placeLife = { list: [], last: 0 };
@@ -842,6 +856,12 @@ function drawPlaceLife() {
     if (L.filter(p => p.kind === "fly").length < 6) add({ kind: "fly", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base * 1.5, N.y1), ph: rand(0, TAU), life: 1e9 });
   }
   if (kind === "lab") { const d = pieceCenter("labdesk", rand(0.25, 0.65), 0.25); if (d && Math.random() < 0.06) add({ kind: "bubble", x: d[0], y: d[1], vx: rand(-4, 4), vy: rand(-22, -14), life: rand(1, 1.8) }); }
+  if (kind === "grotto") for (const [id, icon, on] of [["altar", "moon", !moonDone()], ["shrine", "star", !!eventNow() && !moonDone()], ["wallmap", "scroll", false]]) {
+    const pl = on && isoLayout().placed[id]; if (!pl) continue;
+    const at = isoPieceAt(pl), tile = N.isoW / ISO_G; at[1] -= tile * (id === "shrine" ? 1.75 : 1.15);
+    const im = heroImgs["ic:" + icon] || (heroImgs["ic:" + icon] = Object.assign(new Image(), { src: pxIcon(icon) })), sz = Math.round(N.base * 0.32 / 14) * 14 || 14;
+    if (im.complete) ctx.drawImage(im, Math.round(at[0] - sz / 2), Math.round(at[1] - sz - 4 + Math.round(Math.sin(now * 0.005)) * 3), sz, sz);
+  }
   if (kind === "shop" && L.length < 22 && Math.random() < 0.08) add({ kind: "mote", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base * 2.5, N.y1 - N.base), vx: rand(-5, 5), vy: rand(-4, 4), life: rand(4, 7) });
   if (kind === "yard" && L.filter(p => p.kind === "butterfly").length < 3) add({ kind: "butterfly", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base, N.y1), ph: rand(0, TAU), col: pick(["#ffc4da", "#fff0b5", "#b8e6f5"]), life: 1e9 });
   ctx.save();

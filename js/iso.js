@@ -630,10 +630,10 @@ const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1
   furnace: { fw: 2, fd: 2, at: [1, 0] }, anvil: { fw: 1, fd: 1, at: [3, 3] }, coalbin: { fw: 1, fd: 1, at: [0, 3] }, rack: { fw: 2, fd: 1, at: [4, 0] }, barrel2: { fw: 1, fd: 1, at: [5, 4] },
   tent: { fw: 2, fd: 2, at: [3, 0] }, campfire: { fw: 1, fd: 1, at: [2, 3] }, logs: { fw: 2, fd: 1, at: [0, 4] }, packs: { fw: 1, fd: 1, at: [1, 1] }, camplamp: { fw: 1, fd: 1, at: [5, 3] },
   greenhouse: { fw: 2, fd: 2, at: [0, 0] }, potting: { fw: 1, fd: 2, at: [0, 2] }, sunflowers: { fw: 1, fd: 1, at: [5, 3] }, barrow: { fw: 1, fd: 1, at: [3, 0] },
-  tunnel: { fw: 2, fd: 1, at: [2, 0] }, altar: { fw: 1, fd: 1, at: [3, 3] }, lanternpost: { fw: 1, fd: 1, at: [0, 2] }, board: { fw: 1, fd: 1, at: [0, 4] }, cart: { fw: 1, fd: 1, at: [4, 1] }, crystals: { fw: 1, fd: 1, at: [5, 4] },
+  tunnel: { fw: 2, fd: 1, at: [2, 0] }, wallmap: { fw: 1, fd: 2, at: [0, 1] }, altar: { fw: 1, fd: 1, at: [2, 3] }, shrine: { fw: 1, fd: 1, at: [4, 3] },
   labdesk: { fw: 2, fd: 1, at: [2, 0] }, jars: { fw: 1, fd: 1, at: [0, 1] }, scope: { fw: 1, fd: 1, at: [4, 4] }, books: { fw: 1, fd: 1, at: [5, 0] } };
 /** What each kind of room comes with (anything not listed has just its bed). */
-const ROOM_FIXED = { grotto: ["tunnel", "altar", "lanternpost", "board", "cart", "crystals"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
+const ROOM_FIXED = { grotto: ["tunnel", "wallmap", "altar", "shrine"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
 /** The places' own furniture: not decorations to play with. */
 const PLACE_PROPS = new Set(Object.values(ROOM_FIXED).flat().filter(id => !["bed", "garden", "incubator"].includes(id)));
 
@@ -1004,28 +1004,36 @@ const ISO_ART = {
     if (!o.done) { T.glow(cx, top - t * 0.3, t * 0.9, IC.b0, 0.45); T.ball(cx, top - t * 0.28, t * 0.2, IC.white, IC.b0, IC.l2, t * 0.26); T.px(cx - 1, top - t * 0.4, IC.white); }
     else { T.ball(cx - 2, top - 2, t * 0.12, IC.s0, IC.s1, IC.s2, t * 0.08); T.ball(cx + 3, top - 1, t * 0.1, IC.s0, IC.s1, IC.s2, t * 0.07); }
   },
-  lanternpost(t, T, ax, ay) { ISO_ART.lamppost(t, T, ax, ay); },
-  board(t, T, ax, ay, o) {
-    // a notice board of old planks; a bright poster when a festival is on
-    const cx = ax, cy = ay + t / 2;
-    T.line(cx - t * 0.3, cy, cx - t * 0.3, cy - t * 1.1, IC.w3); T.line(cx + t * 0.3, cy - t * 0.15, cx + t * 0.3, cy - t * 1.25, IC.w3);
-    T.poly([[cx - t * 0.42, cy - t * 1.2], [cx + t * 0.42, cy - t * 1.35], [cx + t * 0.42, cy - t * 0.7], [cx - t * 0.42, cy - t * 0.55]], IC.w1);
-    for (let k = 0; k < 3; k++) T.poly([[cx - t * 0.32 + k * t * 0.22, cy - t * 1.12 - k * t * 0.04], [cx - t * 0.16 + k * t * 0.22, cy - t * 1.15 - k * t * 0.04], [cx - t * 0.16 + k * t * 0.22, cy - t * 0.85 - k * t * 0.04], [cx - t * 0.32 + k * t * 0.22, cy - t * 0.82 - k * t * 0.04]], k === 1 && o.event ? IC.r1 : IC.s0);
+  wallmap(t, T, ax, ay) {
+    // the map of the levels, pinned high on the wall: a parchment with a red trail of dots down through four caves
+    const x = ax + 1, y = ay + t * 0.5, lift = Math.round(t * 1.35), w = t * 0.95, h = Math.round(t * 1.05);
+    const p0 = [x, y - lift], p1 = [x - 2 * w, y - lift + w], p2 = [p1[0], p1[1] - h], p3 = [p0[0], p0[1] - h];
+    T.poly([p3, p2, p1, p0], (px, py) => pxHash(px, py) > 0.88 ? IC.w0 : pxPick([IC.w0, IC.y0], 0.5, px, py));
+    const at = (u, v) => [p3[0] + (p2[0] - p3[0]) * u, p3[1] + (p2[1] - p3[1]) * u + h * v];
+    // four caves in bands of their crystal colours, and the trail zig-zagging down through them
+    for (const [v, c] of [[0, IC.l1], [0.25, IC.b0], [0.5, IC.g0], [0.75, IC.l3]]) for (let k = 0; k <= 20; k++) for (let r = 0; r < h * 0.25 - 1; r++) { const [px, py] = at(k / 20, v + r / h + 0.02); if (pxHash(px, py) > 0.55) T.px(px, py, c); }
+    let prev = at(0.25, 0.08);
+    for (let k = 1; k <= 8; k++) { const cur = at(k % 2 ? 0.75 : 0.25, 0.08 + k * 0.105); T.line(prev[0], prev[1], cur[0], cur[1], IC.r2); T.px(cur[0], cur[1] - 1, IC.r1); prev = cur; }
+    const [sx, sy] = at(0.5, 0.12); T.px(sx, sy - 1, IC.r2); T.px(sx + 1, sy - 1, IC.r2); T.px(sx, sy, IC.r2);
+    for (const q of [p3, p2]) { T.px(q[0], q[1] + 1, IC.s1); T.px(q[0], q[1] + 2, IC.s2); }
+    T.line(p0[0], p0[1], p1[0], p1[1], IC.w2); T.line(p3[0], p3[1], p2[0], p2[1], IC.w1);
   },
-  cart(t, T, ax, ay) {
-    // a mine cart heaped with uncut geodes
-    const cx = ax, cy = ay + t / 2;
-    T.disc(cx - t * 0.2, cy + 1, t * 0.09, IC.ink2); T.disc(cx + t * 0.25, cy - 1, t * 0.09, IC.ink2);
-    T.box(cx - t * 0.05, cy - t * 0.42, t * 0.34, t * 0.22, Math.round(t * 0.32), IC.s2, IC.s3, IC.s4);
-    for (let k = 0; k < 5; k++) T.ball(cx - t * 0.2 + k * t * 0.1, cy - t * 0.62 + (k % 2) * 2, t * 0.09, IC.s0, IC.s1, IC.s3);
-  },
-  crystals(t, T, ax, ay) {
-    // a cluster of amethyst points growing out of the floor
-    const cx = ax, cy = ay + t / 2;
-    T.glow(cx, cy - t * 0.4, t * 0.9, IC.l2, 0.3);
-    for (const [dx, hh, w] of [[-t * 0.2, 0.7, 3], [t * 0.05, 1.1, 4], [t * 0.25, 0.55, 3], [-t * 0.05, 0.4, 2]]) {
-      const top = cy - t * hh;
-      T.poly([[cx + dx - w, cy], [cx + dx, top], [cx + dx, cy + 1]], IC.l1); T.poly([[cx + dx, top], [cx + dx + w, cy], [cx + dx, cy + 1]], IC.l3);
+  shrine(t, T, ax, ay, o) {
+    // a festival's shrine, only while one is on: First Frost is a pillar of ice; others take their egg's colours
+    if (!o.event) return;
+    const cx = ax, cy = ay + t / 2, [c0, c1, c2] = o.colors.map(pxHex);
+    T.cyl(cx, cy, t * 0.32, Math.round(t * 0.14), IC.s1, IC.s2, IC.s3);
+    if (o.event === "frost") {
+      T.glow(cx, cy - t * 0.7, t * 1.2, IC.b0, 0.35);
+      for (const [dx, hh, w] of [[-t * 0.14, 1.15, 4], [t * 0.12, 0.85, 3], [0, 1.5, 4], [-t * 0.26, 0.6, 2]]) {
+        const top = cy - t * 0.14 - t * hh;
+        T.poly([[cx + dx - w, cy - t * 0.12], [cx + dx, top], [cx + dx, cy - t * 0.1]], IC.white); T.poly([[cx + dx, top], [cx + dx + w, cy - t * 0.12], [cx + dx, cy - t * 0.1]], IC.b0);
+      }
+      for (let k = 0; k < 6; k++) { const an = k / 6 * TAU; T.line(cx, cy - t * 1.9, cx + Math.cos(an) * 3, cy - t * 1.9 + Math.sin(an) * 3, IC.white); }
+    } else {
+      T.glow(cx, cy - t * 0.6, t * 1.1, c2, 0.35);
+      T.ball(cx, cy - t * 0.55, t * 0.3, c2, c0, c1, t * 0.38);
+      for (let k = 0; k < 5; k++) T.px(cx - t * 0.2 + k * t * 0.1, cy - t * 0.55 + (k % 2 ? 2 : -2), c1);
     }
   },
   // ---- the garden

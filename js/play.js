@@ -7,7 +7,7 @@
 /** Where each piece was drawn last, for tapping it (see spriteHit). */
 const pieceHits = {};
 /** What a piece's picture depends on right now (the lamp being off, the pond's ripple frame...). */
-const pieceExtra = p => p.id === "altar" ? { done: !!moonDone() } : p.id === "board" ? { event: !!eventNow() } : p.id === "campfire" ? { frame: Math.floor(game.time / 160) % 4 } : p.id === "furnace" ? { frame: Math.floor(game.time / 220) % 3 } : p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
+const pieceExtra = p => p.id === "altar" ? { done: !!moonDone() } : p.id === "shrine" ? { event: eventNow()?.id || "", colors: eventNow()?.egg || [] } : p.id === "campfire" ? { frame: Math.floor(game.time / 160) % 4 } : p.id === "furnace" ? { frame: Math.floor(game.time / 220) % 3 } : p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
 
 const decorFx = {};
 let swingPush = 0;
