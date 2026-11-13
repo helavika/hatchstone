@@ -1084,6 +1084,12 @@
   body.phone #nestBottom .acts .act .ic { width: 20px; height: 20px; }
   body.narrow #nestBottom .acts .act:not(#residentsBtn) { font-size: 13px !important; }
 
+  /* feedback */
+  #fbText { width: 100%; box-sizing: border-box; font: inherit; font-size: 17px; padding: 10px; color: #fff; background: var(--px-deep); border: 0; box-shadow: var(--px-frame); resize: vertical; }
+  .fb-details { margin: 10px 0; text-align: left; font-size: 14px; color: var(--soft); }
+  .fb-details pre { white-space: pre-wrap; word-break: break-word; font-size: 11px; max-height: 140px; overflow: auto; background: var(--px-deep); padding: 8px; }
+  .fb-row { display: grid; gap: 8px; }
+  .fb-row .act { width: 100%; justify-content: center; }
   /* settings */
   .opt { display: block; margin: 10px 0; text-align: left; }
   .opt span { display: flex; align-items: center; gap: 8px; font-size: 17px; }
@@ -1136,6 +1142,7 @@
       <button class="act" id="copyLive" hidden><i class="ic" data-ic="nest"></i>Copy my nest from live</button>
       <button class="act" id="meBtn"><i class="ic" data-ic="star"></i>Keeper</button>
       <button class="act" id="optsBtn"><i class="ic" data-ic="gear"></i>Settings</button>
+      <button class="act" id="fbBtn"><i class="ic" data-ic="scroll"></i>Feedback</button>
       <button class="act" id="backupBtn" aria-label="Back up your nest"><i class="ic" data-ic="scroll"></i>Back up nest</button>
       <button class="act mute" data-label="1" aria-label="Mute sound"><i class="ic" data-ic="sound"></i>Sound on</button>
       <button class="act faq-btn menu-only"><i class="ic" data-ic="help"></i>Questions &amp; answers</button>
@@ -1291,6 +1298,17 @@
     <p class="sub" id="homeSub"></p>
     <div id="homeList"></div>
     <button class="ghost" id="homeClose">close</button>
+  </div>
+</div>
+<div id="fbSheet" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Feedback</h2>
+    <p class="sub">An idea, a bug, something that felt off? Tell me in your own words.</p>
+    <textarea id="fbText" rows="5" maxlength="2000" placeholder="what happened, or what you'd like"></textarea>
+    <details class="fb-details"><summary>What's sent with it</summary><pre id="fbInfo"></pre><p class="me-hint">Nothing is sent by itself: GitHub opens with your words and these details, and you check them before sending. <a href="privacy.html" target="_blank" rel="noopener">Privacy</a></p></details>
+    <div class="fb-row"><button class="act" id="fbIdea">💡 Send an idea</button><button class="act" id="fbBug">🐞 Report a bug</button><button class="act" id="fbCopy">📋 Copy it</button></div>
+    <p class="me-hint">Sending opens GitHub (it needs a free account). No account? Copy it and send it any way you like.</p>
+    <button class="ghost" id="fbClose">close</button>
   </div>
 </div>
 <div id="optsSheet" class="overlay modal hidden">
@@ -1550,6 +1568,11 @@
 // ---------- the test copy: the same game under /staging/, for trying things before they go live ----------
 // It keeps its own save (same site, so it would otherwise share the real one), its own Telegram cloud copy and says TEST in the corner.
 const STAGING = /\/staging\//.test(location.pathname);
+// a short note of the last few errors, kept on this device only
+const ERR_KEY = "hatchstone.errors";
+const noteError = (msg, where) => { try { const list = JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); list.push({ t: new Date().toISOString(), msg: String(msg).slice(0, 200), where: String(where || "").slice(0, 120) }); localStorage.setItem(ERR_KEY, JSON.stringify(list.slice(-5))); } catch (e) {} };
+addEventListener("error", e => noteError(e.message, `${(e.filename || "").split("/").pop()}:${e.lineno}:${e.colno}`));
+addEventListener("unhandledrejection", e => noteError(e.reason && (e.reason.message || e.reason), "promise"));
 const LIVE_SAVE_KEY = "hatchstone.save";
 
 // ---------- languages: English, and Ukrainian for anyone whose browser speaks it (or who picks it in the menu) ----------
@@ -2217,6 +2240,21 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "📋 Copy it": "📋 Скопіювати",
+  "Sending opens GitHub (it needs a free account). No account? Copy it and send it any way you like.": "Надсилання відкриває GitHub (потрібен безкоштовний акаунт). Немає акаунта? Скопіюй і надішли будь-яким зручним способом.",
+  "Copied ✓": "Скопійовано ✓",
+  "Couldn't copy: select the text and copy it yourself": "Не вдалося скопіювати: виділи текст і скопіюй вручну",
+  "Feedback": "Відгук",
+  "An idea, a bug, something that felt off? Tell me in your own words.": "Ідея, помилка, щось не так? Розкажи своїми словами.",
+  "what happened, or what you'd like": "що сталося або чого хочеться",
+  "What's sent with it": "Що додається до відгуку",
+  "Nothing is sent by itself: GitHub opens with your words and these details, and you check them before sending.": "Нічого не надсилається само: відкриється GitHub із твоїм текстом і цими деталями, і ти все перевіриш перед відправкою.",
+  "Privacy": "Конфіденційність",
+  "💡 Send an idea": "💡 Надіслати ідею",
+  "🐞 Report a bug": "🐞 Повідомити про помилку",
+  "Write a few words first ✎": "Спершу напиши кілька слів ✎",
+  "What happens to my data?": "Що відбувається з моїми даними?",
+  "Nothing leaves your device unless you send it: no accounts, no ads, no analytics. The whole story is on the [privacy page](https://helavika.github.io/hatchstone/privacy.html).": "Без твого рішення нічого не залишає пристрій: ні акаунтів, ні реклами, ні аналітики. Усі деталі — на [сторінці конфіденційності](https://helavika.github.io/hatchstone/privacy.html).",
   "Best friend": "Нерозлийвода",
   "met {0} times: hugs, tag, duets and naps": "зустрічі: {0} — обійми, квач, дуети й дрімота",
   "No best friend yet. Glowlings who live in the same room meet and make friends by themselves.": "Найкращого друга ще немає. Глоулінги, що живуть в одній кімнаті, зустрічаються й заприятелюють самі.",
@@ -7355,6 +7393,32 @@ function openGlowling(cr) {
   show("glowCard", true);
 }
 
+// ---------- feedback: your words, plus a few details that help fix things, opened on GitHub for you to check and send ----------
+
+function feedbackInfo() {
+  let errs = [];
+  try { errs = JSON.parse(localStorage.getItem(ERR_KEY) || "[]"); } catch (e) {}
+  return [
+    `- ${STAGING ? "test game" : "live game"} · ${LANG} · ${innerWidth}×${innerHeight} @${devicePixelRatio || 1}x${document.body.classList.contains("in-telegram") ? " · Telegram" : ""}`,
+    `- ${navigator.userAgent}`,
+    `- ${save.creatures.length} glowlings · ${totalStars()} stars · level ${nextLevel() || "all"}`,
+    ...(errs.length ? ["", "Recent errors:", ...errs.map(e => `- ${e.t} ${e.where}: ${e.msg}`)] : []),
+  ].join("\n");
+}
+function openFeedback() {
+  sfx.tick();
+  $("fbText").value = $("fbText").value || "";
+  $("fbInfo").textContent = feedbackInfo();
+  show("fbSheet", true);
+}
+function sendFeedback(kind) {
+  const words = $("fbText").value.trim();
+  if (!words) { $("fbText").focus(); toast(tr("Write a few words first ✎")); return; }
+  const title = (kind === "bug" ? "Bug: " : "Idea: ") + words.split("\n")[0].slice(0, 70);
+  const body = `${words}\n\n---\n${feedbackInfo()}`;
+  window.open(`https://github.com/helavika/hatchstone/issues/new?title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`, "_blank", "noopener");
+}
+
 // ---------- the music box: pick the nest's song from the ones you've unlocked, and play the game's sounds ----------
 const JUKE_SOUNDS = [
   { name: "Lullaby", emoji: "🌙", play: () => sfx.lullaby() },
@@ -11445,8 +11509,9 @@ $("lanternClose").addEventListener("click", () => show("lantern", false));
 $("oilHelp").addEventListener("click", () => { const m = $("lanternFree"); m.hidden = !m.hidden; $("oilHelp").setAttribute("aria-expanded", String(!m.hidden)); sfx.tick(); });
 setInterval(() => { if ($("topbar").classList.contains("on")) renderOilPill(); }, 1000);
 const FAQ_SECTIONS = [["basics", "egg", "Basics", [0, 1, 14, 15, 11, 12, 13]], ["pets", "heart", "Glowlings", [2, 16, 5, 17, 18, 19, 20]], ["nest", "nest", "Nest", [21, 22, 3]],
-  ["grotto", "grotto", "Grotto & story", [4, 23, 24, 25]], ["save", "duo", "Friends & saving", [6, 7, 9]], ["about", "help", "About", [8, 10]]];
+  ["grotto", "grotto", "Grotto & story", [4, 23, 24, 25]], ["save", "duo", "Friends & saving", [6, 7, 9]], ["about", "help", "About", [8, 10, 26]]];
 const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now. A well-rested, happy glowling also cheers you on when you crack an egg: a few more shards."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."], ["Who made Hatchstone?", "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new)."], ["What is the lantern?", "Every trip into the Grotto takes a drop of lantern oil. The lantern holds 5 drops, and one comes back every 20 minutes. Bars fill it right away: a firefly square gives 1 drop, a nut bar 3, and a star bar fills it to the brim. Moon eggs, playing together and levels you already have ★★★ on don't use oil."], ["Where do I get bars?", "From daily tasks (finish all of them for a nut bar), when a glowling reaches a new level, from moon eggs (every third night in a row brings a star bar), from a good round of Echo song, and now and then from the rubble of a geode."], ["What are daily tasks?", "A few small things to do each day: tap the tasks counter at the top. Each one gives 10 shards, and finishing them all gives 15 more and a nut bar."], ["Why polish a geode?", "When a geode opens, rub it with your finger to make it shine. The shinier it gets, the more shards you earn. Tap the button when you're happy with it."], ["What is the Forge?", "Spend shards on your hammer: harder taps crack eggs faster, and keener eyes help you find the weak spot. The deeper caves have tougher stone, so upgrades help a lot there."], ["What games can I play with my glowling?", "Tap Play in the nest. Sparkle catch: drag to catch sparkles and dodge pebbles. Echo song: listen to the tune the stones sing, then sing it back. Playing makes a glowling happy, but it tires them out, so let them nap."], ["What does shiny mean?", "Now and then a glowling hatches shiny, with a sparkly look of its own: about 1 in 25 from geodes and 1 in 10 from moon eggs."], ["Can my glowling wear things?", "Yes: Decor → Wear. Buy an accessory once and any glowling can wear it. Tap it again to take it off."], ["Can I send a picture of my glowling?", "Yes: tap the postcard button next to your glowling's name in the nest. You get a pixel postcard to save or send to a friend."], ["Why aren't all my glowlings at home?", "The nest fits only a few at once; the others are out exploring the grotto, having a lovely time. Tap one in the row under the nest to call them home. Tap the \"at home\" counter to make room for one more, for shards."], ["How do I decorate the nest?", "Open Decor in the nest. Furniture is sorted into Comfort, Light, Toys and Pretty things: tap something to see who loves it, then buy or place it. Glowlings visit the things they love. Look changes the view and the backdrop, and new backdrops open as you go deeper. In the isometric view you can rearrange the room."], ["How do rooms work?", "The nest is your first room. Add more in Decor → Rooms: a playroom, a garden room and a crystal study. Each room has its own furniture, backdrop and bed. Switch rooms with the arrows at the sides of the nest."], ["What are events?", "A few weeks a year the grotto celebrates: Spring Bloom, Firefly Nights, Harvest Moon, Hollow Night, First Frost and Winter Lights. During an event a limited glowling sleeps in the moon egg and the sky over the grotto changes. Look for the banner in the Grotto."], ["Is there a story?", "Yes. Mossa, the old stone who keeps the grotto, tells it a little at a time as you go deeper, and a couple of friends join in along the way. Every part you've heard stays in the Book → Story to read again."], ["What happens after level 24?", "Wander opens: endless geodes from the deepest caves, as many as you like. The moon egg and events keep coming too."]];
+FAQ.push(["What happens to my data?", "Nothing leaves your device unless you send it: no accounts, no ads, no analytics. The whole story is on the [privacy page](https://helavika.github.io/hatchstone/privacy.html)."]);
 function openFaq() {
   sfx.tick();
   const esc = t => t.replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -11473,6 +11538,15 @@ $("tripsClose").addEventListener("click", () => { show("tripsSheet", false); if 
 $("startMore").addEventListener("click", ev => { ev.stopPropagation(); const c = $("startCorner"); c.classList.toggle("open"); $("startMore").setAttribute("aria-expanded", String(c.classList.contains("open"))); sfx.tick(); });
 document.addEventListener("click", ev => { if (!ev.target.closest("#startCorner")) $("startCorner").classList.remove("open"); });
 $("optsBtn").addEventListener("click", () => { setMenu(false); openOpts(); });
+$("fbBtn").addEventListener("click", () => { setMenu(false); openFeedback(); });
+$("fbClose").addEventListener("click", () => show("fbSheet", false));
+$("fbIdea").addEventListener("click", () => sendFeedback("idea"));
+$("fbBug").addEventListener("click", () => sendFeedback("bug"));
+$("fbCopy").addEventListener("click", async () => {
+  const words = $("fbText").value.trim();
+  if (!words) { $("fbText").focus(); toast(tr("Write a few words first ✎")); return; }
+  try { await navigator.clipboard.writeText(`${words}\n\n---\n${feedbackInfo()}`); toast(tr("Copied ✓")); } catch (e) { toast(tr("Couldn't copy: select the text and copy it yourself")); }
+});
 $("optsClose").addEventListener("click", () => show("optsSheet", false));
 $("meBtn").addEventListener("click", () => { setMenu(false); openMe(); });
 $("meClose").addEventListener("click", () => { saveMe(); show("meSheet", false); if (afterMe) { const f = afterMe; afterMe = null; f(); } });

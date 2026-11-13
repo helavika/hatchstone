@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hatchstone · Privacy</title>
+<meta name="color-scheme" content="dark">
+<link rel="icon" href="icons/favicon-32.png">
+<style>
+  :root { --bg: #16123a; --card: #2e1d4f; --ink: #efe6ff; --soft: #c9b8ff; --gold: #ffe9a8; --edge: #6b4fa8; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.55 ui-rounded, "SF Pro Rounded", system-ui, sans-serif; }
+  main { max-width: 680px; margin: 0 auto; padding: 32px 16px 64px; }
+  h1 { color: var(--gold); font-size: 30px; margin: 0 0 4px; }
+  h2 { color: var(--gold); font-size: 20px; margin: 28px 0 6px; }
+  p, li { color: var(--ink); }
+  .soft { color: var(--soft); }
+  section { background: var(--card); box-shadow: 0 0 0 3px #0b0614; padding: 4px 18px 14px; margin-top: 18px; }
+  a { color: var(--gold); }
+  nav { display: flex; gap: 12px; margin-top: 10px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Hatchstone · Privacy</h1>
+  <p class="soft">Last updated: 13 November 2026</p>
+  <nav><a href="#en">English</a><a href="#uk">Українська</a><a href="./">Back to the game</a></nav>
+
+  <section id="en">
+    <h2>The short version</h2>
+    <p>Hatchstone has no accounts, no ads and no analytics. Your nest is saved on your own device, and nobody else sees it.</p>
+    <h2>What is stored, and where</h2>
+    <ul>
+      <li><b>On your device:</b> your nest (glowlings, progress, settings) in the browser's local storage, and the game's files for offline play. You can make a backup code in the menu and delete everything by clearing the site's data.</li>
+      <li><b>In Telegram:</b> if you play inside Telegram, a copy of your nest is also kept in Telegram's cloud storage for this game, so it follows you between devices. Only this game can read it.</li>
+      <li><b>A log of errors:</b> if the game runs into an error, a short note about it is kept on your device. It only leaves your device if you choose to send feedback.</li>
+    </ul>
+    <h2>Playing together</h2>
+    <p>To connect two phones, the game uses a public matchmaking server (PeerJS) and a STUN server (Google) only to find a direct route between the two devices. After that, the shared egg's taps go straight from one device to the other. No nest data is sent to those servers.</p>
+    <h2>Feedback</h2>
+    <p>Feedback is never sent by itself. When you choose to send it, the game opens a GitHub page with your words and some technical details (device, language, screen size, recent errors) for you to check before sending.</p>
+    <h2>Hosting</h2>
+    <p>The game is hosted on GitHub Pages. Like any website, GitHub may keep standard server logs (such as IP addresses) for security. See <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.</p>
+    <h2>Children</h2>
+    <p>The game collects no personal information from anyone, children included.</p>
+    <h2>Questions</h2>
+    <p>Open an issue on <a href="https://github.com/helavika/hatchstone/issues/new">GitHub</a>.</p>
+  </section>
+
+  <section id="uk" lang="uk">
+    <h2>Коротко</h2>
+    <p>У Hatchstone немає акаунтів, реклами й аналітики. Твоє гніздечко зберігається на твоєму пристрої, і ніхто інший його не бачить.</p>
+    <h2>Що зберігається і де</h2>
+    <ul>
+      <li><b>На твоєму пристрої:</b> гніздечко (глоулінги, прогрес, налаштування) у локальному сховищі браузера, а також файли гри для роботи без інтернету. У меню можна зробити код резервної копії, а видалити все — очистивши дані сайту.</li>
+      <li><b>У Telegram:</b> якщо граєш у Telegram, копія гніздечка зберігається ще й у хмарному сховищі Telegram для цієї гри, щоб переходити з тобою між пристроями. Прочитати її може лише ця гра.</li>
+      <li><b>Журнал помилок:</b> якщо в грі стається помилка, коротка нотатка про неї лишається на пристрої. Вона залишає пристрій, лише якщо ти вирішиш надіслати відгук.</li>
+    </ul>
+    <h2>Гра вдвох</h2>
+    <p>Щоб з'єднати два телефони, гра використовує публічний сервер для знайомства пристроїв (PeerJS) і STUN-сервер (Google) — лише щоб знайти прямий шлях між ними. Далі удари по спільному яйцю йдуть напряму з пристрою на пристрій. Дані гніздечка на ці сервери не надсилаються.</p>
+    <h2>Відгуки</h2>
+    <p>Відгук ніколи не надсилається сам. Коли ти вирішиш його надіслати, гра відкриє сторінку на GitHub із твоїм текстом і технічними деталями (пристрій, мова, розмір екрана, останні помилки), щоб усе можна було перевірити перед відправкою.</p>
+    <h2>Хостинг</h2>
+    <p>Гра розміщена на GitHub Pages. Як і будь-який сайт, GitHub може зберігати звичайні журнали сервера (наприклад, IP-адреси) з міркувань безпеки.</p>
+    <h2>Діти</h2>
+    <p>Гра не збирає жодних персональних даних ні в кого, зокрема в дітей.</p>
+    <h2>Питання</h2>
+    <p>Створи запис на <a href="https://github.com/helavika/hatchstone/issues/new">GitHub</a>.</p>
+  </section>
+</main>
+</body>
+</html>
