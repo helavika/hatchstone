@@ -721,6 +721,27 @@ function nudgeBackup() {
 
 // ---------- the glowpedia: glowlings and geodes ----------
 
+/** Everyone you can meet: who they are, where they live, and when you'll have met them. */
+const FOLK = [
+  { name: "Mossa", face: () => pxIcon("mossa"), where: "the grotto", met: () => save.creatures.length > 0, hint: "crack your first geode",
+    about: "The old stone who keeps the grotto. Once the Heartlight's keeper, still keeping watch, and telling its story a little at a time." },
+  { name: "Wick", face: () => pxIcon("wick"), where: "the garden, every third day", met: () => talkSeen("s2"), hint: "reach level 7",
+    about: "A lantern moth who trades in glimmers and gossip, and always seems to know more than he says." },
+  { name: "Dorma", face: () => pxIcon("dorma"), where: "the grotto's library", met: () => talkSeen("s4"), hint: "reach level 13",
+    about: "Keeps the grotto's sleepy library. Finds the lost pages of the Heartlight's story, usually under the pillow." },
+  { name: "the Gloom", face: () => pxIcon("gloom"), where: "the dark past the forge", met: () => talkSeen("g1"), hint: "something waits at level 6",
+    about: "Something old in the dark that seals glowlings away in stone. Nobody knows what it wants." },
+  { name: "Tansy", face: () => keeperFace("tansy"), where: "the shop", met: () => !!save.heroTalk?.shop, hint: "visit the shop",
+    about: "A hedgehog merchant. Sells sensible things, dreams of selling one very good hat, and curls into a ball if poked too much." },
+  { name: "Ember", face: () => keeperFace("ember"), where: "the forge hut", met: () => !!save.heroTalk?.forge, hint: "visit the forge",
+    about: "A horned salamander smith. Forges hammers for harder stone, melts spare geodes at the workbench, and wants to cast a bell heard in every cave." },
+  { name: "Pip", face: () => keeperFace("pip"), where: "the explorers' camp", met: () => !!save.heroTalk?.camp, hint: "visit the camp",
+    about: "A crow-folk scout who maps the tunnels (they keep moving) and leads the expeditions. A little afraid of the dark." },
+  { name: "Ollo", face: () => keeperFace("ollo"), where: "the lab", met: () => !!save.heroTalk?.lab, hint: "visit the lab",
+    about: "An owl alchemist who studies how glowlings glow, keeps the incubator, and is writing the great book of glowlings." },
+  { name: "Fennel", face: () => keeperFace("fennel"), where: "the garden", met: () => !!save.heroTalk?.yard, hint: "visit the garden",
+    about: "A turtle-folk gardener who talks to the plants and waters them for you. Slow and steady, and quick to hide in the shell." },
+];
 function renderLib() {
   const found = SPECIES.filter(s => save.seen[s.id]).length;
   const geos = CRYSTALS.filter(c => save.geodes[c.id]).length;
@@ -736,6 +757,13 @@ function renderLib() {
         const got = earned[a.id], [now, goal] = a.test(), k = Math.min(1, now / goal);
         return `<div class="aw ${t.id}${got ? " got" : ""}">${ic("trophy_" + t.id, "big")}<span><b>${tr(a.name)}</b><small>${tr(a.how)}</small>${got ? `<em>${new Date(got).toLocaleDateString(LANG === "uk" ? "uk-UA" : "en-US", { day: "numeric", month: "short", year: "numeric" })}</em>` : goal > 1 ? `<i class="aw-bar" style="--k:${k}"><u>${Math.min(now, goal)}/${goal}</u></i>` : ""}</span></div>`;
       }).join("");
+    }).join("") + "</div>";
+  } else if (game.libTab === "fk") {
+    const met = FOLK.filter(f => f.met()).length;
+    $("libSub").textContent = tr("{0} of {1} met. The folk of the grotto and the valley, and what they're like.", met, FOLK.length);
+    $("libGrid").innerHTML = `<div class="aw-list">` + FOLK.map(f => {
+      const ok = f.met();
+      return `<div class="aw folk${ok ? " got" : ""}"><img class="folk-face" src="${ok ? f.face() : mysteryGeode()}" alt=""><span><b>${ok ? tr(f.name) : "???"}</b><small>${ok ? `<em class="folk-where">${tr(f.where)}</em>${tr(f.about)}` : tr(f.hint)}</small></span></div>`;
     }).join("") + "</div>";
   } else if (game.libTab === "st") {
     $("libGrid").innerHTML = STORY.map((p, i) => {
