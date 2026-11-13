@@ -33,6 +33,7 @@ function setScene(scene) {
   $("polishDone").hidden = !(scene === "crack" && game.egg && game.egg.state === "polish");
 
   litTabs();
+  renderPlaceBar();
   show("map", scene === "map");
   show("lib", scene === "lib");
   show("found", false);

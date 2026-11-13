@@ -624,7 +624,16 @@ function autoFlip(id, i, j, flip) {
   if (i === 0 && j !== 0) return true;
   return flip;
 }
-const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] }, garden: { fw: 2, fd: 1, at: [1, 4] } };
+const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] }, garden: { fw: 2, fd: 1, at: [1, 4] },
+  // the places on the map come furnished, and that furniture stays put
+  shelves: { fw: 2, fd: 1, at: [1, 0] }, shelves2: { fw: 1, fd: 2, at: [0, 2] }, counter: { fw: 2, fd: 1, at: [2, 3] }, crates: { fw: 1, fd: 1, at: [5, 4] }, sacks: { fw: 1, fd: 1, at: [4, 0] }, barrel: { fw: 1, fd: 1, at: [0, 5] },
+  furnace: { fw: 2, fd: 2, at: [1, 0] }, anvil: { fw: 1, fd: 1, at: [3, 3] }, coalbin: { fw: 1, fd: 1, at: [0, 3] }, rack: { fw: 2, fd: 1, at: [4, 0] }, barrel2: { fw: 1, fd: 1, at: [5, 4] },
+  tent: { fw: 2, fd: 2, at: [3, 0] }, campfire: { fw: 1, fd: 1, at: [2, 3] }, logs: { fw: 2, fd: 1, at: [0, 4] }, packs: { fw: 1, fd: 1, at: [1, 1] }, camplamp: { fw: 1, fd: 1, at: [5, 3] },
+  labdesk: { fw: 2, fd: 1, at: [2, 0] }, jars: { fw: 1, fd: 1, at: [0, 1] }, scope: { fw: 1, fd: 1, at: [4, 4] }, books: { fw: 1, fd: 1, at: [5, 0] } };
+/** What each kind of room comes with (anything not listed has just its bed). */
+const ROOM_FIXED = { yard: ["bed", "garden"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
+/** The places' own furniture: not decorations to play with. */
+const PLACE_PROPS = new Set(Object.values(ROOM_FIXED).flat().filter(id => !["bed", "garden", "incubator"].includes(id)));
 
 /** A piece's size in tiles; turned to face the other wall, its two sides swap. */
 const pieceDims = (id, flip) => { const f = ISO_FIXED[id] || ISO_PLACES[id]; return flip ? { fw: f.fd, fd: f.fw } : { fw: f.fw, fd: f.fd }; };
@@ -637,7 +646,7 @@ function isoLayout() {
   const busy = new Set(), placed = {};
   const take = (i, j, fw, fd) => { for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) busy.add(`${i + a},${j + b}`); };
   const free = (i, j, fw, fd) => { if (i < 0 || j < 0) return false; for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) if (i + a >= ISO_G || j + b >= ISO_G || busy.has(`${i + a},${j + b}`)) return false; return true; };
-  const fixed = isOutside() ? { bed: ISO_FIXED.bed, garden: ISO_FIXED.garden } : incHere() ? { bed: ISO_FIXED.bed, incubator: ISO_FIXED.incubator } : { bed: ISO_FIXED.bed };
+  const fixed = Object.fromEntries((ROOM_FIXED[save.rooms[save.room]?.kind] || ["bed"]).map(id => [id, ISO_FIXED[id]]));
   const all = [...Object.keys(fixed), ...out];
   for (const id of all) {
     const m = mine[id]; if (!m) continue;
@@ -721,6 +730,28 @@ const PAINTINGS = [
 if (LANG === "uk") for (const p of PAINTINGS) p.name = tr(p.name);
 
 /** Every piece's picture: (ax, ay) inside it is the back corner of its footprint. t is one tile's width in art pixels. */
+/** A shop shelf along a wall (along u when dir is 1, along v when -1): planks of jars, packets and loaves. */
+function shopShelf(T, x, y, a, b, h, dir) {
+  const q = T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
+  const cols = [IC.p1, IC.b1, IC.y1, IC.g1, IC.r1, IC.l2, IC.w0];
+  const face = dir > 0 ? [q.Bv, q.Buv] : [q.Buv, q.Bu], [f0, f1] = face, len = Math.hypot(f1[0] - f0[0], f1[1] - f0[1]);
+  for (let s = 0; s < 4; s++) {
+    const lift = Math.round(h * (0.12 + s * 0.23));
+    for (let k = 0; k <= len; k++) { const f = k / len; T.px(f0[0] + (f1[0] - f0[0]) * f, f0[1] + (f1[1] - f0[1]) * f - lift, IC.w3); }
+    for (let k = 0; k < 6; k++) {
+      const f = (k + 0.6) / 6.4, px = f0[0] + (f1[0] - f0[0]) * f, py = f0[1] + (f1[1] - f0[1]) * f - lift - 1, c = cols[(k * 3 + s * 2) % cols.length], tall = 2 + ((k + s) % 3);
+      for (let j = 0; j < tall; j++) { T.px(px, py - j, c); T.px(px + 1, py - j, c); }
+      T.px(px, py - tall, IC.white);
+    }
+  }
+}
+/** A wooden barrel with iron hoops, full to the top. */
+function woodBarrel(t, T, cx, cy, fill) {
+  const r = t * 0.3, h = Math.round(t * 0.7);
+  T.cyl(cx, cy, r, h, IC.w0, IC.w1, IC.w2);
+  for (const k of [0.2, 0.75]) T.disc(cx, cy - h * k, r + 0.5, (x) => x < cx ? IC.s2 : IC.s3, r / 2 * 0.25);
+  T.disc(cx, cy - h, r * 0.8, fill);
+}
 const ISO_ART = {
   lamp(t, T, ax, ay, o) {
     const cx = ax, cy = ay + t / 2, top = cy - t * 1.7;
@@ -944,6 +975,144 @@ const ISO_ART = {
     ring(7, t * 0.34, t * 0.14, t * 0.07, t * 0.12, IC.g0, IC.g1, 0.65);
     ring(5, t * 0.2, t * 0.1, t * 0.13, t * 0.16, IC.b0, IC.g0, 1.2);
     T.ball(cx, top - t * 0.16, Math.max(1.5, t * 0.05), IC.white, IC.b0, IC.g0);
+  },
+  // ---- the shop
+  shelves(t, T, ax, ay) {
+    // tall shelves against the wall, full of jars, packets and loaves
+    shopShelf(T, ax, ay + 1, t - 2, t * 0.24, Math.round(t * 2.1), 1);
+  },
+  shelves2(t, T, ax, ay) {
+    // the same along the other wall: seed packets, in rows
+    shopShelf(T, ax, ay + 1, t * 0.24, t - 2, Math.round(t * 2.1), -1);
+  },
+  counter(t, T, ax, ay) {
+    // a wooden counter with a cloth runner, a cookie jar, a basket of berries, scales and a brass bell
+    const a = t - 2, b = t * 0.4, h = Math.round(t * 0.8), x = ax, y = ay + t * 0.1;
+    const q = T.box(x, y, a, b, h, IC.w0, IC.w2, IC.w3);
+    for (let k = 1; k < 4; k++) T.line(q.Bv[0] + k * a / 2, q.Bv[1] + k * a / 4 - 1, q.Bv[0] + k * a / 2, q.Bv[1] + k * a / 4 - h + 2, IC.w3);
+    T.box(x + 2, y + 1 - h, a - 2, b * 0.45, 1, IC.p1, IC.p2, IC.p3, false);
+    const on = f => [x - b + a * f * 2, y + b / 2 + a * f - h];
+    { const [jx, jy] = on(0.3); T.cyl(jx, jy, t * 0.17, Math.round(t * 0.4), IC.b0, IC.b0, IC.b1); T.cyl(jx, jy - Math.round(t * 0.4), t * 0.12, 1, IC.w1, IC.w1, IC.w2); for (const [dx, dy] of [[-1, -2], [1, -4], [0, -6], [-2, -5]]) T.px(jx + dx, jy + dy, IC.w1); }
+    { const [bx, by] = on(0.62); T.cyl(bx, by, t * 0.18, Math.round(t * 0.16), IC.w1, IC.w1, IC.w2); for (let k = 0; k < 6; k++) T.ball(bx - 3 + (k % 3) * 3, by - t * 0.16 - 1 - Math.floor(k / 3) * 2, 1.4, IC.l1, IC.l3, IC.l4); }
+    { const [sx, sy] = on(0.9); T.line(sx, sy, sx, sy - t * 0.45, IC.w2); T.line(sx - 5, sy - t * 0.45, sx + 5, sy - t * 0.45, IC.y1); T.disc(sx - 5, sy - t * 0.3, 3, IC.y1); T.disc(sx + 5, sy - t * 0.3, 3, IC.y1); }
+    { const [bx, by] = on(1.15); T.ball(bx, by - 2, 2.2, IC.y0, IC.y1, IC.w2); T.px(bx, by - 5, IC.w2); }
+  },
+  crates(t, T, ax, ay) {
+    const cx = ax, cy = ay + t / 2, a = t * 0.4, b = t * 0.4, h = Math.round(t * 0.46);
+    const one = (x, y, hh, top) => { const q = T.box(x, y, a, b, hh, top, IC.w2, IC.w3); T.line(q.Bv[0], q.Bv[1] - 1, q.Buv[0], q.Buv[1] - hh + 1, IC.w3); T.line(q.Buv[0], q.Buv[1] - 1, q.Bu[0], q.Bu[1] - hh + 1, IC.w3); return q; };
+    one(cx, cy - a, h, IC.w1); const q = one(cx + 1, cy - a - h, Math.round(h * 0.8), IC.w1);
+    for (let k = 0; k < 4; k++) T.ball(q.top[0] - 2 + k * 2, q.top[1] + a * 0.6 + (k % 2), 1.5, IC.r1, IC.r1, IC.r2);
+  },
+  sacks(t, T, ax, ay) {
+    // fat sacks of flour and seeds, tied at the top
+    const cx = ax, cy = ay + t / 2;
+    for (const [dx, dy, r, c] of [[-t * 0.2, -t * 0.05, t * 0.32, [IC.s0, IC.s1, IC.s2]], [t * 0.22, t * 0.06, t * 0.28, [IC.w0, IC.w1, IC.w2]], [0, t * 0.16, t * 0.22, [IC.g0, IC.g1, IC.g2]]]) {
+      T.ball(cx + dx, cy + dy - r, r, ...c, r * 1.15); T.px(cx + dx, cy + dy - r * 2.2, IC.w3); T.px(cx + dx + 1, cy + dy - r * 2.3, IC.w3);
+    }
+  },
+  barrel(t, T, ax, ay) { woodBarrel(t, T, ax, ay + t / 2, IC.b1); },
+  barrel2(t, T, ax, ay) { woodBarrel(t, T, ax, ay + t / 2, IC.b2); },
+  // ---- the forge
+  furnace(t, T, ax, ay, o) {
+    // a big stone furnace: a glowing arched mouth, a chimney up the wall, sparks
+    const a = t * 0.95, b = t * 0.85, h = Math.round(t * 1.25), x = ax, y = ay + 2, f = (o.frame || 0) % 3;
+    const q = T.box(x, y, a, b, h, IC.s1, IC.s2, IC.s3);
+    for (let r = 1; r < 4; r++) for (let k = 0; k < 2 * b; k += 4) T.px(q.Bv[0] + k + (r % 2) * 2, q.Bv[1] + k / 2 - r * h / 4, IC.s3);
+    T.box(x + a * 0.5, y - h + a * 0.25, t * 0.28, t * 0.28, Math.round(t * 1.2), IC.s2, IC.s3, IC.s4);
+    const mx = (q.Bv[0] + q.Buv[0]) / 2, my = (q.Bv[1] + q.Buv[1]) / 2, mw = b * 0.55, mh = h * 0.55;
+    T.poly([[mx - mw, my - mw / 2], [mx + mw, my + mw / 2], [mx + mw, my + mw / 2 - mh], [mx, my - mh * 1.2], [mx - mw, my - mw / 2 - mh]], IC.ink2);
+    T.poly([[mx - mw + 2, my - mw / 2], [mx + mw - 2, my + mw / 2], [mx + mw - 2, my + mw / 2 - mh * (0.55 + f * 0.1)], [mx - mw + 2, my - mw / 2 - mh * (0.7 - f * 0.08)]], IC.r1);
+    T.poly([[mx - mw + 4, my - mw / 2 + 1], [mx + mw - 4, my + mw / 2 - 1], [mx + mw - 4, my + mw / 2 - mh * 0.3], [mx - mw + 4, my - mw / 2 - mh * 0.35]], f === 2 ? IC.y0 : IC.y1);
+    T.glow(mx, my, t * 1.6, IC.y1, 0.35);
+    for (let k = 0; k < 4; k++) T.px(mx - 4 + k * 3 + f, my - mh - 3 - ((k + f) % 3) * 3, k % 2 ? IC.y0 : IC.r1);
+  },
+  anvil(t, T, ax, ay) {
+    // a dark anvil on a stump, a hammer leaning on it
+    const cx = ax, cy = ay + t / 2;
+    T.cyl(cx, cy, t * 0.28, Math.round(t * 0.34), IC.w1, IC.w2, IC.w3);
+    const top = cy - Math.round(t * 0.34);
+    T.box(cx - 1, top - t * 0.12, t * 0.14, t * 0.1, Math.round(t * 0.16), IC.s3, IC.s4, IC.ink2);
+    T.box(cx - t * 0.26, top - t * 0.36, t * 0.44, t * 0.16, Math.round(t * 0.18), IC.s1, IC.s3, IC.s4);
+    T.poly([[cx + t * 0.62, top - t * 0.36], [cx + t * 1.0, top - t * 0.26], [cx + t * 0.62, top - t * 0.22]], IC.s2);
+    T.line(cx - t * 0.6, cy, cx - t * 0.3, top - t * 0.3, IC.w2); T.box(cx - t * 0.42, top - t * 0.5, 2, 2, 3, IC.s1, IC.s2, IC.s3);
+  },
+  coalbin(t, T, ax, ay) {
+    const cx = ax, cy = ay + t / 2, a = t * 0.4, b = t * 0.34, h = Math.round(t * 0.36);
+    const q = T.box(cx, cy - a, a, b, h, IC.w2, IC.w3, IC.ink2);
+    for (let k = 0; k < 14; k++) T.ball(q.top[0] - b + 2 + pxHash(k, 2) * (a + b) * 1.4, q.top[1] + 2 + pxHash(k, 5) * a * 0.9, 1.3, k % 5 ? IC.s4 : IC.r1, k % 5 ? IC.ink2 : IC.r2, IC.ink);
+  },
+  rack(t, T, ax, ay) {
+    // a wall rack of hammers, big and small, and a pair of tongs
+    const a = t - 2, x = ax, y = ay + 1, h = Math.round(t * 1.5);
+    T.box(x, y - h * 0.7, a, 1, 2, IC.w1, IC.w2, IC.w3);
+    for (let k = 0; k < 5; k++) { const px = x + 4 + k * (2 * a - 8) / 4, py = y - h * 0.7 + (px - x) / 2 + 3, len = t * (0.5 + (k % 3) * 0.15); T.line(px, py, px, py + len, IC.w2); T.box(px - 2, py + len, 2, 1, 3, IC.s1, IC.s2, IC.s3); }
+  },
+  // ---- the explorers' camp
+  tent(t, T, ax, ay) {
+    // a canvas tent with its flap tied open, a lantern inside and a little flag on top
+    const x = ax, y = ay + t * 0.15, a = t * 0.98, b = t * 0.9, h = Math.round(t * 1.45);
+    const right = [x + 2 * a, y + a], left = [x - 2 * b, y + b], front = [x + 2 * a - 2 * b, y + a + b];
+    const ridge0 = [x - b + 0.5, y + b / 2 - h], ridge1 = [x + 2 * a - b, y + a + b / 2 - h];
+    T.poly([left, front, ridge1, ridge0], (px, py) => (px + py) % 9 === 0 ? IC.w0 : IC.y1);
+    T.poly([front, right, ridge1], IC.w1);
+    const d0 = [(left[0] * 0.35 + front[0] * 0.65), (left[1] * 0.35 + front[1] * 0.65)];
+    T.poly([[d0[0] - 6, d0[1] - 3], [d0[0] + 6, d0[1] + 3], [ridge1[0] - b * 0.35, ridge1[1] + h * 0.3]], IC.ink2);
+    T.glow(d0[0], d0[1] - 5, t * 0.5, IC.y0, 0.5); T.px(d0[0], d0[1] - 5, IC.y0); T.px(d0[0] + 1, d0[1] - 5, IC.y1);
+    for (let k = 0; k < 9; k++) T.px(ridge1[0], ridge1[1] - k, IC.w3);
+    T.poly([[ridge1[0], ridge1[1] - 9], [ridge1[0] + 6, ridge1[1] - 7], [ridge1[0], ridge1[1] - 5]], IC.r1);
+    T.line(front[0], front[1], front[0] + 5, front[1] + 4, IC.w3); T.line(left[0], left[1], left[0] - 5, left[1] + 3, IC.w3);
+  },
+  campfire(t, T, ax, ay, o) {
+    const cx = ax, cy = ay + t / 2, f = (o.frame || 0) % 4;
+    T.glow(cx, cy - 4, t * 1.8, IC.y1, 0.32);
+    for (let k = 0; k < 9; k++) { const an = k / 9 * TAU; T.ball(cx + Math.cos(an) * t * 0.36, cy + Math.sin(an) * t * 0.18, 2, IC.s1, IC.s2, IC.s3); }
+    T.box(cx - t * 0.3, cy - 2, t * 0.3, 1, 2, IC.w1, IC.w2, IC.w3); T.box(cx + t * 0.05, cy - 4, 1, t * 0.3, 2, IC.w1, IC.w2, IC.w3);
+    const tall = t * 0.75;
+    for (const [dx, k0, w] of [[0, 1, 3], [-3, 0.7, 2], [3, 0.8, 2]]) {
+      const hh = Math.round(tall * k0 * (f % 2 ? 1 : 0.88));
+      for (let k = 0; k < hh; k++) { const sway = Math.round(Math.sin((k + f * 2) * 0.6) * (k / hh) * 1.5), ww = Math.max(1, Math.round(w * (1 - k / hh))); for (let j = -ww + 1; j < ww; j++) T.px(cx + dx + sway + j, cy - 2 - k, k < hh * 0.35 ? IC.y0 : k < hh * 0.7 ? IC.y1 : IC.r1); }
+    }
+    T.px(cx - 2 + f, cy - tall - 3 - f, IC.y0); T.px(cx + 3 - f, cy - tall - 6, IC.r1);
+  },
+  logs(t, T, ax, ay) {
+    // two logs to sit on, cut ends showing their rings
+    const x = ax, y = ay + t * 0.2;
+    for (const [dx, dy] of [[0, 0], [-t * 0.5, t * 0.32]]) {
+      T.box(x + dx, y + dy, t * 0.88, t * 0.2, Math.round(t * 0.36), IC.w1, IC.w2, IC.w3);
+      const ex = x + dx + t * 1.76 - t * 0.4, ey = y + dy + t * 0.88 + t * 0.2 - t * 0.2;
+      T.ball(ex, ey - t * 0.12, t * 0.2, IC.w0, IC.w0, IC.w1); T.px(ex, ey - t * 0.12, IC.w2); T.px(ex + 2, ey - t * 0.12, IC.w2);
+    }
+  },
+  packs(t, T, ax, ay) {
+    // two backpacks, a bedroll and a rolled-up map
+    const cx = ax, cy = ay + t / 2;
+    T.box(cx - t * 0.3, cy - t * 0.5, t * 0.22, t * 0.18, Math.round(t * 0.5), IC.g1, IC.g2, IC.g3); T.ball(cx - t * 0.3, cy - t * 0.5 - t * 0.45, t * 0.16, IC.g0, IC.g1, IC.g2, t * 0.1);
+    T.box(cx + t * 0.15, cy - t * 0.35, t * 0.2, t * 0.16, Math.round(t * 0.42), IC.r1, IC.r2, IC.r3);
+    T.cyl(cx, cy + t * 0.1, t * 0.12, 2, IC.y0, IC.w0, IC.w1); T.line(cx - t * 0.4, cy + t * 0.2, cx + t * 0.3, cy + t * 0.05, IC.b2);
+  },
+  camplamp(t, T, ax, ay) { ISO_ART.lamppost(t, T, ax, ay); },
+  // ---- the lab
+  labdesk(t, T, ax, ay) {
+    // a long desk with bubbling flasks, a brass microscope and a stack of notes
+    const a = t - 2, b = t * 0.4, h = Math.round(t * 0.7), x = ax, y = ay + 1;
+    T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
+    const on = f => [x - b + a * f * 2, y + b / 2 + a * f - h];
+    for (const [f, c, hh] of [[0.25, IC.g0, 0.5], [0.48, IC.p1, 0.62], [0.7, IC.b0, 0.42]]) { const [fx, fy] = on(f); T.cyl(fx, fy, t * 0.1, Math.round(t * hh * 0.45), IC.white, c, c); T.ball(fx, fy - t * hh * 0.45, t * 0.13, IC.white, c, c); T.px(fx, fy - t * hh - 2, IC.white); T.px(fx + 1, fy - t * hh - 4, c); }
+    { const [mx, my] = on(0.95); T.box(mx - 2, my - 1, 3, 3, 2, IC.y1, IC.w2, IC.w2); T.line(mx, my - 3, mx + 3, my - 12, IC.y1); T.line(mx + 1, my - 3, mx + 4, my - 12, IC.w2); T.ball(mx + 4, my - 13, 2, IC.y0, IC.y1, IC.w2); }
+    { const [nx, ny] = on(1.2); for (let k = 0; k < 4; k++) T.box(nx - 3, ny - k, 3, 2, 1, k % 2 ? IC.white : IC.s0, IC.s1, IC.s2, false); }
+  },
+  jars(t, T, ax, ay) {
+    // a tall cabinet of specimen jars, glowing faintly
+    const cx = ax, cy = ay + t / 2, a = t * 0.4, b = t * 0.34, h = Math.round(t * 1.8);
+    const q = T.box(cx, cy - a, a, b, h, IC.l3, IC.l4, IC.ink2);
+    for (let s = 0; s < 4; s++) for (let k = 0; k < 2; k++) { const px = q.Bv[0] + 3 + k * 5, py = q.Bv[1] - h * (0.18 + s * 0.22) + k * 2.5; T.ball(px, py, 2, IC.white, [IC.g0, IC.b0, IC.p0, IC.y0][(s + k) % 4], IC.l3); }
+    T.glow(q.Bv[0] + 5, q.Bv[1] - h * 0.5, t * 0.8, IC.g0, 0.2);
+  },
+  scope(t, T, ax, ay) { ISO_ART.telescope(t, T, ax, ay); },
+  books(t, T, ax, ay) {
+    // piles of fat old books
+    const cx = ax, cy = ay + t / 2, cols = [[IC.r1, IC.r2], [IC.b1, IC.b2], [IC.g1, IC.g2], [IC.y1, IC.w2], [IC.l2, IC.l4]];
+    for (let k = 0; k < 7; k++) { const [c1, c2] = cols[k % 5], dx = (pxHash(k, 1) - 0.5) * 3; T.box(cx - t * 0.25 + dx, cy - t * 0.35 - k * 3, t * 0.32, t * 0.2, 3, IC.s0, c1, c2); }
   },
   garden(t, T, ax, ay, o) {
     // a long wooden planter over two tiles, a rim of lighter boards, dark soil inside, three plots along it
@@ -1777,7 +1946,7 @@ let decorK = 1;
 
 /** The isometric room's furniture, back to front: the pixel pieces on the floor, then the swing and the lights on the walls. */
 function drawRoomIso() {
-  drawBaked(isoRug(hasDecor("rug")));
+  if (!isPlace()) drawBaked(isoRug(hasDecor("rug")));
   if (arrange.on) drawArrangeGrid();
   if (hasDecor("cushion")) drawCloudShadow();
   drawWeatherGround();

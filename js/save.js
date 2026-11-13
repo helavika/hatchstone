@@ -482,7 +482,7 @@ function currentTheme() {
   const c = game.scene === "crack" && game.egg && game.egg.conf;
   if (c) return c.moon ? "churchyard" : c.wander ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
   const fits = roomThemes();
-  return THEME[save.theme] && THEME[save.theme].ok() && fits.includes(save.theme) ? save.theme : fits[0];
+  return THEME[save.theme] && (THEME[save.theme].ok() || isPlace()) && fits.includes(save.theme) ? save.theme : fits[0];
 }
 /** Which backdrops suit the room you're in: the nest is always in a cave, outside is always under the sky, the other rooms take any. */
 function roomThemes(i = save.room) {

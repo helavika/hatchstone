@@ -7,10 +7,12 @@
 function renderNest(full) {
   if (game.scene === "nest") { syncActors(); setHint(nestHint()); }
   const cr = activeCreature();
-  const hasAny = !!cr;
-  $("nestTop").hidden = !hasAny;
-  $("nestBottom").hidden = !hasAny;
-  if (!hasAny) return;
+  const hasAny = !!cr, place = isPlace();
+  $("nestTop").hidden = !hasAny || place;
+  $("nestBottom").hidden = !hasAny || place;
+  renderPlaceBar();
+  if (place) { $("roomNav").hidden = true; $("roomLabel").hidden = false; $("roomName").textContent = roomName(save.room); }
+  if (!hasAny || place) return;
   applyTime(cr);
   const sp = specOf(cr);
   $("nestName").textContent = cr.name;
@@ -225,12 +227,12 @@ function renderShopPick() {
 const ripePlots = () => (save.garden?.slots || []).filter(q => q && SEEDS[q.seed] && stageOf2(q) === 3).length;
 const WORLD = [
   { id: "grotto", name: "Grotto", icon: "grotto", at: [27, 12], note: () => !moonDone() ? tr("today's moon egg 🌙") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone(), go: () => setScene("map") },
-  { id: "forge", name: "The Forge", icon: "hammer", at: [74, 18], ok: () => unlocked(4) || Object.keys(save.forge || {}).length > 0, how: () => tr("clear level {0}", 3), note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: openForge },
+  { id: "forge", name: "The Forge", icon: "hammer", at: [74, 18], ok: () => unlocked(4) || Object.keys(save.forge || {}).length > 0, how: () => tr("clear level {0}", 3), note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: () => arriveAt("forge") },
   { id: "nest", name: "Nest", icon: "nest", at: [27, 38], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
-  { id: "lab", name: "Laboratory", icon: "flask", at: [74, 42], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => { ensureLab(); toRoomKind("lab"); } },
-  { id: "shop", name: "Shop", icon: "stall", at: [27, 64], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: openMarket },
+  { id: "lab", name: "Laboratory", icon: "flask", at: [74, 42], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => arriveAt("lab") },
+  { id: "shop", name: "Shop", icon: "stall", at: [27, 64], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: () => arriveAt("shop") },
   { id: "garden", name: "Garden", icon: "sun", at: [74, 66], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : wickHere() ? tr("Wick is visiting today") : tr("grows what no shop sells"), call: () => ripePlots() > 0 || wickHere(), go: () => toRoomKind("yard") },
-  { id: "trail", name: "Expeditions", icon: "compass", at: [50, 88], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: openTrips },
+  { id: "trail", name: "Expeditions", icon: "compass", at: [50, 88], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: () => arriveAt("camp") },
 ];
 const WORLD_PATHS = [["nest", "grotto"], ["nest", "lab"], ["nest", "shop"], ["grotto", "forge"], ["lab", "forge"], ["lab", "garden"], ["shop", "garden"], ["shop", "trail"], ["garden", "trail"]];
 const placeOk = id => { const w = WORLD.find(x => x.id === id); return !w.ok || w.ok(); };
@@ -755,7 +757,10 @@ const ROOM_KINDS = [
   { id: "play", name: "Playroom", cost: 250 },
   { id: "garden", name: "Garden room", cost: 500, theme: "glowcap" },
   { id: "study", name: "Crystal study", cost: 900, theme: "celestite" },
-  { id: "lab", name: "Laboratory" },
+  { id: "lab", name: "Laboratory", place: true, theme: "celestite" },
+  { id: "shop", name: "Shop", place: true, theme: "abbey" },
+  { id: "forge", name: "The Forge", place: true, theme: "malachite" },
+  { id: "camp", name: "Explorers' camp", place: true, theme: "glowcap" },
 ];
 /** What each room keeps for itself (the room you're in keeps them in the save as usual; the others are packed away in save.rooms). */
 const ROOM_KEYS = ["layout", "cloud", "theme", "jukebox"];
@@ -769,15 +774,100 @@ const roomName = i => tr(roomKind(i).name);
 const incHere = () => save.rooms[save.room]?.kind === "lab";
 /** The lab opens once two glowlings could share an egg (or you've already used the incubator). */
 const labOk = () => !!save.incubator || save.creatures.some(c => c.sp === "hybrid") || save.creatures.filter(c => c.level >= PAIR_LEVEL).length >= 2;
-function ensureLab() {
-  if (save.rooms.some(r => r.kind === "lab")) return false;
-  return !!save.rooms.push({ kind: "lab", on: [], theme: "celestite" });
+function ensureLab() { return ensurePlace("lab"); }
+/** A place on the map is a room of its own, furnished, with its keeper in it: made the first time you go. */
+function ensurePlace(kind) {
+  if (save.rooms.some(r => r.kind === kind)) return false;
+  return !!save.rooms.push({ kind, on: [], theme: ROOM_KINDS.find(k => k.id === kind).theme });
 }
-/** Rooms the arrows step through: the garden outside stays closed until the map shows it. */
-const roomOpen = i => !isOutside(i) || placeOk("garden");
+/** Is this room one of the map's places (the shop, the forge, the camp, the lab) rather than a home for glowlings? */
+const isPlace = (i = save.room) => !!ROOM_KINDS.find(k => k.id === save.rooms[i]?.kind)?.place;
+/** Rooms the arrows step through: homes only, and the garden outside once the map shows it. */
+const roomOpen = i => !isPlace(i) && (!isOutside(i) || placeOk("garden"));
 function stepRoom(dir) {
   for (let k = 1; k < save.rooms.length; k++) { const i = ((save.room + dir * k) % save.rooms.length + save.rooms.length) % save.rooms.length; if (roomOpen(i)) return i; }
   return save.room;
+}
+// ---------- the places' keepers: each place on the map has someone who runs it ----------
+
+const TANSY = { name: "Tansy", face: () => pxIcon("tansy"), voice: { f: 330, wave: "triangle", spread: 0.25, glide: 1.05, gain: 0.06, len: 0.06 } };
+const EMBER = { name: "Ember", face: () => pxIcon("ember"), voice: { f: 150, wave: "square", spread: 0.18, glide: 0.9, gain: 0.03, len: 0.08 } };
+const PIP = { name: "Pip", face: () => pxIcon("pip"), voice: { f: 520, wave: "sine", spread: 0.35, glide: 1.15, gain: 0.07, len: 0.05 } };
+const OLLO = { name: "Ollo", face: () => pxIcon("ollo"), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
+const HEROES = {
+  shop: { who: TANSY, icon: "tansy", at: [0.5, 0.42], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
+    hello: ["Welcome, welcome! Mind the sacks, they're full of seeds.", "Food, furniture, seeds: if it's on a shelf, it's for sale.", "Furniture goes into your chest. Food goes into your basket."],
+    lines: ["Fresh cookies today. Well, fresh-ish.", "Moonberries are flying off the shelf!", "Starfruit? Oh no, that only grows in a garden. Not here.", "A tidy nest is a happy nest, I always say.", "Wick sells odd things. I sell sensible things."] },
+  forge: { who: EMBER, icon: "ember", at: [0.42, 0.6], role: "works the forge", act: [["hammer", "Forge", () => openForge()]],
+    hello: ["Hah! Another egg-cracker. Come in, it's warm.", "A better hammer cracks harder stone. Bring shards and I'll make you one.", "And spare geodes? Melt them down at my workbench."],
+    lines: ["Hot today. It's always hot today.", "The deeper caves have stubborn stone. Sharpen up!", "I once forged a hammer so light it floated off. Never again.", "Tap where it glows. That's the weak spot. Everyone forgets."] },
+  camp: { who: PIP, icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
+    hello: ["Oh! Hello! I'm Pip, I map the tunnels. Well, I try.", "Send me a glowling and we'll go exploring for a few hours.", "We always come back with something: seeds, shards, the odd geode."],
+    lines: ["I've drawn this map three times. The tunnels keep moving.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it."] },
+  lab: { who: OLLO, icon: "ollo", at: [0.55, 0.36], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
+    hello: ["Hoo. A visitor. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby mixes them both.", "Stroke the egg to keep it warm. It hatches faster."],
+    lines: ["Fascinating. Truly fascinating. Hoo.", "No two mixed eggs are alike. I've checked. Many times.", "Glowlings glow brighter when they're happy. I measured it.", "Please don't touch the green jar."] },
+};
+const heroHere = () => HEROES[save.rooms[save.room]?.kind] || null;
+const heroSpot = () => { const h = heroHere(); return isoAt(h.at[0], h.at[1]); };
+const heroImgs = {};
+function drawHero() {
+  const h = heroHere(), img = heroImgs[h.icon] || (heroImgs[h.icon] = Object.assign(new Image(), { src: pxIcon(h.icon) }));
+  const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time;
+  const hop = game.hero && t - game.hero.t < 500 ? Math.sin((t - game.hero.t) / 500 * Math.PI) * s * 0.18 : 0;
+  const breathe = 1 + Math.sin(t * 0.004) * 0.03;
+  ctx.fillStyle = "rgba(5,0,20,.35)"; ctx.beginPath(); ctx.ellipse(x, y, s * 0.36, s * 0.1, 0, 0, TAU); ctx.fill();
+  ctx.imageSmoothingEnabled = false;
+  if (img.complete) ctx.drawImage(img, Math.round(x - s / 2), Math.round(y - s * breathe - hop), s, Math.round(s * breathe));
+  // what they just said, in a little bubble over their head
+  const say = game.hero && game.hero.room === save.room && t - game.hero.t < 4200 ? game.hero.line : "";
+  if (say) drawBubble(x, y - s * 1.1 - hop, say, clamp(1 - (t - game.hero.t - 3600) / 600, 0, 1));
+}
+function drawBubble(x, y, text, alpha = 1) {
+  const size = Math.round(clamp(N.base * 0.2, 14, 18)), maxW = Math.min(W * 0.7, 260);
+  fx.save(); fx.globalAlpha = alpha; fx.font = `400 ${size}px ${PIXEL_FONT}`;
+  const words = text.split(" "), rows = [""];
+  for (const w of words) { const tryRow = rows[rows.length - 1] ? rows[rows.length - 1] + " " + w : w; if (fx.measureText(tryRow).width > maxW && rows[rows.length - 1]) rows.push(w); else rows[rows.length - 1] = tryRow; }
+  const lh = size * 1.1, bw = Math.max(...rows.map(r => fx.measureText(r).width)) + 16, bh = rows.length * lh + 10;
+  const bx = clamp(x - bw / 2, 8, W - bw - 8), by = y - bh - 8;
+  fx.fillStyle = "#160c26"; fx.fillRect(bx - 2, by - 2, bw + 4, bh + 4);
+  fx.fillStyle = "#efe6ff"; fx.fillRect(bx, by, bw, bh);
+  fx.fillRect(x - 4, by + bh, 8, 4); fx.fillRect(x - 2, by + bh + 4, 4, 3);
+  fx.fillStyle = "#160c26"; fx.textAlign = "left"; fx.textBaseline = "top";
+  rows.forEach((r, k) => fx.fillText(r, bx + 8, by + 6 + k * lh));
+  fx.restore();
+}
+const heroAt = (x, y) => { if (!heroHere() || !N.iso) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.55 && y < hy + N.base * 0.15 && y > hy - N.base * 1.2; };
+const propAt = (x, y) => Object.values(isoLayout().placed).some(p => PLACE_PROPS.has(p.id) && pieceHits[p.id] && spriteHit(pieceHits[p.id].c, pieceHits[p.id].x, pieceHits[p.id].y, x, y));
+/** Tapping the keeper (or their counter, anvil, fire): a hop, a line, and what they do for you. */
+function tapHero() {
+  const h = heroHere(); if (!h) return;
+  for (let k = 0; k < 4; k++) setTimeout(() => sfx.voice(h.who.voice), k * 90);
+  const seen = save.heroTalk?.[save.rooms[save.room].kind] || 0;
+  const line = tr(seen < h.hello.length ? h.hello[seen] : pick(h.lines));
+  save.heroTalk = { ...save.heroTalk, [save.rooms[save.room].kind]: seen + 1 };
+  game.hero = { t: game.time, line, room: save.room };
+  persist(); renderPlaceBar();
+}
+/** The bar under a place: who runs it, and the one thing to do there. */
+function renderPlaceBar() {
+  const h = isPlace() && heroHere(), bar = $("placeBar");
+  bar.hidden = !h || game.scene !== "nest";
+  if (!h) return;
+  $("placeFace").src = pxIcon(h.icon);
+  $("placeWho").textContent = tr(h.who.name);
+  $("placeRole").textContent = tr(h.role);
+  $("placeActs").innerHTML = h.act.map(([icon, name], k) => `<button class="act buy" data-act="${k}">${ic(icon)}${tr(name)}</button>`).join("")
+    + `<button class="act" id="placeTalk">${ic("scroll")}${tr("Chat")}</button>`;
+  $$("#placeActs [data-act]").forEach(b => b.addEventListener("click", () => { sfx.tick(); h.act[Number(b.dataset.act)][2](); }));
+  $("placeTalk").addEventListener("click", tapHero);
+}
+/** Arriving at a place: its keeper says hello. */
+function arriveAt(kind) {
+  ensurePlace(kind);
+  toRoomKind(kind);
+  const h = HEROES[kind];
+  if (h && !(save.heroTalk || {})[kind]) setTimeout(tapHero, 500);
 }
 /** Which room a decoration stands in, or -1 if it's in storage. */
 function decorRoom(id) {
@@ -819,7 +909,7 @@ function goRoom(i) {
 }
 /** Light the tab for where you are: outside in the nest scene is the Garden. */
 /** Out in one of the map's places (the garden, the lab) rather than at home. */
-const awayPlace = () => ["yard", "lab"].includes(save.rooms[save.room]?.kind);
+const awayPlace = () => isOutside() || isPlace();
 function litTabs() {
   const out = game.scene === "nest" && awayPlace();
   $$("#tabs [data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === game.scene && !(out && b.dataset.tab === "nest")));
@@ -940,7 +1030,7 @@ function settleHome() {
   return sent;
 }
 /** Which room a glowling lives in (the nest, if its room is gone), and who lives in a room. */
-function roomOf(c) { return (c.room || 0) < save.rooms.length ? c.room || 0 : 0; }
+function roomOf(c) { const r = c.room || 0; return r < save.rooms.length && !isPlace(r) ? r : 0; }
 function residents(r) { return save.creatures.filter(c => !c.out && roomOf(c) === r); }
 /** Move a glowling to a room (calling it home if it's out): false if that room is full. */
 function moveGlowling(id, r) {
@@ -1016,7 +1106,7 @@ function openHome() {
   $("homeSub").textContent = tr("Each room fits {0} glowlings. Drag one onto another room to move it in, or tap it to look after it.", cap);
   const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><small>${c.name}</small>${c.trip ? `<small class="away">🧭 ${fmtLeft(Math.max(0, c.trip.until - Date.now()))}</small>` : c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
   const zone = (r, title, list, empty) => `<section class="res-zone${r === save.room ? " here" : ""}" data-room="${r}"><h3>${title}</h3><div class="home-grid">${list.map(card).join("") || `<p class="sub">${empty}</p>`}</div></section>`;
-  $("homeList").innerHTML = save.rooms.map((_, r) => zone(r, `${roomName(r)} <span>${residents(r).length}/${cap}</span>`, residents(r), tr("empty: drag someone here"))).join("")
+  $("homeList").innerHTML = save.rooms.map((_, r) => isPlace(r) ? "" : zone(r, `${roomName(r)} <span>${residents(r).length}/${cap}</span>`, residents(r), tr("empty: drag someone here"))).join("")
     + zone("out", `${tr("Exploring")} <span>${away.length}</span>`, away, tr("drag someone here to send them exploring"))
     + ((save.nestUp || 0) < NEST_UP_COST.length ? `<button class="act" id="nestUp" ${save.shards < NEST_UP_COST[save.nestUp || 0] ? "disabled" : ""}>${ic("nest")}${tr("Room for one more · ✦ {0}", NEST_UP_COST[save.nestUp || 0])}</button>` : `<p class="sub">${tr("The nest is as roomy as it gets ✦")}</p>`);
   $$("#homeList .res").forEach(b => b.addEventListener("pointerdown", dragResident));

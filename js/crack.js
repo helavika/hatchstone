@@ -1108,6 +1108,7 @@ function nestHint() {
   const cr = activeCreature(), call = cr && callOf(cr);
   if (call) return { hungry: tr("{0} is hungry: give it a snack", cr.name), sleepy: tr("{0} is sleepy: tuck it in", cr.name), messy: tr("dust bunnies! tap them to sweep the nest"), lonely: tr("{0} feels lonely: pet it or play", cr.name) }[call];
   if (!tipDone("call")) return tr("tip: hold a finger on the floor to call everyone");
+  if (isPlace()) return heroHere() ? tr("tap {0} to chat", tr(heroHere().who.name)) : "";
   if (isOutside() && !tipDone("garden")) return tr("tip: tap the garden bed to plant seeds 🌱");
   if (!tipDone("decorTap") && DECOR.some(d => hasDecor(d.id) && d.id !== "rug")) return tr("tip: tap your decorations to play with them ✦");
   if (save.incubator && Date.now() >= save.incubator.due) return incHere() ? tr("the egg is ready: tap it three times to hatch ✦") : tr("the egg in the lab is ready to hatch 🧪");

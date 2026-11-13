@@ -7,7 +7,7 @@
 /** Where each piece was drawn last, for tapping it (see spriteHit). */
 const pieceHits = {};
 /** What a piece's picture depends on right now (the lamp being off, the pond's ripple frame...). */
-const pieceExtra = p => p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
+const pieceExtra = p => p.id === "campfire" ? { frame: Math.floor(game.time / 160) % 4 } : p.id === "furnace" ? { frame: Math.floor(game.time / 220) % 3 } : p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
 
 const decorFx = {};
 let swingPush = 0;
@@ -38,7 +38,7 @@ function decorAt(x, y) {
     // the frontmost piece whose own pixels are under the finger; the swing's seat counts too
     let best = null;
     for (const p of Object.values(isoLayout().placed)) {
-      if (p.id === "bed" || p.id === "incubator") continue;
+      if (p.id === "bed" || p.id === "incubator" || (isPlace() && PLACE_PROPS.has(p.id))) continue;
       // not drawn yet (it was only just put out): its picture is made now
       let h = pieceHits[p.id];
       if (!h) { const f = isoPiece(p, pieceExtra(p)); h = pieceHits[p.id] = { c: f.c, x: f.x, y: f.y }; }
@@ -252,6 +252,11 @@ function drawNest() {
       if (item.after === "cushion") item.top = true;
     }
     items.push(item);
+  }
+  const h = heroHere();
+  if (h && N.iso) {
+    const [hx, hy] = heroSpot(), [u, v] = isoFrom(hx, hy);
+    items.push({ y: hy, draw: drawHero, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } });
   }
   if (isOutside() && N.iso && wickHere()) {
     const [wx, wy] = wickSpot(), [u, v] = isoFrom(wx, wy);
