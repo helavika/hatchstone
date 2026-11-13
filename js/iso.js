@@ -511,7 +511,39 @@ const IC = Object.fromEntries(Object.entries({
 }).map(([k, v]) => [k, pxHex(v)]));
 
 /** A little canvas in art pixels, with tools that draw on the 2:1 grid; an ink outline goes round everything at the end. */
-function isoArt(w, h, paint, { outline = true } = {}) {
+/**
+ * Material texture, applied to a finished piece: every pixel of a known ramp (wood, stone, metal, cloth, crystal…) is nudged
+ * one shade lighter or darker by noise shaped for that material, so surfaces read as grain, grit or weave instead of flat paint.
+ * Colours stay on the palette; only where each shade falls changes.
+ */
+const TEX_RAMPS = [
+  ["wood", ["w3", "w2", "w1", "w0"]], ["stone", ["s4", "s3", "s2", "s1", "s0"]], ["crystal", ["l4", "l3", "l2", "l1", "l0"]],
+  ["cloth", ["p3", "p2", "p1", "p0"]], ["metal", ["b3", "b2", "b1", "b0"]], ["leaf", ["g3", "g2", "g1", "g0"]], ["cloth", ["r3", "r2", "r1"]],
+];
+let texIndex = null;
+function texShade(kind, x, y) {
+  // positive: lighter, negative: darker
+  if (kind === "wood") { const g = pxNoise(x * 0.035, y * 0.3 + Math.floor(x / 31) * 3.1); if (pxHash(x >> 2, y >> 1) > 0.997) return -2; return g > 0.62 ? -1 : g < 0.2 ? 1 : 0; }
+  if (kind === "stone") { const g = pxFbm(x * 0.16, y * 0.16), sp = pxHash(x, y); return sp > 0.988 ? 1 : sp < 0.01 ? -1 : g > 0.69 ? -1 : g < 0.25 ? 1 : 0; }
+  if (kind === "metal") { const sc = Math.abs(pxNoise(x * 0.04 + y * 0.12, y * 0.04) - 0.5) < 0.02; return sc ? 1 : pxHash(x, y) > 0.97 ? -1 : 0; }
+  if (kind === "cloth") return (x + y) % 4 === 0 && pxHash(x >> 1, y >> 1) > 0.5 ? -1 : 0;
+  if (kind === "leaf") { const g = pxFbm(x * 0.3, y * 0.3); return g > 0.62 ? -1 : g < 0.32 ? 1 : 0; }
+  if (kind === "crystal") return pxHash(x, y) > 0.985 ? 1 : 0;
+  return 0;
+}
+function texturize(d, w, h, glowPx) {
+  if (!texIndex) { texIndex = new Map(); for (const [kind, ramp] of TEX_RAMPS) ramp.forEach((k, i) => { const c = IC[k]; texIndex.set((c[0] << 16) | (c[1] << 8) | c[2], { kind, ramp: ramp.map(n => IC[n]), i }); }); }
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const o = (y * w + x) * 4; if (d[o + 3] === 0 || glowPx.has(y * w + x)) continue;
+    const m = texIndex.get((d[o] << 16) | (d[o + 1] << 8) | d[o + 2]); if (!m) continue;
+    // wood is darkened a step overall: real timber is brown, not orange
+    const sh = texShade(m.kind, x, y) + (m.kind === "wood" ? -1 : 0); if (!sh) continue;
+    // (wood never brightens into its top highlight: that reads as straw)
+    const top = m.kind === "wood" && m.i < m.ramp.length - 1 ? m.ramp.length - 2 : m.ramp.length - 1;
+    const c = m.ramp[clamp(m.i + sh, 0, Math.max(top, m.i))]; d[o] = c[0]; d[o + 1] = c[1]; d[o + 2] = c[2];
+  }
+}
+function isoArt(w, h, paint, { outline = true, texture = true } = {}) {
   w = Math.ceil(w); h = Math.ceil(h);
   const c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
@@ -575,6 +607,7 @@ function isoArt(w, h, paint, { outline = true } = {}) {
     },
   };
   paint(T);
+  if (texture) texturize(d, w, h, T.glowPx);
   if (outline) {
     const solid = new Uint8Array(w * h);
     for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 0 && !T.glowPx.has(i) ? 1 : 0;
@@ -627,13 +660,13 @@ function autoFlip(id, i, j, flip) {
 const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] }, garden: { fw: 2, fd: 1, at: [1, 4] },
   // the places on the map come furnished, and that furniture stays put
   shelves: { fw: 2, fd: 1, at: [1, 0] }, shelves2: { fw: 1, fd: 2, at: [0, 2] }, counter: { fw: 2, fd: 1, at: [2, 3] }, crates: { fw: 1, fd: 1, at: [5, 4] }, sacks: { fw: 1, fd: 1, at: [4, 0] }, barrel: { fw: 1, fd: 1, at: [0, 5] },
-  furnace: { fw: 2, fd: 2, at: [1, 0] }, anvil: { fw: 1, fd: 1, at: [3, 3] }, coalbin: { fw: 1, fd: 1, at: [0, 3] }, rack: { fw: 2, fd: 1, at: [4, 0] }, barrel2: { fw: 1, fd: 1, at: [5, 4] },
+  furnace: { fw: 2, fd: 2, at: [1, 0] }, bellows: { fw: 1, fd: 1, at: [3, 0] }, anvil: { fw: 1, fd: 1, at: [3, 3] }, coalbin: { fw: 1, fd: 1, at: [0, 3] }, rack: { fw: 2, fd: 1, at: [4, 0] }, barrel2: { fw: 1, fd: 1, at: [2, 3] },
   tent: { fw: 2, fd: 2, at: [3, 0] }, campfire: { fw: 1, fd: 1, at: [2, 3] }, logs: { fw: 2, fd: 1, at: [0, 4] }, packs: { fw: 1, fd: 1, at: [1, 1] }, camplamp: { fw: 1, fd: 1, at: [5, 3] },
   greenhouse: { fw: 2, fd: 2, at: [0, 0] }, potting: { fw: 1, fd: 2, at: [0, 2] }, sunflowers: { fw: 1, fd: 1, at: [5, 3] }, barrow: { fw: 1, fd: 1, at: [3, 0] },
   tunnel: { fw: 2, fd: 1, at: [2, 0] }, wallmap: { fw: 1, fd: 2, at: [0, 1] }, altar: { fw: 1, fd: 1, at: [2, 3] }, shrine: { fw: 1, fd: 1, at: [4, 3] },
   labdesk: { fw: 2, fd: 1, at: [2, 0] }, jars: { fw: 1, fd: 1, at: [0, 1] }, scope: { fw: 1, fd: 1, at: [4, 4] }, books: { fw: 1, fd: 1, at: [5, 0] } };
 /** What each kind of room comes with (anything not listed has just its bed). */
-const ROOM_FIXED = { grotto: ["tunnel", "wallmap", "altar", "shrine"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
+const ROOM_FIXED = { grotto: ["tunnel", "wallmap", "altar", "shrine"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "bellows", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp"] };
 /** The places' own furniture: not decorations to play with. */
 const PLACE_PROPS = new Set(Object.values(ROOM_FIXED).flat().filter(id => !["bed", "garden", "incubator"].includes(id)));
 
@@ -1111,30 +1144,62 @@ const ISO_ART = {
     }
   },
   barrel(t, T, ax, ay) { woodBarrel(t, T, ax, ay + t / 2, IC.b1); },
-  barrel2(t, T, ax, ay) { woodBarrel(t, T, ax, ay + t / 2, IC.b2); },
+  barrel2(t, T, ax, ay) {
+    // the slack tub by the anvil: a wide half-barrel of dark water for quenching, a wisp of steam over it
+    const cx = ax, cy = ay + t / 2, r = t * 0.36, h = Math.round(t * 0.38);
+    T.cyl(cx, cy, r, h, IC.w0, IC.w1, IC.w2);
+    for (const k of [0.25, 0.8]) T.disc(cx, cy - h * k, r + 0.5, (x) => x < cx ? IC.s2 : IC.s3, r / 2 * 0.22);
+    T.disc(cx, cy - h, r * 0.86, (px, py) => pxHash(px >> 1, py) > 0.9 ? IC.b1 : IC.b3);
+    for (let k = 0; k < 6; k++) T.px(cx - 3 + k + Math.round(Math.sin(k) * 2), cy - h - 4 - k * 2, IC.s0);
+  },
   // ---- the forge
   furnace(t, T, ax, ay, o) {
-    // a big stone furnace: a glowing arched mouth, a chimney up the wall, sparks
-    const a = t * 0.95, b = t * 0.85, h = Math.round(t * 1.25), x = ax, y = ay + 2, f = (o.frame || 0) % 3;
-    const q = T.box(x, y, a, b, h, IC.s1, IC.s2, IC.s3);
-    for (let r = 1; r < 4; r++) for (let k = 0; k < 2 * b; k += 4) T.px(q.Bv[0] + k + (r % 2) * 2, q.Bv[1] + k / 2 - r * h / 4, IC.s3);
-    T.box(x + a * 0.5, y - h + a * 0.25, t * 0.28, t * 0.28, Math.round(t * 1.2), IC.s2, IC.s3, IC.s4);
-    const mx = (q.Bv[0] + q.Buv[0]) / 2, my = (q.Bv[1] + q.Buv[1]) / 2, mw = b * 0.55, mh = h * 0.55;
-    T.poly([[mx - mw, my - mw / 2], [mx + mw, my + mw / 2], [mx + mw, my + mw / 2 - mh], [mx, my - mh * 1.2], [mx - mw, my - mw / 2 - mh]], IC.ink2);
-    T.poly([[mx - mw + 2, my - mw / 2], [mx + mw - 2, my + mw / 2], [mx + mw - 2, my + mw / 2 - mh * (0.55 + f * 0.1)], [mx - mw + 2, my - mw / 2 - mh * (0.7 - f * 0.08)]], IC.r1);
-    T.poly([[mx - mw + 4, my - mw / 2 + 1], [mx + mw - 4, my + mw / 2 - 1], [mx + mw - 4, my + mw / 2 - mh * 0.3], [mx - mw + 4, my - mw / 2 - mh * 0.35]], f === 2 ? IC.y0 : IC.y1);
-    T.glow(mx, my, t * 1.6, IC.y1, 0.35);
-    for (let k = 0; k < 4; k++) T.px(mx - 4 + k * 3 + f, my - mh - 3 - ((k + f) % 3) * 3, k % 2 ? IC.y0 : IC.r1);
+    // a smith's hearth: a waist-high table of dressed stone with a bed of glowing coals on top, a stone hood over it and a chimney up the wall
+    const a = t * 0.95, b = t * 0.95, h = Math.round(t * 0.62), x = ax, y = ay + 2, f = (o.frame || 0) % 3;
+    const brick = (side) => (px, py) => { const row = Math.floor(py / 4), col = Math.floor((px + (row % 2) * 4) / 8); return (py % 4 === 0 || (px + (row % 2) * 4) % 8 === 0) ? IC.s4 : pxHash(col, row) > 0.5 ? (side ? IC.s2 : IC.s1) : (side ? IC.s3 : IC.s2); };
+    const q = T.box(x, y, a, b, h, IC.s1, brick(0), brick(1));
+    // the fire bed sunk into the top: coals dark at the rim, bright at the heart
+    const fx = q.top[0] - b + a, fy = q.top[1] + (a + b) / 2;
+    T.disc(fx, fy, a * 0.55, IC.s3, a * 0.3);
+    T.disc(fx, fy, a * 0.45, (px, py) => { const n = pxHash(px >> 1, py >> 1) + Math.sin(px * 0.7 + f * 2) * 0.15; return n > 0.75 ? IC.y0 : n > 0.45 ? IC.y1 : n > 0.2 ? IC.r1 : IC.r2; }, a * 0.24);
+    T.glow(fx, fy - 4, t * 1.3, IC.y1, 0.3);
+    // the hood: a stone funnel gathering smoke, narrowing into the chimney
+    const hy = fy - t * 0.95, hw = a * 0.75;
+    T.poly([[fx - hw, hy + t * 0.25], [fx + hw, hy + t * 0.25 + hw * 0.1], [fx + hw * 0.35, hy - t * 0.15], [fx - hw * 0.35, hy - t * 0.2]], (px, py) => pxHash(px >> 2, py >> 1) > 0.6 ? IC.s1 : IC.s2);
+    T.poly([[fx - hw, hy + t * 0.25], [fx + hw, hy + t * 0.25 + hw * 0.1], [fx + hw, hy + t * 0.32 + hw * 0.1], [fx - hw, hy + t * 0.32]], IC.s3);
+    T.box(fx - t * 0.1, hy - t * 0.25, t * 0.22, t * 0.22, Math.round(t * 1.6), IC.s1, brick(0), brick(1));
+    // sparks lifting from the coals
+    for (let k = 0; k < 4; k++) T.px(fx - 5 + k * 3 + f, fy - 6 - ((k + f) % 3) * 4, k % 2 ? IC.y0 : IC.r1);
+    // a poker leaning on the table
+    T.line(q.Buv[0] - 3, q.Buv[1] - 1, q.Buv[0] + 4, q.Buv[1] - h - 8, IC.s3);
+  },
+  bellows(t, T, ax, ay) {
+    // paired leather bellows on a wooden frame, their nozzle into the hearth, worked by a long lever overhead
+    const cx = ax, cy = ay + t / 2;
+    t *= 1.35;
+    for (const [dx, dy] of [[-t * 0.3, 0], [t * 0.3, 0], [0, -t * 0.15], [0, t * 0.15]]) T.line(cx + dx, cy + dy, cx + dx, cy + dy - t * 0.35, IC.w3);
+    const by = cy - t * 0.42;
+    // the lower board, the leather between, the upper board (teardrop shapes pointing at the hearth)
+    const drop = (oy, col) => T.poly([[cx - t * 0.62, by + oy + 2], [cx - t * 0.1, by + oy - t * 0.2], [cx + t * 0.42, by + oy - t * 0.05], [cx + t * 0.45, by + oy + t * 0.15], [cx - t * 0.05, by + oy + t * 0.25]], col);
+    drop(t * 0.14, IC.w3);
+    drop(t * 0.07, (px, py) => (Math.floor(px / 4) % 2) ? IC.r3 : IC.w3);
+    drop(0, (px, py) => pxNoise(px * 0.1, py * 0.6) > 0.55 ? IC.w3 : IC.w2);
+    T.line(cx - t * 0.62, by + 2, cx - t * 0.85, by + 5, IC.s2); T.line(cx - t * 0.62, by + 3, cx - t * 0.85, by + 6, IC.s3);
+    // the lever and its chain
+    T.line(cx + t * 0.3, by - t * 0.05, cx + t * 0.3, by - t * 0.75, IC.w3);
+    T.line(cx - t * 0.4, by - t * 0.55, cx + t * 0.75, by - t * 0.9, IC.w2);
+    for (let k = 0; k < 5; k++) T.px(cx - t * 0.1, by - t * 0.6 + k * 3, IC.s2);
   },
   anvil(t, T, ax, ay) {
-    // a dark anvil on a stump, a hammer leaning on it
+    // a London-pattern anvil on an oak stump: a flat steel face, a long horn, a square heel with its hardy hole, and a hammer leaning on the stump
     const cx = ax, cy = ay + t / 2;
-    T.cyl(cx, cy, t * 0.28, Math.round(t * 0.34), IC.w1, IC.w2, IC.w3);
-    const top = cy - Math.round(t * 0.34);
-    T.box(cx - 1, top - t * 0.12, t * 0.14, t * 0.1, Math.round(t * 0.16), IC.s3, IC.s4, IC.ink2);
-    T.box(cx - t * 0.26, top - t * 0.36, t * 0.44, t * 0.16, Math.round(t * 0.18), IC.s1, IC.s3, IC.s4);
-    T.poly([[cx + t * 0.62, top - t * 0.36], [cx + t * 1.0, top - t * 0.26], [cx + t * 0.62, top - t * 0.22]], IC.s2);
-    T.line(cx - t * 0.6, cy, cx - t * 0.3, top - t * 0.3, IC.w2); T.box(cx - t * 0.42, top - t * 0.5, 2, 2, 3, IC.s1, IC.s2, IC.s3);
+    T.cyl(cx, cy, t * 0.3, Math.round(t * 0.4), (px, py) => Math.hypot(px - cx, (py - (cy - t * 0.4)) * 2) % 3 < 1 ? IC.w2 : IC.w1, IC.w2, IC.w3);
+    const top = cy - Math.round(t * 0.4);
+    T.poly([[cx - t * 0.15, top], [cx + t * 0.15, top + t * 0.07], [cx + t * 0.1, top - t * 0.12], [cx - t * 0.1, top - t * 0.18]], IC.s4);
+    T.box(cx - t * 0.2, top - t * 0.42, t * 0.42, t * 0.15, Math.round(t * 0.14), IC.s0, IC.s3, IC.s4);
+    T.poly([[cx + t * 0.64, top - t * 0.42 + t * 0.21], [cx + t * 1.05, top - t * 0.3 + t * 0.21], [cx + t * 0.64, top - t * 0.26 + t * 0.21]], (px) => px < cx + t * 0.8 ? IC.s1 : IC.s2);
+    T.px(cx - t * 0.1, top - t * 0.34, IC.ink); T.px(cx - t * 0.1 + 1, top - t * 0.34, IC.ink);
+    T.line(cx - t * 0.62, cy, cx - t * 0.33, top - t * 0.15, IC.w2); T.box(cx - t * 0.46, top - t * 0.36, 2, 2, 3, IC.s1, IC.s2, IC.s3);
   },
   coalbin(t, T, ax, ay) {
     const cx = ax, cy = ay + t / 2, a = t * 0.4, b = t * 0.34, h = Math.round(t * 0.36);
@@ -1142,10 +1207,19 @@ const ISO_ART = {
     for (let k = 0; k < 14; k++) T.ball(q.top[0] - b + 2 + pxHash(k, 2) * (a + b) * 1.4, q.top[1] + 2 + pxHash(k, 5) * a * 0.9, 1.3, k % 5 ? IC.s4 : IC.r1, k % 5 ? IC.ink2 : IC.r2, IC.ink);
   },
   rack(t, T, ax, ay) {
-    // a wall rack of hammers, big and small, and a pair of tongs
-    const a = t - 2, x = ax, y = ay + 1, h = Math.round(t * 1.5);
-    T.box(x, y - h * 0.7, a, 1, 2, IC.w1, IC.w2, IC.w3);
-    for (let k = 0; k < 5; k++) { const px = x + 4 + k * (2 * a - 8) / 4, py = y - h * 0.7 + (px - x) / 2 + 3, len = t * (0.5 + (k % 3) * 0.15); T.line(px, py, px, py + len, IC.w2); T.box(px - 2, py + len, 2, 1, 3, IC.s1, IC.s2, IC.s3); }
+    // a tool board on the wall: pegs, with tongs, hammers and a file hanging from them
+    const a = t - 2, x = ax, y = ay + 1, lift = Math.round(t * 1.25), bh = Math.round(t * 0.75);
+    const p0 = [x, y - lift], p1 = [x + 2 * a, y + a - lift];
+    T.poly([[p0[0], p0[1] - bh], [p1[0], p1[1] - bh], p1, p0], (px, py) => pxNoise(px * 0.08, py * 0.5) > 0.6 ? IC.w3 : IC.w2);
+    T.line(p0[0], p0[1] - bh, p1[0], p1[1] - bh, IC.w1);
+    const tools = ["tongs", "hammer", "file", "hammer2", "tongs"];
+    tools.forEach((kind, k) => {
+      const f = (k + 0.6) / tools.length, hx = p0[0] + (p1[0] - p0[0]) * f, hy = p0[1] + (p1[1] - p0[1]) * f - bh + 3;
+      T.px(hx, hy - 1, IC.s3);
+      if (kind === "tongs") { T.line(hx - 1, hy, hx - 2, hy + t * 0.55, IC.s3); T.line(hx + 1, hy, hx + 2, hy + t * 0.55, IC.s2); }
+      else if (kind === "file") T.line(hx, hy, hx, hy + t * 0.45, IC.s1);
+      else { const len = kind === "hammer" ? t * 0.5 : t * 0.38; T.line(hx, hy, hx, hy + len, IC.w3); T.box(hx - 2, hy + len - 1, 2, 1, 3, IC.s1, IC.s2, IC.s3); }
+    });
   },
   // ---- the explorers' camp
   tent(t, T, ax, ay) {
@@ -1850,12 +1924,14 @@ function paintRoomIso(id) {
   const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
   const q = v => v / PX, cx = q(N.cx), top = q(N.isoTop), hw = q(N.isoW), hh = hw / 2, wall = q(N.isoWall), slab = Math.max(4, Math.round(hw / 16));
-  const seed = (art ? art.seed : night.seed) * 7, indoor = kind === "cave" || kind === "hall" || kind === "ruin";
+  const seed = (art ? art.seed : night.seed) * 7, indoor = kind === "cave" || kind === "hall" || kind === "ruin" || kind === "timber";
   const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
   const ink = pxHex("#0b0614"), at = (u, v) => [cx + (u - v) * hw, top + (u + v) * hh];
   // the ruins are old grey stone whatever the night outside; moss and grass grow in every gap
   const ruinStone = [pxHex("#22143a"), pxHex("#3a3440"), pxHex("#5d5666"), pxHex("#8a8494"), pxHex("#b9b3c0")], moss = [pxHex("#1e5233"), pxHex("#2f7d4a"), pxHex("#57ad6a")];
-  const wallC = kind === "ruin" ? ruinStone : wallR;
+  const wallC = kind === "ruin" || kind === "timber" ? ruinStone : wallR;
+  // the timber hall: oak for the frame and the floor, limewashed daub between the beams (smoke-stained higher up)
+  const oak = [pxHex("#1f130a"), pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#7a5230"), pxHex("#946027")], daub = [pxHex("#5d5446"), pxHex("#8a8070"), pxHex("#b8ad94"), pxHex("#d9cfb8"), pxHex("#ece4cf")];
   // how high a ruined wall still stands along its length (0..1): broken off in steps, low in the middle of each side
   const ruinH = tt => kind !== "ruin" ? 1 : clamp(0.55 + 0.45 * Math.cos(tt * 2.6) - 0.35 * (Math.floor(pxNoise(tt * 7 + seed, 3) * 4) / 4), 0.18, 1);
   const wood = [pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")], stone = [pxHex("#22143a"), pxHex("#3a3440"), pxHex("#5d5666"), pxHex("#8a8494")];
@@ -1875,6 +1951,19 @@ function paintRoomIso(id) {
     if (u < 0 || v < 0 || u > 1 || v > 1) continue;
     const near = Math.min(u, v), lightK = Math.exp(-(((u - 0.35) / 0.5) ** 2) - (((v - 0.5) / 0.6) ** 2));
     let val, col = null;
+    if (kind === "timber") {
+      // wide planks running toward the front, each its own shade, grain along it, dark seams, nail heads, soot by the hearth
+      const n = 9, fu = u * n, plank = Math.floor(fu), along = v * hw;
+      let pv = 0.42 + 0.18 * (pxHash(plank, 7) - 0.5) + 0.22 * lightK + 0.16 * (pxNoise(fu * 2 + plank * 5, along * 0.09) - 0.5);
+      if (Math.abs(pxNoise(plank * 3.1, along * 0.04) - 0.5) < 0.04) pv -= 0.14;
+      const end = Math.floor((along + pxHash(plank, 3) * 40) / 45);
+      if (Math.abs(fu - Math.round(fu)) * hw / n < 0.6 || Math.abs(along + pxHash(plank, 3) * 40 - end * 45) < 0.6) pv = 0.05;
+      else if (pxHash(Math.floor(fu * 3), Math.floor(along / 3)) > 0.985) pv = 0.85;
+      pv -= 0.25 * Math.exp(-(((u - 0.3) / 0.22) ** 2) - (((v - 0.12) / 0.2) ** 2)) * pxFbm(x * 0.2, y * 0.2);
+      if (near * hw < 2.5) pv -= 0.3;
+      put(x, y, pxPick(oak, pv, x, y));
+      continue;
+    }
     if (indoor) {
       val = 0.5 + 0.15 * pxFbm(x * 0.12 + seed, y * 0.2) + 0.25 * lightK;
       const n = kind === "hall" ? 7 : 5, fu = u * n, fv = v * n;
@@ -1913,6 +2002,18 @@ function paintRoomIso(id) {
         if (kind === "cave") {
           val = (side < 0 ? 0.42 : 0.24) + 0.24 * pxFbm(x * 0.09 + seed, y * 0.09) - 0.15 * hgt;
           if (Math.abs(pxNoise(x * 0.18 + seed, y * 0.18) - 0.5) < 0.025) val -= 0.25;
+        } else if (kind === "timber") {
+          // a stone footing, then oak posts, a mid rail and braces with limewashed daub between, sooty near the top
+          const along = tt * hw, hh2 = base - y, foot = Math.max(4, wall * 0.09), postEvery = hw / 3.2;
+          const post = Math.abs((along + postEvery / 2) % postEvery - postEvery / 2) < Math.max(2, hw / 70);
+          const rail = Math.abs(hh2 - wall * 0.5) < Math.max(1.5, wall / 60), plate = wall - hh2 < Math.max(3, wall / 30);
+          const panel = Math.floor((along + postEvery / 2) / postEvery), py = (hh2 - wall * 0.5) / (wall * 0.5), px2 = ((along + postEvery / 2) % postEvery) / postEvery;
+          const brace = panel % 2 === 0 && py > 0 && Math.abs((1 - py) - px2) * postEvery < Math.max(1.5, hw / 90);
+          if (hh2 < foot) { put(x, y, pxPick(stone, (side < 0 ? 0.55 : 0.35) + 0.25 * pxHash(Math.floor(along / 6), Math.floor(hh2 / 3)) - ((Math.round(hh2) % 3 === 0 || Math.round(along) % 6 === 0) ? 0.3 : 0), x, y)); continue; }
+          if (post || rail || plate || brace) { put(x, y, pxPick(oak, (side < 0 ? 0.55 : 0.35) + 0.2 * (pxNoise(along * 0.5, hh2 * 0.05) - 0.5) + (post && pxHash(Math.round(along), Math.round(hh2 / 3)) > 0.97 ? -0.3 : 0), x, y)); continue; }
+          const soot = clamp((hh2 / wall - 0.55) * 1.6, 0, 1) * pxFbm(x * 0.05, y * 0.08);
+          put(x, y, pxPick(daub, (side < 0 ? 0.72 : 0.5) + 0.18 * (pxFbm(x * 0.12 + seed, y * 0.15) - 0.5) - 0.55 * soot - (pxHash(x, y + seed) > 0.97 ? 0.15 : 0), x, y));
+          continue;
         } else if (kind === "ruin") {
           // big old blocks, uneven, some missing their corners; moss on whatever still stands on top, ivy trailing down
           const row = Math.floor((base - y) / 5), bx = Math.floor((tt * hw + (row % 2) * 5) / 9);
@@ -2075,13 +2176,13 @@ function drawRoomIso() {
 }
 
 /** What sort of place each backdrop is: a hollow in the cave wall, an abbey hall, or a clearing under the sky. */
-const ROOM_KIND = { amethyst: "cave", celestite: "cave", malachite: "cave", labradorite: "cave", frost: "cave", abbey: "hall", churchyard: "ruin", glowcap: "wood", summit: "yard" };
+const ROOM_KIND = { smithy: "timber", amethyst: "cave", celestite: "cave", malachite: "cave", labradorite: "cave", frost: "cave", abbey: "hall", churchyard: "ruin", glowcap: "wood", summit: "yard" };
 
 /** The room's walls and floor in art pixels, for one backdrop: caves get rough rock with crystals in the corners and stone slabs,
  *  the abbey brick with a tall arched window and tiles, the churchyard grass behind a low stone wall, the wood moss behind a fallen log. */
 function paintRoom(id) {
   // seen straight on, the ruins are a broken hall
-  const kind = ROOM_KIND[id] === "ruin" ? "hall" : ROOM_KIND[id] || "cave", t = THEME[id] || THEME.amethyst;
+  const kind = ROOM_KIND[id] === "ruin" || ROOM_KIND[id] === "timber" ? "hall" : ROOM_KIND[id] || "cave", t = THEME[id] || THEME.amethyst;
   const art = t.art !== undefined ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
   const wallR = (art ? art.wall : night.ground).map(pxHex), crys = art ? art.crystal.map(pxHex) : null;
   const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;

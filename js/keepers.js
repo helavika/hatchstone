@@ -242,7 +242,7 @@ const keeperCache = {};
 function keeperCanvas(id, blink = false, S = 1) {
   const key = `${id}|${blink ? 1 : 0}|${S}`;
   if (keeperCache[key]) return keeperCache[key];
-  return keeperCache[key] = isoArt(KW * S, KH * S, T => KEEPER_ART[id](S === 1 ? T : scaledT(T, S), blink));
+  return keeperCache[key] = isoArt(KW * S, KH * S, T => KEEPER_ART[id](S === 1 ? T : scaledT(T, S), blink), { texture: false });
 }
 /** The same as a data URL (for the dialog box, the place bar and the map). */
 function keeperImage(id, blink = false, S = 1) {

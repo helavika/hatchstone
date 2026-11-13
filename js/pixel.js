@@ -318,6 +318,7 @@ const THEMES = [
   { id: "glowcap", name: "Glowcap Wood", how: "collect 30 stars", ok: () => totalStars() >= 30 },
   { id: "abbey", name: "Starfall Abbey", how: "clear all 24 levels", ok: () => unlocked(LEVELS + 1) },
   { id: "frost", name: "Frost Hollow", art: 4, how: "meet 12 kinds of glowling", ok: () => Object.keys(save.seen).length >= 12 },
+  { id: "smithy", name: "Timber Hall", how: "open the forge on the map", ok: () => placeOk("forge") },
   { id: "summit", name: "Aurora Summit", how: "raise a glowling to Radiant", ok: () => save.creatures.some(c => c.level >= 15) },
 ];
 const THEME = Object.fromEntries(THEMES.map(t => [t.id, t]));
@@ -339,6 +340,11 @@ const NIGHT = {
     seed: 79, sky: ["#0b0614", "#0f2f4a", "#1d5276", "#3383a8"], far: ["#0f2f4a", "#1d5276", "#3383a8", "#69b7d6"],
     ground: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5", "#ffffff"], mist: "#69b7d6", hill: 0.6,
     moon: [0.16, 0.14, 0.04], moonCol: ["#69b7d6", "#b8e6f5", "#ffffff"],
+  },
+  smithy: {
+    seed: 23, sky: ["#0b0614", "#121230", "#1d2048", "#2a2f5e", "#3d4478"], far: ["#0b0614", "#10301f", "#1e3a28"],
+    ground: ["#1a1008", "#2b1a10", "#4a2e18", "#6b4a2a"], mist: "#3d4478", hill: 0.64,
+    moon: [0.72, 0.12, 0.035], moonCol: ["#eec26a", "#fff0b5", "#ffffff"],
   },
   abbey: {
     seed: 67, sky: ["#160c26", "#2e1d4f", "#5c1f3f", "#8f3460", "#c25586"], far: ["#0b0614", "#160c26", "#22143a"],
@@ -387,6 +393,12 @@ function pixelNight(id, W, H, floor = 0.86) {
 /** Spots for props: mostly at the sides, so the egg or the nest in the middle stays clear. */
 const sideX = (W, i, seed) => { const h = pxHash(i, seed); return h < 0.5 ? h * 0.6 * W : W - (h - 0.5) * 0.6 * W; };
 const NIGHT_PROPS = {
+  smithy(g, W, H, fy, seed, hill) {
+    // dark pines along the far hills: the forge stands at the forest's edge
+    g.fillStyle = "#0b0614";
+    for (let k = 0; k < 18; k++) { const x = Math.round(pxHash(k, seed) * W), y = Math.round(hill(x)) + 2, hh = Math.max(6, Math.round(H * (0.06 + pxHash(k, 3) * 0.05))), ww = Math.round(hh * 0.4);
+      g.beginPath(); g.moveTo(x - ww, y); g.lineTo(x, y - hh); g.lineTo(x + ww, y); g.fill(); }
+  },
   churchyard(g, W, H, fy, seed, hill) {
     // a little chapel on the far hill, one window lit
     const cx = Math.round(W * 0.2), cy = Math.round(hill(W * 0.2)) + 2, cw = Math.max(10, Math.round(W * 0.07));

@@ -677,6 +677,8 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Timber Hall": "Каркасна зала",
+  "open the forge on the map": "відкрий кузню на мапі",
   "Folk": "Знайомі",
   "{0} of {1} met. The folk of the grotto and the valley, and what they're like.": "Знайомих: {0} з {1}. Мешканці гроту й долини, і які вони.",
   "the grotto": "грот",

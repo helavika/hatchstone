@@ -710,7 +710,7 @@ const ROOM_KINDS = [
   { id: "study", name: "Crystal study", cost: 900, theme: "celestite", note: "quiet, blue and full of crystals" },
   { id: "lab", name: "Laboratory", place: true, theme: "celestite" },
   { id: "shop", name: "Shop", place: true, theme: "abbey" },
-  { id: "forge", name: "The Forge", place: true, theme: "malachite" },
+  { id: "forge", name: "The Forge", place: true, theme: "smithy" },
   { id: "camp", name: "Explorers' camp", place: true, theme: "glowcap" },
   { id: "grotto", name: "Grotto", place: true, theme: "amethyst" },
 ];
@@ -729,6 +729,8 @@ const labOk = () => !!save.incubator || save.creatures.some(c => c.sp === "hybri
 function ensureLab() { return ensurePlace("lab"); }
 /** A place on the map is a room of its own, furnished, with its keeper in it: made the first time you go. */
 function ensurePlace(kind) {
+  const had = save.rooms.find(r => r.kind === kind);
+  if (had && kind === "forge" && had.theme === "malachite") had.theme = "smithy";
   if (save.rooms.some(r => r.kind === kind)) return false;
   return !!save.rooms.push({ kind, on: [], theme: ROOM_KINDS.find(k => k.id === kind).theme });
 }
@@ -751,7 +753,7 @@ const HEROES = {
   shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.5, 0.42], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
     hello: ["Welcome, welcome! Mind the sacks, they're full of seeds.", "Food, furniture, seeds: if it's on a shelf, it's for sale.", "Furniture goes into your chest. Food goes into your basket."],
     lines: ["Fresh cookies today. Well, fresh-ish.", "One day I'll sell a hat. Just one. A very good hat.", "Moonberries are flying off the shelf!", "Starfruit? Oh no, that only grows in a garden. Not here.", "A tidy nest is a happy nest, I always say.", "Wick sells odd things. I sell sensible things."] },
-  forge: { who: EMBER, eyes: [[5, 3, 2, 2, "#e0634f"], [9, 3, 2, 2, "#e0634f"]], quirk: "sparks", icon: "ember", at: [0.42, 0.6], role: "works the forge", act: [["hammer", "Forge", () => openForge()]],
+  forge: { who: EMBER, eyes: [[5, 3, 2, 2, "#e0634f"], [9, 3, 2, 2, "#e0634f"]], quirk: "sparks", icon: "ember", at: [0.76, 0.26], role: "works the forge", act: [["hammer", "Forge", () => openForge()]],
     hello: ["Hah! Another egg-cracker. Come in, it's warm.", "A better hammer cracks harder stone. Bring shards and I'll make you one.", "And spare geodes? Melt them down at my workbench."],
     lines: ["Hot today. It's always hot today.", "I want to forge a bell that rings in every cave at once. One day.", "The deeper caves have stubborn stone. Sharpen up!", "I once forged a hammer so light it floated off. Never again.", "Tap where it glows. That's the weak spot. Everyone forgets."] },
   camp: { who: PIP, eyes: [[5, 6, 1, 1, "#3d2866"], [10, 6, 1, 1, "#3d2866"]], quirk: "startle", icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
