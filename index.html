@@ -7711,7 +7711,7 @@ function toggleSleep() {
   cr.sleeping = !cr.sleeping;
   cr.selfSlept = false;
   if (cr.sleeping) { sfx.lullaby(); toast(tr("Sweet dreams, {0} 🌙", cr.name)); }
-  else { sfx.chirp(specOf(cr).voice); const a = activeActor(); if (a) a.hop = 1; }
+  else { cr.wokeAt = Date.now(); sfx.chirp(specOf(cr).voice); const a = activeActor(); if (a) a.hop = 1; }
   persist();
   renderNest();
 }
@@ -8188,7 +8188,8 @@ function updateActors(dt) {
       a.needT = 4;
       applyTime(cr);
       const petted = a.id === save.active && game.nest.petting;
-      if (!cr.sleeping && cr.energy < 15 && !petted && a.state !== "eat") { cr.sleeping = true; cr.selfSlept = true; emote(a, "zz", 2.2); a.hop = 1; persist(); if (a.id === save.active) renderNest(); }
+      // sleepy: a yawn, and off it goes to bed by itself (not right after you woke it up, though)
+      if (!cr.sleeping && cr.energy < 20 && !petted && a.state !== "eat" && Date.now() - (cr.wokeAt || 0) > 3 * 60e3) { cr.sleeping = true; cr.selfSlept = true; emote(a, "🥱", 2.2); sfx.yawn(); a.hop = 1; persist(); if (a.id === save.active) renderNest(); }
       else if (cr.sleeping && cr.energy >= 99) wakeRested(cr, a);
     }
     const base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100;
