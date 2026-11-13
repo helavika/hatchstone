@@ -758,6 +758,9 @@
   .world .place b { font-weight: 400; font-size: 16px; line-height: 1.05; }
   .world .place small { font-size: 12px; color: var(--soft); line-height: 1.1; text-align: center; }
   .world .place.call::after { content: "!"; position: absolute; top: -6px; right: -4px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 13px; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame); }
+  .world .place { width: 34%; }
+  .world .place.locked { opacity: .6; color: var(--soft); cursor: default; }
+  .world .place.fresh { box-shadow: var(--px-frame), 0 0 0 3px var(--px-gold); }
   .world .place:active { transform: translate(-50%, -48%); }
   .shop-tabs.five { grid-template-columns: repeat(5, 1fr); gap: 5px; }
   .shop-tabs.five button { font-size: 13px; padding: 6px 1px 5px; }
@@ -2094,7 +2097,7 @@ const UK = {
   "What is the moon egg?": "Що таке місячне яйце?",
   "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards.": "Одне особливе яйце на день у Гроті. Відкривай його щодня, щоб тримати серію: що довша серія, то більше осколків.",
   "Can my glowlings have a baby?": "Чи можуть глоулінги мати малюка?",
-  "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up.": "Так. Двоє щасливих глоулінгів від 5 рівня можуть знести змішане яйце в інкубаторі (скляний ковпак у гніздечку). Малюк візьме риси обох батьків і вилупиться приблизно за 3 години; гладь яйце, щоб пришвидшити.",
+  "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the lab: find it on the map). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up.": "Так. Двоє щасливих глоулінгів від 5 рівня можуть знести змішане яйце в інкубаторі (скляний ковпак у лабораторії, її видно на мапі). Малюк візьме риси обох батьків і вилупиться приблизно за 3 години; гладь яйце, щоб пришвидшити.",
   "Can I play with a friend?": "Чи можна грати з другом?",
   "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone.": "Так: відкрий меню (⚙) і натисни «Грати разом». Надішли посилання, друг його відкриє, і ви разом розбиватимете одне яйце, кожен на своєму телефоні.",
   "Where is my progress saved?": "Де зберігається мій прогрес?",
@@ -2105,7 +2108,7 @@ const UK = {
   "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best.": "Звук — у меню (⚙). Прапорець у куті перемикає мову між українською та англійською. У навушниках тріск звучить найкраще.",
   "asleep": "спить",
   "needs joy": "бракує радості",
-  "No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in your nest 💞": "Гібридів ще немає. Вирости двох глоулінгів до {0} рівня, потіш їх і тапни інкубатор у гніздечку 💞",
+  "No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in the lab 💞": "Гібридів ще немає. Вирости двох глоулінгів до {0} рівня, потіш їх і тапни інкубатор у лабораторії 💞",
   "View": "Вигляд",
   "Straight on": "Прямо",
   "Isometric": "Ізометрія",
@@ -2278,6 +2281,16 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Laboratory": "Лабораторія",
+  "clear level {0}": "пройди рівень {0}",
+  "grow two glowlings to level {0}": "двоє глоулінгів рівня {0}",
+  "the incubator: a mixed egg": "інкубатор: змішане яйце",
+  "the egg is ready! ✦": "яйце готове! ✦",
+  "hatches in {0}": "вилупиться за {0}",
+  "A new place on the map: {0} ✦": "Нове місце на мапі: {0} ✦",
+  "new! ✦": "нове! ✦",
+  "the egg in the lab is ready to hatch 🧪": "яйце в лабораторії готове вилупитися 🧪",
+  "two of your glowlings could share an egg: the incubator is in the lab, on the map 🧪": "двоє твоїх глоулінгів можуть мати спільне яйце: інкубатор у лабораторії, на мапі 🧪",
   "Chest": "Скринька",
   "Map": "Мапа",
   "Shop": "Крамниця",
@@ -3702,6 +3715,7 @@ const PX_ICON_MAPS = {
   chest: ["............", "...bbbbbb...", "..bobooobb..", ".booooooobB.", ".BBBBBBBBBB.", ".bobogGobbB.", ".booogGoobB.", ".bobooooobB.", ".boooooooBB.", ".BBBBBBBBBB.", "............", "............"],
   map: ["............", ".ssssssssss.", ".swwwwwwwwS.", ".swwmmwwewS.", ".swmmwweewS.", ".swwwweewwS.", ".swwweewwwS.", ".swweewwtwS.", ".swewwwttwS.", ".swwwwwwwwS.", ".SSSSSSSSSS.", "............"],
   stall: ["............", ".rWrWrWrWrW.", ".rWrWrWrWrW.", "..RRRRRRRR..", "..b......b..", "..b.gG.e.b..", "..b.gg.E.b..", ".BBBBBBBBBB.", ".boooooooob.", ".boooooooob.", ".BBBBBBBBBB.", "............"],
+  flask: ["............", "....SSSS....", ".....ss.....", ".....ss.....", ".....ss.....", "....sttS....", "...stTttS...", "..stTtWttS..", "..sttTtttS..", "..sTttttTS..", "...SSSSSS...", "............"],
   compass: ["............", "....ssss....", "..ssSSSSss..", ".sSw.e..wSs.", ".sS..e...Ss.", ".sS.eWe..Ss.", ".sS..t...Ss.", ".sSw.t..wSs.", "..ssSSSSss..", "....ssss....", "............", "............"],
   broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
 };
@@ -4194,7 +4208,8 @@ function updateCalls() {
   // looks ahead on a copy: just checking must never change the save
   const n = save.creatures.filter(c => { const p = { ...c, dust: [...(c.dust || [])] }; applyTime(p); return callOf(p); }).length;
   t.classList.toggle("call", n > 0 && game.scene !== "nest");
-  $("worldTab")?.classList.toggle("call", (!moonDone() && game.scene !== "map") || canForge() || ripePlots() > 0);
+  checkPlaces();
+  $("worldTab")?.classList.toggle("call", (!moonDone() && game.scene !== "map") || (placeOk("forge") && canForge()) || (placeOk("garden") && ripePlots() > 0) || (save.mapFresh || []).length > 0 || (!!save.incubator && Date.now() >= save.incubator.due && !incHere()));
 }
 
 function moodOf(cr) {
@@ -5779,7 +5794,7 @@ const TASKS = {
   decor: { text: "Decorate the nest or change its backdrop", icon: "candle", ok: hasPets, go: toNest(null, "decorBtn") },
   moon: { text: "Open today's moon egg", icon: "moon", ok: () => !moonDone(), go: () => startMoon() },
   book: { text: "Look someone up in the Glowpedia", icon: "book", ok: () => true, go: () => setScene("lib") },
-  breed: { text: "Lay a mixed egg in the incubator", icon: "heart", ok: () => !save.incubator && save.creatures.filter(c => !pairReason(c)).length >= 2, go: toNest(() => openIncubator()) },
+  breed: { text: "Lay a mixed egg in the incubator", icon: "heart", ok: () => !save.incubator && save.creatures.filter(c => !pairReason(c)).length >= 2, go: () => { toRoomKind("lab"); openIncubator(); } },
   share: { text: "Send a postcard of a glowling", icon: "postcard", ok: hasPets, go: toNest(null, "nestShare") },
 };
 const TASK_SHARDS = 10, TASK_BONUS = 15;
@@ -6494,8 +6509,8 @@ function nestHint() {
   if (!tipDone("call")) return tr("tip: hold a finger on the floor to call everyone");
   if (isOutside() && !tipDone("garden")) return tr("tip: tap the garden bed to plant seeds 🌱");
   if (!tipDone("decorTap") && DECOR.some(d => hasDecor(d.id) && d.id !== "rug")) return tr("tip: tap your decorations to play with them ✦");
-  if (save.incubator && Date.now() >= save.incubator.due) return tr("the egg is ready: tap it three times to hatch ✦");
-  if (!save.incubator && !tipDone("pair") && save.creatures.filter(c => !pairReason(c)).length >= 2) return tr("two of your glowlings could share an egg: tap the incubator 💞");
+  if (save.incubator && Date.now() >= save.incubator.due) return incHere() ? tr("the egg is ready: tap it three times to hatch ✦") : tr("the egg in the lab is ready to hatch 🧪");
+  if (!save.incubator && !tipDone("pair") && save.creatures.filter(c => !pairReason(c)).length >= 2) return incHere() ? tr("two of your glowlings could share an egg: tap the incubator 💞") : tr("two of your glowlings could share an egg: the incubator is in the lab, on the map 🧪");
   return "";
 }
 
@@ -7077,11 +7092,11 @@ function renderNest(full) {
   applyTime(cr);
   const sp = specOf(cr);
   $("nestName").textContent = cr.name;
-  const nr = save.rooms.length, wrap = i => (i + nr) % nr;
+  const nr = save.rooms.filter((_, i) => roomOpen(i)).length;
   $("roomNav").hidden = $("roomLabel").hidden = nr < 2;
   $("roomName").textContent = roomName(save.room);
-  $("roomPrevName").textContent = roomName(wrap(save.room - 1));
-  $("roomNextName").textContent = roomName(wrap(save.room + 1));
+  $("roomPrevName").textContent = roomName(stepRoom(-1));
+  $("roomNextName").textContent = roomName(stepRoom(1));
   $("nestLvl").textContent = tr("Lv {0}", cr.level) + (cr.level >= MAX_LEVEL ? tr(" · max") : "");
   $("nestTop").title = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name);
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
@@ -7287,14 +7302,28 @@ function renderShopPick() {
 
 const ripePlots = () => (save.garden?.slots || []).filter(q => q && SEEDS[q.seed] && stageOf2(q) === 3).length;
 const WORLD = [
-  { id: "grotto", name: "Grotto", icon: "grotto", at: [27, 15], note: () => !moonDone() ? tr("today's moon egg 🌙") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone(), go: () => setScene("map") },
-  { id: "forge", name: "The Forge", icon: "hammer", at: [74, 23], note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: openForge },
-  { id: "nest", name: "Nest", icon: "nest", at: [28, 47], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
-  { id: "garden", name: "Garden", icon: "sun", at: [72, 55], note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : wickHere() ? tr("Wick is visiting today") : tr("grows what no shop sells"), call: () => ripePlots() > 0 || wickHere(), go: () => toRoomKind("yard") },
-  { id: "shop", name: "Shop", icon: "stall", at: [30, 80], note: () => tr("food, furniture, seeds"), go: openMarket },
-  { id: "trail", name: "Expeditions", icon: "compass", at: [74, 86], note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: openTrips },
+  { id: "grotto", name: "Grotto", icon: "grotto", at: [27, 12], note: () => !moonDone() ? tr("today's moon egg 🌙") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone(), go: () => setScene("map") },
+  { id: "forge", name: "The Forge", icon: "hammer", at: [74, 18], ok: () => unlocked(4) || Object.keys(save.forge || {}).length > 0, how: () => tr("clear level {0}", 3), note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: openForge },
+  { id: "nest", name: "Nest", icon: "nest", at: [27, 38], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
+  { id: "lab", name: "Laboratory", icon: "flask", at: [74, 42], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => { ensureLab(); toRoomKind("lab"); } },
+  { id: "shop", name: "Shop", icon: "stall", at: [27, 64], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: openMarket },
+  { id: "garden", name: "Garden", icon: "sun", at: [74, 66], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : wickHere() ? tr("Wick is visiting today") : tr("grows what no shop sells"), call: () => ripePlots() > 0 || wickHere(), go: () => toRoomKind("yard") },
+  { id: "trail", name: "Expeditions", icon: "compass", at: [50, 88], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: openTrips },
 ];
-const WORLD_PATHS = [["nest", "grotto"], ["nest", "garden"], ["nest", "shop"], ["garden", "forge"], ["grotto", "forge"], ["shop", "trail"], ["garden", "trail"]];
+const WORLD_PATHS = [["nest", "grotto"], ["nest", "lab"], ["nest", "shop"], ["grotto", "forge"], ["lab", "forge"], ["lab", "garden"], ["shop", "garden"], ["shop", "trail"], ["garden", "trail"]];
+const placeOk = id => { const w = WORLD.find(x => x.id === id); return !w.ok || w.ok(); };
+/** A place that has just opened: noted once, with a toast and a "new" tag on the map until you've looked. */
+function checkPlaces() {
+  const ok = WORLD.filter(w => placeOk(w.id)).map(w => w.id);
+  // (a nest that already had an incubator hears that it has moved to a lab of its own)
+  const moved = ok.includes("lab") && ensureLab() && save.mapKnown === undefined && save.creatures.length > 0;
+  if (!save.mapKnown) { save.mapKnown = ok.filter(id => !(moved && id === "lab")); if (!moved) return; }
+  const fresh = ok.filter(id => !save.mapKnown.includes(id));
+  if (!fresh.length) return;
+  save.mapKnown = [...save.mapKnown, ...fresh]; save.mapFresh = [...(save.mapFresh || []), ...fresh];
+  setTimeout(() => toast(tr("A new place on the map: {0} ✦", fresh.map(id => tr(WORLD.find(w => w.id === id).name)).join(", "))), 900);
+  persist();
+}
 function toRoomKind(kind) {
   if (game.scene !== "nest") setScene("nest");
   const i = save.rooms.findIndex(r => r.kind === kind);
@@ -7330,7 +7359,12 @@ function worldArt() {
 function openWorld() {
   sfx.tick();
   $("worldMap").style.backgroundImage = `url(${worldArt()})`;
-  $("worldMap").innerHTML = WORLD.map(w => `<button class="place${w.call && w.call() ? " call" : ""}" data-place="${w.id}" style="left:${w.at[0]}%;top:${w.at[1]}%">${ic(w.icon, "big")}<b>${tr(w.name)}</b><small>${w.note()}</small></button>`).join("");
+  const fresh = save.mapFresh || [];
+  $("worldMap").innerHTML = WORLD.map(w => {
+    const ok = placeOk(w.id), isNew = fresh.includes(w.id);
+    return `<button class="place${ok && w.call && w.call() ? " call" : ""}${isNew ? " fresh" : ""}${ok ? "" : " locked"}" data-place="${w.id}" style="left:${w.at[0]}%;top:${w.at[1]}%" ${ok ? "" : "disabled"}>${ic(ok ? w.icon : "lock", "big")}<b>${ok ? tr(w.name) : "???"}</b><small>${ok ? (isNew ? tr("new! ✦") : w.note()) : w.how()}</small></button>`;
+  }).join("");
+  if (fresh.length) { save.mapFresh = []; persist(); updateCalls(); }
   $$("#worldMap [data-place]").forEach(b => b.addEventListener("click", () => {
     const w = WORLD.find(x => x.id === b.dataset.place);
     if (coopSession) coopEnd("navigation", true);
@@ -7799,6 +7833,7 @@ const ROOM_KINDS = [
   { id: "play", name: "Playroom", cost: 250 },
   { id: "garden", name: "Garden room", cost: 500, theme: "glowcap" },
   { id: "study", name: "Crystal study", cost: 900, theme: "celestite" },
+  { id: "lab", name: "Laboratory" },
 ];
 /** What each room keeps for itself (the room you're in keeps them in the save as usual; the others are packed away in save.rooms). */
 const ROOM_KEYS = ["layout", "cloud", "theme", "jukebox"];
@@ -7808,8 +7843,20 @@ const isOutside = (i = save.room) => save.rooms[i]?.kind === "yard";
 /** The next room you can add (Outside comes free). */
 const nextRoomKind = () => ROOM_KINDS.find(k => k.cost && !save.rooms.some(r => r.kind === k.id));
 const roomName = i => tr(roomKind(i).name);
-/** The incubator lives in the nest; every room has its own bed. */
-const incHere = () => !save.room;
+/** The incubator lives in the lab; every room has its own bed. */
+const incHere = () => save.rooms[save.room]?.kind === "lab";
+/** The lab opens once two glowlings could share an egg (or you've already used the incubator). */
+const labOk = () => !!save.incubator || save.creatures.some(c => c.sp === "hybrid") || save.creatures.filter(c => c.level >= PAIR_LEVEL).length >= 2;
+function ensureLab() {
+  if (save.rooms.some(r => r.kind === "lab")) return false;
+  return !!save.rooms.push({ kind: "lab", on: [], theme: "celestite" });
+}
+/** Rooms the arrows step through: the garden outside stays closed until the map shows it. */
+const roomOpen = i => !isOutside(i) || placeOk("garden");
+function stepRoom(dir) {
+  for (let k = 1; k < save.rooms.length; k++) { const i = ((save.room + dir * k) % save.rooms.length + save.rooms.length) % save.rooms.length; if (roomOpen(i)) return i; }
+  return save.room;
+}
 /** Which room a decoration stands in, or -1 if it's in storage. */
 function decorRoom(id) {
   if (hasDecor(id)) return save.room;
@@ -7849,8 +7896,10 @@ function goRoom(i) {
   litTabs();
 }
 /** Light the tab for where you are: outside in the nest scene is the Garden. */
+/** Out in one of the map's places (the garden, the lab) rather than at home. */
+const awayPlace = () => ["yard", "lab"].includes(save.rooms[save.room]?.kind);
 function litTabs() {
-  const out = game.scene === "nest" && isOutside();
+  const out = game.scene === "nest" && awayPlace();
   $$("#tabs [data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === game.scene && !(out && b.dataset.tab === "nest")));
   $("worldTab").classList.toggle("on", out || game.scene === "map");
 }
@@ -7867,7 +7916,7 @@ function addRoom() {
 }
 function roomsList() {
   const next = nextRoomKind();
-  return `<h3>${tr("Rooms")}</h3><div class="rooms">${save.rooms.map((_, i) => `<button class="pillbtn${i === save.room ? " on" : ""}" data-room="${i}">${roomName(i)}</button>`).join("")}${next
+  return `<h3>${tr("Rooms")}</h3><div class="rooms">${save.rooms.map((_, i) => !roomOpen(i) ? "" : `<button class="pillbtn${i === save.room ? " on" : ""}" data-room="${i}">${roomName(i)}</button>`).join("")}${next
     ? `<button class="pillbtn" id="roomAdd" ${save.shards < next.cost ? "disabled" : ""}>+ ${tr(next.name)} · ✦ ${next.cost}</button>` : ""}</div>`;
 }
 
@@ -9215,7 +9264,7 @@ const BEDS = [
   { id: "basket", name: "Basket", note: "woven, with a soft cushion inside" },
   { id: "canopy", name: "Canopy bed", note: "posts, a drape, very grand" },
 ];
-const BED_FOR_ROOM = { nest: "nest", yard: "gazebo", play: "hammock", garden: "basket", study: "canopy" };
+const BED_FOR_ROOM = { nest: "nest", yard: "gazebo", play: "hammock", garden: "basket", study: "canopy", lab: "canopy" };
 /** The bed in the room you're in: the one you picked for it, or the one that suits its kind. */
 const bedStyle = (i = save.room) => { const b = (save.rooms && save.rooms[i] && (save.rooms[i].bed || BED_FOR_ROOM[save.rooms[i].kind])) || "nest"; return b === "leaves" ? "gazebo" : b; };
 const GAZEBO_A = 0.88; // how far the gazebo's posts stand from its middle, in tiles
@@ -11803,7 +11852,7 @@ $$(".mute").forEach(b => b.addEventListener("click", () => {
 $$("#tabs [data-tab]").forEach(b => b.addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
   sfx.tick(); if (coopSession) coopEnd("navigation", true);
-  if (b.dataset.tab === "nest" && game.scene === "nest" && isOutside()) goRoom(save.rooms.findIndex(r => r.kind === "nest"));
+  if (b.dataset.tab === "nest" && game.scene === "nest" && awayPlace()) goRoom(save.rooms.findIndex(r => r.kind === "nest"));
   setScene(b.dataset.tab);
 }));
 // the big middle button: straight into the next egg, from anywhere
@@ -11911,7 +11960,7 @@ $("oilHelp").addEventListener("click", () => { const m = $("lanternFree"); m.hid
 setInterval(() => { if ($("topbar").classList.contains("on")) renderOilPill(); }, 1000);
 const FAQ_SECTIONS = [["basics", "egg", "Basics", [0, 1, 14, 15, 11, 12, 13]], ["pets", "heart", "Glowlings", [2, 16, 5, 17, 18, 19, 20]], ["nest", "nest", "Nest", [21, 22, 3]],
   ["grotto", "grotto", "Grotto & story", [4, 23, 24, 25]], ["save", "duo", "Friends & saving", [6, 7, 9]], ["about", "help", "About", [8, 10, 26]]];
-const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now. A well-rested, happy glowling also cheers you on when you crack an egg: a few more shards."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the nest). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."], ["Who made Hatchstone?", "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new)."], ["What is the lantern?", "Every trip into the Grotto takes a drop of lantern oil. The lantern holds 5 drops, and one comes back every 20 minutes. Bars fill it right away: a firefly square gives 1 drop, a nut bar 3, and a star bar fills it to the brim. Moon eggs, playing together and levels you already have ★★★ on don't use oil."], ["Where do I get bars?", "From daily tasks (finish all of them for a nut bar), when a glowling reaches a new level, from moon eggs (every third night in a row brings a star bar), from a good round of Echo song, and now and then from the rubble of a geode."], ["What are daily tasks?", "A few small things to do each day: tap the tasks counter at the top. Each one gives 10 shards, and finishing them all gives 15 more and a nut bar."], ["Why polish a geode?", "When a geode opens, rub it with your finger to make it shine. The shinier it gets, the more shards you earn. Tap the button when you're happy with it."], ["What is the Forge?", "Spend shards on your hammer: harder taps crack eggs faster, and keener eyes help you find the weak spot. The deeper caves have tougher stone, so upgrades help a lot there."], ["What games can I play with my glowling?", "Tap Play in the nest. Sparkle catch: drag to catch sparkles and dodge pebbles. Echo song: listen to the tune the stones sing, then sing it back. Playing makes a glowling happy, but it tires them out, so let them nap."], ["What does shiny mean?", "Now and then a glowling hatches shiny, with a sparkly look of its own: about 1 in 25 from geodes and 1 in 10 from moon eggs."], ["Can my glowling wear things?", "Yes: Decor → Wear. Buy an accessory once and any glowling can wear it. Tap it again to take it off."], ["Can I send a picture of my glowling?", "Yes: tap the postcard button next to your glowling's name in the nest. You get a pixel postcard to save or send to a friend."], ["Why aren't all my glowlings at home?", "The nest fits only a few at once; the others are out exploring the grotto, having a lovely time. Tap one in the row under the nest to call them home. Tap the \"at home\" counter to make room for one more, for shards."], ["How do I decorate the nest?", "Open Decor in the nest. Furniture is sorted into Comfort, Light, Toys and Pretty things: tap something to see who loves it, then buy or place it. Glowlings visit the things they love. Look changes the view and the backdrop, and new backdrops open as you go deeper. In the isometric view you can rearrange the room."], ["How do rooms work?", "The nest is your first room. Add more in Decor → Rooms: a playroom, a garden room and a crystal study. Each room has its own furniture, backdrop and bed. Switch rooms with the arrows at the sides of the nest."], ["What are events?", "A few weeks a year the grotto celebrates: Spring Bloom, Firefly Nights, Harvest Moon, Hollow Night, First Frost and Winter Lights. During an event a limited glowling sleeps in the moon egg and the sky over the grotto changes. Look for the banner in the Grotto."], ["Is there a story?", "Yes. Mossa, the old stone who keeps the grotto, tells it a little at a time as you go deeper, and a couple of friends join in along the way. Every part you've heard stays in the Book → Story to read again."], ["What happens after level 24?", "Wander opens: endless geodes from the deepest caves, as many as you like. The moon egg and events keep coming too."]];
+const FAQ = [["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and raise it in your nest. Cracking earns shards and stars; the nest is where your glowlings live, play and grow."], ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."], ["How do I look after my glowling?", "Stroke it with your finger, feed it snacks, play sparkle catch and tuck it in when it's sleepy. A happy glowling earns XP and grows up to level 20. The glowing button shows what it needs right now. A well-rested, happy glowling also cheers you on when you crack an egg: a few more shards."], ["What are shards for?", "Snacks, decorations for the nest and hammer upgrades at the Forge. You get them from geodes, daily tasks and the moon egg."], ["What is the moon egg?", "One special egg a day in the Grotto. Open it every day to build a streak: the longer the streak, the more shards."], ["Can my glowlings have a baby?", "Yes. Two happy glowlings at level 5 or higher can lay a mixed egg in the incubator (the glass dome in the lab: find it on the map). The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up."], ["Can I play with a friend?", "Yes: open the menu (⚙) and tap Play together. You send a link, your friend opens it, and you crack one egg together, each on your own phone."], ["Where is my progress saved?", "In this browser, on this device. Make a backup code in the menu (⚙ → Back up nest) and keep it somewhere safe: it brings your nest back on any device. On iPhone, add the game to your Home Screen so Safari doesn't clear it."], ["Is it free? Are there ads?", "Free, with no ads, no account and no purchases. Everything stays on your device."], ["How do I turn the sound off, or change the language?", "Sound is in the menu (⚙). The flag in the corner switches between English and Ukrainian. Headphones make the cracks sound best."], ["Who made Hatchstone?", "Made with care by helavika, in free evenings. [Code on GitHub](https://github.com/helavika/hatchstone) · more work in my [portfolio](https://helavika.github.io/helavika-portfolio/) · ideas and bugs welcome [on GitHub](https://github.com/helavika/hatchstone/issues/new)."], ["What is the lantern?", "Every trip into the Grotto takes a drop of lantern oil. The lantern holds 5 drops, and one comes back every 20 minutes. Bars fill it right away: a firefly square gives 1 drop, a nut bar 3, and a star bar fills it to the brim. Moon eggs, playing together and levels you already have ★★★ on don't use oil."], ["Where do I get bars?", "From daily tasks (finish all of them for a nut bar), when a glowling reaches a new level, from moon eggs (every third night in a row brings a star bar), from a good round of Echo song, and now and then from the rubble of a geode."], ["What are daily tasks?", "A few small things to do each day: tap the tasks counter at the top. Each one gives 10 shards, and finishing them all gives 15 more and a nut bar."], ["Why polish a geode?", "When a geode opens, rub it with your finger to make it shine. The shinier it gets, the more shards you earn. Tap the button when you're happy with it."], ["What is the Forge?", "Spend shards on your hammer: harder taps crack eggs faster, and keener eyes help you find the weak spot. The deeper caves have tougher stone, so upgrades help a lot there."], ["What games can I play with my glowling?", "Tap Play in the nest. Sparkle catch: drag to catch sparkles and dodge pebbles. Echo song: listen to the tune the stones sing, then sing it back. Playing makes a glowling happy, but it tires them out, so let them nap."], ["What does shiny mean?", "Now and then a glowling hatches shiny, with a sparkly look of its own: about 1 in 25 from geodes and 1 in 10 from moon eggs."], ["Can my glowling wear things?", "Yes: Decor → Wear. Buy an accessory once and any glowling can wear it. Tap it again to take it off."], ["Can I send a picture of my glowling?", "Yes: tap the postcard button next to your glowling's name in the nest. You get a pixel postcard to save or send to a friend."], ["Why aren't all my glowlings at home?", "The nest fits only a few at once; the others are out exploring the grotto, having a lovely time. Tap one in the row under the nest to call them home. Tap the \"at home\" counter to make room for one more, for shards."], ["How do I decorate the nest?", "Open Decor in the nest. Furniture is sorted into Comfort, Light, Toys and Pretty things: tap something to see who loves it, then buy or place it. Glowlings visit the things they love. Look changes the view and the backdrop, and new backdrops open as you go deeper. In the isometric view you can rearrange the room."], ["How do rooms work?", "The nest is your first room. Add more in Decor → Rooms: a playroom, a garden room and a crystal study. Each room has its own furniture, backdrop and bed. Switch rooms with the arrows at the sides of the nest."], ["What are events?", "A few weeks a year the grotto celebrates: Spring Bloom, Firefly Nights, Harvest Moon, Hollow Night, First Frost and Winter Lights. During an event a limited glowling sleeps in the moon egg and the sky over the grotto changes. Look for the banner in the Grotto."], ["Is there a story?", "Yes. Mossa, the old stone who keeps the grotto, tells it a little at a time as you go deeper, and a couple of friends join in along the way. Every part you've heard stays in the Book → Story to read again."], ["What happens after level 24?", "Wander opens: endless geodes from the deepest caves, as many as you like. The moon egg and events keep coming too."]];
 FAQ.push(["What happens to my data?", "Nothing leaves your device unless you send it: no accounts, no ads, no analytics. The whole story is on the [privacy page](https://helavika.github.io/hatchstone/privacy.html)."]);
 function openFaq() {
   sfx.tick();
@@ -11961,8 +12010,8 @@ $("homeClose").addEventListener("click", () => show("homeSheet", false));
 $("homePill").addEventListener("click", openHome);
 $("residentsBtn").addEventListener("click", openHome);
 $("playBtn").addEventListener("click", openGames);
-$("roomPrev").addEventListener("click", () => goRoom(save.room - 1));
-$("roomNext").addEventListener("click", () => goRoom(save.room + 1));
+$("roomPrev").addEventListener("click", () => goRoom(stepRoom(-1)));
+$("roomNext").addEventListener("click", () => goRoom(stepRoom(1)));
 $("gamesClose").addEventListener("click", () => show("games", false));
 $("sleepBtn").addEventListener("click", toggleSleep);
 $$(".hud-quit").forEach(b => b.addEventListener("click", ev => {
@@ -12149,7 +12198,7 @@ function renderLib() {
   } else if (game.libTab === "hy") {
     const hy = save.creatures.filter(c => c.mix);
     $("libGrid").innerHTML = hy.length ? hy.map((c, i) => `<button data-hy="${c.id}" style="animation-delay:${i * 20}ms"><span class="pg"><img class="lib-px" src="${creatureImage(specOf(c), { art: 32, level: c.level, shiny: c.shiny })}" alt=""></span><b>${c.name}</b><small>${c.mix.parents.join(" × ")}</small></button>`).join("")
-      : `<p class="sub" style="grid-column:1/-1;padding:20px 0">${tr("No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in your nest 💞", PAIR_LEVEL)}</p>`;
+      : `<p class="sub" style="grid-column:1/-1;padding:20px 0">${tr("No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in the lab 💞", PAIR_LEVEL)}</p>`;
   } else if (game.libTab === "sp") {
     $("libGrid").innerHTML = SPECIES.map((s, i) => {
       const seen = save.seen[s.id];
