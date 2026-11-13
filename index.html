@@ -751,6 +751,17 @@
   #wickList img.em { width: 40px; height: 40px; image-rendering: pixelated; object-fit: contain; flex: none; }
   .wick-gossip { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; padding: 10px 12px; text-align: left; font-size: 15px; color: var(--soft); background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
   .wick-gossip img { width: 36px; height: 36px; image-rendering: pixelated; flex: none; }
+  /* the map */
+  .world { position: relative; width: 100%; aspect-ratio: 90 / 110; max-height: calc(100dvh - 130px); margin: 0 auto; background-size: 100% 100%; image-rendering: pixelated; box-shadow: var(--px-frame); }
+  .world .place { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; width: 36%; padding: 4px 2px; border: 0; cursor: pointer; font: inherit; color: var(--px-gold); background: rgba(22, 12, 38, .72); box-shadow: var(--px-frame); }
+  .world .place .ic { width: 34px; height: 34px; }
+  .world .place b { font-weight: 400; font-size: 16px; line-height: 1.05; }
+  .world .place small { font-size: 12px; color: var(--soft); line-height: 1.1; text-align: center; }
+  .world .place.call::after { content: "!"; position: absolute; top: -6px; right: -4px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 13px; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame); }
+  .world .place:active { transform: translate(-50%, -48%); }
+  .shop-tabs.five { grid-template-columns: repeat(5, 1fr); gap: 5px; }
+  .shop-tabs.five button { font-size: 13px; padding: 6px 1px 5px; }
+  .seed-btns small.only { font-size: 12px; color: var(--soft); white-space: nowrap; }
   /* the garden sheet: three plots, then the seeds */
   .plots { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin: 4px 2px 6px; }
   .plot { display: flex; flex-direction: column; align-items: center; gap: 3px; padding: 8px 4px; background: var(--px-deep); box-shadow: var(--px-frame); }
@@ -876,7 +887,7 @@
   #crackTab.dry { filter: saturate(.35) brightness(.85); }
   /* every tab on one line: the open one is lit and underlined, not lifted; only Crack stands up */
   #tabs button.on, body.compact #tabs button.on { transform: none !important; }
-  #tabs button[data-tab].on, #tabs #forgeTab.on { background: var(--px-raise) !important; color: #ffe9a8 !important; box-shadow: inset 0 0 0 2px var(--px-edge) !important; }
+  #tabs button[data-tab].on, #tabs #worldTab.on { background: var(--px-raise) !important; color: #ffe9a8 !important; box-shadow: inset 0 0 0 2px var(--px-edge) !important; }
   #tabs { align-items: stretch; width: min(100vw - 12px, 520px) !important; gap: 2px !important; }
   #tabs button { font-size: 14px !important; }
   #crackTab { transform: translateY(-8px) !important; }
@@ -1063,15 +1074,15 @@
   body.narrow #startCorner .pill { height: 34px; width: 34px; }
   body.narrow h1 { font-size: 50px; }
 
-  /* the bottom bar, last word: three tabs, the Crack button standing up in the middle, three tabs; small dots for news */
-  #tabs { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)) 84px repeat(3, minmax(0, 1fr)); gap: 2px !important; width: min(100vw - 12px, 560px) !important; padding: 5px !important; align-items: stretch; }
+  /* the bottom bar, last word: two tabs, the Crack button standing up in the middle, two tabs; small dots for news */
+  #tabs { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) 84px repeat(2, minmax(0, 1fr)); gap: 2px !important; width: min(100vw - 12px, 560px) !important; padding: 5px !important; align-items: stretch; }
   #tabs button { flex: none !important; min-width: 0; padding: 7px 0 6px !important; font-size: 13px !important; line-height: 1.1; white-space: nowrap; overflow: visible; }
   #tabs button .ic { width: 26px !important; height: 26px !important; margin: 0 0 2px !important; }
   #tabs #crackTab { transform: translateY(-16px) !important; padding: 8px 0 6px !important; font-size: 15px !important; }
   #tabs #crackTab .ic { width: 38px !important; height: 38px !important; }
   #tabs #crackTab:active { transform: translateY(-13px) !important; }
-  #tabs #gardenTab.on, #tabs #decorBtn.on { background: var(--px-raise) !important; color: #ffe9a8 !important; box-shadow: inset 0 0 0 2px var(--px-edge) !important; }
-  #tabs #gardenTab.on::before { content: ""; position: absolute; left: 30%; right: 30%; bottom: 2px; height: 3px; background: var(--px-gold); }
+  #tabs #worldTab.on, #tabs #decorBtn.on { background: var(--px-raise) !important; color: #ffe9a8 !important; box-shadow: inset 0 0 0 2px var(--px-edge) !important; }
+  #tabs #worldTab.on::before { content: ""; position: absolute; left: 30%; right: 30%; bottom: 2px; height: 3px; background: var(--px-gold); }
   #tabs button.call::after { width: 8px !important; height: 8px !important; top: 5px !important; right: calc(50% - 19px) !important; background: #e0634f !important; box-shadow: 0 0 0 2px var(--px-ink) !important; }
   /* one row above the bar: the three needs and the glowlings cell */
   #nestBottom .acts { width: min(100%, 520px); }
@@ -1180,11 +1191,9 @@
 
 <nav id="tabs" class="glass" inert aria-hidden="true">
   <button data-tab="nest"><i class="ic" data-ic="nest"></i>Nest</button>
-  <button id="decorBtn"><i class="ic" data-ic="candle"></i>Decor</button>
-  <button id="gardenTab"><i class="ic" data-ic="sun"></i>Garden</button>
+  <button id="decorBtn"><i class="ic" data-ic="chest"></i>Chest</button>
   <button id="crackTab" aria-label="Crack the next egg"><i class="ic" data-ic="egg"></i>Crack<small id="crackLvl">Lv 1</small></button>
-  <button data-tab="map"><i class="ic" data-ic="grotto"></i>Grotto</button>
-  <button id="forgeTab"><i class="ic" data-ic="hammer"></i>Forge</button>
+  <button id="worldTab"><i class="ic" data-ic="map"></i>Map</button>
   <button data-tab="lib"><i class="ic" data-ic="book"></i>Book</button>
 </nav>
 
@@ -1409,6 +1418,13 @@
   </div>
 </div>
 
+<div id="worldSheet" class="overlay modal hidden">
+  <div class="card glass dark">
+    <h2>Map</h2>
+    <div class="world" id="worldMap"></div>
+    <button class="ghost" id="worldClose">close</button>
+  </div>
+</div>
 <div id="shop" class="overlay modal hidden">
   <div class="card glass dark wide">
     <h2>Decorate the nest</h2>
@@ -1822,7 +1838,7 @@ const UK = {
   "favorite! ♥": "улюблене! ♥",
   "yum": "ням",
   "placed ✓": "стоїть ✓",
-  "stored": "у коморі",
+  "stored": "у скриньці",
   "in {0}": "у: {0}",
   "Rooms": "Кімнати",
   "Playroom": "Ігрова",
@@ -2110,7 +2126,7 @@ const UK = {
   "admires the painting": "милується картиною",
   "Room space": "Місце в кімнаті",
   "No room on the floor: put something away first": "На підлозі немає місця: спершу прибери щось",
-  "{0} is in storage: the floor is full. Put something away to place it": "{0} у коморі: підлога вже зайнята. Прибери щось, щоб поставити",
+  "{0} is in storage: the floor is full. Put something away to place it": "{0} у скриньці: підлога вже зайнята. Прибери щось, щоб поставити",
   "Frost Hollow": "Крижана западина",
   "Aurora Summit": "Вершина під сяйвом",
   "meet 12 kinds of glowling": "зустрінь 12 видів глоулінгів",
@@ -2262,6 +2278,33 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Chest": "Скринька",
+  "Map": "Мапа",
+  "Shop": "Крамниця",
+  "Pantry": "Припаси",
+  "Food": "Їжа",
+  "Treasures": "Скарби",
+  "The stone gets harder from here on. The Forge can help: it's on the map.": "Далі камінь твердішає. Допоможе Кузня: вона на мапі.",
+  "today's moon egg 🌙": "місячне яйце дня 🌙",
+  "hammers and the workbench": "молоти й верстак",
+  "{0} glowlings at home": "глоулінгів удома: {0}",
+  "ripe: {0} 🌱": "достигло: {0} 🌱",
+  "Wick is visiting today": "сьогодні в гостях Вік",
+  "grows what no shop sells": "росте те, чого не купиш",
+  "food, furniture, seeds": "їжа, меблі, насіння",
+  "send a glowling exploring": "відправ глоулінга в мандри",
+  "garden only": "лише із саду",
+  "What you buy goes into the pantry basket 🧺: feed it from the snack button in the nest.": "Куплене йде в кошик із припасами 🧺: годуй через кнопку смаколиків у гнізді.",
+  "Plant them in the garden bed outside.": "Посади їх на грядці надворі.",
+  "Feed it from the snack button in the nest.": "Годуй через кнопку смаколиків у гнізді.",
+  "The basket is empty. Buy food at the shop, or grow it in the garden.": "Кошик порожній. Купи їжу в крамниці або виростити її в саду.",
+  "No seeds. The shop has them, and expeditions bring some back.": "Насіння немає. Воно є в крамниці, а ще його приносять із мандрів.",
+  "Nothing yet: bars for the lantern and sunpetals end up here.": "Поки нічого: сюди потрапляють батончики для ліхтаря й сонцепелюстки.",
+  "You have {0}. Furniture goes into your chest, food into the pantry basket.": "У тебе {0}. Меблі йдуть у скриньку, їжа — в кошик із припасами.",
+  "Everything that's yours, sorted. Glowlings visit the things they love.": "Усе твоє, розкладене по поличках. Глоулінги навідуються до улюблених речей.",
+  "You own everything here ✦": "Усе це вже твоє ✦",
+  "Nothing here yet: furniture you buy at the shop waits in the chest.": "Тут поки порожньо: меблі, куплені в крамниці, чекатимуть у скриньці.",
+  "To the shop": "До крамниці",
   "Starfruit": "Зіркоплід",
   "Growcap": "Ростогриб",
   "Starfruit vine": "Зіркоплідна лоза",
@@ -3656,6 +3699,10 @@ const PX_ICON_MAPS = {
     "................",
   ],
   trophy: ["............", "..AAAAAAAB..", ".CABBBBBBBC.", "C.ABBBBBBB.C", "C.ABBBBBBB.C", ".CABBBBBBC..", "...ABBBBC...", "....ABBC....", ".....BC.....", "....ABBC....", "...ACCCCC...", "............"],
+  chest: ["............", "...bbbbbb...", "..bobooobb..", ".booooooobB.", ".BBBBBBBBBB.", ".bobogGobbB.", ".booogGoobB.", ".bobooooobB.", ".boooooooBB.", ".BBBBBBBBBB.", "............", "............"],
+  map: ["............", ".ssssssssss.", ".swwwwwwwwS.", ".swwmmwwewS.", ".swmmwweewS.", ".swwwweewwS.", ".swwweewwwS.", ".swweewwtwS.", ".swewwwttwS.", ".swwwwwwwwS.", ".SSSSSSSSSS.", "............"],
+  stall: ["............", ".rWrWrWrWrW.", ".rWrWrWrWrW.", "..RRRRRRRR..", "..b......b..", "..b.gG.e.b..", "..b.gg.E.b..", ".BBBBBBBBBB.", ".boooooooob.", ".boooooooob.", ".BBBBBBBBBB.", "............"],
+  compass: ["............", "....ssss....", "..ssSSSSss..", ".sSw.e..wSs.", ".sS..e...Ss.", ".sS.eWe..Ss.", ".sS..t...Ss.", ".sSw.t..wSs.", "..ssSSSSss..", "....ssss....", "............", "............"],
   broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
 };
 // the trophy in each award's metal: bronze, silver, amethyst and gold
@@ -4147,8 +4194,7 @@ function updateCalls() {
   // looks ahead on a copy: just checking must never change the save
   const n = save.creatures.filter(c => { const p = { ...c, dust: [...(c.dust || [])] }; applyTime(p); return callOf(p); }).length;
   t.classList.toggle("call", n > 0 && game.scene !== "nest");
-  document.querySelector('#tabs [data-tab="map"]')?.classList.toggle("call", !moonDone() && game.scene !== "map");
-  $("forgeTab")?.classList.toggle("call", canForge());
+  $("worldTab")?.classList.toggle("call", (!moonDone() && game.scene !== "map") || canForge() || ripePlots() > 0);
 }
 
 function moodOf(cr) {
@@ -6229,7 +6275,7 @@ const TALKS = {
   firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine.", spotEgg], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.", "#polishDone"]],
   firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
     [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it.", "#forgeList"]],
-  ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])], [MOSSA, "The stone gets harder from here on. The Forge can help.", "#forgeTab"]],
+  ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])], [MOSSA, "The stone gets harder from here on. The Forge can help: it's on the map.", "#worldTab"]],
   ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring higher."]],
   ch3: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[3])], [MOSSA, "The oldest, toughest stone. And the rarest glowlings sleep in it."]],
   shiny: cr => [[glowVoice(cr), "✦ Pip! ✦"], [MOSSA, "Oh my. A shiny one! I've only seen a handful in all my years."]],
@@ -7153,16 +7199,19 @@ function finishSnack(sn) {
 const hasDecor = id => save.decor[id] && save.decor[id].on;
 
 /** The Decor sheet works like a catalogue: tabs along the top, then a grid of things, and a strip at the bottom for the one you picked. */
-const SHOP_TABS = [["decor", "candle", "Furniture"], ["look", "grotto", "Look"], ["rooms", "nest", "Rooms"], ["wear", "heart", "Wear"]];
+const SHOP_TABS = [["decor", "candle", "Furniture"], ["pantry", "chest", "Pantry"], ["look", "grotto", "Look"], ["rooms", "nest", "Rooms"], ["wear", "heart", "Wear"]];
+const MARKET_TABS = [["food", "cookie", "Food"], ["decor", "candle", "Furniture"], ["seeds", "sun", "Seeds"]];
 const DECOR_CATS = [["here", "For this room"], ["all", "All"], ["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
   rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty" };
-const shopOf = () => (game.shop = game.shop || { tab: "decor", cat: "here", pick: null });
+const shopOf = () => (game.shop = game.shop || { mode: "chest", tab: "decor", cat: "here", pick: null });
 function openShop() {
   sfx.tick();
-  const st = shopOf(), iso = N.iso;
-  $("shopSub").innerHTML = tr("You have {0}. Glowlings visit the things they love.", ic("shard") + save.shards);
-  const tabs = `<div class="shop-tabs">${SHOP_TABS.map(([id, icon, name]) => `<button data-shoptab="${id}" class="${st.tab === id ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`;
+  const st = shopOf(), iso = N.iso, market = st.mode === "market", TABS = market ? MARKET_TABS : SHOP_TABS;
+  if (!TABS.some(t => t[0] === st.tab)) st.tab = TABS[0][0];
+  $("shop").querySelector("h2").textContent = tr(market ? "Shop" : "Chest");
+  $("shopSub").innerHTML = market ? tr("You have {0}. Furniture goes into your chest, food into the pantry basket.", ic("shard") + save.shards) : tr("Everything that's yours, sorted. Glowlings visit the things they love.");
+  const tabs = `<div class="shop-tabs${market ? " three" : " five"}">${TABS.map(([id, icon, name]) => `<button data-shoptab="${id}" class="${st.tab === id ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`;
   let body = "";
   if (st.tab === "look") {
     const now = currentTheme(), view = roomView();
@@ -7177,20 +7226,27 @@ function openShop() {
       + `<p class="me-hint">${tr("Beds are free: pick the one that suits the room. Every glowling who lives here sleeps in it.")}</p>`;
   } else if (st.tab === "wear") {
     body = accessoryList();
+  } else if (st.tab === "food") {
+    body = marketFood();
+  } else if (st.tab === "seeds") {
+    body = marketSeeds();
+  } else if (st.tab === "pantry") {
+    body = chestPantry();
   } else {
     const used = isoSpaceUsed();
     // "for this room": what suits the kind of room you're in (anything without a room of its own suits the indoor ones)
     const kind = save.rooms[save.room]?.kind || "nest", suits = d => d.rooms ? d.rooms.includes(kind) : kind !== "yard";
-    const items = DECOR.filter(d => (iso || !d.wall || DRAW_DECOR[d.id]) && (st.cat === "all" || (st.cat === "here" ? suits(d) : DECOR_CAT[d.id] === st.cat)))
+    const items = DECOR.filter(d => (iso || !d.wall || DRAW_DECOR[d.id]) && (market ? !save.decor[d.id] : !!save.decor[d.id]) && (st.cat === "all" || (st.cat === "here" ? suits(d) : DECOR_CAT[d.id] === st.cat)))
       .sort((p, q) => st.cat === "here" ? (q.rooms?.includes(kind) ? 1 : 0) - (p.rooms?.includes(kind) ? 1 : 0) : 0);
     body = `<div class="cat-chips">${DECOR_CATS.map(([id, name]) => `<button data-cat="${id}" class="${st.cat === id ? "on" : ""}">${tr(name)}</button>`).join("")}</div>`
-      + (iso ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "")
+      + (!items.length ? `<p class="me-hint">${market ? tr("You own everything here ✦") : tr("Nothing here yet: furniture you buy at the shop waits in the chest.")}</p>${market ? "" : `<button class="act" id="toMarket">${ic("stall")}${tr("To the shop")}</button>`}` : "")
+      + (iso && !market ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "")
       + `<div class="tiles">${items.map(d => {
         const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
         const tag = owned ? (owned.on ? tr("placed ✓") : decorRoom(d.id) >= 0 ? tr("in {0}", roomName(decorRoom(d.id))) : tr("stored")) : locked ? ic("lock") : "✦ " + d.cost;
         return `<button class="tile${owned ? " owned" : ""}${owned && owned.on ? " placed" : ""}${d.legend ? " legend" : ""}${locked || (!owned && save.shards < d.cost) ? " dim" : ""}${st.pick === d.id ? " on" : ""}" data-pick="${d.id}">${decorThumb(d)}<b>${d.name}</b><small>${tag}</small></button>`;
       }).join("")}</div>`
-      + (iso ? `<button class="act arrange-btn" id="arrangeOpen">✥ ${tr("Rearrange the room")}</button>` : "");
+      + (iso && !market ? `<button class="act arrange-btn" id="arrangeOpen">✥ ${tr("Rearrange the room")}</button>` : "");
   }
   $("shopList").innerHTML = tabs + `<div class="shop-body">${body}</div>`;
   renderShopPick();
@@ -7208,6 +7264,9 @@ function openShop() {
   $$("#shopList [data-room]").forEach(b => b.addEventListener("click", () => { goRoom(Number(b.dataset.room)); openShop(); }));
   $$("#shopList [data-bed]").forEach(b => b.addEventListener("click", () => { save.rooms[save.room].bed = b.dataset.bed; persist(); sfx.tick(); toast(tr("A new bed: {0} ✦", tr(BEDS.find(x => x.id === b.dataset.bed).name))); openShop(); }));
   $("roomAdd")?.addEventListener("click", addRoom);
+  $("toMarket")?.addEventListener("click", openMarket);
+  $$("#shopList [data-food]").forEach(b => b.addEventListener("click", () => buyFood(b.dataset.food, Number(b.dataset.n || 1))));
+  $$("#shopList [data-seedbuy]").forEach(b => b.addEventListener("click", () => buySeed(b.dataset.seedbuy, openShop)));
   show("shop", true);
 }
 /** The strip under the grid: what the picked thing is, who loves it, and the one button that buys, places or puts it away. */
@@ -7222,6 +7281,104 @@ function renderShopPick() {
   const label = owned ? (owned.on ? tr("Put away") : tr("Place here")) : `${tr("Buy")} ✦ ${d.cost}`;
   box.innerHTML = `${decorThumb(d)}<span><b>${d.name}</b><small>${note}${where}</small></span><button class="act${owned ? "" : " buy"}" id="shopPickGo" ${locked || (!owned && save.shards < d.cost) ? "disabled" : ""}>${label}</button>`;
   $("shopPickGo").addEventListener("click", () => buyDecor(d.id));
+}
+
+// ---------- the map: every place in the world, a tap away (the tab bar keeps only the everyday ones) ----------
+
+const ripePlots = () => (save.garden?.slots || []).filter(q => q && SEEDS[q.seed] && stageOf2(q) === 3).length;
+const WORLD = [
+  { id: "grotto", name: "Grotto", icon: "grotto", at: [27, 15], note: () => !moonDone() ? tr("today's moon egg 🌙") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone(), go: () => setScene("map") },
+  { id: "forge", name: "The Forge", icon: "hammer", at: [74, 23], note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: openForge },
+  { id: "nest", name: "Nest", icon: "nest", at: [28, 47], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
+  { id: "garden", name: "Garden", icon: "sun", at: [72, 55], note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : wickHere() ? tr("Wick is visiting today") : tr("grows what no shop sells"), call: () => ripePlots() > 0 || wickHere(), go: () => toRoomKind("yard") },
+  { id: "shop", name: "Shop", icon: "stall", at: [30, 80], note: () => tr("food, furniture, seeds"), go: openMarket },
+  { id: "trail", name: "Expeditions", icon: "compass", at: [74, 86], note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: openTrips },
+];
+const WORLD_PATHS = [["nest", "grotto"], ["nest", "garden"], ["nest", "shop"], ["garden", "forge"], ["grotto", "forge"], ["shop", "trail"], ["garden", "trail"]];
+function toRoomKind(kind) {
+  if (game.scene !== "nest") setScene("nest");
+  const i = save.rooms.findIndex(r => r.kind === kind);
+  if (i >= 0 && i !== save.room) goRoom(i);
+  litTabs();
+}
+let worldArtUrl = null;
+/** The map's land in pixels: moss and meadow, a cave mouth in the hills up top, and dirt paths between the places. */
+function worldArt() {
+  if (worldArtUrl) return worldArtUrl;
+  const W = 90, H = 110, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d"), im = g.createImageData(W, H), d = im.data;
+  const grass = ["#1d3b2c", "#24503a", "#2f6446", "#3d7a52"].map(pxHex), hill = ["#2a2148", "#3b2f63", "#4e3f7d"].map(pxHex), dirt = ["#6b4a2a", "#8a6238", "#a77b48"].map(pxHex), water = ["#1f3d6b", "#2f68c8"].map(pxHex);
+  const near = (x, y, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy), 0, 1); return Math.hypot(x - ax - t * dx, y - ay - t * dy); };
+  const pt = id => { const w = WORLD.find(p => p.id === id).at; return [w[0] / 100 * W, w[1] / 100 * H]; };
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const n = pxFbm(x / 14, y / 14);
+    let col;
+    const hills = y < 26 + Math.sin(x / 9) * 5 + n * 6;
+    const brook = Math.abs(x - (52 + Math.sin(y / 11) * 6)) < 2.2 && y > 30;
+    col = hills ? pxPick(hill, n * 1.2, x, y) : brook ? pxPick(water, n + (y % 7 === 0 ? 0.4 : 0), x, y) : pxPick(grass, n * 1.1, x, y);
+    for (const [a, b] of WORLD_PATHS) { const [ax, ay] = pt(a), [bx, by] = pt(b); if (near(x, y, ax, ay, bx, by) < 1.6) col = pxPick(dirt, pxHash(x, y) * 0.6 + 0.3, x, y); }
+    const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  // little bridges where the paths cross the brook, and a few fireflies
+  g.fillStyle = "#c8a070";
+  for (let y = 31; y < H; y++) for (const [a, b] of WORLD_PATHS) { const [ax, ay] = pt(a), [bx, by] = pt(b), x = Math.round(52 + Math.sin(y / 11) * 6); if (near(x, y, ax, ay, bx, by) < 1.2) g.fillRect(x - 3, y - 1, 7, 3); }
+  g.fillStyle = "#fff0b5";
+  for (let k = 0; k < 14; k++) g.fillRect(Math.floor(pxHash(k, 3) * W), 28 + Math.floor(pxHash(k, 9) * (H - 30)), 1, 1);
+  return worldArtUrl = c.toDataURL();
+}
+function openWorld() {
+  sfx.tick();
+  $("worldMap").style.backgroundImage = `url(${worldArt()})`;
+  $("worldMap").innerHTML = WORLD.map(w => `<button class="place${w.call && w.call() ? " call" : ""}" data-place="${w.id}" style="left:${w.at[0]}%;top:${w.at[1]}%">${ic(w.icon, "big")}<b>${tr(w.name)}</b><small>${w.note()}</small></button>`).join("");
+  $$("#worldMap [data-place]").forEach(b => b.addEventListener("click", () => {
+    const w = WORLD.find(x => x.id === b.dataset.place);
+    if (coopSession) coopEnd("navigation", true);
+    show("worldSheet", false); w.go();
+  }));
+  show("worldSheet", true);
+}
+
+// ---------- the shop sells; the chest keeps what's yours ----------
+
+function openChest() { const st = shopOf(); if (st.mode !== "chest") { st.mode = "chest"; st.tab = "decor"; st.pick = null; } openShop(); }
+function openMarket() { const st = shopOf(); if (st.mode !== "market") { st.mode = "market"; st.tab = "food"; st.pick = null; } if (game.scene !== "nest") setScene("nest"); openShop(); }
+function buyFood(id, n = 1) {
+  const s = SNACKS[id];
+  if (!s || s.garden || save.shards < s.cost * n) return;
+  save.shards -= s.cost * n; save.pantry = { ...save.pantry, [id]: ((save.pantry || {})[id] || 0) + n };
+  sfx.tick(); persist(); updateTopbar(); openShop();
+}
+function marketFood() {
+  const pantry = save.pantry || {}, row = ([id, s]) => {
+    const more = [`${tr("Hunger")} +${s.tummy}`, s.energy && `${tr("Sleepiness")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), s.fav && tr("favorite!")].filter(Boolean).join(" · ");
+    return `<div class="snack seed"><span class="em">${s.emoji}</span><span><b>${s.name} <em>×${pantry[id] || 0}</em></b><small>${more}</small></span><span class="seed-btns">${s.garden ? `<small class="only">🌱 ${tr("garden only")}</small>`
+      : `<button class="act" data-food="${id}" ${save.shards < s.cost ? "disabled" : ""}>+1 ✦ ${s.cost}</button><button class="act" data-food="${id}" data-n="5" ${save.shards < s.cost * 5 ? "disabled" : ""}>+5</button>`}</span></div>`;
+  };
+  const all = Object.entries(SNACKS);
+  return `<p class="me-hint">${tr("What you buy goes into the pantry basket 🧺: feed it from the snack button in the nest.")}</p>`
+    + `<h3 class="forge-h">${tr("Snacks")}</h3>` + all.filter(([, s]) => !s.drink && !s.garden).map(row).join("")
+    + `<h3 class="forge-h">${tr("Drinks")}</h3>` + all.filter(([, s]) => s.drink && !s.garden).map(row).join("")
+    + `<h3 class="forge-h">${tr("From the garden")}</h3>` + all.filter(([, s]) => s.garden).map(row).join("");
+}
+function marketSeeds() {
+  const g = garden();
+  return `<p class="me-hint">${tr("Plant them in the garden bed outside.")}</p>` + Object.entries(SEEDS).map(([id, sd]) => {
+    const have = g.seeds[id] || 0, locked = sd.ok && !sd.ok();
+    return `<div class="snack seed${locked ? " locked" : ""}"><img class="em" src="${plantImage(id, 3)}" alt=""><span><b>${seedName(id)} <em>×${have}</em></b><small>${locked ? ic("lock") + tr(sd.how) : `${tr(sd.note)} · ${tr("{0} h", sd.hrs)}`}</small></span>`
+      + `<span class="seed-btns"><button class="act" data-seedbuy="${id}" ${locked || save.shards < sd.cost ? "disabled" : ""}>+1 ✦ ${sd.cost}</button></span></div>`;
+  }).join("");
+}
+/** The chest's pantry shelf: food in the basket, seeds in their packets, and the odd treasure. */
+function chestPantry() {
+  const pantry = Object.entries(save.pantry || {}).filter(([id, n]) => n > 0 && SNACKS[id]);
+  const seeds = Object.entries(garden().seeds).filter(([id, n]) => n > 0 && SEEDS[id]);
+  const bars = Object.entries(save.bars || {}).filter(([id, n]) => n > 0 && BARS[id]);
+  const chip = (img, name, n) => `<div class="tile owned">${img}<b>${name}</b><small>×${n}</small></div>`;
+  const empty = t => `<p class="me-hint">${t}</p>`;
+  return `<h3 class="forge-h">${tr("Food")}</h3>` + (pantry.length ? `<div class="tiles">${pantry.map(([id, n]) => chip(`<span class="em">${SNACKS[id].emoji}</span>`, SNACKS[id].name, n)).join("")}</div>${empty(tr("Feed it from the snack button in the nest."))}` : empty(tr("The basket is empty. Buy food at the shop, or grow it in the garden.")))
+    + `<h3 class="forge-h">${tr("Seeds")}</h3>` + (seeds.length ? `<div class="tiles">${seeds.map(([id, n]) => chip(`<img class="em" src="${plantImage(id, 3)}" alt="">`, seedName(id), n)).join("")}</div>` : empty(tr("No seeds. The shop has them, and expeditions bring some back.")))
+    + `<h3 class="forge-h">${tr("Treasures")}</h3>` + (bars.length || save.sunlit ? `<div class="tiles">${bars.map(([id, n]) => chip(`<img class="em px-thumb" src="${pxIcon(BARS[id].icon || "bar" + id[0].toUpperCase() + id.slice(1))}" alt="">`, barName(id), n)).join("")}${save.sunlit ? chip(`<span class="em">☀️</span>`, tr("Sunpetal"), save.sunlit) : ""}</div>` : empty(tr("Nothing yet: bars for the lantern and sunpetals end up here.")));
 }
 
 // ---------- the garden: plant seeds in the garden bed, water them, and pick what grows (in real time) ----------
@@ -7308,11 +7465,11 @@ function openGarden() {
   $$("#gardenList [data-pick]").forEach(b => b.addEventListener("click", () => pickPlot(Number(b.dataset.pick))));
   show("gardenSheet", true);
 }
-function buySeed(id) {
+function buySeed(id, then = openGarden) {
   const sd = SEEDS[id], g = garden();
   if (save.shards < sd.cost || (sd.ok && !sd.ok())) return;
   save.shards -= sd.cost; g.seeds[id] = (g.seeds[id] || 0) + 1;
-  sfx.tick(); persist(); updateTopbar(); openGarden();
+  sfx.tick(); persist(); updateTopbar(); then();
 }
 function plantSeed(id) {
   const g = garden(), i = g.slots.findIndex(q => !q);
@@ -7695,7 +7852,7 @@ function goRoom(i) {
 function litTabs() {
   const out = game.scene === "nest" && isOutside();
   $$("#tabs [data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === game.scene && !(out && b.dataset.tab === "nest")));
-  $("gardenTab").classList.toggle("on", out);
+  $("worldTab").classList.toggle("on", out || game.scene === "map");
 }
 function addRoom() {
   const kind = nextRoomKind();
@@ -11655,7 +11812,11 @@ $("crackTab").addEventListener("click", () => {
   if (coopSession) coopEnd("navigation", true);
   startLevel(nextLevel());
 });
-$("forgeTab").addEventListener("click", () => { if (!$("tabs").inert) openForge(); });
+$("worldTab").addEventListener("click", () => {
+  if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
+  openWorld();
+});
+$("worldClose").addEventListener("click", () => show("worldSheet", false));
 $("quit").addEventListener("click", () => {
   if (coopSession) { coopEnd("left"); return; }
   const e = game.egg;
@@ -11684,20 +11845,11 @@ $("arrangeDone").addEventListener("click", () => { sfx.tick(); stopArrange(); })
 $("firstEgg").addEventListener("click", () => startLevel(nextLevel() || 1));
 $("nestShare").addEventListener("click", () => { const cr = activeCreature(); if (cr) shareCreature(cr); });
 $("polishDone").addEventListener("click", coopFinishPolish);
-$("gardenTab").addEventListener("click", () => {
-  if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
-  if (coopSession) coopEnd("navigation", true);
-  sfx.tick();
-  if (game.scene !== "nest") setScene("nest");
-  const y = save.rooms.findIndex(r => r.kind === "yard");
-  if (y >= 0) goRoom(y);
-  litTabs();
-});
 $("decorBtn").addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
   if (coopSession) coopEnd("navigation", true);
   if (game.scene !== "nest") setScene("nest");
-  openShop();
+  openChest();
 });
 /** Tapping your shards and stars: they jingle, a few fly out, and a little card says what they're for. */
 function tapWallet(ev) {
