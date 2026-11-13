@@ -485,15 +485,9 @@ function renderMap() {
   const moonCard = `<button class="moonbtn" id="moonBtn" ${done ? "disabled" : ""}><span class="em">🌙</span><span><b>${done ? tr("Moon egg opened") : tr("Today's moon egg")}</b><small>${done
     ? tr("next one in {0}", untilTomorrow()) + (streak ? tr(" · streak {0} 🔥", streak) : "")
     : tr("{0} sleeps inside ✦ +25 shards", sp.event && !save.seen[sp.id] ? tr("the {0} glowling", eventName(EVENT[sp.event])) : sp.moon && !save.seen[sp.id] ? tr(/^[aeiou]/.test(sp.moon) ? "an {0} moon glowling" : "a {0} moon glowling", seasonName(sp.moon)) : tr("a {0} glowling", rar(rarityOf(sp)))) + (streak ? tr(" · streak {0} 🔥", streak) : "")}</small></span></button>`;
-  const ready = canForge();
-  const forgeCard = `<button class="moonbtn forgebtn${ready ? " ready" : ""}" id="forgeBtn">${ic("hammer", "big")}<span><b>${tr("The Forge")}${ready ? ` <em class="tag">${tr("upgrade ready")}</em>` : ""}</b><small>${tr("spend shards on your hammer: harder taps, keener eyes")}</small></span></button>`;
   const ev = eventNow(), evLeft = ev && eventDaysLeft(ev);
   const evCard = ev ? `<div class="evbar"><span class="em">${ev.emoji}</span><span><b>${eventName(ev)}</b><small>${tr(evLeft === 1 ? "last day" : "{0} days left", evLeft)}${save.seen[ev.sp] ? tr(" · you've met {0} ✓", SP[ev.sp].name) : tr(" · a limited glowling sleeps in the moon egg")}</small></span></div>` : "";
-  const away = onTrip().length;
-  const tripCard = `<button class="moonbtn" id="tripBtn"><span class="em">🧭</span><span><b>${tr("Expeditions")}</b><small>${away ? tr("{0} away exploring", away) : tr("send a glowling to explore for a few hours")}</small></span></button>`;
-  $("mapList").innerHTML = forgeCard + evCard + moonCard + tripCard + html;
-  $("forgeBtn").addEventListener("click", openForge);
-  $("tripBtn").addEventListener("click", openTrips);
+  $("mapList").innerHTML = evCard + moonCard + html;
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
   $("moonBtn").addEventListener("click", startMoon);
 }

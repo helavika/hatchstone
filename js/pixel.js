@@ -551,7 +551,7 @@ function checkThemes(quiet = false) {
   save.themesSeen.push(...fresh.map(t => t.id));
   persist();
   const shown = fresh.filter(t => t.id !== "amethyst");
-  if (!quiet && shown.length) setTimeout(() => toast(tr("New backdrop: {0} · choose it in Decor ✦", shown.map(t => t.name).join(", "))), 1600);
+  if (!quiet && shown.length) setTimeout(() => toast(tr("New backdrop: {0} · choose it in the Chest ✦", shown.map(t => t.name).join(", "))), 1600);
 }
 
 /** How hard an egg is: tougher stone deeper in the grotto, and a weak spot that glows less and less. */

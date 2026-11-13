@@ -1133,3 +1133,15 @@ body.compact .place-who img { width: 36px; height: 36px; }
 .wkeeper { position: absolute; left: 4%; top: 18%; width: 40px; height: 40px; image-rendering: pixelated; animation: pxBob 1.2s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
 .where { position: absolute; right: 2%; top: 4%; width: 46px; height: 46px; image-rendering: pixelated; animation: pxBob .9s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
 .wplace:active .wbanner { transform: translateY(2px); }
+
+/* the chest: the room you're in at the top, then furniture in sections */
+.room-head { display: flex; align-items: center; gap: 10px; margin: 2px 2px 8px; padding: 8px 10px; background: var(--px-deep); box-shadow: var(--px-frame); }
+.room-head > span { display: flex; flex-direction: column; min-width: 0; }
+.room-head b { font-weight: 400; font-size: 18px; color: var(--px-gold); line-height: 1; }
+.room-head small { font-size: 13px; color: var(--soft); }
+.room-space { flex: 1; height: 8px; background: rgba(0, 0, 0, .35); box-shadow: inset 0 0 0 1px var(--px-edge); position: relative; }
+.room-space::after { content: ""; position: absolute; inset: 0; width: calc(var(--k) * 100%); background: var(--px-gold); }
+.room-head .act { flex: none; padding: 6px 10px; font-size: 15px; }
+.reno .reno-img { width: 56px; height: 38px; object-fit: cover; image-rendering: pixelated; box-shadow: var(--px-frame); }
+.reno.built { opacity: .7; }
+.reno .em .ic { width: 34px; height: 34px; }

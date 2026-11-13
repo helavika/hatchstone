@@ -137,20 +137,20 @@ function finishSnack(sn) {
 
 const hasDecor = id => save.decor[id] && save.decor[id].on;
 
-/** The Decor sheet works like a catalogue: tabs along the top, then a grid of things, and a strip at the bottom for the one you picked. */
-const SHOP_TABS = [["decor", "candle", "Furniture"], ["pantry", "chest", "Pantry"], ["look", "grotto", "Look"], ["rooms", "nest", "Rooms"], ["wear", "heart", "Wear"]];
-const MARKET_TABS = [["food", "cookie", "Food"], ["decor", "candle", "Furniture"], ["seeds", "sun", "Seeds"]];
-const DECOR_CATS = [["here", "For this room"], ["all", "All"], ["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
+/** The chest keeps what's yours; the shop sells. Both work like a catalogue: four tabs, then things in sections, and a strip at the bottom for the one you picked. */
+const SHOP_TABS = [["decor", "candle", "Furniture"], ["look", "grotto", "Look"], ["pantry", "chest", "Pantry"], ["wear", "heart", "Wear"]];
+const MARKET_TABS = [["food", "cookie", "Food"], ["decor", "candle", "Furniture"], ["seeds", "sun", "Seeds"], ["reno", "hammer", "Renovation"]];
+const DECOR_CATS = [["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
   rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty" };
-const shopOf = () => (game.shop = game.shop || { mode: "chest", tab: "decor", cat: "here", pick: null });
+const shopOf = () => (game.shop = game.shop || { mode: "chest", tab: "decor", pick: null });
 function openShop() {
   sfx.tick();
   const st = shopOf(), iso = N.iso, market = st.mode === "market", TABS = market ? MARKET_TABS : SHOP_TABS;
   if (!TABS.some(t => t[0] === st.tab)) st.tab = TABS[0][0];
   $("shop").querySelector("h2").textContent = tr(market ? "Shop" : "Chest");
-  $("shopSub").innerHTML = market ? tr("You have {0}. Furniture goes into your chest, food into the pantry basket.", ic("shard") + save.shards) : tr("Everything that's yours, sorted. Glowlings visit the things they love.");
-  const tabs = `<div class="shop-tabs${market ? " three" : " five"}">${TABS.map(([id, icon, name]) => `<button data-shoptab="${id}" class="${st.tab === id ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`;
+  $("shopSub").innerHTML = market ? tr("You have {0}. What you buy waits in your chest.", ic("shard") + save.shards) : tr("Everything that's yours. Glowlings visit the things they love.");
+  const tabs = `<div class="shop-tabs">${TABS.map(([id, icon, name]) => `<button data-shoptab="${id}" class="${st.tab === id ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`;
   let body = "";
   if (st.tab === "look") {
     const now = currentTheme(), view = roomView();
@@ -158,11 +158,11 @@ function openShop() {
       + `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : !save.room ? "The nest is always tucked away in a cave, a grotto or a hollow." : "This room can take any backdrop you've found.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
         const ok = t.ok();
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
-      }).join("")}</div>`;
-  } else if (st.tab === "rooms") {
-    body = roomsList() + `<p class="sub">${tr("Each room has its own furniture, backdrop and bed. Switch rooms with the arrows at the sides of the nest.")}</p>`
+      }).join("")}</div>`
       + `<h3>${tr("The bed in the {0}", roomName(save.room).toLowerCase())}</h3><div class="tiles">${BEDS.map(bd => `<button class="tile${bedStyle() === bd.id ? " on placed" : ""}" data-bed="${bd.id}"><img class="em" src="${bedThumb(bd.id)}" alt=""><b>${tr(bd.name)}</b><small>${bedStyle() === bd.id ? tr("placed ✓") : tr("free")}</small></button>`).join("")}</div>`
       + `<p class="me-hint">${tr("Beds are free: pick the one that suits the room. Every glowling who lives here sleeps in it.")}</p>`;
+  } else if (st.tab === "reno") {
+    body = marketReno();
   } else if (st.tab === "wear") {
     body = accessoryList();
   } else if (st.tab === "food") {
@@ -173,24 +173,19 @@ function openShop() {
     body = chestPantry();
   } else {
     const used = isoSpaceUsed();
-    // "for this room": what suits the kind of room you're in (anything without a room of its own suits the indoor ones)
-    const kind = save.rooms[save.room]?.kind || "nest", suits = d => d.rooms ? d.rooms.includes(kind) : kind !== "yard";
-    const items = DECOR.filter(d => (iso || !d.wall || DRAW_DECOR[d.id]) && (market ? !save.decor[d.id] : !!save.decor[d.id]) && (st.cat === "all" || (st.cat === "here" ? suits(d) : DECOR_CAT[d.id] === st.cat)))
-      .sort((p, q) => st.cat === "here" ? (q.rooms?.includes(kind) ? 1 : 0) - (p.rooms?.includes(kind) ? 1 : 0) : 0);
-    body = `<div class="cat-chips">${DECOR_CATS.map(([id, name]) => `<button data-cat="${id}" class="${st.cat === id ? "on" : ""}">${tr(name)}</button>`).join("")}</div>`
+    const items = DECOR.filter(d => (iso || !d.wall || DRAW_DECOR[d.id]) && (market ? !save.decor[d.id] : !!save.decor[d.id]));
+    const tile = d => {
+      const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
+      const tag = owned ? (owned.on ? tr("placed ✓") : decorRoom(d.id) >= 0 ? tr("in {0}", roomName(decorRoom(d.id))) : tr("stored")) : locked ? ic("lock") : "✦ " + d.cost;
+      return `<button class="tile${owned ? " owned" : ""}${owned && owned.on ? " placed" : ""}${d.legend ? " legend" : ""}${locked || (!owned && save.shards < d.cost) ? " dim" : ""}${st.pick === d.id ? " on" : ""}" data-pick="${d.id}">${decorThumb(d)}<b>${d.name}</b><small>${tag}</small></button>`;
+    };
+    body = (!market ? `<div class="room-head"><span><b>${roomName(save.room)}</b>${iso ? `<small>${tr("Room space")} ${used}/${ISO_CAP}</small>` : ""}</span>${iso ? `<i class="room-space" style="--k:${Math.min(1, used / ISO_CAP)}"></i><button class="act" id="arrangeOpen">✥ ${tr("Rearrange")}</button>` : ""}</div>` : "")
       + (!items.length ? `<p class="me-hint">${market ? tr("You own everything here ✦") : tr("Nothing here yet: furniture you buy at the shop waits in the chest.")}</p>${market ? "" : `<button class="act" id="toMarket">${ic("stall")}${tr("To the shop")}</button>`}` : "")
-      + (iso && !market ? `<div class="space-bar"><span>${tr("Room space")}</span><b>${used}/${ISO_CAP}</b><i style="--k:${Math.min(1, used / ISO_CAP)}"></i></div>` : "")
-      + `<div class="tiles">${items.map(d => {
-        const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
-        const tag = owned ? (owned.on ? tr("placed ✓") : decorRoom(d.id) >= 0 ? tr("in {0}", roomName(decorRoom(d.id))) : tr("stored")) : locked ? ic("lock") : "✦ " + d.cost;
-        return `<button class="tile${owned ? " owned" : ""}${owned && owned.on ? " placed" : ""}${d.legend ? " legend" : ""}${locked || (!owned && save.shards < d.cost) ? " dim" : ""}${st.pick === d.id ? " on" : ""}" data-pick="${d.id}">${decorThumb(d)}<b>${d.name}</b><small>${tag}</small></button>`;
-      }).join("")}</div>`
-      + (iso && !market ? `<button class="act arrange-btn" id="arrangeOpen">✥ ${tr("Rearrange the room")}</button>` : "");
+      + DECOR_CATS.map(([cat, name]) => { const here = items.filter(d => (DECOR_CAT[d.id] || "pretty") === cat); return here.length ? `<h3 class="forge-h">${tr(name)}</h3><div class="tiles">${here.map(tile).join("")}</div>` : ""; }).join("");
   }
   $("shopList").innerHTML = tabs + `<div class="shop-body">${body}</div>`;
   renderShopPick();
   $$("#shopList [data-shoptab]").forEach(b => b.addEventListener("click", () => { st.tab = b.dataset.shoptab; st.pick = null; openShop(); }));
-  $$("#shopList [data-cat]").forEach(b => b.addEventListener("click", () => { st.cat = b.dataset.cat; st.pick = null; openShop(); }));
   $$("#shopList [data-pick]").forEach(b => b.addEventListener("click", () => {
     sfx.tick(); st.pick = b.dataset.pick;
     $$("#shopList [data-pick]").forEach(x => x.classList.toggle("on", x === b));
@@ -200,9 +195,9 @@ function openShop() {
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
   $$("#shopList [data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
   $("arrangeOpen")?.addEventListener("click", startArrange);
-  $$("#shopList [data-room]").forEach(b => b.addEventListener("click", () => { goRoom(Number(b.dataset.room)); openShop(); }));
   $$("#shopList [data-bed]").forEach(b => b.addEventListener("click", () => { save.rooms[save.room].bed = b.dataset.bed; persist(); sfx.tick(); toast(tr("A new bed: {0} ✦", tr(BEDS.find(x => x.id === b.dataset.bed).name))); openShop(); }));
-  $("roomAdd")?.addEventListener("click", addRoom);
+  $$("#shopList [data-build]").forEach(b => b.addEventListener("click", () => buildRoom(b.dataset.build)));
+  $("nestUp")?.addEventListener("click", buyNestUp);
   $("toMarket")?.addEventListener("click", openMarket);
   $$("#shopList [data-food]").forEach(b => b.addEventListener("click", () => buyFood(b.dataset.food, Number(b.dataset.n || 1))));
   $$("#shopList [data-seedbuy]").forEach(b => b.addEventListener("click", () => buySeed(b.dataset.seedbuy, openShop)));
@@ -217,8 +212,8 @@ function renderShopPick() {
   const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
   const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
   const where = owned && !owned.on && decorRoom(d.id) >= 0 ? ` · ${tr("in {0}", roomName(decorRoom(d.id)))}` : "";
-  const label = owned ? (owned.on ? tr("Put away") : tr("Place here")) : `${tr("Buy")} ✦ ${d.cost}`;
-  box.innerHTML = `${decorThumb(d)}<span><b>${d.name}</b><small>${note}${where}</small></span><button class="act${owned ? "" : " buy"}" id="shopPickGo" ${locked || (!owned && save.shards < d.cost) ? "disabled" : ""}>${label}</button>`;
+  const inPlace = isPlace(), label = owned ? (inPlace ? tr("In your chest ✓") : owned.on ? tr("Put away") : tr("Place here")) : `${tr("Buy")} ✦ ${d.cost}`;
+  box.innerHTML = `${decorThumb(d)}<span><b>${d.name}</b><small>${note}${where}</small></span><button class="act${owned ? "" : " buy"}" id="shopPickGo" ${locked || (!owned && save.shards < d.cost) || (owned && inPlace) ? "disabled" : ""}>${label}</button>`;
   $("shopPickGo").addEventListener("click", () => buyDecor(d.id));
 }
 
@@ -710,9 +705,9 @@ function setView(v) {
 const ROOM_KINDS = [
   { id: "nest", name: "Nest" },
   { id: "yard", name: "Garden", outdoor: true, place: true },
-  { id: "play", name: "Playroom", cost: 250 },
-  { id: "garden", name: "Garden room", cost: 500, theme: "glowcap" },
-  { id: "study", name: "Crystal study", cost: 900, theme: "celestite" },
+  { id: "play", name: "Playroom", cost: 250, note: "a bright room for toys and games" },
+  { id: "garden", name: "Garden room", cost: 500, theme: "glowcap", note: "moss underfoot, glowcaps overhead" },
+  { id: "study", name: "Crystal study", cost: 900, theme: "celestite", note: "quiet, blue and full of crystals" },
   { id: "lab", name: "Laboratory", place: true, theme: "celestite" },
   { id: "shop", name: "Shop", place: true, theme: "abbey" },
   { id: "forge", name: "The Forge", place: true, theme: "malachite" },
@@ -881,21 +876,32 @@ function litTabs() {
   if (onMap) $$("#tabs [data-tab]").forEach(b => b.classList.remove("on"));
   $("worldTab").classList.toggle("on", onMap || out || game.scene === "map");
 }
-function addRoom() {
+/** The shop's renovation corner: build a new room at home, or make room for one more glowling. */
+function marketReno() {
+  const next = nextRoomKind(), nu = save.nestUp || 0, cost = NEST_UP_COST[nu];
+  return `<p class="me-hint">${tr("Tansy's cousin does the building: new rooms appear at home, a tap of the arrows away.")}</p>`
+    + ROOM_KINDS.filter(k => k.cost).map(k => {
+      const built = save.rooms.some(r => r.kind === k.id), soon = !built && next && next.id !== k.id;
+      return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.theme || "amethyst")}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small></span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${save.shards < k.cost ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;
+    }).join("")
+    + `<h3 class="forge-h">${tr("Space at home")}</h3><div class="snack seed reno"><span class="em">${ic("nest", "big")}</span><span><b>${tr("Room for one more")}</b><small>${tr("each room fits {0} glowlings now", homeCap())}</small></span><span class="seed-btns">${cost ? `<button class="act buy" id="nestUp" ${save.shards < cost ? "disabled" : ""}>✦ ${cost}</button>` : `<small class="only">${tr("as roomy as it gets ✦")}</small>`}</span></div>`;
+}
+function buildRoom(id) {
   const kind = nextRoomKind();
-  if (!kind || save.shards < kind.cost) return;
+  if (!kind || kind.id !== id || save.shards < kind.cost) return;
   save.shards -= kind.cost;
   save.rooms.push({ kind: kind.id, on: [], theme: kind.theme && THEME[kind.theme].ok() ? kind.theme : null });
-  sfx.levelUp();
-  toast(tr("A new room: {0} ✦", tr(kind.name)));
-  goRoom(save.rooms.length - 1);
-  updateTopbar();
-  openShop();
+  sfx.levelUp(); buzz([12, 30, 12]);
+  toast(tr("A new room: {0} ✦ find it at home with the arrows", tr(kind.name)));
+  persist(); updateTopbar(); openShop();
 }
-function roomsList() {
-  const next = nextRoomKind();
-  return `<h3>${tr("Rooms")}</h3><div class="rooms">${save.rooms.map((_, i) => !roomOpen(i) ? "" : `<button class="pillbtn${i === save.room ? " on" : ""}" data-room="${i}">${roomName(i)}</button>`).join("")}${next
-    ? `<button class="pillbtn" id="roomAdd" ${save.shards < next.cost ? "disabled" : ""}>+ ${tr(next.name)} · ✦ ${next.cost}</button>` : ""}</div>`;
+function buyNestUp() {
+  const cost = NEST_UP_COST[save.nestUp || 0];
+  if (!cost || save.shards < cost) return;
+  save.shards -= cost; save.nestUp = (save.nestUp || 0) + 1;
+  sfx.levelUp(); toast(tr("The nest grew: {0} glowlings fit at home now ✦", homeCap()));
+  settleHome(); persist(); syncActors(); renderNest(true); updateTopbar();
+  if (!$("shop").classList.contains("hidden")) openShop();
 }
 
 /** Buy a decoration, or tap one you own to put it away or bring it back. */
@@ -911,9 +917,11 @@ function buyDecor(id) {
   else {
     if (save.shards < d.cost || (d.legend && !legendOk())) return;
     save.shards -= d.cost;
-    const fits = roomFor(id);
+    // bought at the shop: it waits in the chest; bought at home: it goes straight onto the floor if there's room
+    const fits = roomFor(id) && !isPlace();
     save.decor[id] = { on: fits, at: Date.now() };
-    if (!fits) toast(tr("{0} is in storage: the floor is full. Put something away to place it", d.name));
+    if (isPlace()) toast(tr("{0} is waiting in your chest ✦", d.name));
+    else if (!fits) toast(tr("{0} is in storage: the floor is full. Put something away to place it", d.name));
     taskDone("decor");
     sfx.levelUp();
     if (fits) { claimDecor(id); toast(save.room ? tr("{0} placed in the {1} ✦", d.name, roomName(save.room).toLowerCase()) : tr("{0} placed in the nest ✦", d.name)); }
@@ -1074,15 +1082,8 @@ function openHome() {
   const zone = (r, title, list, empty) => `<section class="res-zone${r === save.room ? " here" : ""}" data-room="${r}"><h3>${title}</h3><div class="home-grid">${list.map(card).join("") || `<p class="sub">${empty}</p>`}</div></section>`;
   $("homeList").innerHTML = save.rooms.map((_, r) => isPlace(r) ? "" : zone(r, `${roomName(r)} <span>${residents(r).length}/${cap}</span>`, residents(r), tr("empty: drag someone here"))).join("")
     + zone("out", `${tr("Exploring")} <span>${away.length}</span>`, away, tr("drag someone here to send them exploring"))
-    + ((save.nestUp || 0) < NEST_UP_COST.length ? `<button class="act" id="nestUp" ${save.shards < NEST_UP_COST[save.nestUp || 0] ? "disabled" : ""}>${ic("nest")}${tr("Room for one more · ✦ {0}", NEST_UP_COST[save.nestUp || 0])}</button>` : `<p class="sub">${tr("The nest is as roomy as it gets ✦")}</p>`);
+    + ((save.nestUp || 0) < NEST_UP_COST.length ? `<p class="me-hint">${tr("More space at home: the shop builds it, in Renovation.")}</p>` : "");
   $$("#homeList .res").forEach(b => b.addEventListener("pointerdown", dragResident));
-  $("nestUp")?.addEventListener("click", () => {
-    const cost = NEST_UP_COST[save.nestUp || 0];
-    if (!cost || save.shards < cost) return;
-    save.shards -= cost; save.nestUp = (save.nestUp || 0) + 1;
-    sfx.levelUp(); toast(tr("The nest grew: {0} glowlings fit at home now ✦", homeCap()));
-    settleHome(); persist(); syncActors(); renderNest(true); updateTopbar(); openHome();
-  });
   show("homeSheet", true);
 }
 /** Pick a glowling up in the residents sheet and drop it on a room; a tap without moving looks after it instead. */
