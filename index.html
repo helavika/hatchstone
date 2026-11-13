@@ -311,13 +311,6 @@
   </div>
 </div>
 
-<div id="worldSheet" class="overlay modal hidden">
-  <div class="card glass dark">
-    <h2>Map</h2>
-    <div class="world" id="worldMap"></div>
-    <button class="ghost" id="worldClose">close</button>
-  </div>
-</div>
 <div id="shop" class="overlay modal hidden">
   <div class="card glass dark wide">
     <h2>Decorate the nest</h2>
@@ -493,6 +486,10 @@
 <script src="coop-link.js"></script>
 <script src="coop-invite.js"></script>
 <script src="coop-state.js"></script>
+<div id="worldSheet" class="overlay world-screen hidden" aria-label="Map">
+  <div id="worldScroll"><div id="worldMap"></div></div>
+  <button class="x-close" id="worldClose" aria-label="Close" title="Close">✕</button>
+</div>
 <script src="js/i18n.js"></script>
 <script src="js/core.js"></script>
 <script src="js/data.js"></script>
@@ -502,6 +499,7 @@
 <script src="js/crack.js"></script>
 <script src="js/scenes.js"></script>
 <script src="js/nest.js"></script>
+<script src="js/world.js"></script>
 <script src="js/iso.js"></script>
 <script src="js/play.js"></script>
 <script src="js/coop.js"></script>

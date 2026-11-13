@@ -403,9 +403,10 @@ $("crackTab").addEventListener("click", () => {
 });
 $("worldTab").addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
-  openWorld();
+  if (worldOpen()) { sfx.tick(); closeWorld(); } else openWorld();
 });
-$("worldClose").addEventListener("click", () => show("worldSheet", false));
+$("worldClose").addEventListener("click", () => { sfx.tick(); closeWorld(); });
+$("tabs").addEventListener("click", e => { if (worldOpen() && !e.target.closest("#worldTab")) closeWorld(); }, true);
 $("quit").addEventListener("click", () => {
   if (coopSession) { coopEnd("left"); return; }
   const e = game.egg;

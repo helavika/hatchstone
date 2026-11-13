@@ -226,15 +226,14 @@ function renderShopPick() {
 
 const ripePlots = () => (save.garden?.slots || []).filter(q => q && SEEDS[q.seed] && stageOf2(q) === 3).length;
 const WORLD = [
-  { id: "grotto", name: "Grotto", icon: "grotto", at: [27, 12], note: () => !moonDone() ? tr("today's moon egg 🌙") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone(), go: () => setScene("map") },
-  { id: "forge", name: "The Forge", icon: "hammer", at: [74, 18], ok: () => unlocked(4) || Object.keys(save.forge || {}).length > 0, how: () => tr("clear level {0}", 3), note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: () => arriveAt("forge") },
-  { id: "nest", name: "Nest", icon: "nest", at: [27, 38], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
-  { id: "lab", name: "Laboratory", icon: "flask", at: [74, 42], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => arriveAt("lab") },
-  { id: "shop", name: "Shop", icon: "stall", at: [27, 64], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: () => arriveAt("shop") },
-  { id: "garden", name: "Garden", icon: "sun", at: [74, 66], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : wickHere() ? tr("Wick is visiting today") : tr("grows what no shop sells"), call: () => ripePlots() > 0 || wickHere(), go: () => toRoomKind("yard") },
-  { id: "trail", name: "Expeditions", icon: "compass", at: [50, 88], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: () => arriveAt("camp") },
+  { id: "grotto", name: "Grotto", icon: "grotto", at: [62, 66], note: () => !moonDone() ? tr("today's moon egg 🌙") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone(), go: () => setScene("map") },
+  { id: "forge", name: "The Forge", icon: "hammer", at: [184, 96], ok: () => unlocked(4) || Object.keys(save.forge || {}).length > 0, how: () => tr("clear level {0}", 3), note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: () => arriveAt("forge") },
+  { id: "nest", name: "Nest", icon: "nest", at: [82, 170], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
+  { id: "lab", name: "Laboratory", icon: "flask", at: [186, 172], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => arriveAt("lab") },
+  { id: "shop", name: "Shop", icon: "stall", at: [170, 256], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: () => arriveAt("shop") },
+  { id: "garden", name: "Garden", icon: "sun", at: [92, 238], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : wickHere() ? tr("Wick is visiting today") : tr("grows what no shop sells"), call: () => ripePlots() > 0 || wickHere(), go: () => toRoomKind("yard") },
+  { id: "trail", name: "Expeditions", icon: "compass", at: [196, 318], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: () => arriveAt("camp") },
 ];
-const WORLD_PATHS = [["nest", "grotto"], ["nest", "lab"], ["nest", "shop"], ["grotto", "forge"], ["lab", "forge"], ["lab", "garden"], ["shop", "garden"], ["shop", "trail"], ["garden", "trail"]];
 const placeOk = id => { const w = WORLD.find(x => x.id === id); return !w.ok || w.ok(); };
 /** A place that has just opened: noted once, with a toast and a "new" tag on the map until you've looked. */
 function checkPlaces() {
@@ -254,49 +253,6 @@ function toRoomKind(kind) {
   if (i >= 0 && i !== save.room) goRoom(i);
   litTabs();
 }
-let worldArtUrl = null;
-/** The map's land in pixels: moss and meadow, a cave mouth in the hills up top, and dirt paths between the places. */
-function worldArt() {
-  if (worldArtUrl) return worldArtUrl;
-  const W = 90, H = 110, c = document.createElement("canvas"); c.width = W; c.height = H;
-  const g = c.getContext("2d"), im = g.createImageData(W, H), d = im.data;
-  const grass = ["#1d3b2c", "#24503a", "#2f6446", "#3d7a52"].map(pxHex), hill = ["#2a2148", "#3b2f63", "#4e3f7d"].map(pxHex), dirt = ["#6b4a2a", "#8a6238", "#a77b48"].map(pxHex), water = ["#1f3d6b", "#2f68c8"].map(pxHex);
-  const near = (x, y, ax, ay, bx, by) => { const dx = bx - ax, dy = by - ay, t = clamp(((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy), 0, 1); return Math.hypot(x - ax - t * dx, y - ay - t * dy); };
-  const pt = id => { const w = WORLD.find(p => p.id === id).at; return [w[0] / 100 * W, w[1] / 100 * H]; };
-  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const n = pxFbm(x / 14, y / 14);
-    let col;
-    const hills = y < 26 + Math.sin(x / 9) * 5 + n * 6;
-    const brook = Math.abs(x - (52 + Math.sin(y / 11) * 6)) < 2.2 && y > 30;
-    col = hills ? pxPick(hill, n * 1.2, x, y) : brook ? pxPick(water, n + (y % 7 === 0 ? 0.4 : 0), x, y) : pxPick(grass, n * 1.1, x, y);
-    for (const [a, b] of WORLD_PATHS) { const [ax, ay] = pt(a), [bx, by] = pt(b); if (near(x, y, ax, ay, bx, by) < 1.6) col = pxPick(dirt, pxHash(x, y) * 0.6 + 0.3, x, y); }
-    const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
-  }
-  g.putImageData(im, 0, 0);
-  // little bridges where the paths cross the brook, and a few fireflies
-  g.fillStyle = "#c8a070";
-  for (let y = 31; y < H; y++) for (const [a, b] of WORLD_PATHS) { const [ax, ay] = pt(a), [bx, by] = pt(b), x = Math.round(52 + Math.sin(y / 11) * 6); if (near(x, y, ax, ay, bx, by) < 1.2) g.fillRect(x - 3, y - 1, 7, 3); }
-  g.fillStyle = "#fff0b5";
-  for (let k = 0; k < 14; k++) g.fillRect(Math.floor(pxHash(k, 3) * W), 28 + Math.floor(pxHash(k, 9) * (H - 30)), 1, 1);
-  return worldArtUrl = c.toDataURL();
-}
-function openWorld() {
-  sfx.tick();
-  $("worldMap").style.backgroundImage = `url(${worldArt()})`;
-  const fresh = save.mapFresh || [];
-  $("worldMap").innerHTML = WORLD.map(w => {
-    const ok = placeOk(w.id), isNew = fresh.includes(w.id);
-    return `<button class="place${ok && w.call && w.call() ? " call" : ""}${isNew ? " fresh" : ""}${ok ? "" : " locked"}" data-place="${w.id}" style="left:${w.at[0]}%;top:${w.at[1]}%" ${ok ? "" : "disabled"}>${ic(ok ? w.icon : "lock", "big")}<b>${ok ? tr(w.name) : "???"}</b><small>${ok ? (isNew ? tr("new! ✦") : w.note()) : w.how()}</small></button>`;
-  }).join("");
-  if (fresh.length) { save.mapFresh = []; persist(); updateCalls(); }
-  $$("#worldMap [data-place]").forEach(b => b.addEventListener("click", () => {
-    const w = WORLD.find(x => x.id === b.dataset.place);
-    if (coopSession) coopEnd("navigation", true);
-    show("worldSheet", false); w.go();
-  }));
-  show("worldSheet", true);
-}
-
 // ---------- the shop sells; the chest keeps what's yours ----------
 
 function openChest() { const st = shopOf(); if (st.mode !== "chest") { st.mode = "chest"; st.tab = "decor"; st.pick = null; } openShop(); }
@@ -913,7 +869,9 @@ const awayPlace = () => isOutside() || isPlace();
 function litTabs() {
   const out = game.scene === "nest" && awayPlace();
   $$("#tabs [data-tab]").forEach(b => b.classList.toggle("on", b.dataset.tab === game.scene && !(out && b.dataset.tab === "nest")));
-  $("worldTab").classList.toggle("on", out || game.scene === "map");
+  const onMap = typeof worldOpen === "function" && worldOpen();
+  if (onMap) $$("#tabs [data-tab]").forEach(b => b.classList.remove("on"));
+  $("worldTab").classList.toggle("on", onMap || out || game.scene === "map");
 }
 function addRoom() {
   const kind = nextRoomKind();

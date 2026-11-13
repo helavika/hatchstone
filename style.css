@@ -722,17 +722,6 @@ body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; 
 #wickList img.em { width: 40px; height: 40px; image-rendering: pixelated; object-fit: contain; flex: none; }
 .wick-gossip { display: flex; align-items: center; gap: 10px; margin: 12px 0 4px; padding: 10px 12px; text-align: left; font-size: 15px; color: var(--soft); background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
 .wick-gossip img { width: 36px; height: 36px; image-rendering: pixelated; flex: none; }
-/* the map */
-.world { position: relative; width: 100%; aspect-ratio: 90 / 110; max-height: calc(100dvh - 130px); margin: 0 auto; background-size: 100% 100%; image-rendering: pixelated; box-shadow: var(--px-frame); }
-.world .place { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; gap: 1px; width: 36%; padding: 4px 2px; border: 0; cursor: pointer; font: inherit; color: var(--px-gold); background: rgba(22, 12, 38, .72); box-shadow: var(--px-frame); }
-.world .place .ic { width: 34px; height: 34px; }
-.world .place b { font-weight: 400; font-size: 16px; line-height: 1.05; }
-.world .place small { font-size: 12px; color: var(--soft); line-height: 1.1; text-align: center; }
-.world .place.call::after { content: "!"; position: absolute; top: -6px; right: -4px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 13px; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame); }
-.world .place { width: 34%; }
-.world .place.locked { opacity: .6; color: var(--soft); cursor: default; }
-.world .place.fresh { box-shadow: var(--px-frame), 0 0 0 3px var(--px-gold); }
-.world .place:active { transform: translate(-50%, -48%); }
 .shop-tabs.five { grid-template-columns: repeat(5, 1fr); gap: 5px; }
 .shop-tabs.five button { font-size: 13px; padding: 6px 1px 5px; }
 .seed-btns small.only { font-size: 12px; color: var(--soft); white-space: nowrap; }
@@ -1123,3 +1112,24 @@ body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigte
 #placeActs .act { flex: 1; justify-content: center; }
 body.compact #placeBar { bottom: calc(var(--bottom) + 124px); }
 body.compact .place-who img { width: 36px; height: 36px; }
+
+/* the world map: a screen of its own between the top bar and the tabs, bigger than the screen, scrolled with a finger */
+.overlay.world-screen { padding: 0; display: block; background: #0b0614; }
+#worldScroll { position: absolute; inset: 0; overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
+#worldScroll::-webkit-scrollbar { display: none; }
+#worldMap { position: relative; margin: calc(var(--top) + 64px) auto calc(var(--bottom) + 96px); }
+#worldCv { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; box-shadow: var(--px-frame); }
+#worldClose { position: fixed; top: calc(var(--top) + 66px); right: 12px; z-index: 3; }
+.wplace { position: absolute; transform: translateX(-50%); display: flex; flex-direction: column; align-items: center; border: 0; padding: 0; background: none; cursor: pointer; font: inherit; color: var(--px-gold); }
+.wplace-hit { display: block; }
+.wbanner { display: flex; flex-direction: column; align-items: center; margin-top: -2px; padding: 3px 8px 4px; background: rgba(22, 12, 38, .86); box-shadow: var(--px-frame); white-space: nowrap; }
+.wbanner b { font-weight: 400; font-size: 17px; line-height: 1.05; display: flex; align-items: center; gap: 4px; }
+.wbanner b .ic { width: 16px; height: 16px; }
+.wbanner small { font-size: 12px; color: var(--soft); line-height: 1.1; }
+.wplace.locked { cursor: default; color: var(--soft); }
+.wplace.fresh .wbanner { box-shadow: var(--px-frame), 0 0 0 3px var(--px-gold); }
+.wplace.call .wbanner::after { content: "!"; position: absolute; margin-left: 4px; transform: translate(50%, -60%); right: 0; width: 18px; height: 18px; display: grid; place-items: center; font-size: 13px; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame); }
+.wbanner { position: relative; }
+.wkeeper { position: absolute; left: 4%; top: 18%; width: 40px; height: 40px; image-rendering: pixelated; animation: pxBob 1.2s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
+.where { position: absolute; right: 2%; top: 4%; width: 46px; height: 46px; image-rendering: pixelated; animation: pxBob .9s steps(2) infinite; filter: drop-shadow(0 3px 0 rgba(5, 0, 20, .5)); }
+.wplace:active .wbanner { transform: translateY(2px); }
