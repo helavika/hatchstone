@@ -677,6 +677,7 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "Mm. I'll just be in my shell a moment.": "Мм. Посиджу трохи в панцирі.",
   "Map of levels": "Мапа рівнів",
   "Crack it 🌙": "Розбити 🌙",
   "To the moon egg 🌙": "До місячного яйця 🌙",

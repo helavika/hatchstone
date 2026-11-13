@@ -757,7 +757,7 @@ const HEROES = {
   camp: { who: PIP, eyes: [[5, 6, 1, 1, "#3d2866"], [10, 6, 1, 1, "#3d2866"]], quirk: "startle", icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
     hello: ["Oh! Hello! I'm Pip, I map the tunnels. Well, I try.", "Send me a glowling and we'll go exploring for a few hours.", "We always come back with something: seeds, shards, the odd geode."],
     lines: ["I've drawn this map three times. The tunnels keep moving.", "Do you think the Gloom has a map? I'd like to see it. From far away.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it."] },
-  yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "croak", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sun", "Garden bed", () => openGarden()]],
+  yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "curl", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sun", "Garden bed", () => openGarden()]],
     hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
     lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."] },
   grotto: { who: { name: "Grotto" }, icon: "grotto", none: true, role: "the hall before the tunnel", act: [["egg", "Into the tunnel", () => startLevel(nextLevel())], ["map", "Map of levels", () => setScene("map")]], hello: [], lines: [] },
@@ -780,10 +780,12 @@ function drawHero() {
   // full-length keepers stand taller than they are wide
   const wid = Math.round(s * 1.15), px = wid / KW, left = Math.round(x - wid / 2), hgt = Math.round(wid * KH / KW * breathe), top = Math.round(y - hgt - hop);
   if (me && me.curl && since < 2600) {
-    // Tansy, poked once too often: a ball of spines, wobbling
-    const wob = Math.sin(t * 0.03) * px, r = s * 0.36;
-    ctx.fillStyle = "#5e3a1c"; ctx.beginPath(); ctx.arc(x + wob, y - r, r, 0, TAU); ctx.fill();
-    ctx.fillStyle = "#946027";
+    // poked once too often: Tansy rolls into a ball of spines, Fennel pulls into his shell
+    const wob = Math.sin(t * 0.03) * px, r = s * 0.36, shell = h.who === FENNEL;
+    ctx.fillStyle = shell ? "#4a4020" : "#5e3a1c"; ctx.beginPath(); ctx.ellipse(x + wob, y - r * (shell ? 0.7 : 1), r * (shell ? 1.25 : 1), r * (shell ? 0.75 : 1), 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = shell ? "#6e6030" : "#946027";
+    if (shell) { for (let k = -1; k <= 1; k++) ctx.fillRect(Math.round(x + wob + k * r * 0.6 - px * 2), Math.round(y - r * 1.1), Math.ceil(px * 4), Math.ceil(px * 3)); }
+    else
     for (let k = 0; k < 14; k++) { const an = k / 14 * TAU + 0.2; ctx.fillRect(Math.round(x + wob + Math.cos(an) * r * 1.05 - px), Math.round(y - r + Math.sin(an) * r * 1.05 - px), Math.ceil(px * 2), Math.ceil(px * 2)); }
   } else if (img.complete) {
     // Ollo looks the other way now and then
@@ -896,9 +898,9 @@ function tapHero(auto = false) {
   const pokes = auto ? prev : [...prev.filter(p => game.time - p < 4000), game.time];
   game.heroPokes = { room: save.room, list: pokes };
   const curl = h.quirk === "curl" && pokes.length >= 3;
-  if (curl) { line = tr("Eep! Too much poking!"); game.heroPokes.list = []; sfx.knock && sfx.knock(0.4); }
+  if (curl) { line = tr(h.who === FENNEL ? "Mm. I'll just be in my shell a moment." : "Eep! Too much poking!"); game.heroPokes.list = []; sfx.knock && sfx.knock(0.4); }
   if (h.quirk === "sparks") placeBurst(18);
-  if (h.quirk === "croak") setTimeout(() => sfx.voice({ ...h.who.voice, f: 70, len: 0.25 }), 380);
+  if (h.quirk === "startle") setTimeout(() => sfx.voice({ ...h.who.voice, f: 900, len: 0.12, wave: "sawtooth", gain: 0.03 }), 120);
   game.hero = { t: game.time, line, room: save.room, curl, startle: h.quirk === "startle" };
   persist(); renderPlaceBar();
 }
