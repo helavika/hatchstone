@@ -1525,7 +1525,7 @@ const UK = {
   "Share": "Поділитися",
   "Share a postcard": "Надіслати листівку",
   "Your nest is empty": "Твоє гніздечко порожнє",
-  "Glowlings sleep inside stone eggs. Crack one open and whoever's inside moves in here: you feed it, play with it and watch it grow.": "Глоулінги сплять у кам'яних яйцях. Розбий одне — і той, хто всередині, оселиться тут: ти годуватимеш його, гратимешся з ним і дивитимешся, як він росте.",
+  "Glowlings sleep inside stone eggs. Crack one open and whoever's inside moves in here: you feed it, play with it and watch it grow.": "Глоулінги сплять у кам'яних яйцях. Розбий одне — і маля, що всередині, оселиться тут: ти годуватимеш його, гратимешся з ним і дивитимешся, як воно росте.",
   "Crack your first egg": "Розбий перше яйце",
   "Tummy": "Животик",
   "Joy": "Радість",
@@ -2101,6 +2101,33 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "the Gloom": "Мла",
+  "Another little light... how annoying.": "Ще один вогник... як набридливо.",
+  "These sparks are mine. They sleep in my cold, and they'll stay asleep.": "Ці іскри мої. Вони сплять у моєму холоді й спатимуть далі.",
+  "{0}, don't listen to it. Crack the seal: the spark inside is frightened!": "{0}, не слухай її. Розбий печать: іскрі всередині страшно!",
+  "You did it! The Gloom let go of that one.": "Вийшло! Мла відпустила цю іскру.",
+  "It's been creeping up from the deep since the Heartlight broke. It can't stand anything warm.": "Вона підповзає з глибин відтоді, як розсипався Серцесвіт. Терпіти не може нічого теплого.",
+  "You again. Do you know what I am, {0}?": "Знову ти. Знаєш, хто я, {0}?",
+  "I'm what's left when the light goes out. Every spark you wake is one less for me.": "Я те, що лишається, коли гасне світло. Кожна розбуджена тобою іскра — на одну менше для мене.",
+  "It's afraid of you. I can feel the stone getting warmer.": "Вона тебе боїться. Я відчуваю, як теплішає камінь.",
+  "The Heartlight hid from me in a thousand pieces. Clever.": "Серцесвіт сховався від мене в тисячі шматочків. Хитро.",
+  "But little pieces are easy to snuff out.": "Але маленькі шматочки легко загасити.",
+  "So that's why it gave itself away... to hide its light from the Gloom!": "То ось чому він віддав себе... щоб сховати своє світло від Мли!",
+  "Did you see it flinch? Ha! I'm telling everyone.": "Бачили, як вона здригнулася? Ха! Розкажу всім.",
+  "This is the last one. The oldest spark of all.": "Це остання. Найдавніша іскра з усіх.",
+  "Wake it, and there'll be nowhere left in the deep for me to hide.": "Розбудиш її — і мені ніде буде сховатися в глибинах.",
+  "Then let's light up every corner. Together, {0}.": "Тоді освітимо кожен куточок. Разом, {0}.",
+  "The Gloom has left the deep caves. Not forever, maybe... but every nest that glows keeps it away.": "Мла покинула глибокі печери. Може, й не назавжди... але кожне гніздечко, що світиться, тримає її подалі.",
+  "Thank you, {0}. You're a true keeper now.": "Дякую, {0}. Тепер ти справжня варта гроту.",
+  "a geode sealed by the Gloom: crack it and set the spark free": "жеода під печаттю Мли: розбий її й звільни іскру",
+  "First light": "Перше світло",
+  "Free a spark from the Gloom": "Звільни іскру від Мли",
+  "Gloombreaker": "Гроза Мли",
+  "Free all four sparks from the Gloom": "Звільни всі чотири іскри від Мли",
+  "The Gloom": "Мла",
+  "What's left in the dark": "Те, що лишається в темряві",
+  "A thousand pieces": "Тисяча шматочків",
+  "The oldest spark": "Найдавніша іскра",
   "Keeper": "Про тебе",
   "friend": "друже",
   "Your name": "Твоє ім'я",
@@ -3236,6 +3263,24 @@ const PX_ICON_MAPS = {
     ".......oo.......",
     "......zGGz......",
     "......zGWz......",
+  ],
+  gloom: [
+    "................",
+    "......kkkk......",
+    "....kkKKKKkk....",
+    "...kKKddddKKk...",
+    "..kKddddddddKk..",
+    ".kKddeEddeEddKk.",
+    ".kKdddEdddEddKk.",
+    ".kKddddddddddKk.",
+    ".kKdddkkkkdddKk.",
+    "..kKddkdkdddKk..",
+    "..kKKdddddddKk..",
+    "...kKKdddddKk...",
+    "..k.kKKdddKKk.k.",
+    ".k...kKKdKKk...k",
+    "......kKKKk.....",
+    ".......kKk......",
   ],
   dorma: [
     "............WW..",
@@ -5094,7 +5139,7 @@ function newEgg(conf, animate = true) {
   const crystal = conf.forced ? conf.forced.crystal : pick(CRYSTALS.filter(c => c.rarity === rarity));
   const species = conf.forced ? conf.forced.species : pick(SPECIES.filter(s => s.crystal === crystal.id && !s.moon));
   game.egg = {
-    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04) + (conf.coop ? 0 : skill("luck") * 0.006), stone: conf.moon ? moonStone() : pick(STONES),
+    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04) + (conf.coop ? 0 : skill("luck") * 0.006), stone: conf.gloom ? GLOOM_STONE : conf.moon ? moonStone() : pick(STONES),
     state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
     hp: conf.hp, damage: 0, taps: 0, crits: 0, gems: 0, combo: 0, lastTap: -9, hits: [], seed: coopId(),
     net: { segs: [], tips: [] }, painted: 0,
@@ -5718,6 +5763,7 @@ function showFound() {
   const r = Math.random(), rubble = conf.coop || conf.moon ? null : r < 0.03 * (1 + skill("luck") * 0.25) ? "nut" : r < 0.13 * (1 + skill("luck") * 0.25) ? "firefly" : null;
   if (rubble) giveBar(rubble);
   const { isNew, note, mine } = adopt(e);
+  if (conf.gloom) { bump("rescued"); save.shards += 30; talkLater.push(["g" + conf.gloom + "win"]); }
   if (!conf.coop && e.shiny) talkLater.push(["shiny", mine]);
   else if (!conf.coop && rarityOf(sp) === "legendary") talkLater.push(["legendary", mine]);
   persist();
@@ -5799,6 +5845,41 @@ const TALKS = {
     [MOSSA, "But the deep caves never end. Wander down whenever you like. I'll keep the moss warm.", "#mapList .wander"]],
 };
 
+// ---------- the Gloom: a cold dark from the deep that seals the sparks in dead stone; at the end of each cave, one to rescue ----------
+
+const GLOOM = { name: "the Gloom", icon: "gloom", face: () => pxIcon("gloom"), voice: { f: 95, wave: "sawtooth", spread: 0.12, glide: 0.8, gain: 0.05, len: 0.1 } };
+const GLOOM_STONE = Object.assign(["#3a2a52", "#1a1028", "#6b4fa8"], { gloom: true });
+/** Before the sealed geode at the end of cave k (1..4), the Gloom has its say; after it opens, your friends have theirs. */
+const GLOOM_TALKS = {
+  g1: () => [[GLOOM, "Another little light... how annoying."], [GLOOM, "These sparks are mine. They sleep in my cold, and they'll stay asleep."],
+    [MOSSA, tr("{0}, don't listen to it. Crack the seal: the spark inside is frightened!", myName())]],
+  g1win: () => [[MOSSA, "You did it! The Gloom let go of that one."], [MOSSA, "It's been creeping up from the deep since the Heartlight broke. It can't stand anything warm."]],
+  g2: () => [[GLOOM, tr("You again. Do you know what I am, {0}?", myName())], [GLOOM, "I'm what's left when the light goes out. Every spark you wake is one less for me."]],
+  g2win: () => [[MOSSA, "It's afraid of you. I can feel the stone getting warmer."]],
+  g3: () => [[GLOOM, "The Heartlight hid from me in a thousand pieces. Clever."], [GLOOM, "But little pieces are easy to snuff out."],
+    [DORMA, "So that's why it gave itself away... to hide its light from the Gloom!"]],
+  g3win: () => [[WICK, "Did you see it flinch? Ha! I'm telling everyone."]],
+  g4: () => [[GLOOM, "This is the last one. The oldest spark of all."], [GLOOM, "Wake it, and there'll be nowhere left in the deep for me to hide."],
+    [MOSSA, tr("Then let's light up every corner. Together, {0}.", myName())]],
+  g4win: () => [[MOSSA, "The Gloom has left the deep caves. Not forever, maybe... but every nest that glows keeps it away."],
+    [MOSSA, tr("Thank you, {0}. You're a true keeper now.", myName())]],
+};
+Object.assign(TALKS, GLOOM_TALKS);
+/** The cold creeping in round a sealed geode: dark at the edges that breathes, and two red eyes watching from it. */
+function drawGloom() {
+  const e = game.egg;
+  if (!e || !e.conf.gloom || e.state === "opening" || e.state === "done") return;
+  const k = 0.75 + 0.25 * Math.sin(game.time * 0.0017), g = ctx.createRadialGradient(L.ecx, L.ecy, L.ew * 0.55, L.ecx, L.ecy, Math.max(W, H) * 0.75);
+  g.addColorStop(0, "rgba(10,4,20,0)"); g.addColorStop(1, `rgba(10,4,20,${0.85 * k})`);
+  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  // the eyes blink now and then
+  if ((game.time / 3200) % 1 > 0.06) {
+    const ex = W * 0.16, ey = H * 0.22, s = Math.max(3, Math.round(W / 110));
+    ctx.fillStyle = `rgba(224,99,79,${0.55 + 0.35 * k})`;
+    ctx.fillRect(Math.round(ex), Math.round(ey), s * 2, s); ctx.fillRect(Math.round(ex + s * 4), Math.round(ey), s * 2, s);
+  }
+}
+
 // ---------- the story: why the glowlings sleep in stone, told a little at a time as you go deeper ----------
 
 const WICK = { name: "Wick", face: () => pxIcon("wick"), voice: { f: 420, wave: "sawtooth", spread: 0.3, glide: 1.1, gain: 0.025, len: 0.05 } };
@@ -5845,6 +5926,9 @@ const STORY = [
     [DORMA, "I'll write this one down... right after a little nap."],
     [MOSSA, "Thank you, friend. I can finally rest easy on my watch."]] },
 ];
+// the Gloom's parts, told at the sealed geodes, join the story in the book once heard
+for (const [i, at] of [[1, 6], [2, 12], [3, 18], [4, 24]]) STORY.push({ id: "g" + i, at, title: ["The Gloom", "What's left in the dark", "A thousand pieces", "The oldest spark"][i - 1], who: GLOOM, lines: GLOOM_TALKS["g" + i], gloom: true });
+STORY.sort((a, b) => a.at - b.at || (a.gloom ? 1 : 0) - (b.gloom ? 1 : 0));
 for (const s of STORY) TALKS[s.id] = s.lines;
 /** Tell a part of the story again, from the book. */
 function retell(s) {
@@ -5958,7 +6042,7 @@ function talkMoments(scene) {
     talk(id);
   }
   // one part of the story per visit, so a long-time player catches up gently
-  const part = STORY.find(s => unlocked(s.at) && !talkSeen(s.id));
+  const part = STORY.find(s => !s.gloom && unlocked(s.at) && !talkSeen(s.id));
   if (part) talk(part.id);
 }
 
@@ -6214,6 +6298,7 @@ const AWARDS = [
   { id: "wick3", tier: "rare", name: "A good customer", how: "Buy 3 things from Wick", test: () => [cnt("wickBought"), 3] },
   { id: "harvest25", tier: "rare", name: "Harvest festival", how: "Pick 25 harvests", test: () => [cnt("harvested"), 25] },
   { id: "biteleaf", tier: "epic", name: "It bites", how: "Grow and pick a biteleaf", test: () => [cnt("biteleaf"), 1] },
+  { id: "rescue1", tier: "rare", name: "First light", how: "Free a spark from the Gloom", test: () => [cnt("rescued"), 1] },
   { id: "cracked250", tier: "epic", name: "Quarry lord", how: "Crack 250 eggs", test: () => [stat.cracked(), 250] },
   { id: "species20", tier: "epic", name: "Glowpedia scholar", how: "Meet 20 kinds of glowlings", test: () => [stat.species(), 20] },
   { id: "stars60", tier: "epic", name: "Constellation", how: "Earn 60 stars", test: () => [totalStars(), 60] },
@@ -6228,6 +6313,7 @@ const AWARDS = [
   { id: "stars72", tier: "legendary", name: "Flawless", how: "Earn all 72 stars", test: () => [totalStars(), LEVELS * 3] },
   { id: "level20", tier: "legendary", name: "Brightest of all", how: "Raise a glowling to level 20", test: () => [stat.level(), MAX_LEVEL] },
   { id: "story", tier: "legendary", name: "The whole story", how: "Hear every part of Mossa's story", test: () => [STORY.filter(p => talkSeen(p.id)).length, STORY.length] },
+  { id: "rescueAll", tier: "legendary", name: "Gloombreaker", how: "Free all four sparks from the Gloom", test: () => [cnt("rescued"), 4] },
   { id: "everyone", tier: "legendary", name: "Every last one", how: "Meet every kind of glowling", test: () => [stat.species(), SPECIES.length] }
 ];
 const awardQueue = [];
@@ -6450,7 +6536,10 @@ function startLevel(n) {
   sfx.tick();
   game.chips = []; game.sparks = [];
   setScene("crack");
-  newEgg(levelConf(n), true);
+  const conf = levelConf(n);
+  if (n && n % 6 === 0 && !save.stars[n]) { conf.gloom = n / 6; conf.hp = Math.round(conf.hp * 1.4); }
+  newEgg(conf, true);
+  if (conf.gloom) { talk("g" + conf.gloom); setHint(tr("a geode sealed by the Gloom: crack it and set the spark free")); }
   game.egg.paid = paid;
 }
 
@@ -11001,7 +11090,7 @@ function renderLib() {
   } else if (game.libTab === "st") {
     $("libGrid").innerHTML = STORY.map((p, i) => {
       const open = unlocked(p.at) && talkSeen(p.id);
-      return `<button data-st="${i}" class="${open ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("Part {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${pxIcon(p.who.name.toLowerCase())}" alt=""${open ? "" : ' style="filter:brightness(0) opacity(.5)"'}></span><b>${open ? tr(p.title) : "???"}</b><small>${open ? tr(p.who.name) : p.at > LEVELS ? tr("Open every geode") : tr("Reach level {0}", p.at)}</small></button>`;
+      return `<button data-st="${i}" class="${open ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("Part {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${pxIcon(p.who.icon || p.who.name.toLowerCase())}" alt=""${open ? "" : ' style="filter:brightness(0) opacity(.5)"'}></span><b>${open ? tr(p.title) : "???"}</b><small>${open ? tr(p.who.name) : p.at > LEVELS ? tr("Open every geode") : tr("Reach level {0}", p.at)}</small></button>`;
     }).join("");
   } else if (game.libTab === "hy") {
     const hy = save.creatures.filter(c => c.mix);
@@ -11709,6 +11798,7 @@ function frame(now) {
     drawEgg();
     drawPieces();
     ctx.restore();
+    drawGloom();
   } else if (game.scene === "nest") {
     drawNest();
   } else if (game.scene === "catch") {
