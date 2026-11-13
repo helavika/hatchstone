@@ -692,6 +692,8 @@
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
   #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
+  /* not sleepy: the Sleep button looks it */
+  #sleepBtn.rested { opacity: .55; }
   /* the keeper sheet */
   .me-label { display: block; text-align: left; font-size: 14px; color: var(--soft); margin: 4px 2px; }
   #meName { width: 100%; box-sizing: border-box; font: inherit; font-size: 20px; padding: 8px 10px; color: #fff; background: var(--px-deep); border: 0; box-shadow: var(--px-frame); }
@@ -1015,6 +1017,14 @@
   /* very narrow: icons and numbers only on the top bar, ? and language live in the menu, the buttons stack their labels */
   body.narrow #topbar .faq-btn, body.narrow #topbar .lang-btn, body.tight #topbar .faq-btn, body.tight #topbar .lang-btn { display: none; }
   body.narrow .menu-only, body.tight .menu-only { display: inline-flex !important; }
+  /* on a phone, ? and the language sit in the settings, not in the bar */
+  body.phone #topbar .faq-btn, body.phone #topbar .lang-btn { display: none; }
+  body.phone .menu-only { display: inline-flex !important; }
+  #startMore { display: none; }
+  body.phone #startMore { display: inline-flex; }
+  body.phone #startCorner { flex-direction: column; align-items: flex-end; }
+  body.phone #startCorner .faq-btn, body.phone #startCorner .lang-btn { display: none; }
+  body.phone #startCorner.open .faq-btn, body.phone #startCorner.open .lang-btn { display: inline-flex; }
   body.tight #topbar .pill:not(.round) { padding: 0 9px; }
   /* and if even that doesn't fit: a little smaller all round */
   body.tighter #topbar .row { gap: 4px; }
@@ -1088,7 +1098,7 @@
 </nav>
 
 <div id="start" class="overlay">
-  <div id="startCorner"><button class="pill glass btn round faq-btn" aria-label="Questions &amp; answers"><i class="ic" data-ic="help"></i></button><button class="pill glass btn round lang-btn" id="startLang" data-lang></button></div>
+  <div id="startCorner"><button class="pill glass btn round" id="startMore" aria-label="Settings" aria-expanded="false"><i class="ic" data-ic="gear"></i></button><button class="pill glass btn round faq-btn" aria-label="Questions &amp; answers"><i class="ic" data-ic="help"></i></button><button class="pill glass btn round lang-btn" id="startLang" data-lang></button></div>
   <div class="card glass dark">
     <figure class="plate"><canvas id="pixelGrotto" width="128" height="72" role="img" aria-label="A pixel-art grotto by moonlight, a stone egg glowing on a ledge"></canvas></figure>
     <h1>Hatchstone</h1>
@@ -2120,6 +2130,8 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "{0} is full of energy ({1}%). Bedtime comes below {2}%.": "{0} повне сил ({1}%). Спати можна, коли енергії менше {2}%.",
+  "Settings": "Налаштування",
   "{0} of {1} awards. They come by themselves as you play; each brings shards and keeper XP, more for rarer ones.": "Нагород: {0} з {1}. Вони приходять самі, поки ти граєш; кожна дає осколки й досвід, рідкісніші — більше.",
   "Mossa and the others will call you by it.": "Так тебе називатимуть Мосса й інші.",
   "Who you are in the grotto, and how you grow.": "Хто ти в гроті і як ти зростаєш.",
@@ -3896,6 +3908,7 @@ function eggPoly(cx, cy, w, h, n = 96) {
 function screenFit() {
   document.body.classList.toggle("compact", true);
   document.body.classList.toggle("narrow", W < 360);
+  document.body.classList.toggle("phone", W < 600);
 }
 
 function computeLayout() {
@@ -6664,6 +6677,7 @@ function renderNest(full) {
     $("v" + id).textContent = Math.round(cr[k]);
   }
   $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Sleep");
+  $("sleepBtn").classList.toggle("rested", !cr.sleeping && cr.energy >= SLEEPY_AT);
   $("feedBtn").disabled = cr.sleeping;
   // the button for what it needs lights up, the way a Tamagotchi's attention icon does
   const wants = callOf(cr);
@@ -7181,11 +7195,14 @@ function buyDecor(id) {
 
 function decorSpot(id) { return roomSpot(id); }
 
+/** Below this much energy a glowling can be tucked in. */
+const SLEEPY_AT = 60;
 function toggleSleep() {
   const cr = activeCreature();
   if (!cr) return;
   applyTime(cr);
-  if (!cr.sleeping && cr.energy >= 85) { refuseWith(cr, tr("not sleepy yet!")); return; }
+  // only a tired glowling goes to bed: a lively one shakes its head
+  if (!cr.sleeping && cr.energy >= SLEEPY_AT) { refuseWith(cr, tr("not sleepy yet!")); toast(tr("{0} is full of energy ({1}%). Bedtime comes below {2}%.", cr.name, Math.round(cr.energy), SLEEPY_AT)); return; }
   cr.sleeping = !cr.sleeping;
   cr.selfSlept = false;
   if (cr.sleeping) { sfx.lullaby(); toast(tr("Sweet dreams, {0} 🌙", cr.name)); }
@@ -10958,6 +10975,8 @@ $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
 $("gardenClose").addEventListener("click", () => show("gardenSheet", false));
 $("wickClose").addEventListener("click", () => show("wickSheet", false));
+$("startMore").addEventListener("click", ev => { ev.stopPropagation(); const c = $("startCorner"); c.classList.toggle("open"); $("startMore").setAttribute("aria-expanded", String(c.classList.contains("open"))); sfx.tick(); });
+document.addEventListener("click", ev => { if (!ev.target.closest("#startCorner")) $("startCorner").classList.remove("open"); });
 $("meBtn").addEventListener("click", () => { setMenu(false); openMe(); });
 $("meClose").addEventListener("click", () => { saveMe(); show("meSheet", false); if (afterMe) { const f = afterMe; afterMe = null; f(); } });
 $("meName").addEventListener("change", saveMe);
