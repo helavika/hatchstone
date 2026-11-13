@@ -692,6 +692,15 @@
   #taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
   #taskPill { position: relative; }
   #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
+  /* the lantern's rules: three small labels, and more behind the ? */
+  .oil-facts { display: flex; align-items: center; justify-content: center; gap: 6px; margin: 8px 0 4px; }
+  #oilFacts { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+  #oilFacts > span { display: inline-flex; align-items: center; gap: 4px; padding: 3px 8px; font-size: 14px; color: var(--soft); background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
+  #oilFacts .ic { width: 14px; height: 14px; margin: 0; }
+  #oilHelp { width: 30px; height: 30px; flex: none; padding: 0; }
+  #oilHelp .ic { width: 16px; height: 16px; margin: 0; }
+  .oil-more { text-align: left; margin: 6px 0 8px; }
+  .oil-more p { margin: 0 0 6px; font-size: 15px; line-height: 1.35; }
   /* one cell for everyone: the glowling you look after, its mood, and the room's count */
   #nestBottom .switch-wrap, #homePill { display: none !important; }
   #residentsBtn { display: inline-flex; align-items: center; gap: 8px; padding: 4px 10px 4px 6px; position: relative; }
@@ -1176,8 +1185,9 @@
     <h2 id="lanternTitle">Lantern</h2>
     <p class="sub" id="lanternSub"></p>
     <div id="lanternMeter" class="lantern-meter"></div>
+    <div class="oil-facts"><span id="oilFacts"></span><button class="pill glass btn round" id="oilHelp" aria-label="How the lantern works" aria-expanded="false"><i class="ic" data-ic="help"></i></button></div>
+    <div class="fact oil-more" id="lanternFree" hidden></div>
     <div id="barList"></div>
-    <p class="fact" id="lanternFree"></p>
     <button class="ghost" id="lanternClose">not now</button>
   </div>
 </div>
@@ -2030,6 +2040,13 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "1 per trip": "1 за похід",
+  "+1 every {0} min": "+1 кожні {0} хв",
+  "★★★ levels free": "рівні з ★★★ безкоштовно",
+  "Each trip into the Grotto burns 1 drop of oil. The lantern holds {0}.": "Кожен похід у Грот спалює 1 краплю олії. У ліхтарик вміщається {0}.",
+  "A drop comes back every {0} minutes on its own, until the lantern is full again: from empty to full takes {1}.": "Крапля повертається сама кожні {0} хвилин, поки ліхтарик знову не наповниться: від порожнього до повного минає {1}.",
+  "Bars fill it at once, even past the brim. They come from daily tasks, level-ups, moon eggs and sometimes the rubble of a geode.": "Батончики доливають олію одразу, навіть понад край. Їх дають щоденні завдання, нові рівні глоулінгів, місячні яйця, а часом вони трапляються в уламках жеоди.",
+  "Free, always: moon eggs, playing together, and levels you already have ★★★ on. Quit before the first tap and you get the drop back.": "Завжди безкоштовно: місячні яйця, гра вдвох і рівні, де в тебе вже ★★★. Якщо вийти до першого удару, крапля повернеться.",
   "No space in the {0}: move someone out first": "Місць немає ({0}): спершу когось переселити",
   "{0} now lives in the {1} ✦": "{0} тепер живе тут: {1} ✦",
   "{0} went exploring 🧭 the longer the trip, the more it brings back": "{0} вирушає досліджувати 🧭 що довша мандрівка, то більше гостинців",
@@ -6171,7 +6188,14 @@ function openLantern(needed) {
     return `<button class="snack" data-bar="${id}" ${have ? "" : "disabled"}>${ic(b.icon, "big")}<span><b>${barName(id)}</b><small>${id === "star" ? tr("fills the lantern, even past the brim") : tr("+{0} oil", b.oil)}</small></span><span class="cost">×${have}</span></button>`;
   }).join("");
   $$("#barList [data-bar]").forEach(b => b.addEventListener("click", () => useBar(b.dataset.bar)));
-  $("lanternFree").textContent = tr("Bars come from daily tasks, level-ups, moon eggs and sometimes the rubble of a geode. Moon eggs, playing together and levels you have ★★★ on don't use oil.");
+  // the rules in three small labels, and the whole story behind the ?
+  $("oilFacts").innerHTML = `<span>${ic("lantern")}${tr("1 per trip")}</span><span>⏳ ${tr("+1 every {0} min", OIL_EVERY / 60e3)}</span><span>${tr("★★★ levels free")}</span>`;
+  $("lanternFree").innerHTML = [
+    tr("Each trip into the Grotto burns 1 drop of oil. The lantern holds {0}.", OIL_MAX),
+    tr("A drop comes back every {0} minutes on its own, until the lantern is full again: from empty to full takes {1}.", OIL_EVERY / 60e3, fmtLeft(OIL_MAX * OIL_EVERY)),
+    tr("Bars fill it at once, even past the brim. They come from daily tasks, level-ups, moon eggs and sometimes the rubble of a geode."),
+    tr("Free, always: moon eggs, playing together, and levels you already have ★★★ on. Quit before the first tap and you get the drop back."),
+  ].map(t => `<p>${t}</p>`).join("");
   show("lantern", true);
 }
 
@@ -10240,6 +10264,7 @@ document.addEventListener("pointerdown", ev => {
 $("taskPill").addEventListener("click", openTasks);
 $("oilPill").addEventListener("click", () => { sfx.tick(); openLantern(); });
 $("lanternClose").addEventListener("click", () => show("lantern", false));
+$("oilHelp").addEventListener("click", () => { const m = $("lanternFree"); m.hidden = !m.hidden; $("oilHelp").setAttribute("aria-expanded", String(!m.hidden)); sfx.tick(); });
 setInterval(() => { if ($("topbar").classList.contains("on")) renderOilPill(); }, 1000);
 const FAQ_SECTIONS = [["basics", "egg", "Basics", [0, 1, 14, 15, 11, 12, 13]], ["pets", "heart", "Glowlings", [2, 16, 5, 17, 18, 19, 20]], ["nest", "nest", "Nest", [21, 22, 3]],
   ["grotto", "grotto", "Grotto & story", [4, 23, 24, 25]], ["save", "duo", "Friends & saving", [6, 7, 9]], ["about", "help", "About", [8, 10]]];
