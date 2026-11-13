@@ -271,6 +271,8 @@
   #foundNest small { display: block; font-size: 15px; line-height: 1; opacity: .8; }
   #found .plate { display: table; }
 
+  #snackList { max-height: min(62dvh, 560px); overflow-y: auto; }
+  #snackList .forge-h:first-child { margin-top: 0; }
   .snack { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .08); border-radius: 16px; padding: 10px 14px; margin-top: 8px; cursor: pointer; text-align: left; }
   .snack:disabled { opacity: .4; cursor: default; }
   .snack .em { font-size: 28px; }
@@ -1264,14 +1266,14 @@
 </div>
 <div id="nestBottom">
   <div class="needs glass">
-    <div class="need"><label>Tummy <span id="vTummy"></span></label><div class="hearts" id="bTummy" data-need="cookie"></div></div>
-    <div class="need"><label>Joy <span id="vJoy"></span></label><div class="hearts" id="bJoy" data-need="heart"></div></div>
-    <div class="need"><label>Energy <span id="vEnergy"></span></label><div class="hearts" id="bEnergy" data-need="moon"></div></div>
+    <div class="need"><label>Hunger <span id="vTummy"></span></label><div class="hearts" id="bTummy" data-need="cookie"></div></div>
+    <div class="need"><label>Boredom <span id="vJoy"></span></label><div class="hearts" id="bJoy" data-need="heart"></div></div>
+    <div class="need"><label>Sleepiness <span id="vEnergy"></span></label><div class="hearts" id="bEnergy" data-need="moon"></div></div>
   </div>
   <div class="acts">
-    <button class="act" id="feedBtn" data-fill="tummy"><i class="ic" data-ic="cookie"></i>Feed</button>
-    <button class="act" id="playBtn" data-fill="joy"><i class="ic" data-ic="sparkle"></i>Play</button>
-    <button class="act" id="sleepBtn" data-fill="energy"><i class="ic" data-ic="moon"></i>Sleep</button>
+    <button class="act" id="feedBtn" data-fill="tummy" aria-label="Feed" title="Feed"><i class="ic" data-ic="cookie"></i>Hunger</button>
+    <button class="act" id="playBtn" data-fill="joy" aria-label="Play" title="Play"><i class="ic" data-ic="sparkle"></i>Boredom</button>
+    <button class="act" id="sleepBtn" data-fill="energy" aria-label="Sleep" title="Sleep"><i class="ic" data-ic="moon"></i>Sleep</button>
     <button class="act" id="residentsBtn" aria-label="Who lives where"></button>
   </div>
   <div class="switch-wrap"><button class="sw-arrow" id="swPrev" aria-label="Previous glowlings">‹</button><div id="switcher"></div><button class="sw-arrow" id="swNext" aria-label="More glowlings">›</button></div>
@@ -1382,7 +1384,7 @@
 
 <div id="snacks" class="overlay modal hidden">
   <div class="card glass dark">
-    <h2>Snack time</h2>
+    <h2>Snacks & drinks</h2>
     <p class="sub" id="snackSub"></p>
     <div id="snackList"></div>
     <button class="ghost" id="snackClose">not now</button>
@@ -2242,6 +2244,19 @@ const UK = {
   "Light": "Світло",
   "Pretty things": "Прикраси",
   "Toys": "Іграшки",
+  "2 dewdrops and 2 mint teas for the pantry": "2 росинки й 2 м'ятні чаї в комору",
+  "Snacks": "Смаколики",
+  "Drinks": "Напої",
+  "sleepiness −{0}": "сонливість −{0}",
+  "slurp": "сьорб",
+  "Snacks & drinks": "Смаколики й напої",
+  "A sip doesn't fill the tummy or make anyone drowsy. Tea and Starfizz perk a sleepy glowling up.": "Ковток не набиває животик і не присипляє. Чай і зоряна шипучка бадьорять сонного малюка.",
+  "Hunger": "Голод",
+  "Boredom": "Нудьга",
+  "Sleepiness": "Сон",
+  "hunger −{0}": "голод −{0}",
+  "Garden gazebo": "Садова альтанка",
+  "a little roof, fairy lights and lots of cushions": "дах, гірлянда й ціла купа подушок",
   "Workbench": "Верстак",
   "Every geode past the first of its kind is a spare. The first one always stays in the book; spares melt down into useful things here.": "Кожна жеода, крім першої свого виду, — запасна. Перша завжди лишається в Книзі, а запасні тут можна переплавити на корисне.",
   "150 shards": "150 осколків",
@@ -2728,7 +2743,7 @@ const UK_DATA = {
     twinklet: { lore: "Носить стрічку, яку ніхто не зав'язував, і сяє п'ятьма кольорами водночас. Голосно рахує до кожного Нового року." }
   },
   rarity: { common: "звичайний", rare: "рідкісний", legendary: "легендарний", moon: "місячний" },
-  snacks: { dew: "Росинка", cookie: "Печиво із зоряного пилу", berry: "Місячна ягідка" },
+  snacks: { dew: "Росинка", cookie: "Печиво із зоряного пилу", berry: "Місячна ягідка", milk: "Місячне молоко", juice: "Ягідний сік", tea: "Чай з місячної м'яти", fizz: "Зоряна шипучка" },
   decor: {
     lamp: { name: "Кришталева лампа", verb: "гріється біля лампи" },
     mushrooms: { name: "Сяйні грибочки", verb: "стрибає на грибочках" },
@@ -3428,6 +3443,11 @@ const SNACKS = {
   dew: { name: "Dewdrop", emoji: "💧", cost: 5, tummy: 15, joy: 4 },
   cookie: { name: "Stardust cookie", emoji: "🍪", cost: 10, tummy: 30, joy: 6 },
   berry: { name: "Moonberry", emoji: "🫐", cost: 15, tummy: 40, joy: 10 },
+  // drinks: a sip, no heavy tummy (so no drowsiness); the fizzy and the minty ones wake you up
+  milk: { name: "Moon milk", emoji: "🥛", cost: 6, tummy: 10, joy: 4, drink: true },
+  juice: { name: "Berry juice", emoji: "🧃", cost: 8, tummy: 8, joy: 10, drink: true },
+  tea: { name: "Moon mint tea", emoji: "🍵", cost: 12, tummy: 4, joy: 4, energy: 20, drink: true },
+  fizz: { name: "Starfizz", emoji: "🥤", cost: 18, tummy: 4, joy: 12, energy: 35, drink: true },
 };
 
 /** Things to buy with shards. Each has a fixed spot in the room and the kinds of glowling that love it. */
@@ -6973,15 +6993,16 @@ function renderNest(full) {
   $("nestTop").title = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name);
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
   for (const [k, id] of [["tummy", "Tummy"], ["joy", "Joy"], ["energy", "Energy"]]) {
-    // four icons per need, like an old handheld pet: full ones for what's there, faint ones for what's missing
-    const el = $("b" + id), full = Math.ceil(cr[k] / 25);
+    // four icons per need, like an old handheld pet: the hungrier (more bored, sleepier) it is, the more of them light up
+    const need = 100 - cr[k], el = $("b" + id), full = Math.ceil(need / 25);
     if (el.dataset.full !== String(full)) { el.dataset.full = full; el.innerHTML = [0, 1, 2, 3].map(i => ic(el.dataset.need, i < full ? "" : "off")).join(""); }
     el.classList.toggle("low", cr[k] < 25);
     const btn = document.querySelector(`.acts [data-fill="${k}"]`);
-    if (btn) { btn.style.setProperty("--fill", Math.ceil(cr[k] / 25) / 4); btn.classList.toggle("lowfill", cr[k] < 25); }
-    $("v" + id).textContent = Math.round(cr[k]);
+    if (btn) { btn.style.setProperty("--fill", full / 4); btn.classList.toggle("lowfill", cr[k] < 25); }
+    $("v" + id).textContent = Math.round(need);
   }
-  $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Sleep");
+  $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Sleepiness");
+  $("sleepBtn").setAttribute("aria-label", cr.sleeping ? tr("Wake") : tr("Sleep"));
   $("sleepBtn").classList.toggle("rested", !cr.sleeping && cr.energy >= SLEEPY_AT);
   $("feedBtn").disabled = cr.sleeping;
   // the button for what it needs lights up, the way a Tamagotchi's attention icon does
@@ -7026,8 +7047,11 @@ function openSnacks() {
   const snack = SNACKS[sp.snack].name.toLowerCase();
   $("snackSub").textContent = tr("You have ✦ {0} shards. {1}s love {2}.", save.shards, sp.name, LANG === "uk" ? snack : snack.replace(/([^aeiou])y$/, "$1ie") + "s");
   const pantry = save.pantry || {};
-  $("snackList").innerHTML = Object.entries(SNACKS).map(([id, s]) =>
-    `<button class="snack" data-id="${id}" ${!pantry[id] && save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>${tr("tummy +{0}", s.tummy)}${id === sp.snack ? tr(" · favorite!") : ""}</small></span><span class="cost">${pantry[id] ? `🧺 ×${pantry[id]}` : `✦ ${s.cost}`}</span></button>`).join("");
+  const row = ([id, s]) =>
+    `<button class="snack" data-id="${id}" ${!pantry[id] && save.shards < s.cost ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${id === sp.snack ? " ♥" : ""}</b><small>${tr("hunger −{0}", s.tummy)}${s.energy ? " · " + tr("sleepiness −{0}", s.energy) : ""}${id === sp.snack ? tr(" · favorite!") : ""}</small></span><span class="cost">${pantry[id] ? `🧺 ×${pantry[id]}` : `✦ ${s.cost}`}</span></button>`;
+  const all = Object.entries(SNACKS);
+  $("snackList").innerHTML = `<h3 class="forge-h">${tr("Snacks")}</h3>` + all.filter(([, s]) => !s.drink).map(row).join("")
+    + `<h3 class="forge-h">${tr("Drinks")}</h3><p class="me-hint">${tr("A sip doesn't fill the tummy or make anyone drowsy. Tea and Starfizz perk a sleepy glowling up.")}</p>` + all.filter(([, s]) => s.drink).map(row).join("");
   $$("#snackList .snack").forEach(b => b.addEventListener("click", () => feed(b.dataset.id)));
   show("snacks", true);
 }
@@ -7035,7 +7059,7 @@ function openSnacks() {
 function feed(id) {
   const cr = activeCreature(), s = SNACKS[id], sp = specOf(cr);
   show("snacks", false);
-  if (cr.tummy >= 88) { refuseWith(cr, tr("no thanks, I'm full")); return; }
+  if (cr.tummy >= (s.drink ? 97 : 88)) { refuseWith(cr, tr("no thanks, I'm full")); return; }
   // grown in your garden: free
   if (save.pantry && save.pantry[id] > 0) save.pantry = { ...save.pantry, [id]: save.pantry[id] - 1 };
   else {
@@ -7054,15 +7078,17 @@ function finishSnack(sn) {
   const v = a ? actorView(a) : { x: sn.x, y: sn.ty, size: N.base };
   sfx.munch();
   cr.tummy = clamp(cr.tummy + sn.s.tummy, 0, 100);
-  // a full tummy makes you drowsy: the bigger the snack, the sleepier
-  cr.energy = clamp(cr.energy - sn.s.tummy * 0.25 - (cr.tummy > 85 ? 6 : 0), 0, 100);
-  if (cr.energy < 40 && a) setTimeout(() => { emote(a, "🥱", 1.8); sfx.yawn(); }, 1500);
+  // a full tummy makes you drowsy: the bigger the snack, the sleepier; a drink doesn't, and some wake you up
+  if (sn.s.drink) cr.energy = clamp(cr.energy + (sn.s.energy || 0), 0, 100);
+  else cr.energy = clamp(cr.energy - sn.s.tummy * 0.25 - (cr.tummy > 85 ? 6 : 0), 0, 100);
+  if (sn.s.energy && a) setTimeout(() => { emote(a, "⚡", 1.6); a.hop = 1; }, 900);
+  else if (cr.energy < 40 && a) setTimeout(() => { emote(a, "🥱", 1.8); sfx.yawn(); }, 1500);
   cr.messT = (cr.messT || 0) + 15;
   bump("fed");
   cr.joy = clamp(cr.joy + sn.s.joy + (sn.fav ? 15 : 0), 0, 100);
   addXP(cr, sn.fav ? 12 : 6);
   spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
-  floatText(sn.fav ? tr("favorite! ♥") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
+  floatText(sn.fav ? tr("favorite! ♥") : sn.s.drink ? tr("slurp") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
   if (sn.fav) for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3);
   // the hungry ones who came running only get to watch: they stay hungry until they get their own snack
   for (const o of actors.values()) if (o.state === "begging" && a && Math.hypot(o.x - a.x, o.y - a.y) < N.base * 1.4) emote(o, "🥺", 1.6);
@@ -7150,7 +7176,7 @@ function renderShopPick() {
 
 const SEEDS = {
   glowberry: { name: "Glowberry", hrs: 2, cost: 8, gives: { pantry: { berry: 3 } }, note: "3 moonberries for the pantry" },
-  moonmint: { name: "Moon mint", hrs: 3, cost: 6, gives: { pantry: { dew: 4 } }, note: "4 dewdrops for the pantry" },
+  moonmint: { name: "Moon mint", hrs: 3, cost: 6, gives: { pantry: { dew: 2, tea: 2 } }, note: "2 dewdrops and 2 mint teas for the pantry" },
   cookiecorn: { name: "Cookie sprout", hrs: 4, cost: 10, gives: { pantry: { cookie: 3 } }, note: "3 stardust cookies, right off the stalk" },
   crystalbloom: { name: "Crystal bloom", hrs: 8, cost: 30, gives: { shards: 45 }, note: "45 shards, and now and then a geode" },
   biteleaf: { name: "Biteleaf", hrs: 12, cost: 60, gives: { shards: 30, bar: "star" }, note: "a star bar and 30 shards. It bites", ok: () => unlocked(13), how: "reach chapter III" },
@@ -7950,9 +7976,18 @@ function pushOutOfPieces(a) {
   }
   if (moved) [a.x, a.y] = isoAt(U / ISO_G, V / ISO_G);
 }
-/** A random free spot on the floor. */
+/** Is a floor point (in tiles) on a piece, or just behind one (a piece within a tile in front of it on the floor), where it'd be out of sight? */
+function hiddenSpot(U, V) {
+  return Object.values(isoLayout().placed).some(p => U > p.i - 0.3 && U < p.i + p.fw + 0.3 && V > p.j - 0.3 && V < p.j + p.fd + 0.3 // on it
+    || (p.i + p.fw / 2 - U) + (p.j + p.fd / 2 - V) > 0 && (p.i + p.fw / 2 - U) + (p.j + p.fd / 2 - V) < 2.2 && Math.abs((p.i + p.fw / 2 - U) - (p.j + p.fd / 2 - V)) < (p.fw + p.fd) / 2 + 0.6);
+}
+/** A random free spot on the floor, in plain sight when there is one. */
 function freeFloorPoint() {
-  for (let k = 0; k < 20; k++) { const [x, y] = floorAt(Math.random(), Math.random()), [U, V] = isoFrom(x, y).map(c => c * ISO_G); if (cellFree(Math.floor(U * 2), Math.floor(V * 2)) && walkClear(U, V, U, V)) return [x, y]; }
+  const m = isoMargin(0.42);
+  for (let k = 0; k < 40; k++) {
+    const [x, y] = isoAt(rand(m, 1 - m), rand(m, 1 - m)), [U, V] = isoFrom(x, y).map(c => c * ISO_G);
+    if (cellFree(Math.floor(U * 2), Math.floor(V * 2)) && walkClear(U, V, U, V) && (k > 30 || !hiddenSpot(U, V))) return [x, y];
+  }
   return floorAt(0.5, 0.5);
 }
 
@@ -8938,29 +8973,39 @@ const ISO_ART = {
 
 const BEDS = [
   { id: "nest", name: "Nest-bed", note: "round and puffy, room for everyone" },
-  { id: "leaves", name: "Pile of leaves", note: "crunchy, warm, smells of autumn" },
+  { id: "gazebo", name: "Garden gazebo", note: "a little roof, fairy lights and lots of cushions" },
   { id: "hammock", name: "Hammock", note: "sways a little when someone climbs in" },
   { id: "basket", name: "Basket", note: "woven, with a soft cushion inside" },
   { id: "canopy", name: "Canopy bed", note: "posts, a drape, very grand" },
 ];
-const BED_FOR_ROOM = { nest: "nest", yard: "leaves", play: "hammock", garden: "basket", study: "canopy" };
+const BED_FOR_ROOM = { nest: "nest", yard: "gazebo", play: "hammock", garden: "basket", study: "canopy" };
 /** The bed in the room you're in: the one you picked for it, or the one that suits its kind. */
-const bedStyle = (i = save.room) => (save.rooms && save.rooms[i] && (save.rooms[i].bed || BED_FOR_ROOM[save.rooms[i].kind])) || "nest";
+const bedStyle = (i = save.room) => { const b = (save.rooms && save.rooms[i] && (save.rooms[i].bed || BED_FOR_ROOM[save.rooms[i].kind])) || "nest"; return b === "leaves" ? "gazebo" : b; };
 const BED_ART = {
-  leaves(t, T, ax, ay) {
-    // a heap of autumn leaves over the two tiles, a blanket thrown over its front, a pillow at the back
-    const cx = ax, cy = ay + t, rx = t * 1.6, ry = rx / 2, cols = [IC.w0, IC.w1, IC.w2, IC.r1, IC.y1, IC.r2];
-    T.disc(cx, cy, rx, IC.w2);
-    // leaves from the edge inward and from the bottom up, so the heap rises in the middle
-    const leaves = Array.from({ length: 110 }, (_, k) => { const an = pxHash(k, 3) * TAU, r = Math.sqrt(pxHash(k, 7)); return [cx + Math.cos(an) * r * rx * 0.9, cy + Math.sin(an) * r * ry * 0.9 - (1 - r * r) * t * 0.55, k]; }).sort((p, q) => p[1] - q[1]);
-    for (const [x, y, k] of leaves) {
-      const c = cols[Math.floor(pxHash(k, 11) * cols.length)], r = Math.max(1.6, t * 0.13);
-      T.disc(x, y, r, c, r * 0.6);
-      T.px(x - r * 0.4, y - r * 0.3, IC.y0);
-    }
-    T.ball(cx - rx * 0.35, cy - t * 0.5, t * 0.3, IC.white, IC.s0, IC.s1, t * 0.18);
-    const bx = cx + rx * 0.15, by = cy - t * 0.12;
-    T.disc(bx, by, rx * 0.5, (x, y) => (Math.floor((x - bx) / 3) + Math.floor((y - by) / 2)) % 2 ? IC.g1 : IC.g0, ry * 0.42);
+  gazebo(t, T, ax, ay) {
+    // a wooden deck over the two tiles, four white posts, a peaked red roof with fairy lights round the eaves, cushions inside
+    const a = t * 0.88, x = ax, y = ay + t - a, dh = Math.max(2, Math.round(t * 0.14)), ph = Math.round(t * 1.3);
+    T.box(x, y, a, a, dh, IC.w1, IC.w2, IC.w3);
+    const top = y - dh, c = [[x, top], [x + 2 * a, top + a], [x - 2 * a, top + a], [x, top + 2 * a]], mid = (p, q, u) => [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u];
+    // planks
+    for (const u of [0.2, 0.4, 0.6, 0.8]) { const [x0, y0] = mid(c[0], c[2], u), [x1, y1] = mid(c[1], c[3], u); T.line(x0, y0, x1, y1, IC.w0); }
+    const post = ([px, py]) => { for (let k = 0; k < ph; k++) { T.px(px - 2, py - k, IC.white); T.px(px - 1, py - k, IC.white); T.px(px, py - k, IC.s0); T.px(px + 1, py - k, IC.s1); T.px(px + 2, py - k, IC.s2); } };
+    post(c[0]); post(c[1]); post(c[2]);
+    // cushions heaped along the back, a small one at the front
+    const cy = top + a;
+    for (const [dx, dy, r, cols] of [[0, -0.45, 0.5, [IC.p0, IC.p1, IC.p2]], [-0.9, -0.05, 0.44, [IC.l0, IC.l2, IC.l3]], [0.9, -0.05, 0.44, [IC.b0, IC.b1, IC.b2]], [-0.3, 0.1, 0.36, [IC.white, IC.s0, IC.s1]], [0.45, 0.35, 0.32, [IC.y0, IC.y1, IC.w1]]])
+      T.ball(x + dx * a, cy + dy * a - t * 0.12, t * r, ...cols, t * r * 0.72);
+    post(c[3]);
+    // the roof: the eaves stick out past the posts, the peak stands high above the middle
+    const ex = ([px, py]) => [x + (px - x) * 1.1, cy - ph + (py - cy) * 1.1], e = c.map(ex), apex = [x, cy - ph - t * 1.25];
+    T.poly([e[2], e[3], apex], IC.r1);
+    T.poly([e[1], e[3], apex], IC.r2);
+    for (const u of [0.3, 0.55, 0.8]) { T.line(...mid(apex, e[2], u), ...mid(apex, e[3], u), IC.r2); T.line(...mid(apex, e[3], u), ...mid(apex, e[1], u), IC.r3); }
+    T.line(...apex, ...e[3], IC.y1);
+    for (const [p, q] of [[e[2], e[3]], [e[3], e[1]]]) { T.line(p[0], p[1], q[0], q[1], IC.white); T.line(p[0], p[1] + 1, q[0], q[1] + 1, IC.s1); }
+    // fairy lights hanging in little loops under the eaves
+    for (const [p, q] of [[e[2], e[3]], [e[3], e[1]]]) for (let k = 1; k < 9; k++) { const [lx, ly] = mid(p, q, k / 9), sag = 2 + Math.round(Math.sin((k % 3) / 3 * Math.PI) * 2); T.px(lx, ly + sag, k % 3 ? IC.y0 : IC.p0); T.px(lx + 1, ly + sag, k % 3 ? IC.y1 : IC.p1); T.px(lx, ly + sag + 1, k % 3 ? IC.y1 : IC.p1); }
+    T.ball(apex[0], apex[1] - 2, 2, IC.y0, IC.y1, IC.w1);
   },
   hammock(t, T, ax, ay) {
     // two wooden posts, ropes, and a striped hammock sagging between them
@@ -10167,7 +10212,7 @@ function drawNest() {
   const frontOf = id => { const p = N.iso && isoLayout().placed[id]; return p ? isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1] : null; };
   for (const a of actors.values()) {
     const on = a.state === "sleep" || a.state === "toBed" ? frontOf("bed") : N.iso && a.state === "nap" && a.decor === "cushion" ? 1e6 : (a.state === "nap" || a.state === "visit") && a.decor ? frontOf(a.decor) : null;
-    const item = { y: on != null && a.state !== "toBed" ? on + 0.5 : a.y + 0.5, draw: () => drawActor(a) };
+    const item = { y: on != null && a.state !== "toBed" ? on + 0.5 : a.y + 0.5, draw: () => drawActor(a), actor: a };
     if (N.iso) {
       const [u, v] = isoFrom(a.x, a.y);
       item.box = { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G };
@@ -10181,7 +10226,9 @@ function drawNest() {
     const [wx, wy] = wickSpot(), [u, v] = isoFrom(wx, wy);
     items.push({ y: wy, draw: drawWick, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } });
   }
-  (N.iso ? isoOrder(items) : items.sort((p, q) => p.y - q.y)).forEach(it => it.draw());
+  const order = N.iso ? isoOrder(items) : items.sort((p, q) => p.y - q.y);
+  order.forEach(it => it.draw());
+  if (N.iso) ghostBehind(order);
   const sn = game.nest.snack;
   if (sn) {
     fx.font = `${Math.round(N.base * 0.32)}px system-ui`; fx.textAlign = "center";
@@ -10220,6 +10267,28 @@ function isoOrder(items) {
   }
   if (out.length < n) for (const it of mid) if (!out.includes(it)) out.push(it); // a cycle (shouldn't happen): append the rest
   return [...back.sort((p, q) => p.y - q.y), ...loose, ...out, ...top.sort((p, q) => (p.after ? 1 : 0) - (q.after ? 1 : 0))];
+}
+
+/** Glowlings drawn before a piece that covers them on screen are drawn again, faintly, over it. */
+function ghostBehind(order) {
+  const pieces = [];
+  order.forEach((it, k) => {
+    if (it.box && it.box.id && it.box.id !== "bed" && it.box.id !== "rug") {
+      const xs = [[it.box.u0, it.box.v0], [it.box.u1, it.box.v0], [it.box.u0, it.box.v1], [it.box.u1, it.box.v1]].map(([u, v]) => isoAt(u / ISO_G, v / ISO_G));
+      pieces.push({ k, x0: Math.min(...xs.map(q => q[0])), x1: Math.max(...xs.map(q => q[0])), y1: Math.max(...xs.map(q => q[1])) });
+    }
+  });
+  order.forEach((it, k) => {
+    const a = it.actor;
+    if (!a || it.after) return;
+    const v = actorView(a), r = v.size * 0.35;
+    if (!pieces.some(p => p.k > k && v.x + r > p.x0 && v.x - r < p.x1 && a.y < p.y1)) return;
+    const cr = save.creatures.find(c => c.id === a.id);
+    if (!cr) return;
+    ctx.save(); ctx.globalAlpha = 0.45;
+    drawSprite(v.x, v.y, v.size, specOf(cr), { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood: moodOf(cr), hop: a.hop, t: game.time + a.id * 997, glow: false });
+    ctx.restore();
+  });
 }
 
 function drawActor(a) {
