@@ -210,11 +210,14 @@
   body.scene-nest #nestBottom > * { pointer-events: auto; }
   #nestName { background: none; border: 0; font-size: 24px; font-weight: 800; cursor: pointer; }
   body.scene-nest #nestName { pointer-events: auto; }
-  #roomNav { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 100px); z-index: 2; display: flex; align-items: center; gap: 6px; opacity: 0; pointer-events: none; transition: opacity .4s; }
-  body.scene-nest #roomNav { opacity: 1; pointer-events: auto; }
-  body.arranging #roomNav, #roomNav[hidden] { display: none; }
-  #roomNav b { font-size: 18px; min-width: 7em; text-align: center; white-space: nowrap; }
-  #roomNav button { width: 36px; height: 32px; padding: 0; font-size: 20px; }
+  /* the arrows to the next rooms sit on the sides of the room, halfway down; the room's name under the glowling's */
+  #roomNav { position: fixed; left: 0; right: 0; top: var(--room-mid, 45%); transform: translateY(-50%); z-index: 2; display: flex; justify-content: space-between; padding: 0 var(--room-side, 6px); pointer-events: none; opacity: 0; transition: opacity .4s; }
+  #roomNav button { pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 52px; padding: 10px 0 8px; font-size: 30px; line-height: 1; }
+  #roomNav button small { font-size: 11px; line-height: 1.1; max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #roomLabel { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 96px); z-index: 2; font-size: 16px; color: var(--px-gold, #eec26a); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .4s; }
+  body.scene-nest #roomNav, body.scene-nest #roomLabel { opacity: 1; }
+  body:not(.scene-nest) #roomNav button { pointer-events: none; }
+  body.arranging #roomNav, body.arranging #roomLabel, #roomNav[hidden], #roomLabel[hidden] { display: none; }
   .rooms { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
   .rooms button { flex: 1 1 30%; }
   #nestName::after { content: " ✎"; font-size: 14px; color: var(--soft); }
@@ -941,7 +944,8 @@
   <div id="nestLvl"></div>
   <div class="bar" id="xpBar"><i></i></div>
 </div>
-<div id="roomNav" hidden><button class="pillbtn" id="roomPrev" aria-label="Previous room">‹</button><b id="roomName"></b><button class="pillbtn" id="roomNext" aria-label="Next room">›</button></div>
+<div id="roomNav" hidden><button class="pillbtn" id="roomPrev" aria-label="Previous room">‹<small id="roomPrevName"></small></button><button class="pillbtn" id="roomNext" aria-label="Next room">›<small id="roomNextName"></small></button></div>
+<div id="roomLabel" hidden><b id="roomName"></b></div>
 <div id="nestEmpty" hidden>
   <div class="card glass dark">
     <h2>Your nest is empty</h2>
@@ -3214,6 +3218,9 @@ function computeLayout() {
   N.win = { x: N.cx, y: lerp(N.back, N.wallTop, 0.5), r: wr };
   // the isometric room: a diamond of floor with two walls behind it, like a little diorama
   N.iso = roomView() === "iso";
+  // the room arrows hug the room's sides (on a wide screen, not the far edges of it)
+  document.body.style.setProperty("--room-mid", Math.round((nTop + nBottom) / 2) + "px");
+  document.body.style.setProperty("--room-side", Math.max(6, Math.round(W / 2 - (N.iso ? Math.min(W * 0.47, 400, (nBottom - nTop) * 0.9) : roomW / 2) - 64)) + "px");
   if (N.iso) {
     const room = nBottom - nTop;
     N.isoW = Math.min(W * 0.47, 400, room * 0.9); N.isoH = N.isoW / 2;
@@ -5520,8 +5527,11 @@ function renderNest(full) {
   applyTime(cr);
   const sp = specOf(cr);
   $("nestName").textContent = cr.name;
-  $("roomNav").hidden = save.rooms.length < 2;
+  const nr = save.rooms.length, wrap = i => (i + nr) % nr;
+  $("roomNav").hidden = $("roomLabel").hidden = nr < 2;
   $("roomName").textContent = roomName(save.room);
+  $("roomPrevName").textContent = roomName(wrap(save.room - 1));
+  $("roomNextName").textContent = roomName(wrap(save.room + 1));
   $("nestLvl").textContent = tr("Lv {0}", cr.level) + (cr.level >= MAX_LEVEL ? tr(" · max") : "");
   $("nestTop").title = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name);
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
