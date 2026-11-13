@@ -165,7 +165,7 @@ Your nest, glowlings and progress are saved on the device. Tap 💾 for a backup
 
 ## Hosting on GitHub Pages
 
-Everything Pages needs is here: `index.html`, `coop-link.js`, `coop-state.js`,
+Everything Pages needs is here: `index.html`, `style.css`, `js/`, `coop-link.js`, `coop-state.js`,
 `manifest.webmanifest`, `sw.js`, `icons/`,
 `og-image.jpg` (the share preview) and `.nojekyll`. With the repository public:
 Settings → Pages → Deploy from a branch → `main`, `/ (root)`. The game then lives at

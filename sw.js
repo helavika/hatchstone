@@ -3,7 +3,8 @@
 const STAGING = self.registration.scope.includes("/staging/");
 const CACHE = (STAGING ? "staging-" : "") + "hatchstone-v44";
 const SHELL = [
-  "./", "index.html", "coop-link.js", "coop-invite.js", "coop-state.js", "vendor/peerjs-1.5.5.min.js", "manifest.webmanifest",
+  "./", "index.html", "style.css", "js/i18n.js", "js/core.js", "js/data.js", "js/pixel.js", "js/save.js", "js/glowlings.js", "js/crack.js", "js/scenes.js", "js/nest.js", "js/iso.js", "js/play.js", "js/coop.js", "js/ui.js", "js/main.js",
+  "coop-link.js", "coop-invite.js", "coop-state.js", "vendor/peerjs-1.5.5.min.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png", "icons/favicon-32.png", "fonts/jersey15-latin.woff2", "fonts/jersey10-latin.woff2", "fonts/handjet700-cyrillic.woff2", "fonts/handjet800-cyrillic.woff2",
 ];
@@ -29,6 +30,14 @@ self.addEventListener("fetch", e => {
     e.respondWith(fetch(req)
       .then(res => { const copy = res.clone(); caches.open(CACHE).then(c => c.put("index.html", copy)); return res; })
       .catch(() => caches.match("index.html", { cacheName: CACHE })));
+    return;
+  }
+  // the game's code and styles come fresh too, so a new page never runs with last version's scripts
+  if (/\.(js|css)$/.test(url.pathname)) {
+    // (revalidated, so the browser's own short cache can't hand back an old copy either)
+    e.respondWith(fetch(req, { cache: "no-cache" })
+      .then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); } return res; })
+      .catch(() => caches.match(req, { cacheName: CACHE })));
     return;
   }
   e.respondWith(caches.match(req, { cacheName: CACHE }).then(hit => hit || fetch(req)));

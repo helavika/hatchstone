@@ -73,7 +73,7 @@ async function launch(root, baseline = false) {
   const baselineRef = process.env.HATCHSTONE_BASE_REF || "HEAD";
   const baselineIndex = baseline ? execFileSync("git", ["show", baselineRef + ":index.html"], { cwd: root, encoding: "utf8" }) : null;
   const mime = { ".html": "text/html; charset=utf-8", ".js": "application/javascript; charset=utf-8",
-    ".png": "image/png", ".jpg": "image/jpeg", ".webmanifest": "application/manifest+json" };
+    ".css": "text/css; charset=utf-8", ".png": "image/png", ".jpg": "image/jpeg", ".webmanifest": "application/manifest+json" };
   const server = http.createServer((req, res) => {
     const url = new URL(req.url, "http://localhost");
     let relative;
