@@ -708,7 +708,7 @@ const ROOM_KINDS = [
   { id: "play", name: "Playroom", cost: 250, note: "a bright room for toys and games" },
   { id: "garden", name: "Garden room", cost: 500, theme: "glowcap", note: "moss underfoot, glowcaps overhead" },
   { id: "study", name: "Crystal study", cost: 900, theme: "celestite", note: "quiet, blue and full of crystals" },
-  { id: "lab", name: "Laboratory", place: true, theme: "celestite" },
+  { id: "lab", name: "Laboratory", place: true, theme: "abbey" },
   { id: "shop", name: "Shop", place: true, theme: "smithy" },
   { id: "forge", name: "The Forge", place: true, theme: "smithy" },
   { id: "camp", name: "Explorers' camp", place: true, theme: "glowcap" },
@@ -732,6 +732,7 @@ function ensurePlace(kind) {
   const had = save.rooms.find(r => r.kind === kind);
   if (had && kind === "forge" && had.theme === "malachite") had.theme = "smithy";
   if (had && kind === "shop" && had.theme === "abbey") had.theme = "smithy";
+  if (had && kind === "lab" && had.theme === "celestite") had.theme = "abbey";
   if (save.rooms.some(r => r.kind === kind)) return false;
   return !!save.rooms.push({ kind, on: [], theme: ROOM_KINDS.find(k => k.id === kind).theme });
 }
@@ -764,7 +765,7 @@ const HEROES = {
     hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
     lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."] },
   grotto: { who: { name: "Grotto" }, icon: "grotto", none: true, role: "the hall before the tunnel", act: [["egg", "Into the tunnel", () => startLevel(nextLevel())], ["map", "Map of levels", () => setScene("map")]], hello: [], lines: [] },
-  lab: { who: OLLO, eyes: [[3, 5, 3, 2, "#69b7d6"], [9, 5, 3, 2, "#69b7d6"]], quirk: "turn", icon: "ollo", at: [0.55, 0.36], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
+  lab: { who: OLLO, eyes: [[3, 5, 3, 2, "#69b7d6"], [9, 5, 3, 2, "#69b7d6"]], quirk: "turn", icon: "ollo", at: [0.45, 0.58], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
     hello: ["Hoo. A visitor. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby mixes them both.", "Stroke the egg to keep it warm. It hatches faster."],
     lines: ["Fascinating. Truly fascinating. Hoo.", "I am writing the great book of glowlings. Chapter one is just you.", "No two mixed eggs are alike. I've checked. Many times.", "Glowlings glow brighter when they're happy. I measured it.", "Please don't touch the green jar."] },
 };

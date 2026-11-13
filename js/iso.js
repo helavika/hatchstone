@@ -1302,20 +1302,48 @@ const ISO_ART = {
   camplamp(t, T, ax, ay) { ISO_ART.lamppost(t, T, ax, ay); },
   // ---- the lab
   labdesk(t, T, ax, ay) {
-    // a long desk with bubbling flasks, a brass microscope and a stack of notes
-    const a = t - 2, b = t * 0.4, h = Math.round(t * 0.7), x = ax, y = ay + 1;
-    T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
+    // an alchemist's bench: a little brick athanor at one end, an alembic dripping into a receiver, a retort, candles and an open book
+    const a = t - 2, b = t * 0.42, h = Math.round(t * 0.72), x = ax, y = ay + 1;
+    const q = T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
+    for (const f of [0.08, 0.92]) { const lx = q.Bv[0] + (q.Buv[0] - q.Bv[0]) * f, ly = q.Bv[1] + (q.Buv[1] - q.Bv[1]) * f; T.line(lx, ly, lx, ly - h * 0.8, IC.w3); }
     const on = f => [x - b + a * f * 2, y + b / 2 + a * f - h];
-    for (const [f, c, hh] of [[0.25, IC.g0, 0.5], [0.48, IC.p1, 0.62], [0.7, IC.b0, 0.42]]) { const [fx, fy] = on(f); T.cyl(fx, fy, t * 0.1, Math.round(t * hh * 0.45), IC.white, c, c); T.ball(fx, fy - t * hh * 0.45, t * 0.13, IC.white, c, c); T.px(fx, fy - t * hh - 2, IC.white); T.px(fx + 1, fy - t * hh - 4, c); }
-    { const [mx, my] = on(0.95); T.box(mx - 2, my - 1, 3, 3, 2, IC.y1, IC.w2, IC.w2); T.line(mx, my - 3, mx + 3, my - 12, IC.y1); T.line(mx + 1, my - 3, mx + 4, my - 12, IC.w2); T.ball(mx + 4, my - 13, 2, IC.y0, IC.y1, IC.w2); }
-    { const [nx, ny] = on(1.2); for (let k = 0; k < 4; k++) T.box(nx - 3, ny - k, 3, 2, 1, k % 2 ? IC.white : IC.s0, IC.s1, IC.s2, false); }
+    // the athanor: a brick tower with a fire showing through its little door, a dome on top
+    { const [fx, fy] = on(0.14); T.box(fx - t * 0.12, fy - t * 0.2, t * 0.16, t * 0.16, Math.round(t * 0.55), IC.s1, (px, py) => (py % 3 === 0 || (px + Math.floor(py / 3) * 2) % 5 === 0) ? IC.s3 : IC.s2, IC.s3);
+      T.ball(fx, fy - t * 0.62, t * 0.17, IC.s1, IC.s2, IC.s3, t * 0.12); T.poly([[fx - 3, fy - 2], [fx + 1, fy], [fx + 1, fy - 5], [fx - 3, fy - 7]], IC.r1); T.px(fx - 1, fy - 3, IC.y0); T.glow(fx - 1, fy - 3, t * 0.4, IC.y1, 0.35); }
+    // the alembic: a round flask over a small flame, a head with a long beak running down to a receiving flask
+    { const [ax2, ay2] = on(0.45), [rx, ry] = on(0.7);
+      T.disc(ax2, ay2, 2.5, IC.s3, 1.5); T.px(ax2, ay2 - 2, IC.y1); T.px(ax2, ay2 - 3, IC.y0);
+      T.ball(ax2, ay2 - t * 0.25, t * 0.16, IC.white, IC.b0, IC.b1); T.disc(ax2, ay2 - t * 0.2, t * 0.12, IC.g0, t * 0.06);
+      T.ball(ax2, ay2 - t * 0.48, t * 0.1, IC.white, IC.b0, IC.b1, t * 0.08);
+      T.line(ax2 + t * 0.08, ay2 - t * 0.5, rx - 1, ry - t * 0.3, IC.b1); T.line(ax2 + t * 0.08, ay2 - t * 0.49, rx - 1, ry - t * 0.29, IC.b0);
+      T.ball(rx, ry - t * 0.14, t * 0.12, IC.white, IC.p0, IC.p1); T.px(rx, ry - t * 0.3, IC.b1); }
+    // a retort lying on its stand, neck sloping down
+    { const [tx, ty] = on(0.92); T.ball(tx, ty - t * 0.16, t * 0.13, IC.white, IC.g0, IC.g1); T.line(tx + t * 0.1, ty - t * 0.22, tx + t * 0.42, ty - t * 0.08, IC.b0); T.line(tx - t * 0.08, ty, tx + t * 0.08, ty, IC.s3); }
+    // an open book and two candles
+    { const [bx, by] = on(1.12); T.poly([[bx - 6, by - 1], [bx, by + 2], [bx, by - 2], [bx - 6, by - 5]], IC.s0); T.poly([[bx, by + 2], [bx + 6, by - 1], [bx + 6, by - 5], [bx, by - 2]], IC.white);
+      for (let k = 0; k < 3; k++) { T.line(bx - 5, by - 3 + k * 0.8, bx - 1, by - 1 + k * 0.8, IC.s2); T.line(bx + 1, by - 1 + k * 0.8, bx + 5, by - 3 + k * 0.8, IC.s2); }
+      for (const dx of [-9, 9]) { T.line(bx + dx, by, bx + dx, by - 6, IC.white); T.px(bx + dx, by - 7, IC.y0); T.glow(bx + dx, by - 7, 4, IC.y0, 0.4); } }
   },
   jars(t, T, ax, ay) {
-    // a tall cabinet of specimen jars, glowing faintly
-    const cx = ax, cy = ay + t / 2, a = t * 0.4, b = t * 0.34, h = Math.round(t * 1.8);
-    const q = T.box(cx, cy - a, a, b, h, IC.l3, IC.l4, IC.ink2);
-    for (let s = 0; s < 4; s++) for (let k = 0; k < 2; k++) { const px = q.Bv[0] + 3 + k * 5, py = q.Bv[1] - h * (0.18 + s * 0.22) + k * 2.5; T.ball(px, py, 2, IC.white, [IC.g0, IC.b0, IC.p0, IC.y0][(s + k) % 4], IC.l3); }
-    T.glow(q.Bv[0] + 5, q.Bv[1] - h * 0.5, t * 0.8, IC.g0, 0.2);
+    // a tall bookcase: rows of old books with coloured spines, specimen jars and a skull on the top shelf
+    const a = t * 0.34, b = t - 2, h = Math.round(t * 1.9), x = ax, y = ay + 1;
+    const q = T.box(x, y, a, b, h, IC.w2, IC.w2, IC.w3);
+    const [f0, f1] = [q.Buv, q.Bu], at = (f, up) => [f0[0] + (f1[0] - f0[0]) * f, f0[1] + (f1[1] - f0[1]) * f - up];
+    T.poly([at(0.05, h * 0.05), at(0.95, h * 0.05), at(0.95, h * 0.95), at(0.05, h * 0.95)], IC.w3);
+    const rows = 5, rowH = h * 0.9 / rows, spines = [IC.r2, IC.b2, IC.g2, IC.p2, IC.w1, IC.l3, IC.r1, IC.s2];
+    for (let r = 0; r < rows; r++) {
+      const lift = h * 0.05 + r * rowH;
+      for (let k = 0; k <= 30; k++) { const [px, py] = at(k / 30, lift); T.px(px, py, IC.w1); }
+      if (r === rows - 1) {
+        // the top shelf: jars of strange things, and a skull
+        for (const [f, c] of [[0.2, IC.g0], [0.45, IC.p0], [0.85, IC.b0]]) { const [px, py] = at(f, lift + 1); T.cyl(px, py, 2.2, Math.round(rowH * 0.55), IC.white, c, c); }
+        const [sx, sy] = at(0.65, lift + 1); T.ball(sx, sy - 3, 3, IC.s0, IC.s0, IC.s1); T.px(sx - 1, sy - 3, IC.ink); T.px(sx + 1, sy - 3, IC.ink);
+        continue;
+      }
+      let f = 0.07;
+      while (f < 0.9) { const w = 0.05 + pxHash(Math.round(f * 100), r) * 0.04, tall = rowH * (0.6 + pxHash(r, Math.round(f * 100)) * 0.3), c = spines[Math.floor(pxHash(Math.round(f * 50), r + 3) * spines.length)];
+        const p0 = at(f, lift + 1), p1 = at(f + w, lift + 1); T.poly([p0, p1, [p1[0], p1[1] - tall], [p0[0], p0[1] - tall]], c); T.line(p0[0], p0[1] - tall * 0.7, p1[0], p1[1] - tall * 0.7, IC.y1); f += w + 0.008; }
+    }
   },
   scope(t, T, ax, ay) { ISO_ART.telescope(t, T, ax, ay); },
   books(t, T, ax, ay) {
