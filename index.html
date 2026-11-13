@@ -8557,22 +8557,23 @@ function incubatorPod(x, y, b) {
     const cx = q(x - ox), domeY = q(y - b * 0.55 - oy), r = q(b * 0.4), floorY = q(y - b * 0.06 - oy);
     const neb = ["#0b0614", "#1d1145", "#3a2a7a", "#6b4fa8", "#c25586"].map(pxHex), metal = [IC.s0, IC.s1, IC.s2, IC.s3];
     const c = isoArt(w, h, T => {
-      // the nebula, inside the dome's outline
-      for (let py = Math.floor(domeY - r); py <= floorY; py++) for (let px = Math.floor(cx - r); px <= Math.ceil(cx + r); px++) {
-        const inDome = py >= domeY ? Math.abs(px - cx) <= r : Math.hypot(px - cx, py - domeY) <= r;
-        if (!inDome) continue;
-        const n = pxNoise(px * 0.18, py * 0.18 + 3) * 0.8 + 0.25 * Math.sin((px - cx) * 0.2 + (py - domeY) * 0.15);
-        let col = pxPick(neb, clamp(n, 0, 1), px, py);
-        const st = pxHash(px, py);
-        if (st > 0.965) col = (st * 97 + f) % 3 < 1 ? IC.y0 : IC.white;
-        T.px(px, py, col);
-      }
       // the saucer: a metal ring, lit on top, with lights all round that take turns
       const rx = q(b * 0.5), ry = q(b * 0.14), sy = floorY + 1;
       for (let py = Math.floor(sy - ry); py <= sy + ry + 2; py++) for (let px = Math.floor(cx - rx); px <= Math.ceil(cx + rx); px++) {
         const d = Math.hypot((px - cx) / rx, (py - sy) / ry), under = py > sy && Math.hypot((px - cx) / rx, (py - sy - 2) / ry) <= 1;
         if (d <= 1) T.px(px, py, py < sy - ry * 0.3 ? metal[0] : Math.abs(py - sy - ry * 0.15) < 1.5 ? IC.ink2 : py < sy + ry * 0.2 ? metal[1] : metal[2]);
         else if (under) T.px(px, py, metal[3]);
+      }
+      // the nebula, inside the glass: it stands on the saucer like an upturned glass, its rim an oval on the saucer's top
+      const er = r * 0.28;
+      for (let py = Math.floor(domeY - r); py <= Math.ceil(floorY + er); py++) for (let px = Math.floor(cx - r); px <= Math.ceil(cx + r); px++) {
+        const dx = px - cx, inDome = py < domeY ? Math.hypot(dx, py - domeY) <= r : Math.abs(dx) <= r && (py <= floorY || (dx / r) ** 2 + ((py - floorY) / er) ** 2 <= 1);
+        if (!inDome) continue;
+        const n = pxNoise(px * 0.18, py * 0.18 + 3) * 0.8 + 0.25 * Math.sin(dx * 0.2 + (py - domeY) * 0.15);
+        let col = pxPick(neb, clamp(n, 0, 1), px, py);
+        const st = pxHash(px, py);
+        if (st > 0.965) col = (st * 97 + f) % 3 < 1 ? IC.y0 : IC.white;
+        T.px(px, py, col);
       }
       const lights = [IC.y0, IC.p0, IC.b0, IC.g0];
       for (let k = 0; k < 12; k++) {
@@ -8613,8 +8614,8 @@ function drawIncubator() {
     glow.addColorStop(0, `rgba(255,214,150,${0.2 + k * 0.35})`); glow.addColorStop(1, "rgba(255,214,150,0)");
     ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y - b * 0.4, b * (0.6 + k * 0.4), 0, TAU); ctx.fill();
     ctx.save();
-    ctx.translate(x, y - b * 0.1); ctx.rotate(wob); ctx.translate(-x, -(y - b * 0.1));
-    const ew = b * 0.42, eh = ew * 1.28, ey = y - b * 0.12 - eh / 2;
+    ctx.translate(x, y - b * 0.06); ctx.rotate(wob); ctx.translate(-x, -(y - b * 0.06));
+    const ew = b * 0.42, eh = ew * 1.28, ey = y - b * 0.05 - eh / 2; // it stands on the saucer, in the middle of the glass's rim
     tracePoly(ctx, eggPoly(x, ey, ew, eh, 40));
     const eg = ctx.createLinearGradient(x - ew / 2, ey - eh / 2, x + ew / 2, ey + eh / 2);
     eg.addColorStop(0, "#fff"); eg.addColorStop(0.4, inc.mix.pal[1]); eg.addColorStop(1, inc.mix.pal[0]);
@@ -8638,7 +8639,10 @@ function drawIncubator() {
   const dg = ctx.createLinearGradient(x - b * 0.4, 0, x + b * 0.4, 0);
   dg.addColorStop(0, "rgba(255,255,255,.22)"); dg.addColorStop(0.3, "rgba(255,255,255,.05)"); dg.addColorStop(1, "rgba(255,255,255,.16)");
   ctx.fillStyle = dg; ctx.strokeStyle = "rgba(255,255,255,.55)"; ctx.lineWidth = 1.4;
-  ctx.beginPath(); ctx.moveTo(x - b * 0.4, y - b * 0.06); ctx.lineTo(x - b * 0.4, y - b * 0.55); ctx.arc(x, y - b * 0.55, b * 0.4, Math.PI, 0); ctx.lineTo(x + b * 0.4, y - b * 0.06); ctx.fill(); ctx.stroke();
+  // its rim is an oval resting on the saucer: the back of the rim shows faintly through the glass, the front edge is the bottom of the glass
+  const gy = y - b * 0.06, gr = b * 0.112;
+  ctx.beginPath(); ctx.moveTo(x - b * 0.4, gy); ctx.lineTo(x - b * 0.4, y - b * 0.55); ctx.arc(x, y - b * 0.55, b * 0.4, Math.PI, 0); ctx.lineTo(x + b * 0.4, gy); ctx.ellipse(x, gy, b * 0.4, gr, 0, 0, Math.PI); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = "rgba(255,255,255,.22)"; ctx.beginPath(); ctx.ellipse(x, gy, b * 0.4, gr, 0, Math.PI, TAU); ctx.stroke();
   ctx.fillStyle = "rgba(255,255,255,.5)"; ctx.beginPath(); ctx.ellipse(x - b * 0.22, y - b * 0.62, b * 0.05, b * 0.16, 0.3, 0, TAU); ctx.fill();
   orbit(0, Math.PI);
   if (moonFront) moon();
