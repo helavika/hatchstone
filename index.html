@@ -2351,7 +2351,7 @@ const UK_DATA = {
     celestite: { name: "Целестиновий грот", how: "дійди до розділу II" },
     malachite: { name: "Малахітові глибини", how: "дійди до розділу III" },
     labradorite: { name: "Лабрадоритове склепіння", how: "дійди до розділу IV" },
-    churchyard: { name: "Цвинтар у місячному сяйві", how: "відкрий місячне яйце" },
+    churchyard: { name: "Руїни в місячному сяйві", how: "відкрий місячне яйце" },
     glowcap: { name: "Ліс сяйних шапинок", how: "збери 30 зірок" },
     abbey: { name: "Абатство зорепаду", how: "пройди всі 24 рівні" }
   },
@@ -3260,7 +3260,7 @@ const THEMES = [
   { id: "celestite", name: "Celestite Grotto", art: 1, how: "reach chapter II", ok: () => unlocked(7) },
   { id: "malachite", name: "Malachite Deep", art: 2, how: "reach chapter III", ok: () => unlocked(13) },
   { id: "labradorite", name: "Labradorite Vault", art: 3, how: "reach chapter IV", ok: () => unlocked(19) },
-  { id: "churchyard", name: "Moonlit Churchyard", how: "open a moon egg", ok: () => !!save.moon },
+  { id: "churchyard", name: "Moonlit Ruins", how: "open a moon egg", ok: () => !!save.moon },
   { id: "glowcap", name: "Glowcap Wood", how: "collect 30 stars", ok: () => totalStars() >= 30 },
   { id: "abbey", name: "Starfall Abbey", how: "clear all 24 levels", ok: () => unlocked(LEVELS + 1) },
   { id: "frost", name: "Frost Hollow", art: 4, how: "meet 12 kinds of glowling", ok: () => Object.keys(save.seen).length >= 12 },
@@ -3989,7 +3989,7 @@ function makeBackground() { bgCache.clear(); }
 function currentTheme() {
   const c = game.scene === "crack" && game.egg && game.egg.conf;
   if (c) return c.moon ? "churchyard" : c.wander ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
-  if (save.rooms && isOutside()) return THEME[save.theme] && THEME[save.theme].ok() && !["cave", "hall"].includes(ROOM_KIND[save.theme]) ? save.theme : "glowcap";
+  if (save.rooms && isOutside()) return THEME[save.theme] && THEME[save.theme].ok() && !["cave", "hall", "ruin"].includes(ROOM_KIND[save.theme]) ? save.theme : "glowcap";
   return THEME[save.theme] && THEME[save.theme].ok() ? save.theme : "amethyst";
 }
 
@@ -8417,16 +8417,21 @@ function paintRoomIso(id) {
   const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
   const q = v => v / PX, cx = q(N.cx), top = q(N.isoTop), hw = q(N.isoW), hh = hw / 2, wall = q(N.isoWall), slab = Math.max(4, Math.round(hw / 16));
-  const seed = (art ? art.seed : night.seed) * 7, indoor = kind === "cave" || kind === "hall";
+  const seed = (art ? art.seed : night.seed) * 7, indoor = kind === "cave" || kind === "hall" || kind === "ruin";
   const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
   const ink = pxHex("#0b0614"), at = (u, v) => [cx + (u - v) * hw, top + (u + v) * hh];
+  // the ruins are old grey stone whatever the night outside; moss and grass grow in every gap
+  const ruinStone = [pxHex("#22143a"), pxHex("#3a3440"), pxHex("#5d5666"), pxHex("#8a8494"), pxHex("#b9b3c0")], moss = [pxHex("#1e5233"), pxHex("#2f7d4a"), pxHex("#57ad6a")];
+  const wallC = kind === "ruin" ? ruinStone : wallR;
+  // how high a ruined wall still stands along its length (0..1): broken off in steps, low in the middle of each side
+  const ruinH = tt => kind !== "ruin" ? 1 : clamp(0.55 + 0.45 * Math.cos(tt * 2.6) - 0.35 * (Math.floor(pxNoise(tt * 7 + seed, 3) * 4) / 4), 0.18, 1);
   const wood = [pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")], stone = [pxHex("#22143a"), pxHex("#3a3440"), pxHex("#5d5666"), pxHex("#8a8494")];
 
   // the slab under the floor: its two front faces, the left one lit, the right one in shade (outdoors the room is part of the land: no slab)
   if (indoor) for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
     const edgeY = top + hh + (hh - Math.abs(x - cx) * hh / hw) * 1, left = x < cx;
     for (let k = 0; k < slab; k++) {
-      const y = edgeY + k, col = indoor ? pxPick(wallR, (left ? 0.45 : 0.22) - k * 0.03 + pxFbm(x * 0.2, y * 0.2) * 0.15, x, y)
+      const y = edgeY + k, col = indoor ? pxPick(wallC, (left ? 0.45 : 0.22) - k * 0.03 + pxFbm(x * 0.2, y * 0.2) * 0.15, x, y)
         : k < 2 ? pxPick(ground, left ? 0.6 : 0.4, x, y) : pxPick([pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")], (left ? 0.6 : 0.3) - k * 0.04 + pxFbm(x * 0.3, y * 0.3) * 0.25, x, y);
       put(x, y, k === slab - 1 ? ink : col);
     }
@@ -8440,11 +8445,18 @@ function paintRoomIso(id) {
     if (indoor) {
       val = 0.5 + 0.15 * pxFbm(x * 0.12 + seed, y * 0.2) + 0.25 * lightK;
       const n = kind === "hall" ? 7 : 5, fu = u * n, fv = v * n;
+      const joint = Math.abs(fu - Math.round(fu)) * hw / n < 0.6 || Math.abs(fv - Math.round(fv)) * hw / n < 0.6;
       if (kind === "hall") val += (Math.floor(fu) + Math.floor(fv)) % 2 ? 0.1 : -0.08;
-      if ((Math.abs(fu - Math.round(fu)) * hw / n < 0.6 || Math.abs(fv - Math.round(fv)) * hw / n < 0.6) && (kind === "hall" || pxHash(x >> 2, y >> 1) > 0.25)) val -= 0.2;
+      if (kind === "cave") {
+        // a cave floor is the rock itself: uneven, with cracks, pebbles and a few crystals, no slabs
+        val += 0.12 * pxFbm(x * 0.05 + seed, y * 0.09) - 0.06;
+        if (Math.abs(pxNoise(x * 0.07 + seed, y * 0.13) - 0.5) < 0.018) val -= 0.25;
+        if (pxHash(x + 11, y + seed) > 0.985) val += 0.22;
+      } else if (joint && (kind === "hall" || pxHash(x >> 2, y >> 1) > 0.25)) val -= 0.2;
+      if (kind === "ruin") { val += 0.12 * (pxHash(Math.floor(fu), Math.floor(fv) + seed) - 0.5); if (joint && pxHash(x, y + seed) > 0.35) col = moss[pxHash(x + 1, y) > 0.6 ? 2 : 1]; else if (pxHash(Math.floor(fu) * 3, Math.floor(fv) + seed) > 0.86 && pxFbm(x * 0.3, y * 0.3) > 0.55) col = moss[0]; }
       if (near * hw < 2.5) val -= 0.3; // shadow at the foot of the walls
       if (kind === "cave" && pxHash(x, y + seed) > 0.9975) col = crys[2];
-      put(x, y, col || pxPick(wallR, val, x, y));
+      put(x, y, col || pxPick(wallC, val, x, y));
     } else {
       val = 0.5 + 0.25 * pxFbm(x * 0.14 + seed, y * 0.25) + 0.2 * lightK - 0.2 * Math.max(0, Math.max(u, v) - 0.85) * 5;
       if (pxHash(x, y + seed) > 0.965) val += 0.3;
@@ -8459,22 +8471,37 @@ function paintRoomIso(id) {
   if (indoor) {
     // the two walls: left (along v) catches the light, right (along u) is in shade; they meet at the back corner
     for (const side of [-1, 1]) for (let x = Math.floor(side < 0 ? cx - hw : cx); x <= Math.ceil(side < 0 ? cx : cx + hw); x++) {
-      const tt = Math.abs(x - cx) / hw, base = top + tt * hh, yTop = base - wall - (kind === "cave" ? 2 * pxNoise(x * 0.2, seed) : 0);
+      const tt = Math.abs(x - cx) / hw, base = top + tt * hh;
+      // a cave's rock rises higher toward the back and juts up and down along its top
+      const yTop = base - wall * ruinH(tt) - (kind === "cave" ? wall * (0.22 * (1 - tt) + 0.16 * pxNoise(x * 0.05, seed)) + 4 * pxNoise(x * 0.3, seed + 4) - 2 : 0);
       for (let y = Math.floor(yTop); y < base; y++) {
         const hgt = (base - y) / wall;
         let val;
         if (kind === "cave") {
           val = (side < 0 ? 0.42 : 0.24) + 0.24 * pxFbm(x * 0.09 + seed, y * 0.09) - 0.15 * hgt;
           if (Math.abs(pxNoise(x * 0.18 + seed, y * 0.18) - 0.5) < 0.025) val -= 0.25;
+        } else if (kind === "ruin") {
+          // big old blocks, uneven, some missing their corners; moss on whatever still stands on top, ivy trailing down
+          const row = Math.floor((base - y) / 5), bx = Math.floor((tt * hw + (row % 2) * 5) / 9);
+          val = (side < 0 ? 0.5 : 0.3) + 0.2 * pxHash(bx * side, row + seed) - 0.1 * pxFbm(x * 0.2, y * 0.2);
+          if (Math.round(base - y) % 5 === 0 || Math.round(tt * hw + (row % 2) * 5) % 9 === 0) val = 0.08;
+          const ivy = pxNoise(x * 0.35 + seed, 2) > 0.62 && y - yTop < wall * 0.55 * pxNoise(x * 0.2, seed + 1);
+          if (y - yTop < 2.5 || ivy) { put(x, y, moss[ivy ? (pxHash(x, y) > 0.5 ? 1 : 0) : 2]); continue; }
         } else {
           const row = Math.floor((base - y) / 4), bx = Math.floor((tt * hw + (row % 2) * 4) / 8);
           val = (side < 0 ? 0.46 : 0.28) + 0.14 * pxHash(bx * side, row + seed);
           if (Math.round(base - y) % 4 === 0 || Math.round(tt * hw + (row % 2) * 4) % 8 === 0) val = 0.1;
         }
         if (y - yTop < 2) val = side < 0 ? 0.8 : 0.6; // the lit top edge of the wall
-        if (Math.abs(x - cx) < 1) val = 0.05;          // the back corner
+        if (kind === "cave") { if (Math.abs(x - cx) < 3) val -= 0.08 * (3 - Math.abs(x - cx)); }  // rock curves round the back, no sharp corner
+        else if (Math.abs(x - cx) < 1) val = 0.05;     // the back corner
         if (Math.abs(x - cx) > hw - 1) val = 0.1;      // the open ends
-        put(x, y, pxPick(wallR, val, x, y));
+        put(x, y, pxPick(wallC, val, x, y));
+      }
+      // a cave's rock overhangs: stalactites drip from its ragged top
+      if (kind === "cave" && pxHash(x, seed + 5) > 0.82) {
+        const len = 2 + Math.round(pxHash(x + 3, seed) * 5);
+        for (let k = 0; k < len; k++) put(x, yTop + 2 + k, pxPick(wallC, 0.62 - k * 0.07, x, k));
       }
     }
     // a window in the left wall: a parallelogram that follows the wall, arched in the abbey. It has depth: a deep reveal
@@ -8485,15 +8512,25 @@ function paintRoomIso(id) {
     for (let x = Math.floor(cx - hw * 0.67); x <= Math.ceil(cx - hw * 0.33); x++) {
       const tt = (cx - x) / hw, base = top + tt * hh, lx = (tt - 0.5) / 0.14;
       for (let y = Math.floor(base - wall * 0.86); y < base - wall * 0.26; y++) {
-        const hy = (base - y) / wall, archTop = kind === "hall" ? 0.84 - 0.12 * Math.abs(lx) ** 1.6 : 0.8 - 0.08 * lx * lx;
-        // the sill: a ledge under the window, a little wider than it, lit on top
-        if (hy >= 0.28 && hy < 0.335 && Math.abs(lx) < 1.12) { put(x, y, hy > 0.315 ? wallR[Math.min(4, wallR.length - 1)] : wallR[1]); continue; }
-        if (Math.abs(lx) > 1 || hy > archTop || hy < 0.335) continue;
+        const hy = (base - y) / wall, archTop = kind === "hall" || kind === "ruin" ? 0.84 - 0.12 * Math.abs(lx) ** 1.6 : 0.8 - 0.08 * lx * lx;
+        const glazed = kind === "hall";
+        // a cave's opening is a ragged hole worn through the rock: no frame, no sill, rough edges
+        if (kind === "cave") {
+          const rough = 0.18 * pxNoise(x * 0.3 + seed, y * 0.3) + 0.08 * pxNoise(x * 0.9, y * 0.9 + seed);
+          const r = Math.hypot(lx * 0.95, (hy - 0.58) / 0.21);
+          if (r > 1.05 + rough) continue;
+          if (r > 0.86 + rough) { put(x, y, wallC[lx > 0 ? 0 : 1]); continue; }
+        } else {
+          // the sill: a ledge under the window, a little wider than it, lit on top
+          if (hy >= 0.28 && hy < 0.335 && Math.abs(lx) < 1.12) { put(x, y, hy > 0.315 ? wallC[Math.min(4, wallC.length - 1)] : wallC[1]); continue; }
+          if (Math.abs(lx) > 1 || hy > archTop || hy < 0.335 || hy > ruinH(tt) - 0.06) continue;
+        }
         let col;
-        if (Math.abs(lx) > 0.88 || hy > archTop - 0.03) col = lx > 0 ? wallR[0] : wallR[2];                     // the reveal: the wall's thickness
-        else if (Math.abs(lx) > 0.78 || hy > archTop - 0.075 || hy < 0.37) col = woodW[lx > 0 ? 2 : 1];          // the frame
-        else if (Math.abs(lx) < 0.05 || Math.abs(hy - 0.57) < 0.013) col = woodW[2];                             // the glazing bars
-        else {
+        if (kind === "cave") col = null;
+        else if (Math.abs(lx) > 0.88 || hy > archTop - 0.03) col = lx > 0 ? wallC[0] : wallC[2];                // the reveal: the wall's thickness
+        else if (glazed && (Math.abs(lx) > 0.78 || hy > archTop - 0.075 || hy < 0.37)) col = woodW[lx > 0 ? 2 : 1];  // the frame
+        else if (glazed && (Math.abs(lx) < 0.05 || Math.abs(hy - 0.57) < 0.013)) col = woodW[2];                     // the glazing bars
+        if (!col) {
           // the night outside
           col = pxPick(sky, 0.15 + (archTop - hy) * 1.5, x, y);
           if (hy < 0.405 + 0.022 * Math.sin(lx * 4 + seed) + 0.012 * Math.sin(lx * 11)) col = pxPick([sky[0], sky[1]], 0.35, x, y);   // far hills
@@ -8504,7 +8541,7 @@ function paintRoomIso(id) {
             if (md < 0.24) col = moon; else if (md < 0.36 && PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.4) col = sky[3];
           }
           // a faint shine slanting across the glass
-          if (((x + y * 2) % 23 + 23) % 23 < 2 && hy > 0.5) col = sky[3];
+          if (glazed && ((x + y * 2) % 23 + 23) % 23 < 2 && hy > 0.5) col = sky[3];
         }
         put(x, y, col);
       }
@@ -8514,6 +8551,14 @@ function paintRoomIso(id) {
       const a = (x - cx) / hw, b = (y - top) / hh, u = (a + b) / 2, v = (b - a) / 2;
       if (u < 0.03 || u > 0.3 || v < 0.38 + u * 0.3 || v > 0.62 + u * 0.3) continue;
       if (PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.18 * (1 - u / 0.3)) put(x, y, sky[3]);
+    }
+    if (kind === "ruin") {
+      // tufts of grass at the foot of the walls, and a fallen block or two
+      for (let k = 0; k < 24; k++) {
+        const s0 = pxHash(k, seed), side = k % 2 ? 1 : -1, [fx, fy] = side < 0 ? at(0.02, s0) : at(s0, 0.02);
+        for (let j = 0; j < 3; j++) put(fx + j - 1, fy - (j === 1 ? 2 : 1), moss[j === 1 ? 2 : 1]);
+      }
+      for (const [u0, v0] of [[0.86, 0.12], [0.1, 0.9]]) { const [bx, by] = at(u0, v0); for (let yy = 0; yy < 4; yy++) for (let xx = -4; xx <= 4; xx++) put(bx + xx, by - yy, pxPick(ruinStone, yy === 3 ? 0.8 : xx < 0 ? 0.55 : 0.35, xx, yy)); }
     }
     if (kind === "cave") {
       // crystals growing at the foot of the walls, in the back corner and at both ends
@@ -8584,12 +8629,13 @@ function drawRoomIso() {
 }
 
 /** What sort of place each backdrop is: a hollow in the cave wall, an abbey hall, or a clearing under the sky. */
-const ROOM_KIND = { amethyst: "cave", celestite: "cave", malachite: "cave", labradorite: "cave", frost: "cave", abbey: "hall", churchyard: "yard", glowcap: "wood", summit: "yard" };
+const ROOM_KIND = { amethyst: "cave", celestite: "cave", malachite: "cave", labradorite: "cave", frost: "cave", abbey: "hall", churchyard: "ruin", glowcap: "wood", summit: "yard" };
 
 /** The room's walls and floor in art pixels, for one backdrop: caves get rough rock with crystals in the corners and stone slabs,
  *  the abbey brick with a tall arched window and tiles, the churchyard grass behind a low stone wall, the wood moss behind a fallen log. */
 function paintRoom(id) {
-  const kind = ROOM_KIND[id] || "cave", t = THEME[id] || THEME.amethyst;
+  // seen straight on, the ruins are a broken hall
+  const kind = ROOM_KIND[id] === "ruin" ? "hall" : ROOM_KIND[id] || "cave", t = THEME[id] || THEME.amethyst;
   const art = t.art !== undefined ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
   const wallR = (art ? art.wall : night.ground).map(pxHex), crys = art ? art.crystal.map(pxHex) : null;
   const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
