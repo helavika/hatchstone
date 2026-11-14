@@ -27,7 +27,7 @@ function walkClear(U0, V0, U1, V1) {
 }
 /**
  * A way from one floor point to another around the furniture (A* over half tiles, no cutting corners), smoothed into a few
- * straight legs. If the goal is inside a piece, the way ends at the nearest free spot. Points are in CSS pixels.
+ * straight legs. If the goal is inside a piece, or too close to one to stand there, the way ends at the nearest free spot. Points are in CSS pixels.
  */
 function findPath(x0, y0, x1, y1) {
   // in tiles, kept off the walls the way keepInRoom keeps everyone
@@ -39,7 +39,9 @@ function findPath(x0, y0, x1, y1) {
   if (!cellFree(...s)) s = nearestFree(s);
   if (!cellFree(...g)) { g = nearestFree(g); if (g) [U1, V1] = [inR((g[0] + 0.5) / 2), inR((g[1] + 0.5) / 2)]; }
   if (!s || !g) return { pts: [], end: [x1, y1] };
-  const end = isoAt(U1 / ISO_G, V1 / ISO_G);
+  // and it ends where a body fits: a goal brushing a piece (a spot just in front of it) would be pushed back a few pixels short forever
+  const end = standSpot(...isoAt(U1 / ISO_G, V1 / ISO_G));
+  [U1, V1] = isoFrom(...end).map(c => c * ISO_G);
   if (walkClear(U0, V0, U1, V1)) return { pts: [end], end };
   const key = (i, j) => i * WALK_N + j, cost = new Map([[key(...s), 0]]), from = new Map(), open = [[...s, Math.hypot(g[0] - s[0], g[1] - s[1])]];
   while (open.length) {
@@ -136,6 +138,17 @@ function keepInRoom(a, dt) {
   }
   a.y = clamp(a.y, N.y0, N.y1);
 }
+/**
+ * A floor point (CSS pixels) moved to where a walker can really stand: off the walls and out of every piece's footprint,
+ * just as keepInRoom would keep it. A goal set there can be reached exactly; one inside a piece's reach never could
+ * (each step in, the piece pushes it back out a few pixels short).
+ */
+function standSpot(x, y) {
+  if (!N.iso) return [x, y];
+  const a = { x, y, state: "walk" };
+  keepInRoom(a); keepInRoom(a); // (twice: pushed off one piece, it may brush the next)
+  return [a.x, a.y];
+}
 const depth = y => N.iso ? (W < 520 ? 0.74 : 0.66) : lerp(0.72, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1));
 
 function syncActors() {
@@ -217,8 +230,8 @@ function chooseNext(a, list) {
   if (loved.length && Math.random() < 0.4) {
     const d = pick(loved), [x, y] = decorSpot(d.id);
     a.goal = d.id; a.state = "walk";
-    if (d.id === "rug") { const an = rand(0, TAU), r = Math.sqrt(Math.random()), [rx, ry] = rugSize(); a.tx = x + Math.cos(an) * r * rx * 0.8; a.ty = y + Math.sin(an) * r * ry * 0.75; return; }
-    a.tx = x + rand(-0.25, 0.25) * N.base; a.ty = clamp(y + rand(-0.1, 0.1) * N.base, N.y0, N.y1);
+    if (d.id === "rug") { const an = rand(0, TAU), r = Math.sqrt(Math.random()), [rx, ry] = rugSize(); [a.tx, a.ty] = standSpot(x + Math.cos(an) * r * rx * 0.8, y + Math.sin(an) * r * ry * 0.75); return; }
+    [a.tx, a.ty] = standSpot(x + rand(-0.25, 0.25) * N.base, clamp(y + rand(-0.1, 0.1) * N.base, N.y0, N.y1));
     return;
   }
   // hoppers like bouncing on the bed now and then
@@ -392,7 +405,9 @@ function updateActors(dt) {
       // (measured against its own pace, so a slow old stroller isn't taken for a stuck one)
       a.stuck = Math.hypot(a.x - a.lastX, a.y - a.lastY) < Math.min(N.base * 0.15, want * 0.5) ? (a.stuck || 0) + dt : 0;
       if (!a.stuck) { a.lastX = a.x; a.lastY = a.y; }
-      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
+      // (pressed against the very piece it came to see, or nearly there: that's arriving, not being stuck)
+      if (a.stuck > 1.5 && a.goal && left < N.base * 0.6) { a.stuck = 0; a.lastX = a.lastY = undefined; a.tx = a.x; a.ty = a.y; }
+      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = a.garden = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
     } else if (moving) {
       const hopper = a.beh === "hop";
       const step = Math.min(d, speed * dt * (hopper ? hopGate(a) : 1));

@@ -157,7 +157,7 @@ function playDecor(hit) {
   }).sort((p, q) => Math.hypot(p.x - x, p.y - y) - Math.hypot(q.x - x, q.y - y)).slice(0, 2);
   for (const a of fans) {
     a.goal = d.id; a.state = "walk"; a.friend = null;
-    a.tx = clamp(x + rand(-0.25, 0.25) * b, N.x0, N.x1); a.ty = clamp(y + rand(-0.1, 0.1) * b, N.y0, N.y1);
+    [a.tx, a.ty] = standSpot(clamp(x + rand(-0.25, 0.25) * b, N.x0, N.x1), clamp(y + rand(-0.1, 0.1) * b, N.y0, N.y1));
     emote(a, "!", 0.9);
   }
 }
