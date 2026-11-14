@@ -1186,6 +1186,23 @@ body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigte
 #placeActs .act { flex: 1; justify-content: center; }
 body.compact #placeBar { bottom: calc(var(--bottom) + 124px); }
 body.compact .place-who img { width: 36px; height: 36px; }
+/* errands: a keeper's marks by the name (lit once a wish is brought), the wish in one quiet line, one clear button when you have it;
+   the bed's fourth plot; and the lines of a keeper's own story under their card in the Book */
+.place-who .marks { display: inline-flex; gap: 2px; margin-left: 8px; vertical-align: middle; }
+.place-who .marks .ic { width: 16px; height: 16px; }
+.place-who .wish { display: block; color: var(--ink, #efe6ff); line-height: 1.15; margin-top: 2px; }
+.place-who > span { flex: 1; min-width: 0; }
+.place-who .act.give { display: flex; width: calc(100% - 8px); margin: 6px 4px 3px; padding: 7px 6px; font-size: 16px; white-space: normal; line-height: 1.1; }
+.plots.four { grid-template-columns: repeat(4, 1fr); gap: 6px; }
+.plots.four .plot { padding: 8px 2px; }
+@media (max-width: 540px) {
+  .plots.four { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .plots.four .plot { display: grid; grid-template-columns: 44px minmax(0, 1fr); grid-template-rows: auto auto 1fr; column-gap: 6px; align-items: center; justify-items: start; padding: 6px; }
+  .plots.four .plot .plot-img { grid-row: 1 / 4; width: 44px; height: 52px; }
+  .plots.four .plot b, .plots.four .plot small { text-align: left; }
+  .plots.four .plot .act { margin-top: 2px; }
+}
+.folk-said { display: block; margin-top: 5px; padding-left: 8px; border-left: 2px solid var(--px-gold); color: var(--ink, #efe6ff); }
 
 /* the world map: a screen of its own between the top bar and the tabs, bigger than the screen, dragged about with a finger
    or the mouse (see wmDrag in world.js: the page itself never scrolls it by touch, so a drag and a tap can't be mixed up) */

@@ -369,8 +369,17 @@ const SEEDS = {
   crystalbloom: { name: "Crystal bloom", hrs: 8, cost: 30, gives: { shards: 45 }, note: "45 shards, and now and then a geode" },
   biteleaf: { name: "Biteleaf", hrs: 12, cost: 60, gives: { shards: 30, bar: "star" }, note: "a star bar and 30 shards. It bites", ok: () => unlocked(13), how: "reach chapter III" },
 };
-const GARDEN_SLOTS = 3, WATER_EVERY = 30 * 60e3, WATER_BOOST = 0.15;
-const garden = () => (save.garden = save.garden || { slots: Array(GARDEN_SLOTS).fill(null), seeds: { glowberry: 2, moonmint: 1 } });
+const GARDEN_SLOTS = 3, PLOT_BOND = 3, WATER_EVERY = 30 * 60e3, WATER_BOOST = 0.15;
+/** How many plots the bed has: three, and a fourth once Fennel has dug it (the thanks for his third wish, see the errands). */
+const gardenSlots = () => GARDEN_SLOTS + (bondOf("yard") >= PLOT_BOND ? 1 : 0);
+/** The garden in the save, its bed as long as it should be: a short bed gains empty plots; a long one only ever loses empty ones from its end, never a plant. */
+function garden() {
+  const g = save.garden = save.garden || { slots: Array(GARDEN_SLOTS).fill(null), seeds: { glowberry: 2, moonmint: 1 } }, n = gardenSlots();
+  if (!Array.isArray(g.slots)) g.slots = [];
+  while (g.slots.length < n) g.slots.push(null);
+  while (g.slots.length > n && !g.slots[g.slots.length - 1]) g.slots.pop();
+  return g;
+}
 /** How far along a plant is, 0 to 1 (watering moves its planting time back a little). */
 const growth = q => clamp((Date.now() - q.at) / (SEEDS[q.seed].hrs * 3600e3), 0, 1);
 const stageOf2 = q => { const g = growth(q); return g >= 1 ? 3 : g >= 0.5 ? 2 : g >= 0.12 ? 1 : 0; };
@@ -431,7 +440,7 @@ function openGarden() {
   };
   const free = g.slots.findIndex(q => !q);
   $("gardenSub").textContent = tr("What grows here can't be bought anywhere: juice and mint tea, starfruit every glowling loves, growcaps that help them grow up, sunpetals for shiny eggs. Seeds grow in real time, even while you're away; watering helps.");
-  $("gardenList").innerHTML = `<div class="plots">${g.slots.map(slot).join("")}</div>${save.sunlit ? `<p class="me-hint">${tr("☀️ ×{0} waiting by your next egg", save.sunlit)}</p>` : ""}<h3>${tr("Seeds")}</h3>` + Object.entries(SEEDS).map(([id, sd]) => {
+  $("gardenList").innerHTML = `<div class="plots${g.slots.length > GARDEN_SLOTS ? " four" : ""}">${g.slots.map(slot).join("")}</div>${save.sunlit ? `<p class="me-hint">${tr("☀️ ×{0} waiting by your next egg", save.sunlit)}</p>` : ""}<h3>${tr("Seeds")}</h3>` + Object.entries(SEEDS).map(([id, sd]) => {
     const have = g.seeds[id] || 0, locked = sd.ok && !sd.ok();
     return `<div class="snack seed${locked ? " locked" : ""}"><img class="em" src="${plantImage(id, 3)}" alt=""><span><b>${seedName(id)} <em>×${have}</em></b><small>${locked ? ic("lock") + tr(sd.how) : `${tr(sd.note)} · ${tr("{0} h", sd.hrs)}`}</small></span>`
       + `<span class="seed-btns">${have && free >= 0 && !locked ? `<button class="act" data-plant="${id}">${tr("Plant")}</button>` : ""}<button class="act" data-seed="${id}" ${locked || save.shards < sd.cost ? "disabled" : ""}>+1 ✦ ${sd.cost}</button></span></div>`;
@@ -484,7 +493,7 @@ function pickPlot(i) {
   bump("harvested"); if (q.seed === "biteleaf") { bump("biteleaf"); sfx.knock(1); buzz([20, 30, 20]); toast(tr("CHOMP! The biteleaf bit you, then let go ✦")); }
   else sfx.shimmer();
   setTimeout(() => toast(tr("Picked: {0}", got.join(" · "))), q.seed === "biteleaf" ? 1400 : 0);
-  persist(); updateTopbar(); openGarden();
+  persist(); updateTopbar(); openGarden(); renderPlaceBar();
 }
 /** Hoppers and swimmers who visit the garden bed water a thirsty plant. */
 function gardenHelp(cr) {
@@ -907,12 +916,68 @@ const HEROES = {
     lines: ["I've drawn this map three times. The tunnels keep moving.", "Do you think the Gloom has a map? I'd like to see it. From far away.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it."] },
   yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "curl", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sprout", "Garden bed", () => openGarden()], ["walk", "A walk", () => openWalk()]],
     hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
-    lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."] },
+    lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."],
+    // his wishes, one at a time and in this order (see the errands below); the thanks for the last is the bed's fourth plot (see gardenSlots)
+    mark: "leaf", thanks: "From Fennel: {0}", calm: "A harebell, a pond one pebble deep, and company. I don't need a thing. Stay a while, if you like.",
+    asks: [
+      { ask: "If you pass a harebell on a walk... might I have it? The little blue bell. I'd like one near me.", wish: "Fennel would like a harebell from a walk.", btn: "Give Fennel the harebell", ks: "harebell",
+        have: () => jarOf(save.walks).harebell > 0, give: () => { save.walks.used.harebell = (save.walks.used.harebell || 0) + 1; },
+        story: "My first garden was one cracked pot. A harebell came up in it by itself. All I did was not pull it out.",
+        gift: ["Moon mint seeds ×2", () => { const g = garden().seeds; g.moonmint = (g.moonmint || 0) + 2; }] },
+      { ask: "Might I have one cup of moon mint tea, from your bed? I tell the mint stories. I'd like to know if it listens.", wish: "Fennel would like a cup of moon mint tea.", btn: "Give Fennel a cup of tea",
+        have: () => ((save.pantry || {}).tea || 0) > 0, give: () => { save.pantry = { ...save.pantry, tea: save.pantry.tea - 1 }; },
+        story: "Mm. It listened. I always tell the same one: somebody slow sets out last and gets there anyway. The mint never asks for another.",
+        gift: ["A growcap seed, already sung to", () => { const g = garden().seeds; g.growcap = (g.growcap || 0) + 1; }] },
+      { ask: "One more thing, if it's no trouble. A shiny pebble from a walk. The stream always has one. I've started digging something. Slowly.", wish: "Fennel would like a shiny pebble from the stream.", btn: "Give Fennel the pebble", find: "pebble", found: "A shiny pebble for Fennel",
+        have: () => ((save.pocket || {}).pebble || 0) > 0, give: () => { save.pocket = { ...save.pocket, pebble: save.pocket.pebble - 1 }; },
+        story: "There. The pond is begun. One pebble deep. And the earth I dug out filled a fourth plot in the bed. That one is yours.",
+        gift: ["A fourth plot in the garden bed", () => { garden(); }] },
+    ] },
   grotto: { who: { name: "Grotto" }, icon: "grotto", none: true, role: "the hall before the tunnel", act: [["egg", "Into the tunnel", () => startLevel(nextLevel())], ["map", "Map of levels", () => setScene("map")]], hello: [], lines: [] },
   lab: { who: OLLO, eyes: [[3, 5, 3, 2, "#69b7d6"], [9, 5, 3, 2, "#69b7d6"]], quirk: "turn", icon: "ollo", at: [0.45, 0.58], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
     hello: ["Hoo. A visitor. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby mixes them both.", "Stroke the egg to keep it warm. It hatches faster."],
     lines: ["Fascinating. Truly fascinating. Hoo.", "I am writing the great book of glowlings. Chapter one is just you.", "No two mixed eggs are alike. I've checked. Many times.", "Glowlings glow brighter when they're happy. I measured it.", "Please don't touch the green jar."] },
 };
+// ---------- errands: each keeper keeps one wish at a time, with no hurry and no list; bringing it fills a mark on their bond ----------
+
+// A keeper's `asks` are their wishes, in order. Each has: ask (how they say it), wish (the same in one quiet line for the bar),
+// btn (the button once you have it), have() (do you?), give() (it changes hands), story (a line of their own story, opened for
+// good) and maybe gift ([its name, what it gives]: a small thank-you, once). A wish can also say what it hopes a walk turns up:
+// ks (a keepsake: the next feather or flower of its kind is that one) or find (a pebble: the next one is put by for them in
+// save.pocket, and `found` is what the walk calls it). save.bonds[kind] counts the wishes brought (the marks lit); save.wishes[kind]
+// is the last wish said aloud, so the bar never shows one before the keeper has asked. On the keeper: `mark` is the little picture
+// the marks are drawn with, `thanks` the words over a thank-you, `calm` what they say with no wish left.
+PX_ICON_MAPS.leaf = ["............", "........mm..", "......mmMMm.", ".....mMMMMm.", "....mMMmMMm.", "...mMMmMMm..", "...mMmMMMm..", "..mMmMMMm...", "..mmMMMm....", ".mmmmmm.....", ".m..........", "m..........."];
+const STORY_HOLD = 9000;
+/** How many of a keeper's wishes have been brought (an older nest has brought none yet). */
+function bondOf(kind) { const n = (save.bonds || {})[kind]; return Number.isFinite(n) && n > 0 ? Math.floor(n) : 0; }
+/** The one wish a keeper has now, or null: a keeper with none to make, or with all of them brought. */
+const wishOf = kind => (HEROES[kind]?.asks || [])[bondOf(kind)] || null;
+/** Has the keeper said this wish aloud yet? */
+const wishTold = kind => ((save.wishes || {})[kind] || 0) > bondOf(kind);
+/** The lines of a keeper's own story opened so far, oldest first (the Book keeps them under Folk). */
+const bondStory = kind => (HEROES[kind]?.asks || []).slice(0, bondOf(kind)).map(a => a.story);
+/** A wish still waiting for what a walk might turn up: by `ks` (a keepsake) or by `find` (a kind of find). */
+const wishSeeks = (key, ok = () => true) => Object.keys(HEROES).map(k => [HEROES[k], wishOf(k)]).find(([, a]) => a && a[key] && ok(a[key]) && !a.have()) || null;
+/** Bring a keeper their wish: nothing happens unless you have it; then it changes hands, a mark fills and the thank-you is given. Returns the wish brought, or null. */
+function giveWish(kind) {
+  const a = wishOf(kind);
+  if (!a || !a.have()) return null;
+  a.give();
+  save.bonds = { ...save.bonds, [kind]: bondOf(kind) + 1 };
+  if (a.gift) a.gift[1]();
+  return a;
+}
+/** The button in the keeper's bar: they thank you with the next line of their story (it stays up a good while, and in the Book for good); what they give is named once the line has been read, so the two never cover each other. */
+function bringWish() {
+  const kind = save.rooms[save.room]?.kind, h = HEROES[kind], a = h && giveWish(kind);
+  if (!a) return;
+  for (let k = 0; k < 4; k++) setTimeout(() => sfx.voice(h.who.voice), k * 90);
+  sfx.shimmer(); buzz([12, 30, 12]);
+  game.hero = { t: game.time, line: tr(a.story), room: save.room, hold: STORY_HOLD };
+  if (a.gift) setTimeout(() => toast(tr(h.thanks, tr(a.gift[0]))), STORY_HOLD);
+  persist(); renderPlaceBar();
+}
 const heroHere = () => HEROES[save.rooms[save.room]?.kind] || null;
 const heroSpot = () => { const h = heroHere(); return isoAt(h.at[0], h.at[1]); };
 const heroImgs = {};
@@ -981,8 +1046,8 @@ function drawHero() {
     if (fright && !jumpy) { ctx.fillStyle = "#ffe9a8"; ctx.font = `400 ${Math.round(s * 0.5)}px ${PIXEL_FONT}`; ctx.textAlign = "center"; ctx.fillText("!", x + s * 0.45, top - s * 0.05); }
   }
   // what they just said, in a little bubble over their head
-  const say = me && since < 4200 ? me.line : "";
-  if (say) drawBubble(x, top - 4, say, clamp(1 - (since - 3600) / 600, 0, 1));
+  const hold = me ? me.hold || 4200 : 0, say = me && since < hold ? me.line : "";
+  if (say) drawBubble(x, top - 4, say, clamp(1 - (since - hold + 600) / 600, 0, 1));
 }
 function drawBubble(x, y, text, alpha = 1) {
   const size = Math.round(clamp(N.base * 0.2, 14, 18)), maxW = Math.min(W * 0.7, 260);
@@ -1177,16 +1242,24 @@ function drawPlaceLife() {
 function tapHero(auto = false) {
   const h = heroHere(); if (!h || h.none) return;
   for (let k = 0; k < 4; k++) setTimeout(() => sfx.voice(h.who.voice), k * 90);
-  const seen = save.heroTalk?.[save.rooms[save.room].kind] || 0;
+  const kind = save.rooms[save.room].kind, seen = save.heroTalk?.[kind] || 0;
   let line = tr(seen < h.hello.length ? h.hello[seen] : pick(h.lines));
   // Pip wants to hear about every spark the glowlings bring home
   if (h.who === PIP && seen >= h.hello.length) line = sparkPipLine() || line;
-  save.heroTalk = { ...save.heroTalk, [save.rooms[save.room].kind]: seen + 1 };
+  save.heroTalk = { ...save.heroTalk, [kind]: seen + 1 };
   // poked three times in a few seconds, Tansy curls up into a ball
   const prev = game.heroPokes && game.heroPokes.room === save.room ? game.heroPokes.list : [];
   const pokes = auto ? prev : [...prev.filter(p => game.time - p < 4000), game.time];
   game.heroPokes = { room: save.room, list: pokes };
   const curl = h.quirk === "curl" && pokes.length >= 3;
+  // a keeper with a wish says it as soon as the hellos are done, then again every fourth word or so, for anyone who forgot;
+  // one whose wishes have all come true says so once, and after that now and then (nothing is said, or counted as said, from inside a shell)
+  const a = wishOf(kind), word = a ? a.ask : h.asks && h.calm;
+  if (word && seen >= h.hello.length && !curl) {
+    const told = wishTold(kind), gap = !told ? 3 : game.wishGap && game.wishGap.kind === kind ? game.wishGap.n : 2;
+    if (!told || (a && gap >= 3)) { line = tr(word); save.wishes = { ...save.wishes, [kind]: bondOf(kind) + 1 }; game.wishGap = { kind, n: 0 }; }
+    else { game.wishGap = { kind, n: gap + 1 }; if (!a && Math.random() < 1 / (h.lines.length + 1)) line = tr(word); }
+  }
   if (curl) { line = tr(h.who === FENNEL ? "Mm. I'll just be in my shell a moment." : "Eep! Too much poking!"); game.heroPokes.list = []; sfx.knock && sfx.knock(0.4); }
   if (h.quirk === "sparks") placeBurst(18);
   if (h.quirk === "startle") setTimeout(() => sfx.voice({ ...h.who.voice, f: 900, len: 0.12, wave: "sawtooth", gain: 0.03 }), 120);
@@ -1199,12 +1272,16 @@ function renderPlaceBar() {
   bar.hidden = !h || game.scene !== "nest";
   if (!h) return;
   $("placeFace").src = h.none ? pxIcon(h.icon) : keeperFace(h.icon); $("placeFace").classList.toggle("small", !!h.none);
-  $("placeWho").textContent = tr(h.who.name);
-  $("placeRole").textContent = tr(h.role);
+  // a keeper with wishes: a mark by the name for each one, lit once it's brought; the wish itself in one quiet line once they've said it,
+  // and, when you have what they asked for, one clear button in that line's place (so the bar never grows over the room)
+  const kind = save.rooms[save.room].kind, n = (h.asks || []).length, lit = Math.min(bondOf(kind), n), a = wishTold(kind) ? wishOf(kind) : null;
+  $("placeWho").innerHTML = tr(h.who.name) + (n ? `<span class="marks" role="img" aria-label="${lit}/${n}">${h.asks.map((_, k) => ic(h.mark || "sparkle", k < lit ? "" : "off")).join("")}</span>` : "");
+  $("placeRole").innerHTML = a && a.have() ? `<button class="act buy give" id="placeGive">${ic(h.mark || "sparkle")}${tr(a.btn)}</button>` : tr(h.role) + (a ? `<span class="wish">${tr(a.wish)}</span>` : "");
   $("placeActs").innerHTML = h.act.map(([icon, name], k) => `<button class="act buy" data-act="${k}">${ic(icon)}${tr(name)}</button>`).join("")
     + (h.none ? "" : `<button class="act" id="placeTalk">${ic("scroll")}${tr("Chat")}</button>`);
   $$("#placeActs [data-act]").forEach(b => b.addEventListener("click", () => { sfx.tick(); h.act[Number(b.dataset.act)][2](); }));
   $("placeTalk")?.addEventListener("click", () => tapHero());
+  $("placeGive")?.addEventListener("click", bringWish);
 }
 /** Arriving at a place: its keeper says hello. */
 function arriveAt(kind) {

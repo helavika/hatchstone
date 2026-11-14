@@ -2281,22 +2281,22 @@ const ISO_ART = {
     { const [x, y] = K.P(0.95 * U, 0.3 * U, 0); T.line(x, y, x - 4, y - t * 0.6, IC.y0); T.line(x + 1, y, x - 3, y - t * 0.6, IC.y1); T.line(x + 2, y, x - 2, y - t * 0.6, IC.w1); T.px(x - 4, y - t * 0.6 - 1, IC.r2); }
   },
   garden(t, T, ax, ay, o) {
-    // a long wooden planter over two tiles, a rim of lighter boards, dark soil inside, three plots along it
-    const m = t * 0.05, a = t - 2 * m, b = t / 2 - 2 * m, h = Math.max(3, Math.round(t * 0.26)), x = ax, y = ay + 2 * m;
+    // a long wooden planter over two tiles, a rim of lighter boards, dark soil inside, three plots along it (four, once Fennel has dug one more)
+    const n = Math.max(3, (o.p || []).length), m = t * 0.05, a = t - 2 * m, b = t / 2 - 2 * m, h = Math.max(3, Math.round(t * 0.26)), x = ax, y = ay + 2 * m;
     T.box(x, y, a, b, h, IC.w0, IC.w2, IC.w3);
     const ia = a - 1.5, ib = b - 1.5, x0 = x, y0 = y + 1.5 - h;
     T.poly([[x0, y0], [x0 + 2 * ia, y0 + ia], [x0 + 2 * ia - 2 * ib, y0 + ia + ib], [x0 - 2 * ib, y0 + ib]], (px, py) => pxHash(px, py) > 0.8 ? IC.w2 : IC.w3);
     // the boards between the plots
-    for (const f of [1 / 3, 2 / 3]) for (let k = 0; k <= 4; k++) { const v = k / 4; T.px(x0 + 2 * ia * f - 2 * ib * v, y0 + ia * f + ib * v, IC.w1); }
-    (o.p || []).forEach((q, k) => { if (q) { const f = (k + 0.5) / 3; gardenPlant(T, x0 + 2 * ia * f - ib, y0 + ia * f + ib / 2 + 1, q[0], q[1], t * 2.2); } });
+    for (let j = 1; j < n; j++) for (let k = 0; k <= 4; k++) { const f = j / n, v = k / 4; T.px(x0 + 2 * ia * f - 2 * ib * v, y0 + ia * f + ib * v, IC.w1); }
+    (o.p || []).forEach((q, k) => { if (q) { const f = (k + 0.5) / n; gardenPlant(T, x0 + 2 * ia * f - ib, y0 + ia * f + ib / 2 + 1, q[0], q[1], t * 2.2); } });
     // a corner post at each outer corner, standing a little proud of the rim with a pale cap
     for (const [px, py] of [[x - 2 * b, y + b], [x + 2 * a - 2 * b, y + a + b], [x + 2 * a, y + a]]) {
       for (let z = 0; z <= h + 2; z++) { T.px(px - 1, py - z, IC.w1); T.px(px, py - z, IC.w2); T.px(px + 1, py - z, IC.w3); }
       T.px(px - 1, py - h - 3, IC.w0); T.px(px, py - h - 3, IC.w0); T.px(px + 1, py - h - 3, IC.w1);
     }
     // a label on a stake pushed in along the front of each plot: a blank card while it's empty, the seed's colour on it once something's sown
-    for (let k = 0; k < 3; k++) {
-      const q = (o.p || [])[k], f = (k + 0.25) / 3, lx = Math.round(x0 + 2 * ia * f - 2 * ib), ly = Math.round(y0 + ia * f + ib), lh = 3;
+    for (let k = 0; k < n; k++) {
+      const q = (o.p || [])[k], f = (k + 0.25) / n, lx = Math.round(x0 + 2 * ia * f - 2 * ib), ly = Math.round(y0 + ia * f + ib), lh = 3;
       for (let z = 0; z < lh; z++) { T.px(lx, ly - z, IC.w2); T.px(lx + 1, ly - z, IC.w3); }
       const top = ly - lh, ink = q ? (GARDEN_TAG[q[0]] || IC.g1) : IC.s2;
       for (let a = -3; a <= 3; a++) for (let bb = -5; bb <= 0; bb++) { const sl = Math.round(a * 0.5); T.px(lx + 1 + a, top + bb + sl, bb === 0 || a === 3 ? IC.ink2 : bb === -5 || a === -3 ? IC.w2 : IC.s0); }

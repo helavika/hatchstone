@@ -95,8 +95,12 @@ function keepWearPlan(id, jar = {}) {
   add(other.length ? other.sort((a, b) => left[b.id] - left[a.id] || b.w - a.w)[0].id : rare);
   return { take, look: [rare] };
 }
-/** Which keepsake a feather or a flower turns out to be: half the time one of the common ones you haven't got yet, the rare ones rarely. */
-function keepsakePick(kind, found = {}, rnd = Math.random) {
+/**
+ * Which keepsake a feather or a flower turns out to be: half the time one of the common ones you haven't got yet, the rare ones rarely.
+ * A keeper waiting for one of this kind (wish: its id) gets their wish: it's that one, so nobody walks ten times for a harebell.
+ */
+function keepsakePick(kind, found = {}, rnd = Math.random, wish = null) {
+  if (wish && KS[wish] && KS[wish].kind === kind) return wish;
   const all = KEEPSAKES.filter(k => k.kind === kind), fresh = all.filter(k => !found[k.id] && k.w > 1);
   const pool = fresh.length && rnd() < 0.5 ? fresh : all;
   let r = rnd() * pool.reduce((n, k) => n + k.w, 0);
@@ -986,12 +990,16 @@ function walkGive(kind, cr) {
   let label = tr(WALK_FINDS[kind].name), em = "";
   if (kind === "berry") { save.pantry = { ...save.pantry, berry: ((save.pantry || {}).berry || 0) + 1 }; label = tr(SNACKS.berry.name); em = SNACKS.berry.emoji; }
   if (kind === "seed") { const id = pick(["glowberry", "glowberry", "moonmint", "moonmint", "cookiecorn"]), gd = garden(); gd.seeds[id] = (gd.seeds[id] || 0) + 1; label = tr("{0} seed", seedName(id)); em = "🌱"; }
-  if (kind === "pebble") { const n = 4 + Math.floor(Math.random() * 3); save.shards += n; label = `✦ +${n}`; updateTopbar(); }
+  // a keeper who wished for a pebble (see the errands in nest.js) has the next one put by for them, just as it is, instead of counted into shards
+  const kept = kind === "pebble" && wishSeeks("find", f => f === kind);
+  if (kept) { save.pocket = { ...save.pocket, [kind]: ((save.pocket || {})[kind] || 0) + 1 }; label = tr(kept[1].found); }
+  else if (kind === "pebble") { const n = 4 + Math.floor(Math.random() * 3); save.shards += n; label = `✦ +${n}`; updateTopbar(); }
   let ks = null;
   if (WALK_KEEP.includes(kind)) {
-    // which feather, which flower: it goes into the keepsake jar (the first one brings the jar itself, waiting in the chest)
-    const w = save.walks;
-    ks = keepsakePick(kind, w.found);
+    // which feather, which flower: it goes into the keepsake jar (the first one brings the jar itself, waiting in the chest);
+    // one a keeper is wishing for turns up first
+    const w = save.walks, wished = wishSeeks("ks", id => KS[id] && KS[id].kind === kind);
+    ks = keepsakePick(kind, w.found, Math.random, wished && wished[1].ks);
     w.keep[kind] = (w.keep[kind] || 0) + 1; w.found[ks] = (w.found[ks] || 0) + 1;
     label = tr(KS[ks].name);
     if (!save.decor.keepjar) { save.decor.keepjar = { on: false, at: Date.now() }; if (game.walk) game.walk.jar = true; }
