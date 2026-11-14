@@ -188,6 +188,8 @@ const SNACKS = {
   dew: { name: "Dewdrop", emoji: "💧", cost: 5, tummy: 15, joy: 4 },
   cookie: { name: "Stardust cookie", emoji: "🍪", cost: 10, tummy: 30, joy: 6 },
   berry: { name: "Moonberry", emoji: "🫐", cost: 15, tummy: 40, joy: 10 },
+  // not a bite but a sprinkle: it settles on everyone in the room at once, and costs like it
+  feast: { name: "Magic dust", emoji: "✨", cost: 80, tummy: 35, joy: 4, all: true },
   // drinks: a sip, no heavy tummy (so no drowsiness); the fizzy and the minty ones wake you up
   milk: { name: "Moon milk", emoji: "🥛", cost: 6, tummy: 10, joy: 4, drink: true },
   fizz: { name: "Starfizz", emoji: "🥤", cost: 18, tummy: 4, joy: 12, energy: 35, drink: true },

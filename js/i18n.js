@@ -989,6 +989,9 @@ const UK = {
   "Snacks & drinks": "Смаколики й напої",
   "A sip doesn't fill the tummy or make anyone drowsy. Tea and Starfizz perk a sleepy glowling up.": "Ковток не набиває животик і не присипляє. Чай і зоряна шипучка бадьорять сонного малюка.",
   "Hunger": "Голод",
+  "everyone in the room": "усім у кімнаті",
+  "Everyone here has a full tummy already": "Тут уже в усіх повні животики",
+  "The dust settles: everyone in the room is fed ✨": "Пилок осідає: у кімнаті всі ситі ✨",
   "Boredom": "Нудьга",
   "Sleepiness": "Сон",
   "hunger −{0}": "голод −{0}",
@@ -1637,7 +1640,7 @@ const UK_DATA = {
     zigglet: { lore: "Будує свою корону по одній веселковій сходинці й жодної не пропускає. Коли щось іде не так, починає знову з нижньої сходинки — і мугикає." }
   },
   rarity: { common: "звичайний", rare: "рідкісний", legendary: "легендарний", moon: "місячний" },
-  snacks: { dew: "Росинка", cookie: "Печиво із зоряного пилу", berry: "Місячна ягідка", milk: "Місячне молоко", juice: "Ягідний сік", tea: "Чай з місячної м'яти", fizz: "Зоряна шипучка", star: "Зіркоплід", cap: "Ростогриб" },
+  snacks: { dew: "Росинка", cookie: "Печиво із зоряного пилу", berry: "Місячна ягідка", milk: "Місячне молоко", juice: "Ягідний сік", tea: "Чай з місячної м'яти", fizz: "Зоряна шипучка", star: "Зіркоплід", cap: "Ростогриб", feast: "Чарівний пилок" },
   decor: {
     lamp: { name: "Кришталева лампа", verb: "гріється біля лампи" },
     mushrooms: { name: "Сяйні грибочки", verb: "стрибає на грибочках" },

@@ -80,7 +80,7 @@ function openSnacks() {
   $("snackSub").textContent = tr("You have ✦ {0} shards. {1}s love {2}.", save.shards, sp.name, LANG === "uk" ? snack : snack.replace(/([^aeiou])y$/, "$1ie") + "s");
   const pantry = save.pantry || {};
   const row = ([id, s]) => {
-    const fav = id === sp.snack || s.fav, more = [s.energy && `${tr("Sleepiness")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), fav && tr("favorite!")].filter(Boolean);
+    const fav = id === sp.snack || s.fav, more = [s.all && tr("everyone in the room"), s.energy && `${tr("Sleepiness")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), fav && tr("favorite!")].filter(Boolean);
     const cost = pantry[id] ? `🧺 ×${pantry[id]}` : s.garden ? "🌱" : `✦ ${s.cost}`;
     return `<button class="snack" data-id="${id}" ${!pantry[id] && (s.garden || save.shards < s.cost) ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${fav ? " ♥" : ""}</b><small>${[`${tr("Hunger")} +${s.tummy}`, ...more].join(" · ")}</small></span><span class="cost">${cost}</span></button>`;
   };
@@ -92,17 +92,25 @@ function openSnacks() {
   show("snacks", true);
 }
 
+/** One out of the basket, or bought on the spot: false, with a word about why, when neither can be done. */
+function takeSnack(id) {
+  const s = SNACKS[id];
+  // grown in your garden: free
+  if (save.pantry && save.pantry[id] > 0) save.pantry = { ...save.pantry, [id]: save.pantry[id] - 1 };
+  else if (s.garden) { toast(tr("That one only grows in the garden 🌱")); return false; }
+  else {
+    if (save.shards < s.cost) { toast(tr("Not enough shards: crack a geode to earn more ✦")); return false; }
+    save.shards -= s.cost;
+  }
+  return true;
+}
+
 function feed(id) {
   const cr = activeCreature(), s = SNACKS[id], sp = specOf(cr);
   show("snacks", false);
+  if (s.all) { sprinkle(id); return; }
   if (cr.tummy >= (s.drink ? 97 : 88)) { refuseWith(cr, tr("no thanks, I'm full")); return; }
-  // grown in your garden: free
-  if (save.pantry && save.pantry[id] > 0) save.pantry = { ...save.pantry, [id]: save.pantry[id] - 1 };
-  else if (s.garden) { toast(tr("That one only grows in the garden 🌱")); return; }
-  else {
-    if (save.shards < s.cost) { toast(tr("Not enough shards: crack a geode to earn more ✦")); return; }
-    save.shards -= s.cost;
-  }
+  if (!takeSnack(id)) return;
   game.nest.feedCall = { t: game.time, id: cr.id };
   const v = actorView(activeActor());
   game.nest.snack = { emoji: s.emoji, x: v.x, y: v.y - N.base * 2, ty: v.y, vy: 0, fav: id === sp.snack || !!s.fav, s };
@@ -130,6 +138,34 @@ function finishSnack(sn) {
   // the hungry ones who came running only get to watch: they stay hungry until they get their own snack
   for (const o of actors.values()) if (o.state === "begging" && a && Math.hypot(o.x - a.x, o.y - a.y) < N.base * 1.4) emote(o, "🥺", 1.6);
   if (game.nest.feedCall) game.nest.feedCall.t = game.time - 2000;
+  persist();
+  taskDone("feed");
+  renderNest();
+}
+
+/** Magic dust isn't fed to one: it settles on the whole room at once, sleepers too, and fills every tummy that has room. Nobody gets drowsy from it. */
+function sprinkle(id) {
+  const s = SNACKS[id], home = save.creatures.filter(c => actors.has(c.id));
+  home.forEach(c => applyTime(c));
+  const hungry = home.filter(c => c.tummy < 88);
+  if (!hungry.length) { sfx.refuse(); toast(tr("Everyone here has a full tummy already")); return; }
+  if (!takeSnack(id)) return;
+  sfx.shimmer();
+  hungry.forEach((c, i) => {
+    c.tummy = clamp(c.tummy + s.tummy, 0, 100);
+    c.joy = clamp(c.joy + s.joy, 0, 100);
+    addXP(c, 6);
+    const a = actors.get(c.id);
+    setTimeout(() => {
+      const v = actorView(a);
+      spawnChips(v.x, v.y - v.size, 10, 0.5, ["#fff0b5", "#ffd27a", "#ffb3d4", "#fff"]);
+      if (!c.sleeping) { emote(a, "✨", 1.6); a.hop = 1; }
+    }, i * 90);
+  });
+  setTimeout(() => sfx.munch(), 350);
+  bump("fed", hungry.length);
+  toast(tr("The dust settles: everyone in the room is fed ✨"));
+  updateTopbar();
   persist();
   taskDone("feed");
   renderNest();
@@ -262,7 +298,7 @@ function buyFood(id, n = 1) {
 }
 function marketFood() {
   const pantry = save.pantry || {}, row = ([id, s]) => {
-    const more = [`${tr("Hunger")} +${s.tummy}`, s.energy && `${tr("Sleepiness")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), s.fav && tr("favorite!")].filter(Boolean).join(" · ");
+    const more = [`${tr("Hunger")} +${s.tummy}`, s.all && tr("everyone in the room"), s.energy && `${tr("Sleepiness")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), s.fav && tr("favorite!")].filter(Boolean).join(" · ");
     return `<div class="snack seed"><span class="em">${s.emoji}</span><span><b>${s.name} <em>×${pantry[id] || 0}</em></b><small>${more}</small></span><span class="seed-btns">${s.garden ? `<small class="only">🌱 ${tr("garden only")}</small>`
       : `<button class="act" data-food="${id}" ${save.shards < s.cost ? "disabled" : ""}>+1 ✦ ${s.cost}</button><button class="act" data-food="${id}" data-n="5" ${save.shards < s.cost * 5 ? "disabled" : ""}>+5</button>`}</span></div>`;
   };
