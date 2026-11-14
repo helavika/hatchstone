@@ -7,7 +7,8 @@
 // Progress is precious: a main save, a "last good" copy, and care when several tabs are open.
 const SAVE_KEY = STAGING ? "hatchstone.staging.save" : LIVE_SAVE_KEY, BAK_KEY = SAVE_KEY + ".bak";
 const SAVE_VERSION = 1;
-const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }, { kind: "yard", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 } });
+const DUST_MAX = 3; // dust bunnies on the nest floor at most (see gatherDust)
+const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }, { kind: "yard", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 }, dust: [], dustT: 0 });
 const validSave = d => d && typeof d === "object" && Array.isArray(d.creatures) && typeof d.stars === "object";
 
 let startedEmpty = true; // no nest in storage when this page opened
@@ -44,6 +45,11 @@ function migrate(d) {
   if (!d.rooms.some(r => r.kind === "yard")) d.rooms.push({ kind: "yard", on: [] });
   if (!d.bars) d.bars = { firefly: 2, nut: 1 };
   if (!d.oil || !Number.isFinite(d.oil.n)) d.oil = { n: 5, t: 0 };
+  // dust bunnies used to belong to each glowling and showed up in every room: now they're the nest's own, three at most
+  const dust = [d.dust, ...(d.creatures || []).map(c => c.dust)].flatMap(a => Array.isArray(a) ? a : []);
+  d.dust = dust.filter(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)).slice(0, DUST_MAX);
+  for (const cr of d.creatures || []) delete cr.dust;
+  if (!Number.isFinite(d.dustT)) d.dustT = 0;
   d.v = SAVE_VERSION;
   return d;
 }
@@ -115,26 +121,49 @@ function applyTime(cr, now = Date.now()) {
     cr.energy = clamp(cr.energy + min * 12, 0, 100);
     cr.tummy = clamp(cr.tummy - min * 0.25, 0, 100);
   } else {
-    // dust bunnies gather while it's awake, and an untidy nest wears joy down a little faster
-    const dust = cr.dust = cr.dust || [];
+    // awake time makes a little mess (gatherDust turns it into dust bunnies in the nest), and an untidy nest wears
+    // joy down a little faster for those who live in it
+    const dust = roomOf(cr) === nestRoom() ? (save.dust || []).length : 0;
     cr.tummy = clamp(cr.tummy - min * 0.5, 0, 100);
-    cr.joy = clamp(cr.joy - min * (0.4 + dust.length * 0.15), 0, 100);
+    cr.joy = clamp(cr.joy - min * (0.4 + dust * 0.15), 0, 100);
     cr.energy = clamp(cr.energy - min * 0.25, 0, 100);
     cr.messT = (cr.messT || 0) + min;
-    // (four at most in the whole nest, however many glowlings live there)
-    while (cr.messT >= MESS_MIN && dust.length < 3 && save.creatures.reduce((n, c) => n + (c.dust || []).length, 0) < 4) { dust.push([Math.round(Math.random() * 100) / 100, Math.round(Math.random() * 100) / 100]); cr.messT -= MESS_MIN; }
-    cr.messT = Math.min(cr.messT, MESS_MIN / 2); // a swept nest stays tidy for a while
   }
 }
 
+// ---------- dust bunnies: only ever in the nest, and always in the same order ----------
+// 1. Every minute a glowling is awake at home (not asleep, not out exploring) winds the nest's dust clock, shared out
+//    among everyone so a full house is no messier than one glowling (a snack's crumbs wind it a little more).
+// 2. Every MESS_MIN minutes on the clock one bunny lands on the nest floor, one at a time, up to DUST_MAX. Never while
+//    someone sleeps in the nest: it waits until they're up. Time away is caught up quietly when the game opens.
+// 3. Watched in the nest, it pops in with a puff and the nearest glowling looks round with "!" (dustLanded).
+// 4. The first one, a ghost finger taps it; from two on, the nest's glowlings call you ("messy": the Nest tab's "!",
+//    their "!" bubbles and the hint, which shows only in the nest).
+// 5. A tap sweeps it (sweepDust): a puff, +1 ✦, the nearest glowling cheers ♥, everyone in the nest gets joy back.
+//    A full nest's clock stops at half, so a swept nest stays tidy for a while.
 const MESS_MIN = 45;
+const nestRoom = () => save.rooms.findIndex(r => r.kind === "nest");
+
+/** Catch up everyone's time and wind the dust clock: returns the bunny that just landed, if one did. */
+function gatherDust() {
+  for (const cr of save.creatures) applyTime(cr);
+  const n = Math.max(1, save.creatures.length), nest = nestRoom(), dust = save.dust = save.dust || [];
+  for (const cr of save.creatures) if (cr.messT) { save.dustT = (save.dustT || 0) + cr.messT / n; cr.messT = 0; }
+  let d = null;
+  if (nest >= 0 && dust.length < DUST_MAX && save.dustT >= MESS_MIN && !residents(nest).some(c => c.sleeping)) {
+    dust.push(d = [Math.round(Math.random() * 100) / 100, Math.round(Math.random() * 100) / 100]);
+    save.dustT -= MESS_MIN;
+  }
+  if (dust.length >= DUST_MAX) save.dustT = Math.min(save.dustT, MESS_MIN / 2);
+  return d;
+}
 
 /** What a glowling is calling you for, if anything: gently, the way a Tamagotchi beeps. */
 function callOf(cr) {
   if (cr.sleeping || cr.out) return "";
   if (cr.tummy < 25) return "hungry";
   if (cr.energy < 20) return "sleepy";
-  if ((cr.dust || []).length >= 2) return "messy";
+  if ((save.dust || []).length >= 2 && roomOf(cr) === nestRoom()) return "messy";
   if (cr.joy < 25) return "lonely";
   return "";
 }
@@ -144,7 +173,7 @@ function updateCalls() {
   const t = document.querySelector('#tabs [data-tab="nest"]');
   if (!t) return;
   // looks ahead on a copy: just checking must never change the save
-  const n = save.creatures.filter(c => { const p = { ...c, dust: [...(c.dust || [])] }; applyTime(p); return callOf(p); }).length;
+  const n = save.creatures.filter(c => { const p = { ...c }; applyTime(p); return callOf(p); }).length;
   t.classList.toggle("call", n > 0 && game.scene !== "nest");
   checkPlaces();
   $("worldTab")?.classList.toggle("call", (!moonDone() && game.scene !== "map") || (placeOk("forge") && canForge()) || (placeOk("garden") && ripePlots() > 0) || (save.mapFresh || []).length > 0 || (!!save.incubator && Date.now() >= save.incubator.due && !incHere()));

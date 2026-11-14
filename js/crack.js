@@ -389,7 +389,7 @@ const TASKS = {
   feed: { text: "Give a glowling a snack", icon: "cookie", ok: hasPets, go: toNest(null, "feedBtn") },
   pet: { text: "Pet a glowling: stroke it with your finger", icon: "heart", ok: hasPets, go: toNest() },
   catch: { text: "Play sparkle catch", icon: "sparkle", ok: hasPets, go: toNest(null, "playBtn") },
-  sweep: { text: "Sweep away a dust bunny", icon: "broom", ok: () => save.creatures.some(c => (c.dust || []).length), go: toNest() },
+  sweep: { text: "Sweep a dust bunny out of the nest", icon: "broom", ok: () => hasPets() && (save.dust || []).length > 0, go: () => toRoomKind("nest") },
   forge: { text: "Buy a hammer upgrade at the Forge", icon: "hammer", ok: canForge, go: () => openForge() },
   decor: { text: "Decorate the nest or change its backdrop", icon: "candle", ok: hasPets, go: toNest(null, "decorBtn") },
   moon: { text: "Open today's moon egg", icon: "moon", ok: () => !moonDone(), go: () => startMoon() },
@@ -1108,6 +1108,10 @@ function nestHint() {
   // (only about someone who is right here: not from the shop or the forge, nor for someone in another room)
   const cr = activeCreature(), call = cr && !isPlace() && roomOf(cr) === save.room && !cr.out && callOf(cr);
   if (call) return { hungry: tr("{0} is hungry: give it a snack", cr.name), sleepy: tr("{0} is sleepy: tuck it in", cr.name), messy: tr("dust bunnies! tap them to sweep the nest"), lonely: tr("{0} feels lonely: pet it or play", cr.name) }[call];
+  // dust is the nest's own: its hint shows only there, whoever you're looking after (the very first bunny gets a how-to)
+  const dust = game.scene === "nest" ? dustSpots().length : 0;
+  if (dust && !tipDone("sweep")) return tr("a dust bunny! tap it to sweep it away");
+  if (dust >= 2) return tr("dust bunnies! tap them to sweep the nest");
   if (!tipDone("call")) return tr("tip: hold a finger on the floor to call everyone");
   // (keepers greet you themselves; only the grotto's hall says what its things do, until you've used them)
   if (isPlace()) return heroHere()?.none && !tipDone("hall") ? tr("the tunnel leads to the next egg · the map on the wall shows every level") : "";
@@ -1140,6 +1144,8 @@ function coachMove() {
   if (game.scene === "nest" && incHere() && tipDone("pet") && save.incubator && Date.now() >= save.incubator.due) {
     const [x, y] = incSpot(); return { kind: "tap", at: [x, y - N.base * 0.4] };
   }
+  // the first dust bunny in the nest: a tap on it shows how it's swept
+  if (game.scene === "nest" && tipDone("pet") && !tipDone("sweep")) { const s = dustSpots()[0]; if (s) return { kind: "tap", at: [s.x, s.y - s.r * 0.6] }; }
   if (game.scene === "nest" && !tipDone("pet")) {
     const a = activeActor(), cr = activeCreature();
     if (a && cr && !cr.sleeping) { const v = actorView(a); return { kind: "path", pts: [[v.x - v.size * 0.3, v.y], [v.x + v.size * 0.3, v.y], [v.x - v.size * 0.3, v.y], [v.x + v.size * 0.3, v.y]] }; }
