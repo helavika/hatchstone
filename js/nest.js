@@ -800,9 +800,10 @@ function drawHero() {
   } else {
     // Ollo looks the other way now and then
     const turned = h.quirk === "turn" && Math.sin(t * 0.0011) > 0.75;
-    if (turned) { ctx.save(); ctx.translate(left * 2 + wid, 0); ctx.scale(-1, 1); }
-    ctx.drawImage(img, left, top, wid, hgt);
-    if (turned) ctx.restore();
+    const back = turned && KEEPER_PIX[h.icon] && KEEPER_PIX[h.icon].turn, flip = turned && !back;
+    if (flip) { ctx.save(); ctx.translate(left * 2 + wid, 0); ctx.scale(-1, 1); }
+    ctx.drawImage(back ? keeperCanvas(h.icon, false, S, "turn") : img, left, top, wid, hgt);
+    if (flip) ctx.restore();
     if (me && me.startle && since < 900) { ctx.fillStyle = "#ffe9a8"; ctx.font = `400 ${Math.round(s * 0.5)}px ${PIXEL_FONT}`; ctx.textAlign = "center"; ctx.fillText("!", x + s * 0.45, top - s * 0.05); }
   }
   // what they just said, in a little bubble over their head
