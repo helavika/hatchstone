@@ -1076,7 +1076,7 @@ const ISO_ART = {
     // hanging under it for the bulb and another for the finial. Switched off, the shade goes dusky and the glow goes out
     const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), H = Math.round(t * 2.2), on = !o.off;
     const zs = H - Math.round(t * 0.62), sh = on ? [IC.white, IC.y0, pxHex("#f8d890"), IC.y1, pxHex("#c88a48")] : ["#d8cce6", "#b4a6c8", "#8a7aa6", "#5e507a", "#3d3358"].map(pxHex);
-    if (on) { T.glow(x, y - zs, t * 1.35, IC.y0, 0.34); T.glow(x, y - zs + t * 0.3, t * 0.8, IC.y0, 0.3); }
+    if (on && !o.soft) { T.glow(x, y - zs, t * 1.35, IC.y0, 0.34); T.glow(x, y - zs + t * 0.3, t * 0.8, IC.y0, 0.3); }
     // the foot: a mossy stone, and three roots gripping it
     isoLathe(T, x, y, 0, Math.round(t * 0.14), z => t * (0.36 - z / t * 0.7), [IC.s0, IC.s1, IC.s2, IC.s3, IC.s4]);
     decoMoss(T, x - t * 0.18, y - t * 0.14, t * 0.14);
@@ -4471,9 +4471,9 @@ function frontArt(slot, x, y, w, h, ax, ay, base, frame, paint, { sq = null, ...
   return f;
 }
 /** A soft shadow on the floor in whole art pixels: rows of translucent dark, stepped like a pixel ellipse. */
-function pxShadow(x, y, rx, ry, a = 0.3) {
+function pxShadow(x, y, rx, ry, a = 0.3, rgb = "10,4,24") {
   const cx = Math.round(x / PX), cy = Math.round(y / PX), R = rx / PX, Ry = Math.max(1, ry / PX);
-  ctx.fillStyle = `rgba(10,4,24,${a})`;
+  ctx.fillStyle = `rgba(${rgb},${a})`;
   for (let j = -Math.ceil(Ry); j < Math.ceil(Ry); j++) {
     const hw = Math.round(R * Math.sqrt(Math.max(0, 1 - ((j + 0.5) / Ry) ** 2)));
     if (hw > 0) ctx.fillRect((cx - hw) * PX, (cy + j) * PX, hw * 2 * PX, PX);
@@ -4540,10 +4540,9 @@ const DRAW_DECOR = {
     const fl = off ? 0 : Math.round((Math.sin(game.time * 0.002) * 0.5 + 0.5) * 4);
     const w = Math.ceil(t * 3.4) + 6, h = Math.ceil(t * 3.8) + 6, ax = Math.round(w / 2), ay = h - Math.ceil(t * 0.6) - Math.round(t / 2), zs = Math.round(t * 2.2) - Math.round(t * 0.62);
     pxShadow(x + PX, y + PX, t * 0.5 * PX, t * 0.16 * PX);
-    drawBaked(frontArt("lamp", x, y, w, h, ax, ay + t / 2, `${t}|${off}`, fl, T => {
-      if (!off) T.glow(ax, ay + t / 2 - zs, t * (1.3 + fl * 0.06), IC.y0, 0.05 + fl * 0.025);
-      ISO_ART.lamp(t, T, ax, ay, { off });
-    }));
+    // its halo on the wall behind: a few soft steps of warm light rather than the isometric room's speckle, which is harsh on a flat wall
+    if (!off) [1, 0.84, 0.68, 0.52, 0.36].forEach(k => { const r = t * (1.5 + fl * 0.04) * k * PX; pxShadow(x, y - zs * PX, r, r, 0.034 + fl * 0.003, "255,226,150"); });
+    drawBaked(frontArt("lamp", x, y, w, h, ax, ay + t / 2, `${t}|${off}`, 0, T => ISO_ART.lamp(t, T, ax, ay, { off, soft: true })));
   },
   mushrooms(x, y) {
     // the isometric room's glowing mushroom cluster, spores drifting up, bouncing when tapped
