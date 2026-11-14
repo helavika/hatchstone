@@ -501,6 +501,76 @@ const ACCESSORIES = [
   { id: "crown", name: "Little crown", emoji: "👑", cost: 150 },
 ];
 if (LANG === "uk") for (const a of ACCESSORIES) a.name = tr(a.name);
+if (LANG === "uk") for (const a of KEEP_WEAR) a.name = tr(a.name);
+/**
+ * A keepsake accessory's look: which keepsakes it's made of. A worn one keeps its own (in the wardrobe);
+ * a picture of one not made yet says it in its id ("wreath:daisy.rose").
+ */
+function keepLook(acc) {
+  const [id, look] = String(acc || "").split(":"), own = typeof save === "object" && save.wardrobe && save.wardrobe[id];
+  const ks = (look ? look.split(".") : (own && own.ks) || []).filter(k => KS[k]);
+  return { id, ks: ks.length ? ks : [id === "featherpin" ? "jay" : "daisy"] };
+}
+const accBase = acc => acc ? String(acc).split(":")[0] : acc;
+/** What else changes how an accessory looks (for the picture caches): the scarf's dye, the keepsakes a crown or a pin is made of. */
+const accTint = acc => acc === "scarf" ? scarfTint() : KEEP_WEAR.some(t => t.id === accBase(acc)) ? keepLook(acc).ks.join(".") : "";
+/**
+ * One bloom of the wildflower crown, r across, in the flower's own colours and cel-shaded (a shadowed side, the colour,
+ * a lit side up and to the left). With ink, only its outline in plum ink: every piece of the crown is inked first and
+ * filled after, so the ink rings the crown as a whole, the way it rings the glowling, and small pictures stay clear.
+ */
+function drawBloom(c, x, y, r, kid, ink) {
+  const [dk, md, lt, ac] = KS[kid].c;
+  const shape = {
+    daisy: () => { c.beginPath(); for (let k = 0; k < 7; k++) { const an = k / 7 * TAU - 0.3; c.ellipse(x + Math.cos(an) * r * 0.5, y + Math.sin(an) * r * 0.5, r * 0.45, r * 0.27, an, 0, TAU); } },
+    rose: () => { c.beginPath(); for (let k = 0; k < 5; k++) { const an = k / 5 * TAU - Math.PI / 2; c.moveTo(x + Math.cos(an) * r * 0.42 + r * 0.5, y + Math.sin(an) * r * 0.42); c.arc(x + Math.cos(an) * r * 0.42, y + Math.sin(an) * r * 0.42, r * 0.5, 0, TAU); } },
+    // a nodding bell, its mouth turned down and out
+    harebell: () => { c.beginPath(); c.moveTo(x - r * 0.3, y - r * 0.8); c.quadraticCurveTo(x - r * 0.85, y - r * 0.1, x - r * 0.9, y + r * 0.6); c.quadraticCurveTo(x - r * 0.45, y + r * 0.4, x, y + r * 0.65); c.quadraticCurveTo(x + r * 0.45, y + r * 0.4, x + r * 0.9, y + r * 0.6); c.quadraticCurveTo(x + r * 0.85, y - r * 0.1, x + r * 0.3, y - r * 0.8); c.closePath(); },
+    // heather: a little spike of bells
+    heather: () => { c.beginPath(); for (const [dy, rr] of [[-0.55, 0.34], [-0.05, 0.45], [0.45, 0.48]]) { c.moveTo(x + rr * r, y + dy * r); c.ellipse(x, y + dy * r, rr * r, rr * r * 0.9, 0, 0, TAU); } },
+  }[kid] || (() => { c.beginPath(); c.arc(x, y, r * 0.8, 0, TAU); });
+  if (ink) { shape(); c.strokeStyle = "#22143a"; c.lineWidth = ink; c.stroke(); return; }
+  // the shadowed colour all over, then the colour, then the lit side, each a little smaller and further up and left
+  shape(); c.fillStyle = kid === "daisy" ? md : tint(md, dk, 0.45); c.fill();
+  c.save(); shape(); c.clip();
+  c.fillStyle = kid === "daisy" ? lt : md; c.beginPath(); c.arc(x - r * 0.12, y - r * 0.14, r * 0.92, 0, TAU); c.fill();
+  c.fillStyle = kid === "daisy" ? "#ffffff" : lt; c.beginPath(); c.arc(x - r * 0.42, y - r * 0.45, r * 0.5, 0, TAU); c.fill();
+  c.restore();
+  // and each flower's own heart: the daisy's and the rose's golden middles, the harebell's dark mouth, the heather's pale tip
+  if (kid === "daisy" || kid === "rose") {
+    c.fillStyle = tint(ac, dk, 0.35); c.beginPath(); c.arc(x, y, r * 0.3, 0, TAU); c.fill();
+    c.fillStyle = ac; c.beginPath(); c.arc(x - r * 0.06, y - r * 0.06, r * 0.2, 0, TAU); c.fill();
+  } else if (kid === "harebell") { c.fillStyle = dk; c.beginPath(); c.ellipse(x, y + r * 0.52, r * 0.55, r * 0.14, 0, 0, TAU); c.fill(); }
+  else { c.fillStyle = ac; c.beginPath(); c.arc(x - r * 0.08, y - r * 0.62, r * 0.16, 0, TAU); c.fill(); }
+}
+/**
+ * The feather pin's feather, from its quill at (0, 0) up along -y, L long: the shaft, a lit and a shaded vane, each feather's
+ * own marks (the jay's bars, the robin's warm tip, the raven's violet sheen; an owl's down is a soft puff). With ink, only its outline.
+ */
+function drawPinFeather(c, L, kid, ink) {
+  const [dk, md, lt, ac] = KS[kid].c, W = L * 0.26;
+  const shape = kid === "down"
+    ? () => { c.beginPath(); for (const [dx, dy, r] of [[0, -0.62, 0.26], [-0.2, -0.45, 0.22], [0.2, -0.47, 0.22], [0, -0.3, 0.2], [-0.12, -0.78, 0.17], [0.14, -0.76, 0.17]]) { c.moveTo(dx * L + r * L, dy * L); c.ellipse(dx * L, dy * L, r * L, r * L * 0.9, 0, 0, TAU); } }
+    : () => { c.beginPath(); c.moveTo(0, -L * 0.05); c.quadraticCurveTo(-W * 1.6, -L * 0.42, -W * 0.2, -L); c.quadraticCurveTo(W * 0.2, -L * 0.98, W * 0.3, -L * 0.93); c.quadraticCurveTo(W * 1.6, -L * 0.5, 0, -L * 0.05); c.closePath(); };
+  if (ink) { shape(); c.strokeStyle = "#22143a"; c.lineWidth = ink; c.stroke(); return; }
+  shape(); c.fillStyle = kid === "down" ? md : tint(md, dk, 0.4); c.fill();
+  c.save(); shape(); c.clip();
+  if (kid === "down") {
+    c.fillStyle = ac; c.beginPath(); c.ellipse(-0.08 * L, -0.62 * L, 0.3 * L, 0.32 * L, 0, 0, TAU); c.fill();
+    c.fillStyle = lt; c.beginPath(); c.arc(-0.14 * L, -0.7 * L, 0.1 * L, 0, TAU); c.fill();
+    c.restore();
+    return;
+  }
+  c.fillStyle = md; c.fillRect(-W * 2, -L * 1.1, W * 2.4, L * 1.1);
+  c.fillStyle = lt; c.fillRect(-W * 2, -L * 1.1, W * 1.55, L * 1.1);
+  if (kid === "jay") { c.fillStyle = dk; for (const k of [0.32, 0.55, 0.78]) { c.save(); c.translate(0, -L * k); c.rotate(-0.35); c.fillRect(-W * 2, -L * 0.04, W * 4, L * 0.08); c.restore(); } }
+  else if (kid === "robin") { c.fillStyle = ac; c.fillRect(-W * 2, -L * 1.1, W * 4, L * 0.26); }
+  else if (kid === "raven") { c.fillStyle = ac; c.fillRect(-W * 2, -L * 1.1, W * 1.1, L * 1.1); }
+  c.restore();
+  // the shaft
+  c.strokeStyle = kid === "raven" ? lt : tint(ac, "#ffffff", 0.4); c.lineWidth = L * 0.06;
+  c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(W * 0.15, -L * 0.5, 0, -L * 0.9); c.stroke();
+}
 /** Where the top of the head is at x (in units of s from the middle): hats sit on the head's real outline, not above a pointy tip. */
 function headAt(body, x) {
   x = Math.abs(x);
@@ -559,6 +629,29 @@ function drawAccessory(c, s, sp, top, id) {
     c.fillStyle = "#e0634f"; c.beginPath(); c.ellipse(0, y, s * 0.34, s * 0.2, 0, Math.PI, TAU); c.fill();
     c.fillStyle = "#b8323b"; c.fillRect(-s * 0.34, y - s * 0.02, s * 0.68, s * 0.04);
     c.fillStyle = "#ffffff"; for (const [dx, dy, r] of [[-0.16, -0.08, 0.05], [0.08, -0.13, 0.045], [0.2, -0.05, 0.035], [-0.02, -0.04, 0.03]]) { c.beginPath(); c.arc(dx * s, y + dy * s, r * s, 0, TAU); c.fill(); }
+  } else if (accBase(id) === "wreath") {
+    // a ring of wildflowers on a leafy vine, in the colours of the flowers it was woven from (the middle one in front);
+    // all of it inked first, then filled, so the ink only rings the crown
+    const { ks } = keepLook(id), r = s * 0.1, ink = Math.max(s * 0.045, thin * 2);
+    const spots = [-2, -1, 0, 1, 2].map(k => { const x = k * s * 0.15; return [x, Math.min(head(x) + s * 0.07, head(0) + s * 0.14 + k * k * s * 0.014), k]; });
+    const order = [spots[0], spots[4], spots[1], spots[3], spots[2]], kind = k => ks[Math.abs(k) % ks.length];
+    const leaves = spots.flatMap(([x, y, k]) => (k === 2 ? [-1] : k === -2 ? [1] : [-1, 1]).map(d => [x + d * s * 0.08, y + s * 0.04, d]));
+    const leaf = ([x, y, d], k = 1) => { c.beginPath(); c.ellipse(x, y, s * 0.065 * k, s * 0.034 * k, d * 0.35, 0, TAU); };
+    c.strokeStyle = "#22143a"; c.lineWidth = ink;
+    for (const l of leaves) { leaf(l); c.stroke(); }
+    for (const [x, y, k] of order) drawBloom(c, x, y, r * (k ? 1 : 1.12), kind(k), ink);
+    for (const l of leaves) { leaf(l); c.fillStyle = "#57ad6a"; c.fill(); c.fillStyle = "#a3dd9b"; c.save(); c.translate(-s * 0.012, -s * 0.01); leaf(l, 0.65); c.fill(); c.restore(); }
+    for (const [x, y, k] of order) drawBloom(c, x, y, r * (k ? 1 : 1.12), kind(k));
+  } else if (accBase(id) === "featherpin") {
+    // a feather tucked in at the side of the head, leaning out, held by a little gold pin
+    const { ks } = keepLook(id), ink = Math.max(s * 0.045, thin * 2), x = s * 0.3, y = head(x) + s * 0.1, L = s * 0.52;
+    const pin = () => { c.beginPath(); c.arc(x, y, s * 0.06, 0, TAU); };
+    c.save(); c.translate(x, y); c.rotate(0.5); drawPinFeather(c, L, ks[0], ink); c.restore();
+    pin(); c.strokeStyle = "#22143a"; c.lineWidth = ink; c.stroke();
+    c.save(); c.translate(x, y); c.rotate(0.5); drawPinFeather(c, L, ks[0]); c.restore();
+    pin(); c.fillStyle = "#c98f3a"; c.fill();
+    c.fillStyle = "#eec26a"; c.beginPath(); c.arc(x - s * 0.012, y - s * 0.012, s * 0.042, 0, TAU); c.fill();
+    c.fillStyle = "#fff0b5"; c.beginPath(); c.arc(x - s * 0.024, y - s * 0.026, s * 0.016, 0, TAU); c.fill();
   } else if (id === "crown") {
     const w = s * 0.27, y = head(w * 0.8) + s * 0.04;
     c.fillStyle = "#eec26a"; c.beginPath(); c.moveTo(-w, y); c.lineTo(-w, y - s * 0.17); c.lineTo(-w * 0.5, y - s * 0.07); c.lineTo(0, y - s * 0.24); c.lineTo(w * 0.5, y - s * 0.07); c.lineTo(w, y - s * 0.17); c.lineTo(w, y); c.closePath(); c.fill();
@@ -644,9 +737,9 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   drawPattern(c, s, sp, t, pal, R);
   c.restore();
   // a glowling with its own little hat takes it off for a hat from the wardrobe, and for the nightcap at bedtime
-  const hatOn = (mood !== "asleep" && ["flowers", "mushroom", "crown"].includes(o.acc)) || (mood === "asleep" && !o.sil && o.cap);
+  const acc = accBase(o.acc), hatOn = (mood !== "asleep" && ["flowers", "wreath", "mushroom", "crown"].includes(acc)) || (mood === "asleep" && !o.sil && o.cap);
   if (!(sp.head === "cap" && hatOn)) drawHeadTop(c, s, sp, t, pal, top, level);
-  if (o.acc && !o.sil && !(mood === "asleep" && ["bow", "flowers", "mushroom", "crown", "star"].includes(o.acc))) drawAccessory(c, s, sp, top, o.acc);
+  if (o.acc && !o.sil && !(mood === "asleep" && ["bow", "flowers", "wreath", "featherpin", "mushroom", "crown", "star"].includes(acc))) drawAccessory(c, s, sp, top, o.acc);
   // the nightcap is only for sleeping in the bed: dozing anywhere else keeps the eyes shut but no cap
   if (mood === "asleep" && !o.sil && o.cap) drawNightcap(c, s, sp, top);
   if (faceStamp && !o.sil) {
@@ -780,7 +873,7 @@ function drawSprite(x, y, s, sp, o = {}) {
   }
   // pixel-art pace: a new frame every 100 ms, drawn once and reused, placed on whole pixels so it never shimmers
   const t = Math.floor((o.t ?? game.time) / 100) * 100;
-  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${o.hopK ?? 1}|${o.face || ""}|${o.tired ?? ""}|${t}|${PX}|${o.acc || ""}|${!!o.cap}|${!!o.sil}|${o.acc === "scarf" ? scarfTint() : ""}`;
+  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${o.hopK ?? 1}|${o.face || ""}|${o.tired ?? ""}|${t}|${PX}|${o.acc || ""}|${!!o.cap}|${!!o.sil}|${accTint(o.acc)}`;
   let f = spriteFrames.get(key);
   if (!f) {
     if (spriteFrames.size > 400) spriteFrames.clear();
@@ -979,7 +1072,7 @@ function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down
 const thumbCache = new Map();
 /** A glowling as a small picture: for the nest switcher, the glowpedia and the found card. */
 function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, mood = "ok", art = 0, acc = null } = {}) {
-  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}|${art}|${acc || ""}${acc === "scarf" ? scarfTint() : ""}`;
+  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}|${art}|${acc || ""}${accTint(acc)}`;
   if (thumbCache.has(key)) return thumbCache.get(key);
   // a real pixel sprite (about one art pixel per three of yours), scaled up with hard edges.
   // With `art`, it stays at exactly that many pixels, for the page to blow up by a whole number (2× or 3×) so every pixel is the same size

@@ -868,7 +868,7 @@ function renderLib() {
 const GAME_URL = "https://helavika.github.io/hatchstone/";
 
 /** Draw a 1080×1350 pixel-art postcard: your glowling in a dithered grotto of its own crystal, inside a rope frame. */
-function makePostcard({ art, name, line, note, pal }) {
+function makePostcard({ art, name, line, note, pal, pressed = null }) {
   const PW = 108, PH = 135, S = 10, floorY = 92;
   const [main, light, dark] = pal.map(pxHex);
   const mix = (a, b, k) => a.map((v, i) => Math.round(v + (b[i] - v) * k));
@@ -897,6 +897,7 @@ function makePostcard({ art, name, line, note, pal }) {
     if ((x === 2 || x === PW - 3) && (y === 2 || y === PH - 3)) col = gold;
     if (col) { d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; }
   }
+  if (pressed) pressBorder(d, PW, PH, pressed, seed);
   o.putImageData(im, 0, 0);
   o.drawImage(pixelText(name, 92, [255, 255, 255], ink), 0, 0, PW, PH, 0, 0, PW, PH);
 
@@ -917,6 +918,31 @@ function makePostcard({ art, name, line, note, pal }) {
   g.font = "600 28px ui-rounded, system-ui, sans-serif";
   g.fillText(tr("crack open real geodes · ") + GAME_URL.replace("https://", "").replace(/\/$/, ""), c.width / 2, 1268);
   return c;
+}
+
+/**
+ * The postcard's border of pressed keepsakes, laid on the rope frame: a feather in each corner, its tip in the corner,
+ * and flowers along the sides, clear of the words and of the glowling. Each is the keepsake's own pixel picture,
+ * a little faded the way pressed things are, inked round and with a shadow where it lies on the card.
+ */
+function pressBorder(d, PW, PH, ids, seed) {
+  const feathers = ids.filter(k => KS[k].kind === "feather"), flowers = ids.filter(k => KS[k].kind === "flower");
+  const corner = feathers.length ? feathers : flowers, side = flowers.length ? flowers : feathers;
+  const ink = pxHex("#160c26"), paper = pxHex("#efe6ff"), R = seeded("press" + seed);
+  const lay = (id, x0, y0, fx, fy) => {
+    const map = PX_ICON_MAPS["ks_" + id], n = map.length, at = (x, y) => { const ch = map[fy ? n - 1 - y : y][fx ? n - 1 - x : x]; return PX_ICON_COLORS[ch]; };
+    const solid = (x, y) => x >= 0 && y >= 0 && x < n && y < n && !!at(x, y);
+    const put = (x, y, c) => { x += x0; y += y0; if (x < 0 || y < 0 || x >= PW || y >= PH) return; const i = (y * PW + x) * 4; d[i] = c[0]; d[i + 1] = c[1]; d[i + 2] = c[2]; };
+    // the shadow it casts on the card, then its ink, then the keepsake itself
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (solid(x, y) && !solid(x + 1, y + 1)) put(x + 1, y + 1, ink.map(v => v * 0.6));
+    for (let y = -1; y <= n; y++) for (let x = -1; x <= n; x++) if (!solid(x, y) && (solid(x - 1, y) || solid(x + 1, y) || solid(x, y - 1) || solid(x, y + 1))) put(x, y, ink);
+    for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) if (solid(x, y)) put(x, y, pxHex(at(x, y)).map((v, k) => Math.round(v + (paper[k] - v) * 0.14)));
+  };
+  // the feathers' tips point into the corners (their pictures lean to the top right)
+  [[1, 1, true, false], [PW - 13, 1, false, false], [1, PH - 13, true, true], [PW - 13, PH - 13, false, true]].forEach(([x, y, fx, fy], i) => lay(corner[i % corner.length], x, y, fx, fy));
+  // flowers: beside the top corners, and down both sides
+  const spots = [[13, 1], [PW - 25, 1], [1, 15], [PW - 13, 15], [1, 45], [PW - 13, 45], [1, 75], [PW - 13, 75]];
+  spots.forEach(([x, y], i) => lay(side[(i + (i >> 1)) % side.length], x, y, R() < 0.5, false));
 }
 
 /** Shrink art to fit maxW×maxH pixels with few colors, ordered dithering and a dark outline. Empty margins are trimmed first. */
@@ -993,16 +1019,42 @@ const imgFrom = url => new Promise(r => { const im = new Image(); im.onload = ()
 async function shareFound() {
   const e = game.egg, sp = e.species;
   const art = await imgFrom(creatureImage(sp, { size: 360, shiny: e.shiny, mood: "happy" }));
-  sharePostcard(makePostcard({ art, pal: palOf(sp), name: (e.shiny ? "✦ " : "") + sp.name, line: sp.moon ? moonKind(sp) : tr("from a {0} geode · {1}", e.crystal.name, rar(rarityOf(sp))), note: tr("just hatched in my nest") }), sp.name);
+  openCard({ art, pal: palOf(sp), name: (e.shiny ? "✦ " : "") + sp.name, line: sp.moon ? moonKind(sp) : tr("from a {0} geode · {1}", e.crystal.name, rar(rarityOf(sp))), note: tr("just hatched in my nest") }, sp.name);
 }
 
-/** The postcard of a glowling from the nest. */
+/** The postcard of a glowling from the nest (in whatever it's wearing). */
 async function shareCreature(cr) {
   const sp = specOf(cr);
-  const art = await imgFrom(creatureImage(sp, { size: 360, level: cr.level, shiny: cr.shiny, mood: "happy" }));
+  const art = await imgFrom(creatureImage(sp, { size: 360, level: cr.level, shiny: cr.shiny, mood: "happy", acc: cr.acc }));
   const what = sp.hybrid ? tr("{0} hybrid", sp.parents.join(" × ")) : sp.moon ? moonKind(sp) : `${STAGES[stageOf(cr.level)].toLowerCase()} ${sp.name} · ${rar(rarityOf(sp))}`;
-  sharePostcard(makePostcard({ art, pal: palOf(sp), name: cr.name, line: what, note: tr("level {0} · raised in my nest", cr.level) }), cr.name);
+  openCard({ art, pal: palOf(sp), name: cr.name, line: what, note: tr("level {0} · raised in my nest", cr.level) }, cr.name);
 }
+
+// ---------- the postcard screen: a look at the card before it goes, and its border of pressed keepsakes ----------
+
+/** Every kind of feather and flower ever found on walks: with three or more, the postcard can wear them as a pressed border. */
+const pressedKinds = () => KEEPSAKES.filter(k => save.walks.found[k.id] > 0).map(k => k.id);
+const PRESS_MIN = 3;
+let cardNow = null;
+function openCard(spec, name) {
+  sfx.tick();
+  cardNow = { spec, name };
+  renderCard();
+  show("cardSheet", true);
+}
+function renderCard() {
+  const kinds = pressedKinds(), can = kinds.length >= PRESS_MIN, on = can && save.cardBorder !== false;
+  cardNow.card = makePostcard({ ...cardNow.spec, pressed: on ? kinds : null });
+  $("cardTitle").textContent = tr("A postcard");
+  $("cardImg").src = cardNow.card.toDataURL("image/png");
+  $("cardImg").alt = tr("A postcard of {0}", cardNow.name);
+  $("cardOpts").innerHTML = can
+    ? `<button class="opt-toggle${on ? " on" : ""}" id="cardBorder" aria-pressed="${on}"><span>${tr("Pressed flowers and feathers")}<small>${tr("a border of the keepsakes from your walks")}</small></span><b>${on ? tr("on") : tr("off")}</b></button>`
+    : kinds.length ? `<p class="me-hint">${tr("Find {0} kinds of feathers and flowers on walks ({1} so far), and the postcard can have a border of them, pressed.", PRESS_MIN, kinds.length)}</p>` : "";
+  $("cardBorder")?.addEventListener("click", () => { save.cardBorder = !on; persist(); sfx.tick(); renderCard(); });
+}
+$("cardSend").addEventListener("click", async () => { if (!cardNow) return; await sharePostcard(cardNow.card, cardNow.name); show("cardSheet", false); });
+$("cardClose").addEventListener("click", () => { sfx.tick(); show("cardSheet", false); });
 
 function openHybrid(cr) {
   const sp = specOf(cr);

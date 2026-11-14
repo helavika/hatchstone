@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView } = require('../js/walk.js');
+const { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan } = require('../js/walk.js');
 
 // a fixed run of "random" numbers
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
@@ -31,8 +31,8 @@ test('a walk finds three to five things, the must-haves always among them', () =
 });
 
 test('an old save gets walks; a broken one is mended, never thrown away', () => {
-  assert.deepEqual(walkSaveOf(undefined), { open: 1, n: 0, best: {}, keep: {}, found: {}, last: 0 });
-  assert.deepEqual(walkSaveOf('nonsense'), { open: 1, n: 0, best: {}, keep: {}, found: {}, last: 0 });
+  assert.deepEqual(walkSaveOf(undefined), { open: 1, n: 0, best: {}, keep: {}, found: {}, used: {}, last: 0 });
+  assert.deepEqual(walkSaveOf('nonsense'), { open: 1, n: 0, best: {}, keep: {}, found: {}, used: {}, last: 0 });
   const w = walkSaveOf({ open: 9, n: 3.7, best: { meadow: 3, stream: -1, nowhere: 4 }, keep: { feather: 2, flower: 'x', rock: 5 }, last: 123 });
   assert.equal(w.open, WALKS.length);
   assert.equal(w.n, 3);
@@ -92,4 +92,37 @@ test('the jar shows each kind found, grows with more, and never overflows', () =
   assert.equal(full.stems.length, 8);
   assert.equal(full.petals, 4);
   assert.ok(keepjarView(Object.fromEntries(KEEPSAKES.map(k => [k.id, 3]))).petals < full.petals, 'petals rise as you find more');
+});
+
+test('keepsakes made into something to wear leave the jar, never more than were found', () => {
+  const w = walkSaveOf({ keep: { feather: 3, flower: 2 }, found: { jay: 2, raven: 1, daisy: 2 }, used: { jay: 5, raven: 1, rose: 2, nothing: 1 } });
+  assert.deepEqual(w.used, { jay: 2, raven: 1 }, 'kept within what was found');
+  assert.deepEqual(jarOf(w), { daisy: 2 });
+  assert.deepEqual(walkSaveOf(w), w);
+  assert.deepEqual(jarOf({ found: { jay: 1 } }), { jay: 1 }, 'an older save has used nothing');
+});
+
+test('a crown takes three flowers in their colours, a pin two feathers and shows the rarest', () => {
+  assert.equal(KEEP_WEAR.length, 2);
+  const count = p => Object.values(p.take).reduce((n, v) => n + v, 0);
+  assert.equal(keepWearPlan('wreath', { daisy: 2 }), null, 'not enough flowers');
+  assert.equal(keepWearPlan('featherpin', { jay: 1, daisy: 5 }), null, 'flowers are no feathers');
+  assert.equal(keepWearPlan('nothing', { jay: 9 }), null);
+  const c = keepWearPlan('wreath', { daisy: 4, heather: 1, harebell: 2, rose: 1, jay: 3 });
+  assert.equal(count(c), 3);
+  assert.deepEqual(c.look, ['daisy', 'harebell', 'heather'], 'as many kinds as fit, the most plentiful first');
+  assert.deepEqual(c.take, { daisy: 1, harebell: 1, heather: 1 });
+  const one = keepWearPlan('wreath', { rose: 3 });
+  assert.deepEqual(one, { take: { rose: 3 }, look: ['rose'] });
+  const two = keepWearPlan('wreath', { daisy: 1, heather: 5 });
+  assert.deepEqual(two.take, { heather: 2, daisy: 1 });
+  const p = keepWearPlan('featherpin', { jay: 4, raven: 1, robin: 1 });
+  assert.deepEqual(p.look, ['raven']);
+  assert.deepEqual(p.take, { raven: 1, jay: 1 });
+  assert.deepEqual(keepWearPlan('featherpin', { down: 2 }), { take: { down: 2 }, look: ['down'] });
+  for (const t of KEEP_WEAR) {
+    const jar = Object.fromEntries(KEEPSAKES.map(k => [k.id, 3])), plan = keepWearPlan(t.id, jar);
+    assert.equal(count(plan), t.n, t.id);
+    for (const [k, n] of Object.entries(plan.take)) { assert.equal(KEEPSAKES.find(q => q.id === k).kind, t.kind); assert.ok(n <= jar[k]); }
+  }
 });

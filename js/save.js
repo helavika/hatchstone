@@ -58,6 +58,13 @@ function migrate(d) {
   d.walks = walkSaveOf(d.walks);
   // a nest that already brought keepsakes home gets the jar they go into, waiting in the chest
   if (Object.keys(d.walks.found).length && !d.decor.keepjar) d.decor.keepjar = { on: false, at: Date.now() };
+  // things made from keepsakes remember the ones they were made of (see KEEP_WEAR); one that lost them goes back to the plainest
+  if (d.wardrobe && typeof d.wardrobe === "object") for (const t of KEEP_WEAR) {
+    const o = d.wardrobe[t.id];
+    if (o && !(o.ks && Array.isArray(o.ks) && o.ks.length && o.ks.every(k => KS[k] && KS[k].kind === t.kind))) d.wardrobe[t.id] = { ks: [t.kind === "feather" ? "jay" : "daisy"], at: Date.now() };
+  }
+  // the postcard's border of pressed flowers and feathers: on unless you've turned it off
+  if (typeof d.cardBorder !== "boolean") d.cardBorder = true;
   // wardstones (see wards.js): the ones in hand and the ones set on the map
   d.wards = wardSaveOf(d.wards);
   d.v = SAVE_VERSION;

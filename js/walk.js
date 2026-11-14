@@ -45,7 +45,7 @@ const KS = Object.fromEntries(KEEPSAKES.map(k => [k.id, k]));
 function walkSaveOf(w) {
   w = w && typeof w === "object" ? w : {};
   const int = (v, lo, hi) => Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.floor(v))) : lo;
-  const best = {}, keep = {}, found = {};
+  const best = {}, keep = {}, found = {}, used = {};
   for (const p of WALKS) if (w.best && Number.isFinite(w.best[p.id]) && w.best[p.id] > 0) best[p.id] = int(w.best[p.id], 0, 9);
   for (const k of WALK_KEEP) if (w.keep && w.keep[k] > 0) keep[k] = int(w.keep[k], 0, 9999);
   for (const k of KEEPSAKES) if (w.found && w.found[k.id] > 0) found[k.id] = int(w.found[k.id], 0, 9999);
@@ -56,7 +56,44 @@ function walkSaveOf(w) {
     for (let i = 0; i < (keep[kind] || 0) - have; i++) found[all[i % all.length].id] = (found[all[i % all.length].id] || 0) + 1;
     if (have > (keep[kind] || 0)) keep[kind] = have;
   }
-  return { open: int(w.open, 1, WALKS.length), n: int(w.n, 0, 1e6), best, keep, found, last: Number.isFinite(w.last) ? w.last : 0 };
+  // the ones taken out of the jar again, to make something to wear (never more than were found)
+  for (const k of KEEPSAKES) if (w.used && w.used[k.id] > 0 && found[k.id]) used[k.id] = int(w.used[k.id], 0, found[k.id]);
+  return { open: int(w.open, 1, WALKS.length), n: int(w.n, 0, 1e6), best, keep, found, used, last: Number.isFinite(w.last) ? w.last : 0 };
+}
+/** What's in the jar now: every keepsake found, less the ones made into something to wear. */
+function jarOf(w) {
+  const out = {};
+  for (const k of KEEPSAKES) { const n = ((w && w.found && w.found[k.id]) || 0) - ((w && w.used && w.used[k.id]) || 0); if (n > 0) out[k.id] = n; }
+  return out;
+}
+/** Things a glowling can wear, made from keepsakes instead of bought: a crown takes three flowers, a pin two feathers. */
+const KEEP_WEAR = [
+  { id: "wreath", kind: "flower", n: 3, name: "Wildflower crown" },
+  { id: "featherpin", kind: "feather", n: 2, name: "Feather pin" },
+];
+/**
+ * What making one would take from the jar, and how it would look; null if the jar hasn't enough.
+ * The crown is woven from as many different flowers as there are (the ones you have most of first), and wears their colours;
+ * the pin shows off your rarest feather, with one more feather bound under it (the one you have most of).
+ */
+function keepWearPlan(id, jar = {}) {
+  const t = KEEP_WEAR.find(x => x.id === id);
+  if (!t) return null;
+  const have = KEEPSAKES.filter(k => k.kind === t.kind && jar[k.id] > 0);
+  if (have.reduce((n, k) => n + jar[k.id], 0) < t.n) return null;
+  const take = {}, left = { ...jar }, add = k => { take[k] = (take[k] || 0) + 1; left[k]--; };
+  const most = () => have.filter(k => left[k.id] > 0).sort((a, b) => left[b.id] - left[a.id] || b.w - a.w)[0].id;
+  if (t.kind === "flower") {
+    const kinds = have.slice().sort((a, b) => jar[b.id] - jar[a.id] || b.w - a.w).slice(0, t.n).map(k => k.id);
+    kinds.forEach(add);
+    while (Object.values(take).reduce((n, v) => n + v, 0) < t.n) add(most());
+    return { take, look: kinds };
+  }
+  const rare = have.slice().sort((a, b) => a.w - b.w || jar[a.id] - jar[b.id])[0].id;
+  add(rare);
+  const other = have.filter(k => k.id !== rare && left[k.id] > 0);
+  add(other.length ? other.sort((a, b) => left[b.id] - left[a.id] || b.w - a.w)[0].id : rare);
+  return { take, look: [rare] };
 }
 /** Which keepsake a feather or a flower turns out to be: half the time one of the common ones you haven't got yet, the rare ones rarely. */
 function keepsakePick(kind, found = {}, rnd = Math.random) {
@@ -120,7 +157,7 @@ const WALK_SHAPE = [
   { stream: [0.19, 0.24], hill: [0.42, 0.53], ledge: [0.64, 0.86] },
 ];
 
-if (typeof module === "object" && module.exports) module.exports = { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView };
+if (typeof module === "object" && module.exports) module.exports = { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan };
 
 // ---------- the words and the little pictures (the browser only: the tests load the rules above on their own) ----------
 
@@ -173,11 +210,20 @@ if (typeof window === "object") {
     "A heather sprig": "Вересова гілочка", "A moon daisy": "Місячна ромашка", "A harebell": "Дзвоник", "A wild rose": "Квітка шипшини",
     "Keepsakes": "Пам'ятні дрібнички",
     "{0} of {1} kinds found": "знайдено {0} з {1} видів",
-    "Every feather and flower from your walks goes into the keepsake jar, and stays there: set it out in a room from the Chest.": "Кожна пір'їнка й квіточка з прогулянок лягає в банку з дрібничками й лишається там: постав її в кімнаті зі Скриньки.",
+    "Every feather and flower from your walks goes into the keepsake jar: set it out in a room, or make something to wear from them under Wear.": "Кожна пір'їнка й квіточка з прогулянок лягає в банку з дрібничками: постав її в кімнаті або зроби з них прикрасу у «Вбранні».",
     "Feathers and flowers from your walks will be kept here.": "Тут зберігатимуться пір'їнки й квіточки з прогулянок.",
-    "Every feather and flower from your walks goes into it, and none is ever used up.": "Сюди лягає кожна пір'їнка й квіточка з прогулянок, і жодна не витрачається.",
+    "Every feather and flower from your walks goes into it, and a few of them make something to wear.": "Сюди лягає кожна пір'їнка й квіточка з прогулянок, а з кількох можна зробити прикрасу.",
     "A keepsake jar for what you find: it's waiting in your Chest ✦": "Банка для знахідок: вона чекає у Скриньці ✦",
     "In the jar: feathers ×{0}, flowers ×{1}": "У банці: пір'їнки ×{0}, квіточки ×{1}",
+    "Made from keepsakes": "З пам'ятних дрібничок",
+    "Wildflower crown": "Віночок з польових квітів",
+    "Feather pin": "Шпилька з пером",
+    "A crown takes three flowers from the keepsake jar and wears their colours; a pin takes two feathers and shows off your rarest one. Made once, any glowling can wear it.": "Віночок бере з банки три квіточки й має їхні кольори, шпилька — дві пір'їнки, і в ній красується найрідкісніша. Зроблене один раз може носити будь-який глоулінг.",
+    "Made from your keepsakes ✦ {0} is wearing the {1}": "Зроблено з дрібничок ✦ {0} тепер у новому: {1}",
+    "A postcard of {0}": "Листівка: {0}",
+    "Pressed flowers and feathers": "Засушені квіти й пір'я",
+    "a border of the keepsakes from your walks": "рамка з дрібничок із прогулянок",
+    "Find {0} kinds of feathers and flowers on walks ({1} so far), and the postcard can have a border of them, pressed.": "Знайди на прогулянках {0} види пір'їнок і квіточок (поки що {1}), і листівку можна буде прикрасити рамкою з них, засушених.",
     "Everyone's asleep or too tired for a walk. Maybe after a nap 🌙": "Усі сплять або втомилися. Може, після дрімоти 🌙",
     "Not during a shared egg": "Не під час спільного яйця",
     "Tap where to go": "Торкнися, куди йти",
@@ -253,8 +299,8 @@ function renderWalkSheet() {
     return `<button class="snack${open ? "" : " locked"}" data-path="${i}" ${open && walkPick.length ? "" : "disabled"}><span class="em">${ic(open ? ["walk", "berry", "feather", "flower"][i] : "lock")}</span><span><b>${tr(p.name)}</b><small>${open ? tr(p.note) : tr("after: {0}", tr(WALKS[i - 1].name))}</small></span>${open ? `<span class="cost">${best ? `${best}/${p.finds}` : tr("new")}</span>` : ""}</button>`;
   }).join("");
   $$("#walkPaths [data-path]").forEach(b => b.addEventListener("click", () => startWalk(Number(b.dataset.path))));
-  const keep = KEEPSAKES.filter(k => w.found[k.id]).map(k => `<span title="${tr(k.name)}">${ic("ks_" + k.id)}×${w.found[k.id]}</span>`).join(" ");
-  $("walkKeep").innerHTML = keep ? tr("Keepsakes from walks: {0}", keep) + "<br>" + tr("Every feather and flower from your walks goes into the keepsake jar, and stays there: set it out in a room from the Chest.") : "";
+  const jar = jarOf(w), keep = KEEPSAKES.filter(k => w.found[k.id]).map(k => `<span title="${tr(k.name)}">${ic("ks_" + k.id)}×${jar[k.id] || 0}</span>`).join(" ");
+  $("walkKeep").innerHTML = keep ? tr("Keepsakes from walks: {0}", keep) + "<br>" + tr("Every feather and flower from your walks goes into the keepsake jar: set it out in a room, or make something to wear from them under Wear.") : "";
   $("walkKeep").hidden = !keep;
   if (!home.some(walkFit)) $("walkSheetSub").textContent = tr("Everyone's asleep or too tired for a walk. Maybe after a nap 🌙");
 }

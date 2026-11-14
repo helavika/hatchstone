@@ -100,6 +100,8 @@ const UK = {
   "Next level": "Наступний рівень",
   "Share": "Поділитися",
   "Share a postcard": "Надіслати листівку",
+  "A postcard": "Листівка",
+  "Send it": "Надіслати",
   "Your nest is empty": "Твоє гніздечко порожнє",
   "Glowlings sleep inside stone eggs. Crack one open and whoever's inside moves in here: you feed it, play with it and watch it grow.": "Глоулінги сплять у кам'яних яйцях. Розбий одне — і маля, що всередині, оселиться тут: ти годуватимеш його, гратимешся з ним і дивитимешся, як воно росте.",
   "Crack your first egg": "Розбий перше яйце",

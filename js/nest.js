@@ -212,7 +212,7 @@ function renderShopPick() {
   if (!d) return;
   const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
   const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
-  const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.id === "keepjar" ? tr("Every feather and flower from your walks goes into it, and none is ever used up.") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
+  const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.id === "keepjar" ? tr("Every feather and flower from your walks goes into it, and a few of them make something to wear.") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
   const where = owned && !owned.on && decorRoom(d.id) >= 0 ? ` · ${tr("in {0}", roomName(decorRoom(d.id)))}` : "";
   const inPlace = isPlace(), label = owned ? (inPlace ? tr("In your chest ✓") : owned.on ? tr("Put away") : tr("Place here")) : `${tr("Buy")} ✦ ${d.cost}`;
   box.innerHTML = `${decorThumb(d)}<span><b>${d.name}</b><small>${note}${where}</small></span><button class="act${owned ? "" : " buy"}" id="shopPickGo" ${locked || (!owned && save.shards < d.cost) || (owned && inPlace) ? "disabled" : ""}>${label}</button>`;
@@ -295,9 +295,9 @@ function chestPantry() {
 }
 /** The chest's keepsakes: every kind of feather and flower found on walks, how many, and how many kinds there are to find. */
 function chestKeepsakes() {
-  const f = save.walks.found, have = KEEPSAKES.filter(k => f[k.id]);
+  const f = save.walks.found, jar = jarOf(save.walks), have = KEEPSAKES.filter(k => f[k.id]);
   return `<h3 class="forge-h">${tr("Keepsakes")} <small>${tr("{0} of {1} kinds found", have.length, KEEPSAKES.length)}</small></h3>`
-    + (have.length ? `<div class="tiles">${have.map(k => `<div class="tile owned"><img class="em px-thumb" src="${pxIcon("ks_" + k.id)}" alt=""><b>${tr(k.name)}</b><small>×${f[k.id]}</small></div>`).join("")}</div><p class="me-hint">${tr("Every feather and flower from your walks goes into the keepsake jar, and stays there: set it out in a room from the Chest.")}</p>`
+    + (have.length ? `<div class="tiles">${have.map(k => `<div class="tile owned"><img class="em px-thumb" src="${pxIcon("ks_" + k.id)}" alt=""><b>${tr(k.name)}</b><small>×${jar[k.id] || 0}</small></div>`).join("")}</div><p class="me-hint">${tr("Every feather and flower from your walks goes into the keepsake jar: set it out in a room, or make something to wear from them under Wear.")}</p>`
       : `<p class="me-hint">${tr("Feathers and flowers from your walks will be kept here.")}</p>`);
 }
 
@@ -690,20 +690,43 @@ function accessoryList() {
     const has = owned[a.id], on = cr.acc === a.id;
     const img = `<img class="em px-thumb" src="${creatureImage(specOf(cr), { art: 24, level: cr.level, shiny: cr.shiny, acc: a.id })}" alt="">`;
     return `<button class="tile acc${has ? " owned" : ""}${on ? " placed on" : ""}" data-acc="${a.id}" ${!has && save.shards < a.cost ? "disabled" : ""}>${img}<b>${a.name}</b><small>${on ? tr("worn ✓") : has ? tr("owned") : "✦ " + a.cost}</small></button>`;
-  }).join("") + "</div>";
+  }).join("") + "</div>" + keepWearList(cr);
+}
+/**
+ * The things made from keepsakes: shown as they'd come out of what's in the jar now (a made one, as it was made),
+ * with the feathers or flowers it takes. They turn up once a walk has brought something home.
+ */
+function keepWearList(cr) {
+  const owned = save.wardrobe || {}, jar = jarOf(save.walks);
+  if (!Object.keys(save.walks.found).length && !KEEP_WEAR.some(t => owned[t.id])) return "";
+  return `<h3 class="forge-h">${tr("Made from keepsakes")}</h3><div class="tiles">` + KEEP_WEAR.map(t => {
+    const has = owned[t.id], on = cr.acc === t.id, plan = !has && keepWearPlan(t.id, jar);
+    const have = KEEPSAKES.filter(k => k.kind === t.kind).reduce((n, k) => n + (jar[k.id] || 0), 0);
+    const img = `<img class="em px-thumb" src="${creatureImage(specOf(cr), { art: 24, level: cr.level, shiny: cr.shiny, acc: plan ? `${t.id}:${plan.look.join(".")}` : t.id })}" alt="">`;
+    const tag = on ? tr("worn ✓") : has ? tr("owned") : `${ic(t.kind)}${plan ? "×" + t.n : `${have}/${t.n}`}`;
+    return `<button class="tile acc${has ? " owned" : ""}${on ? " placed on" : ""}" data-acc="${t.id}" ${has || plan ? "" : "disabled"}>${img}<b>${t.name}</b><small>${tag}</small></button>`;
+  }).join("") + `</div><p class="me-hint">${tr("A crown takes three flowers from the keepsake jar and wears their colours; a pin takes two feathers and shows off your rarest one. Made once, any glowling can wear it.")}</p>`;
 }
 function wearAccessory(id) {
-  const cr = activeCreature(), a = ACCESSORIES.find(x => x.id === id);
+  const cr = activeCreature(), a = ACCESSORIES.find(x => x.id === id) || KEEP_WEAR.find(x => x.id === id);
   if (!cr || !a) return;
   save.wardrobe = save.wardrobe || {};
-  if (!save.wardrobe[id]) {
+  let made = false;
+  if (!save.wardrobe[id] && a.kind) {
+    // made from keepsakes: they come out of the jar, and it keeps the look of the very ones it was made of
+    const plan = keepWearPlan(id, jarOf(save.walks));
+    if (!plan) return;
+    for (const [k, n] of Object.entries(plan.take)) save.walks.used[k] = (save.walks.used[k] || 0) + n;
+    save.wardrobe[id] = { ks: plan.look, at: Date.now() }; made = true; sfx.levelUp();
+  } else if (!save.wardrobe[id]) {
     if (save.shards < a.cost) return;
     save.shards -= a.cost; save.wardrobe[id] = true; sfx.levelUp();
   } else sfx.tick();
   cr.acc = cr.acc === id ? null : id;
   const act = actors.get(cr.id);
   if (act && cr.acc) { act.hop = 1; emote(act, "♥", 1.4); }
-  if (cr.acc) toast(tr("{0} is wearing the {1} ✦", cr.name, a.name.toLowerCase()));
+  if (made) toast(tr("Made from your keepsakes ✦ {0} is wearing the {1}", cr.name, a.name.toLowerCase()));
+  else if (cr.acc) toast(tr("{0} is wearing the {1} ✦", cr.name, a.name.toLowerCase()));
   persist(); updateTopbar(); renderNest(true); openShop();
 }
 
