@@ -293,9 +293,10 @@ function computeLayout() {
   if (N.iso) {
     const room = nBottom - nTop;
     N.isoW = Math.min(W * 0.47, 400, room * 0.9); N.isoH = N.isoW / 2;
-    // taller walls on tall screens (more wall for the window, shelf and painting); any space left over goes above and below evenly
+    // taller walls on tall screens (more wall for the window, shelf and painting); any space left over goes above and below evenly,
+    // but on a phone held upright most of it goes above: the room sits low, near the needs, and the cave floor runs on down behind them
     N.isoWall = clamp(room - N.isoW - 4, N.base * 1.2, N.isoW * 1.25);
-    N.isoTop = nBottom - N.isoW - 6 - Math.max(0, room - N.isoW - 4 - N.isoWall) / 2;
+    N.isoTop = nBottom - N.isoW - 6 - Math.max(0, room - N.isoW - 4 - N.isoWall) / (H > W ? 4 : 2);
     N.y0 = N.isoTop; N.y1 = N.isoTop + N.isoW;
     N.wallTop = N.isoTop - N.isoWall;
     N.back = N.isoTop + N.isoH; N.front = N.y1 + 10;
@@ -627,8 +628,10 @@ function bgFor(scene) {
   // meadow and the hills, trees and mushrooms stand beyond it; a cave room stands on a rock shelf on the cave floor, crystals around it
   const kind = ROOM_KIND[id] || "cave", outdoor = kind === "yard" || kind === "wood";
   const floor = scene !== "nest" || !N.back ? 0.86 : N.iso && outdoor ? (N.isoTop - N.isoWall * 0.35) / H : (kind === "cave" ? N.front : N.back + 1) / H;
-  const key = `${id}|${floor.toFixed(3)}`;
-  if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor));
+  // in the nest and on the title the cave floor runs on down behind the needs and the tabs, and under the title card (no dark band there)
+  const deep = scene === "nest" || scene === "menu";
+  const key = `${id}|${floor.toFixed(3)}|${deep}`;
+  if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor, deep));
   return [id, key];
 }
 function drawBackground() {
