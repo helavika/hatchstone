@@ -222,7 +222,10 @@ function chooseNext(a, list) {
   // outside, hoppers and swimmers like the garden best: they walk over and water a thirsty plant
   const gp = isOutside() && N.iso && isoLayout().placed.garden;
   if (gp && ["hop", "swim"].includes(a.beh) && Math.random() < 0.25) {
-    [a.tx, a.ty] = isoPieceAt(gp, 0.8); a.state = "walk"; a.garden = true; return;
+    // (its front can be boxed in, by the skep and the cold frame in the yard: then a side a way really leads to)
+    const sides = [[0.8, 0.8], [gp.fw / 2 + 0.4, 0], [0, -gp.fd / 2 - 0.4], [-gp.fw / 2 - 0.4, 0], [0, gp.fd / 2 + 0.4]];
+    const to = sides.map(([du, dv]) => standSpot(...isoAt((gp.i + gp.fw / 2 + du) / ISO_G, (gp.j + gp.fd / 2 + dv) / ISO_G))).find(s => findPath(a.x, a.y, ...s).pts.length);
+    if (to) { [a.tx, a.ty] = to; a.state = "walk"; a.garden = true; return; }
   }
   if (weatherOn() && Math.random() < 0.8) { playInWeather(a); return; }
   const r = Math.random(), b = a.beh;
