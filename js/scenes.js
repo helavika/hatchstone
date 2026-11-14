@@ -70,13 +70,13 @@ function fitTopbar() {
   if (over()) body.classList.add("tighter");
 }
 
-// ---------- settings: music and sound volumes, less motion, bigger text ----------
+// ---------- settings: music on or off, music and sound volumes, less motion, bigger text ----------
 
-// less motion starts on if the device asks for it
-const opts = () => ({ music: 1, sfx: 1, calm: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, big: false, look: 1, ...(save.opts || {}) });
+// less motion starts on if the device asks for it; the music starts on, and quiet
+const opts = () => ({ musicOn: true, music: 0.5, sfx: 1, calm: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, big: false, look: 1, ...(save.opts || {}) });
 function applyOpts() {
   const o = opts();
-  sfx.setVolumes(o.music, o.sfx);
+  sfx.setVolumes(o.music, o.sfx, o.musicOn !== false);
   document.body.classList.toggle("calm", !!o.calm);
   document.body.classList.toggle("bigtext", !!o.big);
 }
@@ -85,16 +85,17 @@ function openOpts() {
   sfx.tick();
   const o = opts(), pct = v => `${Math.round(v * 100)}%`;
   $("optsList").innerHTML = `
-    <label class="opt"><span>${ic("sound")}${tr("Music")}<em id="vMusic">${pct(o.music)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.music}" data-opt="music"></label>
+    <button class="opt-toggle${o.musicOn ? " on" : ""}" data-toggle="musicOn"><span>${tr("Music")}<small>${tr("a slow, quiet soundtrack, its own in every place")}</small></span><b>${o.musicOn ? tr("on") : tr("off")}</b></button>
+    <label class="opt"><span>${ic("sound")}${tr("Music volume")}<em id="vMusic">${pct(o.music)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.music}" data-opt="music"${o.musicOn ? "" : " disabled"}></label>
     <label class="opt"><span>${ic("bell")}${tr("Sounds")}<em id="vSfx">${pct(o.sfx)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.sfx}" data-opt="sfx"></label>
-    <p class="me-hint">${tr("Music is the backdrops' songs and the grotto's hum; sounds are everything else: taps, chirps, voices.")}</p>
+    <p class="me-hint">${tr("Music is the soundtrack: each place has its own, in its backdrop's key; sounds are everything else: taps, chirps, voices.")}</p>
     <button class="opt-toggle${o.calm ? " on" : ""}" data-toggle="calm"><span>${tr("Less motion")}<small>${tr("no shaking or bouncing, gentler effects")}</small></span><b>${o.calm ? tr("on") : tr("off")}</b></button>
     <button class="opt-toggle${o.big ? " on" : ""}" data-toggle="big"><span>${tr("Bigger text")}<small>${tr("for the cards, dialogs and hints")}</small></span><b>${o.big ? tr("on") : tr("off")}</b></button>`;
   $("optsList").innerHTML += `<div class="opt"><span>${ic("sparkle")}${tr("How glowlings shine")}</span></div><div class="seg look-seg">${[["Classic", 0], ["Glow", 1], ["Spirit", 2]].map(([n, v]) => `<button data-look="${v}" class="${o.look === v ? "on" : ""}">${tr(n)}</button>`).join("")}</div>`;
   $$("#optsList [data-look]").forEach(b => b.addEventListener("click", () => { setOpt("look", Number(b.dataset.look)); sfx.chirp(1); openOpts(); }));
   $$("#optsList [data-opt]").forEach(r => r.addEventListener("input", () => {
     const v = Number(r.value); $(r.dataset.opt === "music" ? "vMusic" : "vSfx").textContent = pct(v);
-    sfx.setVolumes(r.dataset.opt === "music" ? v : opts().music, r.dataset.opt === "sfx" ? v : opts().sfx);
+    sfx.setVolumes(r.dataset.opt === "music" ? v : opts().music, r.dataset.opt === "sfx" ? v : opts().sfx, opts().musicOn);
   }));
   $$("#optsList [data-opt]").forEach(r => r.addEventListener("change", () => { setOpt(r.dataset.opt, Number(r.value)); if (r.dataset.opt === "sfx") sfx.chirp(1); }));
   $$("#optsList [data-toggle]").forEach(b => b.addEventListener("click", () => { setOpt(b.dataset.toggle, !opts()[b.dataset.toggle]); openOpts(); }));

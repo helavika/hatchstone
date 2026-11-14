@@ -77,10 +77,10 @@ const store = {
 // ---------- audio: every sound is synthesized ----------
 
 const sfx = {
-  ac: null, master: null, noise: null, muted: false, lastTick: 0, purr: null, musicVol: 1, sfxVol: 1, inSong: false,
-  /** How loud a sound plays: songs by the music slider, the rest by the sounds slider (never quite zero, for the ramps). */
-  vol(gain) { return Math.max(0.0001, gain * (this.inSong ? this.musicVol : this.sfxVol)); },
-  setVolumes(music, sfx) { this.musicVol = music; this.sfxVol = sfx; if (this.padGain) this.padGain.gain.setTargetAtTime(0.035 * music, this.ac.currentTime, 0.3); },
+  ac: null, master: null, noise: null, muted: false, lastTick: 0, purr: null, sfxVol: 1,
+  /** How loud a sound plays, by the sounds slider (never quite zero, for the ramps); the music has its own, in js/music.js. */
+  vol(gain) { return Math.max(0.0001, gain * this.sfxVol); },
+  setVolumes(vol, sfx, on = music.on) { this.sfxVol = sfx; music.set(on, vol); },
 
   init() {
     if (this.ac) return;
@@ -103,7 +103,7 @@ const sfx = {
     this.noise = this.ac.createBuffer(1, n, this.ac.sampleRate);
     const data = this.noise.getChannelData(0);
     for (let i = 0; i < n; i++) data[i] = Math.random() * 2 - 1;
-    this.pad();
+    music.start(this.ac, this.master, this.noise);
     if (typeof applyOpts === "function") applyOpts();
   },
 
@@ -114,108 +114,8 @@ const sfx = {
 
   ready() { return !!this.ac && !this.muted; },
 
-  /** A low, warm drone and a breath of air, with a soft drip now and then: a quiet grotto. */
-  pad() {
-    const ac = this.ac, t = ac.currentTime;
-    const g = ac.createGain();
-    g.gain.setValueAtTime(0, t);
-    g.gain.linearRampToValueAtTime(0.035 * this.musicVol, t + 5); // quieter now that each backdrop has a song
-    this.padGain = g;
-    const lp = ac.createBiquadFilter();
-    lp.type = "lowpass"; lp.frequency.value = 600;
-    const lfo = ac.createOscillator(), lfoGain = ac.createGain();
-    lfo.frequency.value = 1 / 11; lfoGain.gain.value = 220;
-    lfo.connect(lfoGain).connect(lp.frequency);
-    lfo.start();
-    for (const f of [110, 164.81, 220, 329.63]) {
-      for (const detune of [-6, 6]) {
-        const o = ac.createOscillator();
-        o.type = "sine"; o.frequency.value = f; o.detune.value = detune;
-        const og = ac.createGain(); og.gain.value = f > 300 ? 0.08 : 0.18;
-        o.connect(og).connect(lp);
-        o.start();
-      }
-    }
-    const air = ac.createBufferSource();
-    air.buffer = this.noise; air.loop = true;
-    const bp = ac.createBiquadFilter(); bp.type = "bandpass"; bp.frequency.value = 500; bp.Q.value = 0.6;
-    const ag = ac.createGain(); ag.gain.value = 0.05;
-    air.connect(bp).connect(ag).connect(lp);
-    air.start();
-    lp.connect(g).connect(this.master);
-    const drip = () => {
-      if (this.ready()) this.tone(this.ac.currentTime, rand(1100, 1900), 0.025, 0.6, "sine", null, true);
-      setTimeout(drip, rand(6000, 13000));
-    };
-    setTimeout(drip, 4000);
-  },
-
-  /**
-   * The backdrop's song: a chord progression with a soft arpeggio and a bass note, and a melody made of little motifs
-   * in A A B A form, so it's hummable but keeps changing (a fresh pair of motifs every 16 bars).
-   * Each backdrop has its own key, mode, tempo and instrument: music box, bells, kalimba or organ.
-   */
-  music(id) {
-    const MAJOR = [0, 2, 4, 5, 7, 9, 11], MINOR = [0, 2, 3, 5, 7, 8, 10], DORIAN = [0, 2, 3, 5, 7, 9, 10];
-    const box = { lead: "sine", shine: 0.45, decay: 1.1, arp: "sine", arpDecay: 0.7, gain: 1 };
-    const songs = {
-      amethyst: { root: 220, mode: MINOR, prog: [0, 5, 2, 6], bpm: 84, ...box },
-      celestite: { root: 293.66, mode: MAJOR, prog: [0, 4, 5, 3], bpm: 80, ...box },
-      malachite: { root: 246.94, mode: DORIAN, prog: [0, 3, 0, 4], bpm: 88, ...box },
-      labradorite: { root: 185, mode: MINOR, prog: [0, 5, 3, 4], bpm: 72, ...box },
-      churchyard: { root: 146.83, mode: MINOR, prog: [0, 3, 5, 4], bpm: 64, lead: "triangle", shine: 0.6, decay: 2.4, arp: "triangle", arpDecay: 1.6, gain: 1.1, bells: true },
-      glowcap: { root: 196, mode: MAJOR, prog: [0, 3, 4, 0], bpm: 104, lead: "triangle", shine: 0.12, decay: 0.32, arp: "triangle", arpDecay: 0.25, gain: 1.1 },
-      frost: { root: 329.63, mode: MAJOR, prog: [0, 5, 3, 4], bpm: 76, lead: "sine", shine: 0.7, decay: 1.8, arp: "sine", arpDecay: 1.2, gain: 0.95, bells: true },
-      summit: { root: 174.61, mode: DORIAN, prog: [0, 3, 6, 4], bpm: 66, lead: "triangle", shine: 0.4, decay: 2.2, arp: "sine", arpDecay: 2.4, gain: 1, pad: true },
-      abbey: { root: 130.81, mode: MAJOR, prog: [0, 5, 3, 4], bpm: 58, lead: "sine", shine: 0.3, decay: 2.8, arp: "sine", arpDecay: 3, gain: 0.9, pad: true },
-    };
-    this.song = songs[id] || songs.amethyst;
-    this.motifs = null;
-    if (this.songOn) return;
-    this.songOn = true;
-    let step = 0;
-    const RHYTHMS = [[1, 0, 1, 0, 1, 0, 0, 0], [1, 0, 0, 1, 0, 0, 1, 0], [1, 0, 1, 1, 0, 0, 1, 0], [1, 0, 0, 0, 1, 0, 1, 0], [0, 0, 1, 0, 1, 0, 1, 1]];
-    // a motif is two bars of rhythm and melody steps; notes land on chord tones on strong beats, step between them
-    const motif = () => {
-      const bars = [pick(RHYTHMS), pick(RHYTHMS)], moves = [];
-      let at = 0;
-      for (let b = 0; b < 2; b++) for (let k = 0; k < 8; k++) if (bars[b][k]) { at = clamp(at + pick([-2, -1, -1, 0, 1, 1, 2]), -2, 5); moves.push(at); }
-      return { bars, moves };
-    };
-    const tick = () => {
-      const m = this.song, eighth = 30 / m.bpm;
-      setTimeout(tick, eighth * 1000);
-      if (!this.ready() || document.hidden || this.hush || this.musicVol < 0.01) { step++; return; }
-      this.inSong = true;
-      if (!this.motifs || step % 128 === 0) { const a = motif(); this.motifs = [a, a, motif(), a]; }
-      const t = this.ac.currentTime + 0.05, bar = Math.floor(step / 8) % 16, beat = step % 8;
-      const chord = m.prog[bar % 4], g = m.gain;
-      const note = (deg, oct = 0) => { const n = m.mode.length, d = ((deg % n) + n) % n; return m.root * Math.pow(2, (m.mode[d] + 12 * (Math.floor(deg / n) + oct)) / 12); };
-      // bass on the bar, and a soft pad or bell chord in the slow songs
-      if (beat === 0) {
-        this.tone(t, note(chord, -1), 0.05 * g, eighth * 7, "sine");
-        if (m.pad) for (const k of [0, 2, 4]) this.tone(t, note(chord + k), 0.018 * g, eighth * 8, "sine");
-      }
-      if (beat === 4 && !m.pad) this.tone(t, note(chord + 4, -1), 0.03 * g, eighth * 3, "sine");
-      // a gentle arpeggio up and down the chord
-      const arp = [0, 2, 4, 2, 0, 2, 4, 7][beat];
-      if (!m.bells || beat % 2 === 0) this.tone(t, note(chord + arp), 0.016 * g, m.arpDecay, m.arp);
-      // the melody: phrase A A B A over 8 bars of 2-bar motifs
-      const mo = this.motifs[Math.floor(bar / 2) % 4], half = bar % 2;
-      if (mo.bars[half][beat]) {
-        const idx = mo.bars[0].slice(0, half ? 8 : beat).reduce((s, v) => s + v, 0) + (half ? mo.bars[1].slice(0, beat).reduce((s, v) => s + v, 0) : 0);
-        let deg = chord + (mo.moves[idx] ?? 0);
-        // strong beats lean onto the nearest chord tone
-        if (beat % 4 === 0) { const r = (((deg - chord) % 7) + 7) % 7; if (r === 1 || r === 3) deg -= 1; else if (r === 5 || r === 6) deg += 7 - r; }
-        const f = note(deg, 1);
-        this.tone(t, f, 0.04 * g, m.decay, m.lead, null, true);
-        if (m.shine) this.tone(t, f * 2.01, 0.014 * g * m.shine, m.decay * 0.35, "sine");
-      }
-      this.inSong = false;
-      step++;
-    };
-    setTimeout(tick, 1200);
-  },
+  /** The backdrop's song: its key and chords, played by the soundtrack in js/music.js in the texture of the place you're in. */
+  music(id) { music.song(id); },
 
   /** The soft wooden click of a button going down. */
   press() {
