@@ -25,7 +25,7 @@ function loadSave() {
     // keep a damaged save aside instead of throwing it away
     try { localStorage.setItem(SAVE_KEY + ".damaged", raw); } catch {}
   }
-  return freshSave();
+  return migrate(freshSave());
 }
 
 /** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
@@ -50,6 +50,8 @@ function migrate(d) {
   d.dust = dust.filter(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)).slice(0, DUST_MAX);
   for (const cr of d.creatures || []) delete cr.dust;
   if (!Number.isFinite(d.dustT)) d.dustT = 0;
+  // sparks of inspiration from exploring (see sparks.js): found ones, Pip's news, the scarf dye
+  d.sparks = sparkSaveOf(d.sparks);
   d.v = SAVE_VERSION;
   return d;
 }

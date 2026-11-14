@@ -527,6 +527,10 @@ function tripsHome() {
       else if (f === "seeds") { const sd = pick(["glowberry", "moonmint", "cookiecorn"]), n = 1 + Math.floor(k / 4); garden().seeds[sd] = (garden().seeds[sd] || 0) + n; got.push(`${seedName(sd)} ×${n}`); }
       else if (Math.random() < 0.25 + k * 0.08) { giveBar(f); got.push(barName(f)); }
     }
+    // and sometimes a spark of inspiration: a song, a colour, a sight of the lands past the valley
+    const spark = bringSpark(c, k, true);
+    if (spark) got.push(sparkNote(spark));
+    c.sparked = true;
     addXP(c, 6 * k);
     remember(c, got.length ? "Came back from {0} with {1}" : "Came back from {0}", placeName(pl), got.join(", "));
     c.trip = null; c.roam = false; c.outAt = c.outAt || now;
@@ -1038,6 +1042,8 @@ function tapHero(auto = false) {
   for (let k = 0; k < 4; k++) setTimeout(() => sfx.voice(h.who.voice), k * 90);
   const seen = save.heroTalk?.[save.rooms[save.room].kind] || 0;
   let line = tr(seen < h.hello.length ? h.hello[seen] : pick(h.lines));
+  // Pip wants to hear about every spark the glowlings bring home
+  if (h.who === PIP && seen >= h.hello.length) line = sparkPipLine() || line;
   save.heroTalk = { ...save.heroTalk, [save.rooms[save.room].kind]: seen + 1 };
   // poked three times in a few seconds, Tansy curls up into a ball
   const prev = game.heroPokes && game.heroPokes.room === save.room ? game.heroPokes.list : [];
@@ -1068,7 +1074,7 @@ function arriveAt(kind) {
   ensurePlace(kind);
   toRoomKind(kind);
   const h = HEROES[kind];
-  if (h && !(save.heroTalk || {})[kind]) setTimeout(() => tapHero(true), 500);
+  if (h && (!(save.heroTalk || {})[kind] || (h.who === PIP && sparkNews()))) setTimeout(() => tapHero(true), 500);
   else if (kind === "yard") {
     const g = garden(), dry = g.slots.map((q, i) => [q, i]).filter(([q, i]) => q && waterPlot(i, FENNEL));
     if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
@@ -1379,7 +1385,8 @@ function sendExploring(id) {
  * for a long trip), and after a long trip, now and then a geode for the collection.
  */
 function exploreFind(c) {
-  const hrs = (Date.now() - (c.outAt || Date.now())) / 3600e3;
+  const hrs = (Date.now() - (c.outAt || Date.now())) / 3600e3, sparked = c.sparked;
+  delete c.sparked;
   if (hrs < 0.05) return null;
   const shards = Math.min(30, Math.round(2 + hrs * 4));
   let geode = null;
@@ -1389,17 +1396,19 @@ function exploreFind(c) {
     g.count++; save.geodes[geode.id] = g;
   }
   save.shards += shards;
+  // a wander can bring a spark home too (the trip's own was already rolled when it came back)
+  const spark = sparked ? null : bringSpark(c, hrs, false);
   // the gift shows over its head once it's back in the room
   setTimeout(() => {
     const a = actors.get(c.id);
     if (!a) return;
     const v = actorView(a);
-    floatText(`+${shards} ✦${geode ? " 💎" : ""}`, v.x, v.y - v.size * 0.9, "#fff0b5");
+    floatText(`+${shards} ✦${geode ? " 💎" : ""}${spark ? " ✨" : ""}`, v.x, v.y - v.size * 0.9, "#fff0b5");
     a.hop = 1; sfx.shimmer();
   }, 350);
-  return { shards, geode };
+  return { shards, geode, spark };
 }
-const findNote = (c, f) => !f ? "" : " · " + (f.geode ? tr("{0} brought back ✦ {1} and a {2} geode!", c.name, f.shards, CRYSTAL[f.geode.id].name) : tr("{0} brought back ✦ {1}", c.name, f.shards));
+const findNote = (c, f) => !f ? "" : " · " + (f.geode ? tr("{0} brought back ✦ {1} and a {2} geode!", c.name, f.shards, CRYSTAL[f.geode.id].name) : tr("{0} brought back ✦ {1}", c.name, f.shards)) + (f.spark ? " · " + sparkNote(f.spark) : "");
 /** Away for how long, said simply. */
 const awayFor = c => { const m = Math.max(1, Math.round((Date.now() - (c.outAt || Date.now())) / 60000)); return m < 60 ? tr("{0} min", m) : tr("{0} h", Math.floor(m / 60)); };
 

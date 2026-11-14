@@ -545,6 +545,7 @@ const FAQ = [
   ["What is the workbench?", "It's in the Forge. Every geode past the first of its kind is a spare; the first one always stays in your book. Spares melt down into useful things: 3 common ones make a nut bar, 2 common ones a bundle of seeds, 3 rare ones a star bar, and one legendary spare sells for 150 shards."],
   ["How does the garden work?", "The garden bed has three spots. Plant seeds, water them (each plant can drink once every half hour, and it helps them grow), and pick what's ripe. Plants grow in real time, even while you're away, and Fennel waters them when you visit. The garden grows what no shop sells: berry juice, moon mint tea, starfruit, growcaps that help glowlings grow up, and sunpetals for shiny eggs. Seeds come from the Shop, expeditions and the workbench, and picking often gives one back. From chapter II, Wick the moth visits every third day with odd wares and gossip."],
   ["How do expeditions work?", "At the explorers' camp, choose who goes, where (deeper caves open as you go) and for how long: 1, 4 or 8 hours. Explorers need nothing while they're away and come back by themselves with a story and finds: shards, seeds, geodes and sometimes bars. The longer the trip, the more they find, and they earn XP too."],
+  ["What are sparks of inspiration?", "Now and then a glowling comes home from exploring with more than shards: a spark. It can be a song it hums, a colour it saw, or a sight of the lands past the valley. Longer expeditions bring them more often, and sights only come from trips of 4 hours or more. They're kept in the Book, under Sparks: tap one to hear it or look again. A colour can dye every cozy scarf in the nest, and when both sights of a faraway land are home, Pip has something to tell you about it."],
   ["What's in the Grotto?", "The hall before the tunnel. Go into the tunnel (or tap Crack from anywhere) for your next egg. The map on the wall shows every level, so you can go back to old ones for more stars. The altar holds today's moon egg, and during an event a shrine lights up beside it."],
   ["What is the moon egg?", "One special egg a day, waiting on the altar in the Grotto. It doesn't use lantern oil. Open it every day to build a streak: the longer the streak, the more shards, and every third night in a row brings a star bar."],
   ["What are events?", "A few weeks a year the grotto celebrates: Spring Bloom, Firefly Nights, Harvest Moon, Hollow Night, First Frost and Winter Lights. During an event a limited glowling sleeps in the moon egg and the grotto dresses up for it. Tap the shrine in the Grotto to see how many days are left."],
@@ -820,6 +821,8 @@ function renderLib() {
       const ok = f.met();
       return `<div class="aw folk${ok ? " got" : ""}"><img class="folk-face" src="${ok ? f.face() : mysteryGeode()}" alt=""><span><b>${ok ? tr(f.name) : "???"}</b><small>${ok ? `<em class="folk-where">${tr(f.where)}</em>${tr(f.about)}` : tr(f.hint)}</small></span></div>`;
     }).join("") + "</div>";
+  } else if (game.libTab === "sk") {
+    renderSparkLib();
   } else if (game.libTab === "st") {
     $("libGrid").innerHTML = STORY.map((p, i) => {
       const open = unlocked(p.at) && talkSeen(p.id);
