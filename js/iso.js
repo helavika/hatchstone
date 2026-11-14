@@ -506,7 +506,6 @@ function updateActors(dt) {
 /** What the room's walls and floor are painted from: when it changes, they're painted again. */
 const roomKey = () => `${currentTheme()}|${isPlace() ? save.rooms[save.room].kind : ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}${N.iso}`;
 function drawRoom() {
-  const { y1 } = N, cx = N.cx, kind = ROOM_KIND[currentTheme()] || "cave";
   // the walls and floor of this backdrop, painted once in art pixels (or ahead of time: see bakeAhead), and kept a while
   // after you leave, so walking back in is smooth too
   const rk = roomKey();
@@ -515,38 +514,6 @@ function drawRoom() {
     roomCanvas.key = rk; roomCanvas.c = roomAhead.get(rk) || (N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()));
   }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
-  // a round window onto the night sky in the cave wall (the abbey has its own arched one; outdoors the sky is already there)
-  const wr = N.win.r, wy = N.win.y;
-  if (wr > 0 && kind === "cave" && !N.iso) {
-    ctx.save();
-    ctx.beginPath(); ctx.arc(cx, wy, wr, 0, TAU);
-    const sky = ctx.createLinearGradient(0, wy - wr, 0, wy + wr);
-    sky.addColorStop(0, "#0d0a2a"); sky.addColorStop(1, "#2d2468");
-    ctx.fillStyle = sky; ctx.fill();
-    ctx.clip();
-    ctx.fillStyle = "#fff";
-    for (let i = 0; i < 22; i++) {
-      ctx.globalAlpha = 0.3 + 0.7 * Math.abs(Math.sin(game.time * 0.001 + i));
-      ctx.fillRect(cx + Math.sin(i * 12.9898) * wr * 0.9, wy + Math.cos(i * 78.233) * wr * 0.9, 1.6, 1.6);
-    }
-    ctx.globalAlpha = 1;
-    ctx.fillStyle = "#fff8d6";
-    ctx.beginPath(); ctx.arc(cx + wr * 0.4, wy - wr * 0.35, wr * 0.2, 0, TAU); ctx.fill();
-    ctx.fillStyle = "#0d0a2a";
-    ctx.beginPath(); ctx.arc(cx + wr * 0.48, wy - wr * 0.42, wr * 0.17, 0, TAU); ctx.fill();
-    ctx.restore();
-    // a solid stone frame, three art pixels thick, with a lit inner edge
-    ctx.beginPath(); ctx.arc(cx, wy, wr + PX, 0, TAU);
-    ctx.strokeStyle = "#160c26"; ctx.lineWidth = PX * 3.2; ctx.stroke();
-    ctx.strokeStyle = "#523a85"; ctx.lineWidth = PX * 1.2; ctx.stroke();
-  }
-  // moonlight falling through the window onto the floor
-  if ((kind === "cave" || kind === "hall") && !N.iso) {
-    const ray = ctx.createLinearGradient(0, wy, 0, y1);
-    ray.addColorStop(0, "rgba(230,224,255,.09)"); ray.addColorStop(1, "rgba(230,224,255,0)");
-    ctx.fillStyle = ray;
-    ctx.beginPath(); ctx.moveTo(cx - wr * 0.7, wy); ctx.lineTo(cx + wr * 0.7, wy); ctx.lineTo(cx + wr * 1.7, y1); ctx.lineTo(cx - wr * 1.7, y1); ctx.closePath(); ctx.fill();
-  }
   if (N.iso) return drawRoomIso();
   // a round woven rug in solid rings, in the middle of the floor
   const [rcx, rcy] = roomSpot("rug"), [rrx, rry] = rugSize();
@@ -3459,22 +3426,59 @@ const LANTERN = [
   "........kmk",
   ".........k",
 ];
-/** The isometric room in art pixels: a diamond floor on a thick slab, and (indoors) a lit left wall and a shaded right one.
- *  Every surface is a material laid along its own plane, lit from the top left: caves are layered rock with ledges and
- *  fissures over a pebbly floor; the abbey dressed stone in courses over flagstones; the timber hall an oak frame with
- *  limewashed daub on a rubble footing, over boards; the ruins old blocks in moss; outdoors grass with trodden paths. */
-function paintRoomIso(id) {
+/** The abbey's Gothic window, laid out in its wall's own plane (a along the wall from its middle, z up from the floor), for a wall
+ *  this high in a room this wide: the pointed arch and its splay (openAt, t of the way in), the glass with its lancets, trefoils
+ *  and lozenges (glassAt: 1 a pane, 2 a lozenge, -1 stone tracery), and the night behind it (skyV). */
+function gothicWindow(wall, hw, S, seed) {
+  // a pointed arch of half-width w: two arcs, each centred as far beyond the middle as the arch is wide
+  const rise = w => w * Math.sqrt(3), arch = (a, z, w, z0, z1) => z >= z0 && Math.abs(a) < w && (z < z1 || Math.hypot(Math.abs(a) + w, z - z1) < 2 * w);
+  const zb = Math.round(wall * (wall < 120 ? 0.2 : 0.27)), seatUp = Math.max(2, Math.round(Math.min(4 * S, wall * 0.03))), zA = Math.min(Math.round(wall * 0.88), Math.round(wall) - 8);
+  // the wall's depth, the splay and a mullion; on a low wall the window is narrower, with fewer lights
+  const m = 2, wMax = Math.min(Math.round(hw * 0.17), Math.floor((zA - zb) * 0.62 / Math.sqrt(3)));
+  const D = Math.max(2, Math.round(Math.min(3 * S, wMax * 0.1))), sp = Math.max(2, Math.round(Math.min(5 * S, wMax * 0.16)));
+  const fit = n => Math.floor((2 * (wMax - sp) - 2 - (n - 1) * m) / n), nL = [4, 3].find(n => fit(n) >= 8) || 2;
+  const L = Math.max(4, fit(nL)), wi = (nL * L + (nL - 1) * m + 2) / 2, wo = wi + sp, zs = zA - Math.round(rise(wo)), zg = zb + seatUp;
+  // the opening t of the way in (0 at the room, 1 at the glass): narrower, its sill higher, and seen shifted up and left
+  const openAt = (a, z, t) => arch(a + 0.5 + D * t, z - D * t, wo - sp * t, zb + seatUp * t, zs);
+  const lav = pxHex("#d2bfff"), vio = ["#160c26", "#22143a", "#2e1d4f", "#3d2866", "#523a85", "#6b4fa8", "#8a6cc9", "#ad91e6", "#d2bfff", "#efe6ff"].map(pxHex);
+  // the glass, in its own plane: the stone frame, mullions, the lights' trefoil heads and the lozenges above them
+  const TREFOIL = [0, 1, 2, 2, 1, 3, 4, 4, 3], hL = L / 2, zh = zs + 2 - Math.round(TREFOIL.length * hL / 5.5), rowH = Math.round(Math.max(wi * 0.46, L * 1.1)), rw = (L + m) / 2 - 2, rh = rowH / 2 - 0.5;
+  const lz = [];
+  for (let r = 0; r < nL - 1; r++) for (let k = 0; k < nL - 1 - r; k++) lz.push([(k - (nL - 2 - r) / 2) * (L + m), zh + TREFOIL.length * hL / 5.5 + rowH * 0.45 + r * rowH]);
+  const moonA = -wi + 1 + (nL >> 1) * (L + m) + hL, moonZ = zh - Math.round(rowH * 0.9), moonR = Math.max(2.5, Math.min(L * 0.36, wi * 0.16));
+  const glassAt = (ga, gz) => {
+    const a = ga + 0.5;
+    if (!arch(a, gz, wi, zg, zs)) return null;
+    if (!arch(a, gz, wi - 1, zg + 1, zs)) return -1;
+    const rel = ga + wi - 1, k = Math.floor(rel / (L + m)), off = rel - k * (L + m);
+    if (gz < zh) return off >= L ? -1 : 1;
+    // a light's head: a trefoil, a pointed lobe over two round ones, with stone cusps pointing in between them
+    const row = TREFOIL.length - 1 - Math.floor((gz - zh) * 5.5 / hL);
+    if (off < L && row >= 0 && Math.abs(off - (L - 1) / 2) <= TREFOIL[row] * (hL - 0.5) / 5 + 0.01) return 1;
+    for (const [x0, z0] of lz) { const da = Math.abs(a - x0) / rw, dz = Math.abs(gz - z0) / rh; if (da ** 1.4 + dz ** 1.4 < 1) return 2; }
+    return -1;
+  };
+  const skyV = (ga, gz, x, y, kindG) => {
+    const md = Math.hypot(ga + 0.5 - moonA, gz - moonZ);
+    if (md < moonR) return Math.hypot(ga + 0.5 - moonA + 1.2, gz - moonZ + 1) > moonR ? 0.82 : 1;
+    let v = 0.3 + 0.12 * (gz - zg) / (zA - zg) + (md < moonR + 2.5 ? 0.34 : md < moonR + 7 ? 0.18 : md < moonR + 13 ? 0.08 : 0) + (kindG === 2 ? 0.42 : 0);
+    const st = pxHash(x * 5 + 1, y * 3 + seed);
+    if (st > 0.99) v = 0.95; else if (st > 0.975) v += 0.25;
+    return v;
+  };
+  const isGlass = (ga, gz) => (glassAt(ga, gz) || 0) > 0;
+  return { rise, arch, zb, seatUp, zA, D, sp, wi, wo, zs, zg, openAt, lav, vio, glassAt, skyV, isGlass };
+}
+
+/** The materials a room is built of, for one backdrop: its palettes, and how each surface is laid (stone courses, rock facets,
+ *  the timber frame, the floor) as functions of a spot on a wall or the floor. hw is the room's width in art pixels, wall its
+ *  height, S the scale its stones and boards are cut to. Both views of the room paint from these. */
+function roomMaterials(id, hw, wall, S) {
   const kind = ROOM_KIND[id] || "cave", t = THEME[id] || THEME.amethyst;
   const art = t.art !== undefined ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
   const wallR = (art ? art.wall : night.ground).map(pxHex), crys = art ? art.crystal.map(pxHex) : null, ground = night ? night.ground.map(pxHex) : wallR;
-  const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
-  const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
-  const q = v => v / PX, cx = q(N.cx), top = q(N.isoTop), hw = q(N.isoW), hh = hw / 2, wall = q(N.isoWall), slab = Math.max(4, Math.round(hw / 16));
-  // stones, planks and beams keep their proportions to the room whatever its size (a phone's room is about 180 pixels from corner to end)
-  const S = Math.max(0.55, hw / 180);
   const seed = (art ? art.seed : night.seed) * 7, indoor = kind === "cave" || kind === "hall" || kind === "ruin" || kind === "timber";
-  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
-  const ink = pxHex("#0b0614"), at = (u, v) => [cx + (u - v) * hw, top + (u + v) * hh], hexes = a => a.map(pxHex);
+  const hexes = a => a.map(pxHex);
   // the ruins are old grey stone whatever the night outside; moss and grass grow in every gap
   const ruinStone = hexes(["#22143a", "#3a3440", "#5d5666", "#8a8494", "#b9b3c0"]), moss = hexes(["#1e5233", "#2f7d4a", "#57ad6a"]);
   // the timber hall: oak for the frame and the floor, limewashed daub between the beams on a footing of rubble stone
@@ -3487,7 +3491,6 @@ function paintRoomIso(id) {
   // how high a ruined wall still stands along its length (0..1): broken off in steps, low in the middle of each side
   const ruinH = tt => kind !== "ruin" ? 1 : clamp(0.55 + 0.45 * Math.cos(tt * 2.6) - 0.35 * (Math.floor(pxNoise(tt * 7 + seed, 3) * 4) / 4), 0.18, 1);
   const wood = [oak[1], oak[2], oak[4]], stone = [ruinStone[0], ruinStone[1], ruinStone[2], ruinStone[3]];
-  const lightAt = (u, v) => Math.exp(-(((u - 0.35) / 0.5) ** 2) - (((v - 0.5) / 0.6) ** 2));
   // which room this is: the camp and the garden share a backdrop but not their paths
   const roomKindNow = save.rooms && save.rooms[save.room] ? save.rooms[save.room].kind : "";
 
@@ -3689,6 +3692,22 @@ function paintRoomIso(id) {
     if (Math.max(u, v) > 0.985) val = 0.85; // a lit rim at the front edges
     return isoTone(ground, val, x, y, 0.5);
   };
+  return { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, ashlarPx, facet, rockPx, timberAt, timberPx, pathD, dirt, floorPx };
+}
+/** The isometric room in art pixels: a diamond floor on a thick slab, and (indoors) a lit left wall and a shaded right one.
+ *  Every surface is a material laid along its own plane, lit from the top left: caves are layered rock with ledges and
+ *  fissures over a pebbly floor; the abbey dressed stone in courses over flagstones; the timber hall an oak frame with
+ *  limewashed daub on a rubble footing, over boards; the ruins old blocks in moss; outdoors grass with trodden paths. */
+function paintRoomIso(id) {
+  const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
+  const q = v => v / PX, cx = q(N.cx), top = q(N.isoTop), hw = q(N.isoW), hh = hw / 2, wall = q(N.isoWall), slab = Math.max(4, Math.round(hw / 16));
+  // stones, planks and beams keep their proportions to the room whatever its size (a phone's room is about 180 pixels from corner to end)
+  const S = Math.max(0.55, hw / 180);
+  const { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, ashlarPx, facet, rockPx, timberAt, timberPx, pathD, dirt, floorPx } = roomMaterials(id, hw, wall, S);
+  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
+  const ink = pxHex("#0b0614"), at = (u, v) => [cx + (u - v) * hw, top + (u + v) * hh];
+  const lightAt = (u, v) => Math.exp(-(((u - 0.35) / 0.5) ** 2) - (((v - 0.5) / 0.6) ** 2));
 
   // the slab under the floor: its two front faces, the left one lit, the right one in shade (outdoors the room is part of the land: no slab)
   if (indoor) for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
@@ -3789,43 +3808,7 @@ function paintRoomIso(id) {
       // broad stone seat; four tall lancets with trefoil heads under a net of lozenges (three, two, one), all on the wall's
       // slant. Behind the glass a cold violet night with a moon and stars, and an iron lantern on a curled bracket either side
       const tc = 0.42, xc = Math.round(cx - tc * hw), foot = x => Math.floor(top + (cx - x) / hw * hh);
-      // a pointed arch of half-width w: two arcs, each centred as far beyond the middle as the arch is wide
-      const rise = w => w * Math.sqrt(3), arch = (a, z, w, z0, z1) => z >= z0 && Math.abs(a) < w && (z < z1 || Math.hypot(Math.abs(a) + w, z - z1) < 2 * w);
-      const zb = Math.round(wall * (wall < 120 ? 0.2 : 0.27)), seatUp = Math.max(2, Math.round(Math.min(4 * S, wall * 0.03))), zA = Math.min(Math.round(wall * 0.88), Math.round(wall) - 8);
-      // the wall's depth, the splay and a mullion; on a low wall the window is narrower, with fewer lights
-      const m = 2, wMax = Math.min(Math.round(hw * 0.17), Math.floor((zA - zb) * 0.62 / Math.sqrt(3)));
-      const D = Math.max(2, Math.round(Math.min(3 * S, wMax * 0.1))), sp = Math.max(2, Math.round(Math.min(5 * S, wMax * 0.16)));
-      const fit = n => Math.floor((2 * (wMax - sp) - 2 - (n - 1) * m) / n), nL = [4, 3].find(n => fit(n) >= 8) || 2;
-      const L = Math.max(4, fit(nL)), wi = (nL * L + (nL - 1) * m + 2) / 2, wo = wi + sp, zs = zA - Math.round(rise(wo)), zg = zb + seatUp;
-      // the opening t of the way in (0 at the room, 1 at the glass): narrower, its sill higher, and seen shifted up and left
-      const openAt = (a, z, t) => arch(a + 0.5 + D * t, z - D * t, wo - sp * t, zb + seatUp * t, zs);
-      const lav = pxHex("#d2bfff"), vio = hexes(["#160c26", "#22143a", "#2e1d4f", "#3d2866", "#523a85", "#6b4fa8", "#8a6cc9", "#ad91e6", "#d2bfff", "#efe6ff"]);
-      // the glass, in its own plane: the stone frame, mullions, the lights' trefoil heads and the lozenges above them
-      const TREFOIL = [0, 1, 2, 2, 1, 3, 4, 4, 3], hL = L / 2, zh = zs + 2 - Math.round(TREFOIL.length * hL / 5.5), rowH = Math.round(Math.max(wi * 0.46, L * 1.1)), rw = (L + m) / 2 - 2, rh = rowH / 2 - 0.5;
-      const lz = [];
-      for (let r = 0; r < nL - 1; r++) for (let k = 0; k < nL - 1 - r; k++) lz.push([(k - (nL - 2 - r) / 2) * (L + m), zh + TREFOIL.length * hL / 5.5 + rowH * 0.45 + r * rowH]);
-      const moonA = -wi + 1 + (nL >> 1) * (L + m) + hL, moonZ = zh - Math.round(rowH * 0.9), moonR = Math.max(2.5, Math.min(L * 0.36, wi * 0.16));
-      const glassAt = (ga, gz) => {
-        const a = ga + 0.5;
-        if (!arch(a, gz, wi, zg, zs)) return null;
-        if (!arch(a, gz, wi - 1, zg + 1, zs)) return -1;
-        const rel = ga + wi - 1, k = Math.floor(rel / (L + m)), off = rel - k * (L + m);
-        if (gz < zh) return off >= L ? -1 : 1;
-        // a light's head: a trefoil, a pointed lobe over two round ones, with stone cusps pointing in between them
-        const row = TREFOIL.length - 1 - Math.floor((gz - zh) * 5.5 / hL);
-        if (off < L && row >= 0 && Math.abs(off - (L - 1) / 2) <= TREFOIL[row] * (hL - 0.5) / 5 + 0.01) return 1;
-        for (const [x0, z0] of lz) { const da = Math.abs(a - x0) / rw, dz = Math.abs(gz - z0) / rh; if (da ** 1.4 + dz ** 1.4 < 1) return 2; }
-        return -1;
-      };
-      const skyV = (ga, gz, x, y, kindG) => {
-        const md = Math.hypot(ga + 0.5 - moonA, gz - moonZ);
-        if (md < moonR) return Math.hypot(ga + 0.5 - moonA + 1.2, gz - moonZ + 1) > moonR ? 0.82 : 1;
-        let v = 0.3 + 0.12 * (gz - zg) / (zA - zg) + (md < moonR + 2.5 ? 0.34 : md < moonR + 7 ? 0.18 : md < moonR + 13 ? 0.08 : 0) + (kindG === 2 ? 0.42 : 0);
-        const st = pxHash(x * 5 + 1, y * 3 + seed);
-        if (st > 0.99) v = 0.95; else if (st > 0.975) v += 0.25;
-        return v;
-      };
-      const isGlass = (ga, gz) => (glassAt(ga, gz) || 0) > 0;
+      const { rise, arch, zb, seatUp, zA, D, sp, wi, wo, zs, zg, openAt, lav, vio, glassAt, skyV, isGlass } = gothicWindow(wall, hw, S, seed);
       const x0 = xc - wo - 6, x1 = xc + wo + 6;
       for (let x = x0; x <= x1; x++) for (let y = foot(x) - zA - 8; y <= foot(x) - zb + 1; y++) {
         const a = x - xc, z = foot(x) - y, ac = a + 0.5;
@@ -4066,161 +4049,369 @@ function drawRoomIso() {
 /** What sort of place each backdrop is: a hollow in the cave wall, an abbey hall, or a clearing under the sky. */
 const ROOM_KIND = { smithy: "timber", amethyst: "cave", celestite: "cave", malachite: "cave", labradorite: "cave", frost: "cave", abbey: "hall", churchyard: "ruin", glowcap: "wood", summit: "yard" };
 
-/** The room's walls and floor in art pixels, for one backdrop: caves get rough rock with crystals in the corners and stone slabs,
- *  the abbey brick with a tall arched window and tiles, the churchyard grass behind a low stone wall, the wood moss behind a fallen log. */
+/** The room seen straight on, in art pixels, for one backdrop: the same materials as the isometric room (roomMaterials), laid
+ *  on a back wall that faces you, two side walls running toward you and a floor that widens toward you, lit by the window in
+ *  the back wall and from the top left. Caves are faceted rock with a rough opening and crystals in the corners; the abbey
+ *  dressed stone with a Gothic window, lanterns and the moonlight it lets in laid across the flagstones; the timber hall an oak
+ *  frame with daub over boards and a leaded window; the ruins broken walls in moss with an empty arch; outdoors grass inside a
+ *  wattle fence or a dry-stone wall. */
 function paintRoom(id) {
-  // seen straight on, the ruins are a broken hall
-  const kind = ROOM_KIND[id] === "ruin" || ROOM_KIND[id] === "timber" ? "hall" : ROOM_KIND[id] || "cave", t = THEME[id] || THEME.amethyst;
-  const art = t.art !== undefined ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
-  const wallR = (art ? art.wall : night.ground).map(pxHex), crys = art ? art.crystal.map(pxHex) : null;
   const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
   const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
   const q = v => v / PX, cx = q(N.cx), back = Math.round(q(N.back)), front = Math.round(q(N.front)), hb = q(N.hb), hf = q(N.hf), top = Math.round(q(N.wallTop));
-  const win = { x: q(N.win.x), y: q(N.win.y), r: q(N.win.r) }, seed = (art ? art.seed : night.seed) * 7;
-  const half = y => lerp(hb, hf, clamp((y - back) / (front - back), 0, 1));
-  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
-  const ink = pxHex("#0b0614"), indoor = kind === "cave" || kind === "hall";
-  const lightAt = (x, y) => Math.exp(-(((x - cx) / (hb * 0.55)) ** 2) - (((y - back) / ((front - back) * 0.9)) ** 2));
+  const wallH = back - top, S = Math.max(0.55, hb / 165);
+  // the materials are cut for a wall 1.2 back-halves long: five timber bays across the back wall, planks and stones the size
+  // they are in the isometric room
+  const MW = hb * 1.2;
+  const { kind, night, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, wallC, wood, ashlarPx, rockPx, timberPx, floorPx } = roomMaterials(id, MW, wallH, S);
+  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (!col || x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
+  const get = (x, y) => { const i = (y * w + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+  const has = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0;
+  const ink = pxHex("#0b0614"), bay = (y, x) => PX_BAYER[(y & 3) * 4 + (x & 3)];
+  // depth: t runs from the back (0) to the front (1); things there are s times as big as at the back wall
+  const tAt = y => clamp((y - back) / (front - back), 0, 1), sAt = t => lerp(1, hf / hb, t), half = y => lerp(hb, hf, tAt(y));
+  // how far back a floor row is, in art pixels as the back wall measures them (the floor is seen foreshortened, nearer rows larger)
+  const F = 0.6, depthAt = y => (y - back) / F / ((1 + sAt(tAt(y))) / 2), depth = depthAt(front);
+  const winX = cx, winZ = back - q(N.win.y), winR = q(N.win.r);
+
+  // ---- the walls: al runs along a wall, z up it from the floor, zt is how high the wall stands there; sl as in the isometric
+  //      room (+1 where a larger al is further left on screen), so blocks keep their lit edge to the top left
+  const plH = Math.round(13 * S);
+  const wallPx = (al, z, sl, x, y, zt) => {
+    let val, ramp = wallC;
+    if (kind === "cave") val = rockPx(al, z, sl, x, y) - 0.3 * Math.max(0, 1 - z / (6 * S));
+    else if (kind === "timber") { const m = timberPx(al, z, sl, x, y); ramp = m.ramp; val = m.v; }
+    else if (kind === "ruin") {
+      // old blocks with moss on whatever still stands on top, ivy trailing down, moss creeping up from the floor
+      const ivy = pxNoise(x * 0.35 + seed, 2) > 0.62 && zt - z < wallH * 0.55 * pxNoise(x * 0.2, seed + 1);
+      if (zt - z < 2.5 || ivy) return { col: moss[ivy ? (pxHash(x, y) > 0.5 ? 1 : 0) : 2] };
+      if (z < 5 * S && pxHash(x, y) > 0.55) return { col: moss[pxHash(x + 1, y) > 0.5 ? 1 : 0] };
+      val = ashlarPx(al, z, sl, x, y, sl > 0 ? 0.52 : 0.32);
+    } else {
+      // the abbey: a plinth of big blocks with a lit ledge along its top, then dressed courses, damp streaks low down
+      if (z < plH) val = z >= plH - 2 ? 0.86 - (plH - 1 - z) * 0.12 : ashlarPx(al * 0.6, z + 400, sl, x, y, sl > 0 ? 0.46 : 0.3) - 0.06;
+      else {
+        val = ashlarPx(al, z, sl, x, y, sl > 0 ? 0.58 : 0.38) - 0.14 * (z / wallH);
+        if (pxNoise(al * 0.11 + sl * 5 + seed, 1.3) > 0.66 && z < wallH * (0.2 + 0.3 * pxNoise(al * 0.08, 4))) val -= 0.1;
+        if (z < plH + 3) val -= 0.12 * (plH + 3 - z) / 3;
+      }
+    }
+    if (zt - z < 2) { val = sl > 0 ? 0.8 : 0.6; if (kind === "timber") ramp = oak; }   // the lit top of the wall
+    return { ramp, val };
+  };
+  // how high the back wall stands across (du from -1 at the left corner to 1 at the right): a cave's rock bulges up in the
+  // middle and juts along its top; the ruins are broken off in steps toward the ends
+  const ruinStep = (k, sd) => Math.floor(pxNoise(k * 7 + seed, sd) * 4) / 4;
+  const backTop = (du, x) => kind === "cave" ? wallH * (0.94 + 0.08 * (1 - du * du)) + 0.06 * wallH * (pxNoise(x * 0.05, seed) - 0.5) + 4 * pxNoise(x * 0.3, seed + 4) - 2
+    : kind === "ruin" ? wallH * clamp(1 - 0.3 * clamp((Math.abs(du) - 0.5) / 0.5, 0, 1) - 0.12 * ruinStep(du, 3) * (Math.abs(du) > 0.3 ? 1 : 0), 0.4, 1) : wallH;
+  const sideTop = (t, x) => kind === "cave" ? wallH * (0.92 - 0.1 * t) + 0.05 * wallH * (pxNoise(x * 0.07, seed + 2) - 0.5) + 3 * pxNoise(x * 0.4, seed) - 1
+    : kind === "ruin" ? wallH * clamp(0.66 - 0.32 * t - 0.2 * ruinStep(t * 3, 5), 0.18, 1) : wallH;
+  const tone = (ramp, v, x, y) => isoTone(ramp, v, x, y);
+
+  // ---- the floor: X across it from the left wall and Z back to front, both in back-wall pixels, so stones and boards keep their
+  //      size; light pools under the window and it's dark where the floor meets a wall, deepest in the back corners
+  const floorUV = (x, y) => { const hw = half(y), X = (x - cx + hw) / hw * hb, Z = depthAt(y); return [X, Z]; };
+  const lightAt = (X, Z) => Math.exp(-(((X - hb) / (hb * 0.62)) ** 2) - (((Z / depth) - 0.36) / 0.55) ** 2);
+  const aoAt = (X, Z) => indoor ? Math.min(1, Math.exp(-Z / (4 * S)) + Math.exp(-X / (4 * S)) + Math.exp(-(2 * hb - X) / (4 * S)) + 0.6 * Math.exp(-(Z + Math.min(X, 2 * hb - X)) / (10 * S))) : 0;
+  for (let y = back; y <= front; y++) {
+    const hw = half(y);
+    for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
+      const [X, Z] = floorUV(x + 0.5, y);
+      if (X < 0 || X > 2 * hb) continue;
+      const lk = lightAt(X, Z), ao = aoAt(X, Z);
+      // the boards run toward you; flagstones lie in courses across the room; outdoors the ground is a clearing
+      let col;
+      if (kind === "timber") col = floorPx(X / MW, Z / MW, x, y, ao, lk);
+      else if (indoor) col = floorPx(Z / MW, X / MW, x, y, ao, lk);
+      else {
+        col = floorPx(0.98 * X / (2 * hb), 0.98 * Z / depth, x, y, 0, lk);
+        if (y >= front - 1 || Math.abs(x - cx) > hw - 1.5) col = ground[Math.min(ground.length - 1, 3)];   // a lit rim at the edges
+      }
+      put(x, y, col);
+    }
+  }
+  if (!indoor) {
+    // blades of grass in tufts and a few small flowers, as outdoors in the isometric room
+    for (let y = back + 2; y <= front - 2; y++) {
+      const hw = half(y);
+      for (let x = Math.floor(cx - hw + 2); x <= Math.ceil(cx + hw - 2); x++) {
+        const lush = pxFbm(x * 0.05 + seed, y * 0.1), hsh = pxHash(x * 7 + seed, y * 3);
+        if (hsh > 0.06 + 0.12 * lush) continue;
+        const [X, Z] = floorUV(x, y), lk = lightAt(X, Z), tall = Math.round((2 + pxHash(x, y + 1) * 2 + lush * 1.5) * sAt(tAt(y))), lean = pxHash(y, x) > 0.5 ? 1 : -1;
+        for (let k = 0; k < tall; k++) {
+          const col = k === tall - 1 ? ground[Math.min(ground.length - 1, lk > 0.45 ? 4 : 3)] : k === 0 ? ground[1] : ground[Math.min(ground.length - 1, 2 + (lk > 0.6 ? 1 : 0))];
+          put(x + (k === tall - 1 && tall > 2 ? lean : 0), y - k, col);
+        }
+        if (pxHash(x + 3, y) > 0.92) { put(x - 1, y - 1, ground[2]); put(x + 1, y - 1, ground[3]); }
+      }
+    }
+    for (let k = 0; k < 40; k++) {
+      const fy = Math.round(lerp(back + 4, front - 3, pxHash(seed + 2, k))), hw = half(fy) - 4, fx = Math.round(cx + (pxHash(k, seed + 1) * 2 - 1) * hw);
+      const col = pxHex(["#fff0b5", "#ffc4da", "#d2bfff", "#ffffff"][k % 4]);
+      put(fx, fy - 2, col); put(fx - 1, fy - 1, col); put(fx + 1, fy - 1, col); put(fx, fy - 1, pxHex("#eec26a")); put(fx, fy, ground[1]);
+    }
+  } else {
+    // the slab the room stands on: its front face under the floor's front edge, lit along the top, ink at the bottom
+    const slab = Math.max(4, Math.round(hb / 22));
+    for (let k = 0; k < slab; k++) for (let x = Math.floor(cx - hf); x <= Math.ceil(cx + hf); x++) {
+      const y = front + 1 + k, al = x - (cx - hf);
+      let v;
+      if (kind === "cave") v = rockPx(al, slab - k + 400, 1, x, y) - 0.16;
+      else {
+        const rh = Math.max(3, Math.round(slab / 2)), row = Math.floor(k / rh), L = Math.round(12 * S), a = al + row * L * 0.5, fa = a % L;
+        v = k % rh === 0 || fa < 1 ? 0.08 : 0.42 + 0.15 * (pxHash(Math.floor(a / L), row) - 0.5) + (fa > L - 2 ? -0.08 : fa < 2 ? 0.08 : 0);
+      }
+      put(x, y, k === slab - 1 ? ink : k === 0 ? tone(kind === "cave" ? wallC : wallC.length > 5 ? wallC : ruinStone, 0.72, x, y) : tone(kind === "timber" ? ruinStone : wallC, v, x, y));
+    }
+  }
 
   if (indoor) {
-    // side walls first: they lean out from the back corners to the front, a little darker
-    for (const side of [-1, 1]) for (let y = top - 8; y <= front; y++) {
-      const inner = cx + side * (y < back ? hb : half(y)), outer = cx + side * (hf + 2);
-      const lo = Math.min(inner, outer), hi = Math.max(inner, outer);
-      const ceil = top - 8 + (Math.abs(inner - cx) - hb) * 0.6;
-      if (y < ceil) continue;
-      for (let x = Math.floor(lo); x <= Math.ceil(hi); x++) {
-        const fade = Math.abs(x - inner) / Math.max(1, hi - lo);
-        if (PX_BAYER[(y & 3) * 4 + (x & 3)] < fade - 0.45) continue;
-        put(x, y, pxPick(wallR, 0.06 + 0.16 * pxFbm(x * 0.11 + seed, y * 0.11) - fade * 0.12, x, y));
+    // the side walls: each column is one depth t along the wall; the wall rises from the floor's edge there, as tall as the back
+    // wall but nearer, so larger. The left one catches the light, the right one is in shade; their open ends face you
+    const along = (hf - hb) * 1.8;
+    for (let x = Math.floor(cx - hf); x <= Math.ceil(cx + hf); x++) {
+      const dx = Math.abs(x + 0.5 - cx), side = Math.sign(x + 0.5 - cx);
+      if (dx < hb) continue;
+      const t = clamp((dx - hb) / (hf - hb), 0, 1), s = sAt(t), yF = lerp(back, front, t), zt = sideTop(t, x), sl = side < 0 ? 1 : -1, al = t * along;
+      for (let y = Math.floor(yF - zt * s); y <= yF; y++) {
+        const z = (yF - y) / s;
+        if (z < 0) continue;
+        const m = wallPx(al, z, sl, x, y, zt);
+        if (m.col) { put(x, y, m.col); continue; }
+        let v = m.val;
+        if (al < 8 * S) v -= 0.12 * (1 - al / (8 * S));   // the corner's own shadow
+        if (Math.abs(Math.abs(x - cx) - hf) < 1) v = zt - z < 2 ? 0.5 : 0.1;   // the open end
+        put(x, y, tone(m.ramp, v, x, y));
       }
     }
-    // the back wall
-    for (let y = top - 6; y < back; y++) for (let x = Math.floor(cx - hb); x <= Math.ceil(cx + hb); x++) {
-      const du = (x - cx) / hb, yt = kind === "cave" ? top + du * du * (back - top) * 0.18 + 3 * pxNoise(x * 0.14, seed) - 2 : top;
-      if (y < yt) continue;
-      let v;
-      if (kind === "cave") {
-        v = 0.22 + 0.26 * pxFbm(x * 0.08 + seed, y * 0.08) - 0.18 * (1 - (y - top) / (back - top)) - 0.14 * du * du;
-        if (Math.abs(pxNoise(x * 0.18 + seed, y * 0.18) - 0.5) < 0.025) v -= 0.25; // cracks in the rock
-        if (y - yt < 2) v -= 0.2;
-      } else {
-        // dressed stone: rows of bricks, each a slightly different shade
-        const row = Math.floor((y - top) / 4), bx = Math.floor((x - cx + 400 + (row % 2) * 4) / 8);
-        v = 0.32 + 0.16 * pxHash(bx, row + seed) - 0.12 * du * du;
-        if ((y - top) % 4 === 0 || (x - cx + 400 + (row % 2) * 4) % 8 === 0) v = 0.12;
-        if (y - top < 3) v = 0.62; // a lighter cornice along the top
+    // the back wall, lit a little round the window
+    for (let x = Math.floor(cx - hb); x <= Math.ceil(cx + hb); x++) {
+      const du = (x - cx) / hb, zt = backTop(du, x), al = cx + hb - x;
+      for (let y = Math.floor(back - zt); y < back; y++) {
+        const z = back - y, m = wallPx(al, z, 1, x, y, zt);
+        if (m.col) { put(x, y, m.col); continue; }
+        let v = m.val - 0.06 + 0.12 * Math.exp(-((Math.hypot(x - winX, (z - winZ) * 0.8) / (winR * 2.2)) ** 2));
+        const dc = Math.min(x - (cx - hb), cx + hb - x);
+        if (dc < 10 * S) v -= 0.14 * (1 - dc / (10 * S));   // the corners' shadows
+        if (kind !== "cave" && dc < 1) v = 0.05;
+        put(x, y, tone(m.ramp, v, x, y));
       }
-      v += 0.22 * Math.exp(-((Math.hypot(x - win.x, y - win.y) / (win.r * 2.4)) ** 2)); // light around the window
-      if (back - y < 3) v -= 0.25; // shadow where wall meets floor
-      if (Math.abs(du) > 0.985) v = 0.02; // the corner edges
-      put(x, y, pxPick(wallR, v, x, y));
+      // a cave's rock overhangs: stalactites drip from its ragged top
+      if (kind === "cave" && pxHash(x, seed + 5) > 0.82) {
+        const len = 2 + Math.round(pxHash(x + 3, seed) * 5 * S);
+        for (let k = 0; k < len; k++) put(x, back - zt + 2 + k, pxPick(wallC, 0.62 - k * 0.07, x, k));
+      }
     }
-    if (kind === "cave") {
-      // crystal clusters growing in the corners where the wall meets the floor
-      for (const side of [-1, 1]) for (let k = 0; k < 6; k++) {
-        const bx = cx + side * (hb - 2 - k * 2.6 - pxHash(k, seed) * 2), hgt = 5 + Math.round(pxHash(k + 9, seed) * 9) - k, ww = 1.6 + pxHash(k, 3) * 1.2;
-        for (let yy = 0; yy < hgt; yy++) {
-          const hw = ww * (1 - yy / hgt), lean = side * yy * 0.18;
-          for (let xx = -Math.ceil(hw); xx <= Math.ceil(hw); xx++) put(bx + xx - lean, back - yy, yy === hgt - 1 ? crys[4] : xx < 0 ? crys[3] : crys[1]);
+    const sky = (night ? night.sky : ["#0d0a2a", "#160c33", "#2d2468", "#463592"]).map(pxHex), white = pxHex("#ffffff"), moon = pxHex("#fff8d6");
+    if (kind === "hall") {
+      // the Gothic window, face on: a pointed arch cut deep and splayed, both its sides showing, a broad stone seat, lancets
+      // with trefoil heads under lozenges, and the night behind; an iron lantern on a bracket either side
+      const { rise, arch, zb, seatUp, zA, wi, wo, zs, zg, lav, vio, glassAt, skyV, isGlass } = gothicWindow(wallH, Math.max(hb * 1.45, winR * 5.6), S, seed);
+      const xc = Math.round(winX), sp = wo - wi;
+      const openF = (a, z, t) => arch(a + 0.5, z, wo - sp * t, zb + seatUp * t, zs);
+      for (let x = xc - wo - 9; x <= xc + wo + 9; x++) for (let y = back - zA - 10; y <= back - zb + 1; y++) {
+        const a = x - xc, z = back - y, ac = a + 0.5;
+        if (openF(a, z, 0)) {
+          if (openF(a, z, 1)) {
+            const gk = glassAt(a, z);
+            if (gk > 0) { put(x, y, isoTone(vio, skyV(a, z, x, y, gk), x, y)); continue; }
+            let v = 0.32;
+            if (gk === -1 && !arch(ac, z, wi - 1, zg + 1, zs)) v = 0.42;
+            else if (isGlass(a - 1, z)) v = 0.58; else if (isGlass(a, z + 1)) v = 0.55; else if (isGlass(a + 1, z)) v = 0.18; else if (isGlass(a, z - 1)) v = 0.22;
+            put(x, y, tone(wallC, v, x, y)); continue;
+          }
+          // the splay: how far in this pixel is, and which face it's on (the seat below, the near sides, the soffit up top)
+          let t = 0; while (t < 1 && openF(a, z, t + 1 / 24)) t += 1 / 24;
+          const tn = t + 1 / 24;
+          let v;
+          if (z < zb + seatUp * tn) v = 0.74 - 0.12 * t;
+          else if (z > zs && Math.abs(a) < (wo - sp * tn) * 0.5) v = 0.2 - 0.06 * t;
+          else if (a > 0) v = (z < zs ? 0.3 : 0.24) - 0.08 * t - (((z % 11) + 11) % 11 < 1 ? 0.18 : 0);
+          else v = (z < zs ? 0.62 : 0.5) - (((z % 11) + 11) % 11 < 1 ? 0.2 : 0);
+          if (t < 1 / 24) v += a > 0 ? 0.14 : 0.2;
+          if (t > 0.9 && z >= zb + seatUp) { put(x, y, tone(wallC, 0.06, x, y)); continue; }
+          const col = tone(wallC, v, x, y);
+          put(x, y, a > 0 && z >= zb + seatUp * tn ? col : mixHex(col, lav, t > 0.5 ? 0.22 : 0.1));
+          continue;
+        }
+        // round the opening: a chamfered surround of voussoirs, and a hood mould over the arch
+        if (z < zb) continue;
+        const ring = r => arch(ac, z, wo + r, zb, zs);
+        if (ring(1)) put(x, y, tone(wallC, ac < 0 || z > zs + rise(wo) * 0.6 ? 0.84 : 0.46, x, y));
+        else if (ring(4)) {
+          const jt = z < zs ? ((z - zb) % 9 === 0) : Math.abs(((Math.atan2(z - zs, Math.abs(ac) + wo) / 0.13) % 1) - 0.5) > 0.42;
+          put(x, y, tone(wallC, jt ? 0.1 : ac < 0 ? 0.62 : 0.5, x, y));
+        } else if (ring(5) && z > zs - 3) put(x, y, tone(wallC, 0.08, x, y));
+        else if (ring(7) && z > zs - 3) put(x, y, tone(wallC, ring(6) ? 0.66 : 0.86, x, y));
+      }
+      // the seat sticks out under the window: its top lit, its front in half light, a shadow on the wall beneath
+      const E = Math.max(2, Math.round(3 * S)), sh = Math.max(2, Math.round(4 * S)), y0 = back - zb;
+      for (let x = xc - wo - 4; x <= xc + wo + 4; x++) {
+        for (let e = 0; e < E; e++) put(x, y0 - e, tone(wallC, e === E - 1 ? 0.9 : 0.74, x, y0 - e));
+        for (let k = 1; k <= sh; k++) put(x, y0 + k, tone(wallC, k === sh ? 0.08 : x < xc - wo - 2 ? 0.62 : 0.48, x, y0 + k));
+        for (let k = 1; k <= 2; k++) if (y0 + sh + k < back) put(x, y0 + sh + k, tone(wallC, 0.12, x, y0 + sh + k));
+      }
+      // two iron lanterns on brackets, each with a soft lavender glow on the stone round it
+      const ironC = { k: IC.m4, m: IC.m3, h: IC.m2, W: IC.white, A: IC.l0, B: IC.l1 };
+      for (const side of [-1, 1]) {
+        const lw = LANTERN.reduce((m, r) => Math.max(m, r.length), 0), xw = side < 0 ? xc - wo - 7 - lw : xc + wo + 7, yw = back - (zs + Math.round(4 * S));
+        const lx = xw + (side < 0 ? lw - 10 : 9), gy = yw + 13, R = Math.round(13 * S);
+        for (let y = gy - R; y <= gy + R; y++) for (let x = lx - R; x <= lx + R; x++) {
+          const dd = Math.hypot(x - lx, (y - gy) * 1.15) / R + (bay(y, x) - 0.5) * 0.16;
+          if (dd >= 1 || y >= back || !has(x, y)) continue;
+          put(x, y, mixHex(get(x, y), lav, dd < 0.4 ? 0.34 : 0.17));
+        }
+        LANTERN.forEach((row, r) => [...row].forEach((ch, k) => { if (ironC[ch]) put(side < 0 ? xw + lw - 1 - k : xw + k, yw + r - 1, ironC[ch]); }));
+      }
+      // the moonlight it lets in, laid out across the flagstones toward you, each light long and pale, tracery shadows between
+      for (let y = back + 1; y <= front; y++) {
+        const hw = half(y), Z = depthAt(y), s = sAt(tAt(y)), gz = Math.round(zg + Z * 0.95 - 2);
+        if (gz > zA) break;
+        for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
+          const ga = Math.round((x - xc) / s);
+          if (!isGlass(ga, gz)) continue;
+          const f = 1 - Z / (depth * 0.8), edge = !isGlass(ga + 1, gz) || !isGlass(ga - 1, gz) || !isGlass(ga, gz + 2) || !isGlass(ga, gz - 2);
+          const k = f + (bay(y, x) - 0.5) * 0.2 > 0.55 ? 0.5 : 0.34;
+          put(x, y, mixHex(get(x, y), lav, edge ? k * 0.6 : k));
         }
       }
     } else {
-      // a tall arched window with a stone frame and two panes of pink dusk
-      const sky = night.sky.map(pxHex), ww = Math.max(5, Math.round(win.r * 0.62)), wb = Math.round(win.y + win.r * 1.1), wt = Math.round(win.y - win.r * 1.1);
-      for (let y = wt - ww - 2; y <= wb + 2; y++) for (let x = Math.round(win.x - ww - 2); x <= Math.round(win.x + ww + 2); x++) {
-        const dx = Math.abs(x - win.x), arch = y < wt ? Math.hypot(dx, (wt - y) * 1.0) : dx;
-        if (arch > ww + 2) continue;
-        if (arch > ww || y > wb) { put(x, y, wallR[3]); continue; }
-        if (dx < 1 || (y - wt) % 9 === 0 && y > wt) { put(x, y, ink); continue; }
-        put(x, y, pxPick(sky, 0.15 + 0.85 * (y - (wt - ww)) / (wb - wt + ww), x, y));
-        if (pxHash(x, y + seed) > 0.97 && y < wt + 4) put(x, y, pxHex("#fff0b5"));
-      }
-    }
-  }
-
-  // the floor
-  const ground = night ? night.ground.map(pxHex) : wallR;
-  for (let y = back; y <= front + 6; y++) {
-    const hw = half(Math.min(y, front)), dv = (y - back) / (front - back);
-    for (let x = Math.floor(cx - hw - 3); x <= Math.ceil(cx + hw + 3); x++) {
-      const du = (x - cx) / hw;
-      let v, col = null;
-      if (indoor) {
-        if (Math.abs(du) > 1) continue;
-        if (y > front) { if (y - front > 4) continue; put(x, y, pxPick(wallR, 0.18 - (y - front) * 0.04, x, y)); continue; } // the front lip of the ledge
-        v = 0.56 + 0.14 * pxFbm(x * 0.1 + seed, y * 0.2) + 0.3 * lightAt(x, y) - 0.22 * du * du;
-        if (y - back < 1) v = 0.95; // a lit edge where the floor meets the wall
-        else if (y - back < 3) v -= 0.3; // and the shadow just in front of it
-        if (Math.abs(du) > 0.975) v -= 0.35; // the floor's side edges
+      // a cave's opening hacked through the rock (ragged, no frame, a short tunnel to the sky); the timber hall's square-headed
+      // under an oak lintel, glazed in leaded diamonds; the ruins' a broken pointed arch, empty, the night itself behind it
+      const hwW = kind === "timber" ? Math.round(hb * 0.2 - Math.max(2, Math.round(5 * S)) - 2) : Math.round(winR * (kind === "cave" ? 0.78 : 0.7));
+      const hhW = Math.round(Math.min(wallH * 0.3, hwW * (kind === "timber" ? 1.35 : 1.6))), zc = Math.round(clamp(winZ, hhW + wallH * 0.18, wallH * 0.86 - hhW));
+      // how far out a point is in a pointed opening (1 on its edge): two arcs meeting at the top, a round foot
+      const pointed = (lx, ly) => { const a = Math.abs(lx); return ly > 0 ? Math.hypot(a + 0.6, ly * 1.48) / 1.6 : Math.hypot(a, ly); };
+      // a built window's arch: straight sides up to the springing, then a pointed head
+      const archAt = (lx, ly) => { const a = Math.abs(lx); return ly < 0.3 ? a : Math.hypot(a + 0.6, (ly - 0.3) * 2.12) / 1.6; };
+      const glazed = kind === "timber", sillC = glazed ? [oak[1], oak[4]] : [wallC[1], wallC[Math.min(4, wallC.length - 1)]];
+      const mx = winX + hwW * 0.38, mz = zc + hhW * 0.42, mr = Math.max(2.5, hwW * 0.17);
+      for (let x = winX - hwW - 4; x <= winX + hwW + 4; x++) for (let y = back - zc - hhW - 6; y <= back - zc + hhW + 6; y++) {
+        const lx = (x + 0.5 - winX) / hwW, ly = (back - y - zc) / hhW;
+        let col = null;
         if (kind === "cave") {
-          // big flat slabs: seams across and seams running toward the back
-          if ([0.34, 0.68].some(r => Math.abs(dv - r) * (front - back) < 0.5) && pxHash(x >> 2, y) > 0.15) v -= 0.22;
-          const col6 = (du + 1) * 3; if (Math.abs(col6 - Math.round(col6)) * hw / 3 < 0.5 && pxHash(x, y >> 2) > 0.3) v -= 0.18;
-          if (pxHash(x, y + seed) > 0.9975) col = crys[2];
+          const rough = 0.14 * pxNoise(x * 0.3 + seed, y * 0.3) + 0.08 * pxNoise(x * 0.9, y * 0.9 + seed), r = pointed(lx, ly);
+          if (r > 1.08 + rough) continue;
+          if (r > 0.92 + rough) { put(x, y, wallC[lx < 0 && ly < 0.2 ? 4 : lx > 0.3 || ly > 0.5 ? 0 : 1]); continue; }
+          // the rock is thick: you look up a short tunnel to the sky, its sides lit from inside on the left
+          const ri = pointed(lx * 1.3, (ly - 0.12) * 1.3);
+          if (ri > 1 + rough * 0.6) { const k = clamp((r - 0.35) / 0.55, 0, 1); put(x, y, tone(wallC, ly < -0.3 ? 0.55 - 0.2 * k : lx < 0 ? 0.2 + 0.45 * k : 0.08 + 0.12 * k, x, y)); continue; }
         } else {
-          const ti = Math.floor((du + 1) * 4), tj = Math.floor(dv * 5);
-          v += (ti + tj) % 2 ? 0.1 : -0.06;
-          if (Math.abs((du + 1) * 4 - Math.round((du + 1) * 4)) * hw / 4 < 0.5 || Math.abs(dv * 5 - Math.round(dv * 5)) * (front - back) / 5 < 0.5) v -= 0.18;
+          // the sill: a ledge under the window, a little wider than it, its top lit, its front in shade, a shadow under it
+          if (ly < -1 && ly >= -1 - 4 / hhW && Math.abs(lx) < 1.18) { put(x, y, ly > -1 - 2 / hhW ? sillC[1] : sillC[0]); continue; }
+          if (ly < -1 - 4 / hhW && ly >= -1 - 6 / hhW && Math.abs(lx) < 1.14) { put(x, y, tone(glazed ? daub : wallC, 0.15, x, y)); continue; }
+          if (ly < -1) continue;
+          if (glazed) {
+            // the oak lintel over the opening
+            if (ly > 1 && ly <= 1 + 5 / hhW && Math.abs(lx) < 1.22) { put(x, y, oak[ly > 1 + 4 / hhW ? 5 : ly < 1 + 1.5 / hhW ? 1 : 3]); continue; }
+            if (Math.abs(lx) > 1 || ly > 1) continue;
+          } else {
+            const r = archAt(lx, ly);
+            if (r > 1.16 || ly > 1.2) continue;
+            if (r > 1) { put(x, y, tone(wallC, lx < 0 ? 0.84 : 0.3, x, y)); continue; }   // the arris round the arch
+          }
+          // the reveal: the wall's thickness, its sides and the sill's top
+          const inner = glazed ? Math.abs(lx) > 0.9 || ly < -0.9 : archAt(lx * 1.12, ly - 0.12) > 1 || ly < -0.88;
+          if (inner) col = ly < -0.85 ? (glazed ? daub[4] : wallC[3]) : glazed ? (lx > 0 ? daub[1] : daub[4]) : lx > 0 ? wallC[1] : wallC[4];
+          else if (glazed && (Math.abs(lx) > 0.8 || ly > 0.88 || ly < -0.78)) col = oak[lx > 0 ? 2 : 4];   // the frame
+          else if (glazed) {
+            // lead cames in diamonds
+            const P = 8 * S, da = x - winX, db = back - y, m1 = ((db + da * 1.4) / P % 1 + 1) % 1, m2 = ((db - da * 1.4) / P % 1 + 1) % 1;
+            if (m1 * P < 1.3 || m2 * P < 1.3) col = ruinStone[1];
+            else if (Math.abs(lx) < 0.05) col = oak[2];
+          } else if (kind === "ruin") {
+            // nothing left in it: the night outside shows through
+            const i = (y * w + x) * 4; if (x >= 0 && y >= 0 && x < w && y < h) d[i + 3] = 0;
+            continue;
+          }
         }
-        if (dv > 0.85) v -= (dv - 0.85) * 1.6;
-        put(x, y, col || pxPick(wallR, v, x, y));
-      } else {
-        // a clearing: the grass or moss thins out at a ragged edge
-        if (y > front) continue;
-        const edge = 1 - 0.1 * pxNoise(y * 0.2 + seed, 1) - 0.04 * pxNoise(x * 0.3, 5);
-        const dist = Math.max(Math.abs(du) / edge, (dv - 0.88) / 0.12);
-        if (dist > 1) continue;
-        if (dist > 0.9 && PX_BAYER[(y & 3) * 4 + (x & 3)] < (dist - 0.9) * 10) continue;
-        v = 0.5 + 0.25 * pxFbm(x * 0.14 + seed, y * 0.25) + 0.2 * lightAt(x, y) - 0.3 * du * du - 0.35 * Math.max(0, dist - 0.7);
-        if (pxHash(x, y + seed) > 0.965) v += 0.3; // tufts
-        if (kind === "wood") {
-          if (pxHash(x + 7, y + seed) > 0.988) col = pxHex(pxHash(x, y) > 0.5 ? "#c98f3a" : "#946027"); // fallen leaves
-          else if (pxHash(x + 3, y + seed * 2) > 0.995) col = pxHex("#8ff0d8"); // a glowing speck
+        if (!col) {
+          // the night outside: far hills, stars, the moon
+          col = pxPick(sky, 0.2 + (ly + 1) * 0.42, x, y);
+          if (ly < -0.62 + 0.08 * Math.sin(lx * 4 + seed) + 0.04 * Math.sin(lx * 11)) col = pxPick([sky[0], sky[1]], 0.35, x, y);
+          else {
+            const st = pxHash(x, y + seed);
+            if (st > 0.985) col = white; else if (st > 0.96) col = sky[3];
+            const md = Math.hypot(x - mx, back - y - mz) / mr;
+            if (md < 1) col = md > 0.7 && pxHash(x, y) > 0.6 ? sky[3] : moon; else if (md < 1.5 && bay(y, x) < 0.4) col = sky[3];
+          }
+          // the glass catches the room's light a little
+          if (glazed && bay(y, x) < 0.12) col = oak[4];
         }
-        put(x, y, col || pxPick(ground, v, x, y));
+        put(x, y, col);
+      }
+      // the moonlight it lets in: a pale, sparse patch on the floor below it, growing toward you
+      for (let y = back + 1; y <= front; y++) {
+        const Z = depthAt(y), k = Z / depth;
+        if (k > 0.55) break;
+        const s = sAt(tAt(y)), hwP = hwW * s * (0.8 + k * 0.8);
+        for (let x = Math.floor(winX - hwP); x <= Math.ceil(winX + hwP); x++)
+          if (bay(y, x) < 0.2 * (1 - k / 0.55)) put(x, y, glazed ? oak[5] : sky[3]);
       }
     }
-  }
-  if (kind === "yard") {
-    // stepping stones winding from the front to the back
-    for (let i = 0; i < 5; i++) {
-      const v = 0.12 + i * 0.19, y = lerp(back, front, v), x = cx + Math.sin(i * 1.3 + 0.6) * half(y) * 0.28;
-      const rx = 2.6 + v * 2.2, ry = 1.2 + v;
-      for (let yy = -Math.ceil(ry); yy <= Math.ceil(ry); yy++) for (let xx = -Math.ceil(rx); xx <= Math.ceil(rx); xx++) {
-        const e = (xx / rx) ** 2 + (yy / ry) ** 2;
-        if (e <= 1) put(x + xx, y + yy, e > 0.7 ? pxHex("#22143a") : yy < 0 ? pxHex("#8a8494") : pxHex("#5d5666"));
+    if (kind === "cave") {
+      // crystals growing at the foot of the walls, in the back corners and by the front ones: facets lit on the left, a pale tip
+      const yF1 = lerp(back, front, 0.8);
+      for (const [bx, by, n, k0] of [[cx - hb + 4 * S, back, 5, 0], [cx + hb - 4 * S, back, 4, 7], [cx - half(yF1) + 3 * S, yF1, 3, 13], [cx + half(yF1) - 3 * S, yF1, 3, 19]]) {
+        const sc = sAt(tAt(by)) * S;
+        for (let k = 0; k < n; k++) {
+          const ox = bx + (k - (n - 1) / 2) * 2.6 * sc * (bx < cx ? 1 : -1), hgt = Math.round((5 + pxHash(k + k0, seed) * 10 - k) * sc), ww = (1.4 + pxHash(k + k0, 3)) * sc;
+          for (let yy = 0; yy < hgt; yy++) { const hw2 = ww * (1 - yy / hgt), lean = (bx < cx ? 1 : -1) * yy * 0.12; for (let xx = -Math.ceil(hw2); xx <= Math.ceil(hw2); xx++) put(ox + xx + lean, by + 1 - yy, yy >= hgt - 1 ? crys[4] : xx < 0 ? crys[3] : xx === 0 ? crys[2] : crys[1]); }
+        }
       }
     }
-    // a low wall of old stones along the back of the clearing
-    for (let x = Math.floor(cx - hb - 2); x <= Math.ceil(cx + hb + 2); x++) {
-      const st = Math.floor((x - cx + 300) / 6), sh = 4 + Math.round(pxHash(st, seed) * 2);
-      for (let yy = 0; yy < sh; yy++) {
-        const edge = (x - cx + 300) % 6 === 0 || yy === sh - 1;
-        put(x, back - yy, edge ? ink : pxPick([pxHex("#3a3440"), pxHex("#5d5666"), pxHex("#8a8494")], 0.3 + 0.4 * (yy / sh) + 0.2 * pxHash(st, 2), x, back - yy));
+    if (kind === "ruin") {
+      // tufts of grass along the foot of the back wall, and a fallen block or two
+      for (let k = 0; k < 26; k++) {
+        const fx = Math.round(cx + (pxHash(k, seed) * 2 - 1) * (hb - 3));
+        for (let j = 0; j < 3; j++) put(fx + j - 1, back - (j === 1 ? 2 : 1), moss[j === 1 ? 2 : 1]);
       }
-      if (pxHash(x, seed) > 0.8) put(x, back - sh, pxHex("#2f7d4a")); // moss on top
+      for (const [du, t] of [[-0.82, 0.18], [0.78, 0.86]]) {
+        const by = Math.round(lerp(back, front, t)), bx = Math.round(cx + du * half(by)), r = Math.round(5 * sAt(t) * S);
+        for (let yy = 0; yy < r; yy++) for (let xx = -r - 1; xx <= r + 1; xx++) put(bx + xx, by - yy, pxPick(ruinStone, yy === r - 1 ? 0.8 : xx < 0 ? 0.55 : 0.35, xx, yy));
+        for (let xx = -r - 1; xx <= r + 2; xx++) put(bx + xx, by + 1, ruinStone[0]);
+      }
     }
-  }
-  if (kind === "wood") {
-    // a fallen mossy log along the back
-    for (let x = Math.floor(cx - hb - 3); x <= Math.ceil(cx + hb + 3); x++) for (let yy = 0; yy < 7; yy++) {
-      const end = Math.abs(x - cx) > hb + 1;
-      put(x, back - yy, yy === 6 ? ink : yy >= 4 ? pxPick([pxHex("#1e5233"), pxHex("#2f7d4a"), pxHex("#57ad6a")], 0.4 + 0.5 * pxNoise(x * 0.3, seed), x, yy)
-        : end ? pxHex(yy % 2 ? "#c98f3a" : "#946027") : pxPick([pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")], 0.3 + 0.3 * (yy / 4) + (x % 5 === 0 ? -0.2 : 0), x, yy));
+  } else {
+    // outdoors the back and both sides of the clearing are fenced: a low dry-stone wall, or woven wattle on stakes
+    const fenceH = Math.round((kind === "yard" ? 8 : 11) * S), st = 12 * S, along = (hf - hb) * 2.6;
+    const fence = (al, z, sl, x, y, sc) => {
+      if (kind === "yard") {
+        const r = Math.floor(z / 3), fz = Math.floor(z) % 3, L = 6 + Math.round(pxHash(r, 5) * 3), a = al + r * 3.5, fa = ((a % L) + L) % L, si = Math.floor(a / L);
+        let v = (sl > 0 ? 0.55 : 0.4) + 0.2 * (pxHash(si, r + seed) - 0.5);
+        if (fz === 0 || fa < 1) v = 0.05; else if (fz === 2 || fa > L - 1.5) v += 0.2;
+        return z >= fenceH - 1 ? ruinStone[3] : isoTone(ruinStone.slice(0, 4), v, x, y);
+      }
+      const sa = ((al % st) + st) % st;
+      if (sa < 1.6 * S) return z >= fenceH + 1 ? oak[4] : oak[sa < 0.8 * S ? 3 : 1];
+      if (z >= fenceH) return null;
+      const row = Math.floor(z / 2), over = (Math.floor(al / st) + row) % 2, mid = Math.abs(sa - st / 2) / (st / 2);
+      let v = (over ? 0.62 : 0.42) - (over ? 0 : mid * 0.2) + (Math.floor(z) % 2 ? 0.12 : -0.1);
+      if (pxHash(Math.floor(al), row + seed) > 0.9) v -= 0.15;
+      return z >= fenceH - 1 ? oak[4] : isoTone(oak, v + (sl < 0 ? -0.08 : 0), x, y);
+    };
+    for (const side of [-1, 1]) for (let x = Math.floor(cx - hf); x <= Math.ceil(cx + hf); x++) {
+      const dx = Math.abs(x + 0.5 - cx);
+      if (dx < hb || Math.sign(x + 0.5 - cx) !== side) continue;
+      const t = clamp((dx - hb) / (hf - hb), 0, 1), s = sAt(t), yF = lerp(back, front, t), al = t * along;
+      for (let z = 0; z < (fenceH + 2) * s; z++) put(x, Math.round(yF - z), fence(al, z / s, side < 0 ? 1 : -1, x, Math.round(yF - z), s));
+    }
+    for (let x = Math.floor(cx - hb); x <= Math.ceil(cx + hb); x++) {
+      for (let z = 0; z < fenceH + 2; z++) put(x, back - z, fence(x - (cx - hb), z, 1, x, back - z, 1));
+      put(x, back + 1, ground[1]);
     }
   }
 
   // what holds things up: a hook for the swing and pegs for the lights on a wall; outdoors, wooden posts
-  const wood = [pxHex("#3b2414"), pxHex("#5e3a1c"), pxHex("#946027")];
   const post = (x, y0, y1) => { for (let y = Math.round(y1); y <= Math.round(y0); y++) { put(x - 1, y, wood[0]); put(x, y, wood[2]); put(x + 1, y, wood[1]); } };
   const sx = q(wallAt(0.9, 0)[0]), lx0 = q(N.cx - N.hb + N.base * 0.3), lx1 = q(N.cx + N.hb - N.base * 0.3);
+  const iron = [IC.m4, IC.m2, IC.m1];
   if (hasDecor("swing")) {
-    if (indoor) for (const dx of [-1, 0, 1]) { put(sx + dx, top + 1, pxHex("#8a8494")); put(sx, top + 2, pxHex("#e4dfe8")); }
+    if (indoor) { for (const dx of [-1, 0, 1]) put(sx + dx, top + 1, iron[1]); put(sx, top + 2, iron[2]); put(sx, top + 3, iron[0]); }
     else { const px = sx + q(N.base * 0.55); post(px, back - 1, top); for (let x = Math.round(sx - q(N.base * 0.4)); x <= px; x++) { put(x, top, wood[2]); put(x, top + 1, wood[0]); } }
   }
   if (hasDecor("lights")) {
-    if (indoor) for (const x of [lx0, lx1]) { put(x, top + 2, pxHex("#8a8494")); put(x, top + 3, pxHex("#5d5666")); }
+    if (indoor) for (const x of [lx0, lx1]) { put(x, top + 2, iron[2]); put(x, top + 3, iron[1]); put(x + 1, top + 3, iron[0]); }
     else for (const x of [lx0, lx1]) post(x, back - 1, top + 2);
   }
   if (hasDecor("shelf") && !indoor) {
