@@ -772,10 +772,37 @@ const HEROES = {
 const heroHere = () => HEROES[save.rooms[save.room]?.kind] || null;
 const heroSpot = () => { const h = heroHere(); return isoAt(h.at[0], h.at[1]); };
 const heroImgs = {};
+/**
+ * A hand-pixelled keeper about `tall` room pixels high: drawn from the fine (twice-size) version and shrunk on the room's grid,
+ * each room pixel taking the colour that covers most of it, with the ink lines winning ties so the outline holds.
+ */
+const keeperSizedCache = {};
+function keeperSized(id, blink, f, S, tall) {
+  const fine = KEEPER_PIX[id] ? keeperCanvas(id, blink, 2, f) : null;
+  if (!fine || tall >= fine.height) return keeperCanvas(id, blink, S, f);
+  const key = `${id}|${blink ? 1 : 0}|${f}|${tall}`;
+  if (keeperSizedCache[key]) return keeperSizedCache[key];
+  const sw = fine.width, sh = fine.height, k = tall / sh, tw = Math.round(sw * k), d = fine.getContext("2d").getImageData(0, 0, sw, sh).data;
+  const c = document.createElement("canvas"); c.width = tw; c.height = tall; const g = c.getContext("2d"), im = g.createImageData(tw, tall);
+  for (let y = 0; y < tall; y++) for (let x = 0; x < tw; x++) {
+    const x0 = x / k, x1 = (x + 1) / k, y0 = y / k, y1 = (y + 1) / k, seen = new Map(); let solid = 0;
+    for (let sy = Math.floor(y0); sy < Math.ceil(y1); sy++) for (let sx = Math.floor(x0); sx < Math.ceil(x1); sx++) {
+      const a = (Math.min(sx + 1, x1) - Math.max(sx, x0)) * (Math.min(sy + 1, y1) - Math.max(sy, y0)), o = (sy * sw + sx) * 4;
+      if (a <= 0 || d[o + 3] < 128) continue;
+      const rgb = (d[o] << 16) | (d[o + 1] << 8) | d[o + 2], lum = d[o] + d[o + 1] + d[o + 2];
+      solid += a; seen.set(rgb, (seen.get(rgb) || 0) + a * (lum < 150 ? 1.6 : 1));
+    }
+    if (solid < 0.5 / k / k) continue;
+    const best = [...seen].sort((p, q) => q[1] - p[1])[0][0], o = (y * tw + x) * 4;
+    im.data[o] = best >> 16; im.data[o + 1] = (best >> 8) & 255; im.data[o + 2] = best & 255; im.data[o + 3] = 255;
+  }
+  g.putImageData(im, 0, 0);
+  return keeperSizedCache[key] = c;
+}
 function drawHero() {
   if (heroHere().none) return;
   // drawn on the room's own pixel grid: S of the room's pixels to each of the keeper's, as tall as about one and a half glowlings
-  const h = heroHere(), blink = game.time % 3700 < 140, S = Math.max(1, Math.round(N.base * 1.9 / PX / KH)), img = keeperCanvas(h.icon, blink, S, KEEPER_PIX[h.icon] ? Math.floor(game.time / 450) % KEEPER_PIX[h.icon].frames.length : 0);
+  const h = heroHere(), blink = game.time % 3700 < 140, S = Math.max(1, Math.round(N.base * 1.55 / PX / KH)), tall = Math.round(N.base * 1.55 / PX), pose = (b, f) => keeperSized(h.icon, b, f, S, tall), img = pose(blink, KEEPER_PIX[h.icon] ? Math.floor(game.time / 450) % KEEPER_PIX[h.icon].frames.length : 0);
   const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time, me = game.hero && game.hero.room === save.room ? game.hero : null;
   const since = me ? t - me.t : 1e9, jump = me && me.startle ? 0.45 : 0.18;
   const hop = since < 500 ? Math.sin(since / 500 * Math.PI) * s * jump : 0;
@@ -788,8 +815,8 @@ function drawHero() {
     // poked once too often: Tansy rolls into a ball of spines, Fennel pulls into his shell
     const wob = Math.sin(t * 0.03) * px, r = s * 0.36, shell = h.who === FENNEL;
     if (KEEPER_PIX[h.icon] && KEEPER_PIX[h.icon][shell ? "shell" : "curl"]) {
-      const pose = keeperCanvas(h.icon, false, S, shell ? "shell" : "curl");
-      ctx.drawImage(pose, Math.round((left + wob) / PX) * PX, Math.round((y - hgt) / PX) * PX, wid, hgt);
+      const ball = pose(false, shell ? "shell" : "curl");
+      ctx.drawImage(ball, Math.round((left + wob) / PX) * PX, Math.round((y - hgt) / PX) * PX, wid, hgt);
     } else {
     ctx.fillStyle = shell ? "#4a4020" : "#5e3a1c"; ctx.beginPath(); ctx.ellipse(x + wob, y - r * (shell ? 0.7 : 1), r * (shell ? 1.25 : 1), r * (shell ? 0.75 : 1), 0, 0, TAU); ctx.fill();
     ctx.fillStyle = shell ? "#6e6030" : "#946027";
@@ -803,7 +830,7 @@ function drawHero() {
     const back = turned && KEEPER_PIX[h.icon] && KEEPER_PIX[h.icon].turn, flip = turned && !back;
     const fright = me && me.startle && since < 900, jumpy = fright && KEEPER_PIX[h.icon] && KEEPER_PIX[h.icon].startle;
     if (flip) { ctx.save(); ctx.translate(left * 2 + wid, 0); ctx.scale(-1, 1); }
-    ctx.drawImage(jumpy ? keeperCanvas(h.icon, false, S, "startle") : back ? keeperCanvas(h.icon, false, S, "turn") : img, left, top, wid, hgt);
+    ctx.drawImage(jumpy ? pose(false, "startle") : back ? pose(false, "turn") : img, left, top, wid, hgt);
     if (flip) ctx.restore();
     if (fright && !jumpy) { ctx.fillStyle = "#ffe9a8"; ctx.font = `400 ${Math.round(s * 0.5)}px ${PIXEL_FONT}`; ctx.textAlign = "center"; ctx.fillText("!", x + s * 0.45, top - s * 0.05); }
   }
