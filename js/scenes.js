@@ -125,7 +125,7 @@ function keeperLevel() {
 const keeperTitle = l => tr(KEEPER_TITLES.filter(([at]) => l >= at).pop()[1]);
 const skill = id => (save.me && save.me.skill && save.me.skill[id]) || 0;
 /** Keeper XP for the things you do; each level brings a skill point. */
-const KEEPER_XP = { trips: 5, cracked: 12, harvested: 6, fed: 2, petted: 1, played: 4, taskDays: 15, wickBought: 3, rescued: 40 };
+const KEEPER_XP = { trips: 5, cracked: 12, harvested: 6, fed: 2, petted: 1, played: 4, taskDays: 15, wickBought: 3, rescued: 40, lamplit: 10 };
 function keeperXP(n) {
   if (!n || coopSession || game.coopTouched) return;
   const before = keeperLevel().l;
@@ -149,7 +149,7 @@ function openMe(first) {
     + `<b>${tr("Level {0}", k.l)} · ${keeperTitle(k.l)}</b><i class="aw-bar" style="--k:${k.xp / k.need}"><u>${tr("{0} of {1} XP", k.xp, k.need)}</u></i>`
     + `<p class="me-hint">${tr("You earn XP for everything you do in the game. Every new level gives you a skill point.")}${nextTitle ? " " + tr("Next title at level {0}: {1}.", nextTitle[0], tr(nextTitle[1])) : ""}</p>`
     + `<div class="me-more" data-more="lvl" hidden><p>${tr("Where XP comes from:")}</p><ul>${[
-      [tr("cracking an egg"), KEEPER_XP.cracked], [tr("freeing a spark from the Gloom"), KEEPER_XP.rescued], [tr("finishing all of a day's tasks"), KEEPER_XP.taskDays],
+      [tr("cracking an egg"), KEEPER_XP.cracked], [tr("freeing a spark from the Gloom"), KEEPER_XP.rescued], [tr("pushing the Gloom's shadows back"), KEEPER_XP.lamplit], [tr("finishing all of a day's tasks"), KEEPER_XP.taskDays],
       [tr("picking a harvest"), KEEPER_XP.harvested], [tr("playing a mini-game"), KEEPER_XP.played], [tr("buying from Wick"), KEEPER_XP.wickBought],
       [tr("giving a snack"), KEEPER_XP.fed], [tr("petting a glowling"), KEEPER_XP.petted], [tr("an award"), "20–250"]].map(([w, n]) => `<li><span>${w}</span><b>+${n}</b></li>`).join("")}</ul></div>`;
   $("meSkills").innerHTML = `<h3>${tr("Skills")}<button class="q" data-q="sk" aria-label="?">?</button></h3>`
@@ -218,6 +218,7 @@ const AWARDS = [
   { id: "harvest25", tier: "rare", name: "Harvest festival", how: "Pick 25 harvests", test: () => [cnt("harvested"), 25] },
   { id: "biteleaf", tier: "epic", name: "It bites", how: "Grow and pick a biteleaf", test: () => [cnt("biteleaf"), 1] },
   { id: "rescue1", tier: "rare", name: "First light", how: "Free a spark from the Gloom", test: () => [cnt("rescued"), 1] },
+  { id: "lamp5", tier: "rare", name: "Lamplighter", how: "Push the Gloom's shadows back with your light 5 times", test: () => [cnt("lamplit"), 5] },
   { id: "cracked250", tier: "epic", name: "Quarry lord", how: "Crack 250 eggs", test: () => [stat.cracked(), 250] },
   { id: "species20", tier: "epic", name: "Glowpedia scholar", how: "Meet 20 kinds of glowlings", test: () => [stat.species(), 20] },
   { id: "stars60", tier: "epic", name: "Constellation", how: "Earn 60 stars", test: () => [totalStars(), 60] },

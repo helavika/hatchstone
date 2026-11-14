@@ -10,7 +10,8 @@ let nestTick = 0, dustTick = 0;
 function update(dt) {
   game.time += dt * 1000;
   // the nest's dust clock, while you're home (a shared egg must leave everyone's progress as it was; time away catches up on return)
-  if (game.scene === "nest" && !coopSession && (dustTick += dt) > 4) { dustTick = 0; const d = gatherDust(); if (d) { persist(); dustLanded(d); } }
+  if (game.scene === "nest" && !coopSession && !gloomNow.on && (dustTick += dt) > 4) { dustTick = 0; const d = gatherDust(); if (d) { persist(); dustLanded(d); } }
+  updateGloom(dt);
   for (const m of motes) { m.y -= m.vy * dt; if (m.y < -4) { m.y = H + 4; m.x = rand(0, W); } }
   updateEventMotes(dt);
 
