@@ -115,11 +115,13 @@ function freeFloorPoint() {
 }
 
 /** Keep a glowling on the floor and out of the furniture (the one riding the swing or asleep on the bed is placed by hand). */
-function keepInRoom(a) {
+function keepInRoom(a, dt) {
   if (N.iso) {
-    const m = isoMargin(0.42); let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+    const m = isoMargin(0.42), x0 = a.x, y0 = a.y; let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
     if (a.state !== "visit" || (a.decor !== "swing" && a.decor !== "mushrooms")) pushOutOfPieces(a);
     [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+    // a little slide happens at once; a big one (stepping off the swing or the caps, a piece put down on it) is a quick eased shuffle, not a jump
+    if (dt && Math.hypot(a.x - x0, a.y - y0) > N.base * 0.04) { a.x = lerp(x0, a.x, Math.min(1, dt * 5)); a.y = lerp(y0, a.y, Math.min(1, dt * 5)); }
     return;
   }
   a.y = clamp(a.y, N.y0, N.y1);
@@ -190,8 +192,19 @@ function refuseWith(cr, text) {
   floatText(text, v.x, v.y - v.size * 0.85, "#e6e0ff");
 }
 
+/** Fed and cared for, with nothing to call you about: it takes things slowly. */
+const content = cr => !callOf(cr) && cr.tummy >= 40;
+/** How long it lingers before the next thing: a content one takes its time, and the older, the longer. */
+const linger = cr => calmOf(cr.level).rest * (content(cr) ? 2.3 : 1);
+
 /** Pick what to do next: nap, dance, visit a friend, or wander (flutterers chase the light motes). */
 function chooseNext(a, list) {
+  // content: as often as not it stays where it is and looks about (or, a bit tired, dozes off); a hungry one perks up instead
+  const cr = save.creatures.find(c => c.id === a.id);
+  if (cr && content(cr) && Math.random() < 0.55) {
+    if (cr.energy < 60 && Math.random() < 0.3) { a.state = "nap"; a.t = rand(5, 9) * calmOf(cr.level).rest; return; }
+    a.state = "idle"; a.t = rand(3, 6) * linger(cr); return;
+  }
   // outside, hoppers and swimmers like the garden best: they walk over and water a thirsty plant
   const gp = isOutside() && N.iso && isoLayout().placed.garden;
   if (gp && ["hop", "swim"].includes(a.beh) && Math.random() < 0.25) {
@@ -257,6 +270,26 @@ function meetFriend(a, f, cr) {
   }
 }
 
+/** A hopper's way forward comes in pushes, one per hop (on average as fast as a steady walk). */
+const hopGate = a => Math.sin(((a.gait || 0) % 1) * Math.PI) * Math.PI / 2;
+
+// little faces while it rests, now and then: a blink, a contented squint, a look aside, a thought. Which ones, by character
+const FACE_MIX = { sleepy: { squint: 2, look: 1, think: 1, blink: 1 }, curious: { think: 3, look: 3, squint: 1, blink: 1 }, sparkle: { blink: 3, look: 3, think: 1, squint: 1 }, big: { look: 2, think: 2, blink: 2, squint: 1 }, round: { blink: 2, look: 2, think: 1, squint: 1 } };
+const FACE_LIFE = { blink: 0.4, squint: 1.1, look: 2, think: 2.4 };
+function faceMoments(a, cr, dt) {
+  const calm = calmOf(cr.level), resting = a.state === "idle" && !cr.sleeping && !(a.id === save.active && game.nest.petting);
+  if (a.face && ((a.face.t += dt) > a.face.life || !resting)) a.face = null;
+  if (!resting || a.face || (a.faceT = (a.faceT ?? rand(2, 10)) - dt) > 0) return;
+  // every 6 to 12 seconds or so, each on its own clock; the older, the rarer and the slower
+  a.faceT = rand(6, 12) / calm.fidget;
+  const sp = specOf(cr), mix = FACE_MIX[(sp.beh || BEHAVIOR[sp.id]) === "curious" ? "curious" : sp.eyes] || FACE_MIX.round;
+  let r = Math.random() * Object.values(mix).reduce((n, w) => n + w, 0), kind = "blink";
+  for (const [k, w] of Object.entries(mix)) if ((r -= w) < 0) { kind = k; break; }
+  a.face = { kind, t: 0, life: FACE_LIFE[kind] / (0.6 + 0.4 * calm.fidget), side: Math.random() < 0.5 ? -1 : 1 };
+}
+/** The face moment to draw this instant ("" for none): a blink is a quick double one. */
+const faceNow = a => !a.face ? "" : a.face.kind === "blink" ? (a.face.t % 0.25 < 0.11 ? "blink" : "") : a.face.kind === "squint" ? "squint" : a.face.kind + (a.face.side < 0 ? "L" : "R");
+
 function updateActors(dt) {
   syncActors();
   game.nest.obst = roomObstacles();
@@ -266,7 +299,7 @@ function updateActors(dt) {
     if (!cr) continue;
     a.ph += dt;
     if (a.emote && (a.emote.t += dt) > a.emote.life) a.emote = null;
-    a.hop = Math.max(0, a.hop - dt * 2.5);
+    a.hop = Math.max(0, a.hop - dt * 1.8);
     if (a.shake) a.shake = Math.max(0, a.shake - dt * 1.4);
     // every few seconds: real time catches up, and a very tired glowling takes itself to bed (and gets up again when rested)
     if ((a.needT = (a.needT ?? rand(0, 3)) - dt) < 0) {
@@ -277,8 +310,9 @@ function updateActors(dt) {
       if (!cr.sleeping && cr.energy < 20 && !petted && a.state !== "eat" && Date.now() - (cr.wokeAt || 0) > 3 * 60e3) { cr.sleeping = true; cr.selfSlept = true; emote(a, "🥱", 2.2); sfx.yawn(); a.hop = 1; persist(); if (a.id === save.active) renderNest(); }
       else if (cr.sleeping && cr.energy >= 99) wakeRested(cr, a);
     }
-    const base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100;
-    let speed = base * (a.rain ? 1.6 : 1), target = null;
+    // an unhurried pace, slower with age, and a stroll when there's nothing it needs
+    const calm = calmOf(cr.level), base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100 * 0.8 * calm.go;
+    let speed = base * (a.rain ? 1.6 : content(cr) ? 0.85 : 1), target = null;
     if (cr.sleeping) {
       target = bedSpot(a.id);
       // asleep somewhere else (the bed moved, or someone else lay down and the places shifted): shuffle over and lie down again
@@ -289,7 +323,7 @@ function updateActors(dt) {
       if (a.state !== "called") emote(a, "!", 0.9);
       a.state = "called";
       target = [call.x + Math.cos(a.id * 2.4) * N.base * 0.55, clamp(call.y + Math.sin(a.id * 2.4) * N.base * 0.3, N.y0, N.y1)];
-      speed = base * (a.beh === "curious" ? 2.4 : 1.7);
+      speed = base * (a.beh === "curious" ? 3.2 : 2.3);
     } else if (a.state === "called") { a.state = "idle"; a.t = rand(1, 2.5); }
     // someone is being fed: the hungry ones come running, hoping for a crumb
     const fc = game.nest.feedCall;
@@ -298,7 +332,7 @@ function updateActors(dt) {
       if (a.state !== "begging") { emote(a, SNACKS[specOf(cr).snack].emoji, 1.8); a.hop = 1; }
       a.state = "begging"; a.goal = a.friend = null; a.rain = false;
       target = [f.x + Math.cos(an) * N.base * 0.75, f.y + Math.sin(an) * N.base * 0.4];
-      speed = base * 2;
+      speed = base * 2.6;
     } else if (a.state === "begging") { a.state = "idle"; a.t = rand(1, 2); }
     // until the first stroke, your glowling waits in the middle of the room where the hint points
     if (!target && !cr.sleeping && a.id === save.active && !tipDone("pet") && a.state !== "eat") {
@@ -307,7 +341,7 @@ function updateActors(dt) {
     }
     if (a.id === save.active && game.nest.petting) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
     else if (target) { a.tx = target[0]; a.ty = target[1]; }
-    else if (a.state === "eat") { if ((a.t -= dt) <= 0) { a.state = "idle"; a.t = rand(1, 2); } }
+    else if (a.state === "eat") { if ((a.t -= dt) <= 0) { a.state = "idle"; a.t = rand(1, 2) * linger(cr); } }
     else if (a.state === "idle" || a.state === "nap" || a.state === "dance" || a.state === "visit") { if ((a.t -= dt) <= 0) { a.decor = null; chooseNext(a, list); } }
 
     // a little personal space: glowlings gently push apart instead of piling up
@@ -336,28 +370,31 @@ function updateActors(dt) {
     if (moving && wp) {
       // walking has weight: it picks up speed from a stop, slows down to arrive, and turns gradually toward the next corner of its way
       const [wx, wy] = wp, wdx = wx - a.x, wdy = wy - a.y, wd = Math.hypot(wdx, wdy) || 1;
-      const left = Math.hypot(a.tx - a.x, a.ty - a.y), want = speed * (a.state === "toBed" ? 1.4 : 1) * clamp(left / (N.base * 0.4) + 0.35, 0.35, 1);
-      const k = Math.min(1, dt * 5);
+      // (eased both ways: a slow start, a soft smooth stop, and a turn never flips it round on the spot)
+      const left = Math.hypot(a.tx - a.x, a.ty - a.y), e = clamp(left / (N.base * 0.7), 0, 1), want = speed * (a.state === "toBed" ? 1.4 : 1) * (0.18 + 0.82 * e * e * (3 - 2 * e));
+      const k = Math.min(1, dt * 3);
       a.vx = lerp(a.vx || 0, wdx / wd * want, k); a.vy = lerp(a.vy || 0, wdy / wd * want, k);
-      const gate = a.beh === "hop" ? Math.max(0, Math.sin(a.ph * 7)) * 2 : 1;
+      const gate = a.beh === "hop" ? hopGate(a) : 1;
       const step = Math.hypot(a.vx, a.vy) * dt * gate, lim = Math.min(step, wd);
       const x0 = a.x, y0 = a.y;
       if (step > 0) { a.x += a.vx * dt * gate * (lim / step); a.y += a.vy * dt * gate * (lim / step); }
       // pressed against something for a second and a half without getting anywhere: give up and think of something else
       if (a.lastX === undefined) { a.lastX = x0; a.lastY = y0; }
-      a.stuck = Math.hypot(a.x - a.lastX, a.y - a.lastY) < N.base * 0.15 ? (a.stuck || 0) + dt : 0;
+      // (measured against its own pace, so a slow old stroller isn't taken for a stuck one)
+      a.stuck = Math.hypot(a.x - a.lastX, a.y - a.lastY) < Math.min(N.base * 0.15, want * 0.5) ? (a.stuck || 0) + dt : 0;
       if (!a.stuck) { a.lastX = a.x; a.lastY = a.y; }
-      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
+      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
     } else if (moving) {
       const hopper = a.beh === "hop";
-      const step = Math.min(d, speed * dt * (hopper ? Math.max(0, Math.sin(a.ph * 7)) * 2 : 1));
+      const step = Math.min(d, speed * dt * (hopper ? hopGate(a) : 1));
       a.x += dx / d * step; a.y += dy / d * step;
     } else if (a.state === "walk" && a.goal) {
       // arrived at a favorite thing
       const d = DECO[a.goal];
       a.decor = a.goal; a.goal = null;
       a.state = d.id === "cushion" ? "nap" : d.id === "rug" ? "dance" : "visit";
-      a.t = d.id === "cushion" ? rand(6, 10) : rand(3, 6);
+      if (d.id === "swing" || d.id === "mushrooms") { a.from = [a.x, a.y, a.alt]; a.blend = 0; }
+      a.t = (d.id === "cushion" ? rand(6, 10) : rand(3, 6)) * calm.rest;
       emote(a, d.emote, 2);
       if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
 
@@ -366,14 +403,14 @@ function updateActors(dt) {
       a.rain = false; a.state = "dance"; a.t = rand(0.9, 1.6); a.hop = 1;
       emote(a, weather.kind === "snow" ? "❄" : "💧", 1.2);
     } else if (a.state === "walk" && a.garden) {
-      a.garden = false; a.state = "idle"; a.t = rand(1.5, 3); emote(a, "💧", 1.6); gardenHelp(cr);
+      a.garden = false; a.state = "idle"; a.t = rand(1.5, 3) * linger(cr); emote(a, "💧", 1.6); gardenHelp(cr);
     } else if (a.state === "walk") {
-      a.state = "idle"; a.t = rand(1.2, 3.5);
+      a.state = "idle"; a.t = rand(1.2, 3.5) * linger(cr);
       const f = a.friend && actors.get(a.friend);
       if (f) meetFriend(a, f, cr);
       a.friend = null;
     } else if (a.state === "toBed" && d <= 8) a.state = "sleep";
-    keepInRoom(a);
+    keepInRoom(a, dt);
     // standing on the bed (it fills its corner, so there's no "behind" it): up on its soft top, with a little hop on the way up
     const onBed = isoOnBed(a.x, a.y);
     if (onBed && !a.onBed) a.hop = 1;
@@ -386,11 +423,18 @@ function updateActors(dt) {
     // a doze anywhere else: fliers and swimmers settle down to the floor instead of sleeping in mid-air
     else if (a.state === "nap") ease(0, 4);
     else if (a.state === "visit" && (a.decor === "swing" || a.decor === "spring")) { /* set above */ }
-    else if (a.beh === "flutter") ease(N.base * (0.5 + 0.14 * Math.sin(a.ph * 3)), 3);
-    else if (a.beh === "swim") ease(N.base * (0.28 + 0.1 * Math.sin(a.ph * 1.6)), 3);
-    else if (a.beh === "hop" && moving) a.alt = Math.abs(Math.sin(a.ph * 7)) * N.base * 0.18;
-    else ease(0, 6);
-    if (a.state === "dance") a.hop = Math.abs(Math.sin(a.ph * 6)) * 0.6;
+    else if (a.beh === "flutter") ease(N.base * (0.5 + 0.14 * Math.sin(a.ph * 2 * (0.7 + 0.3 * calm.fidget))), 3);
+    else if (a.beh === "swim") ease(N.base * (0.28 + 0.1 * Math.sin(a.ph * 1.2 * (0.7 + 0.3 * calm.fidget))), 3);
+    // a hopper goes in little arcs: each starts on the floor, and the last one lands before it stops
+    else if (a.beh === "hop" && (moving || a.gait)) {
+      const k = (a.gait || 0) % 1;
+      a.gait = (a.gait || 0) + dt * 1.6 * (0.6 + 0.4 * calm.fidget);
+      if (!moving && a.gait % 1 < k) a.gait = 0;
+      const arc = Math.sin((a.gait % 1) * Math.PI) * N.base * 0.12 * calm.hop;
+      if (Math.abs(a.alt - arc) > N.base * 0.05) ease(arc, 8); else a.alt = arc; // (coming down off something first)
+    }
+    else ease(0, 4);
+    if (a.state === "dance") a.hop = lerp(a.hop, Math.abs(Math.sin(a.ph * 4 * (0.7 + 0.3 * calm.fidget))) * 0.45 * calm.hop, Math.min(1, dt * 8));
     if (a.state === "visit") {
       if (a.decor === "swing") {
         // sit on the moon seat and swing with it
@@ -401,7 +445,7 @@ function updateActors(dt) {
         // hopping from cap to cap like platforms: an arc between two caps, a squish on landing
         const caps = mushroomCaps();
         if (caps.length > 1) {
-          const ph = (game.time / 1000 + a.id * 0.37) / 0.75, i = Math.floor(ph) % caps.length, k = ph - Math.floor(ph), [x0, y0] = caps[i], [x1, y1] = caps[(i + 1) % caps.length];
+          const ph = (game.time / 1000 + a.id * 0.37) / 1.05 * (0.7 + 0.3 * calm.fidget), i = Math.floor(ph) % caps.length, k = ph - Math.floor(ph), [x0, y0] = caps[i], [x1, y1] = caps[(i + 1) % caps.length];
           const size = N.base * depth(a.y), top = lerp(y0, y1, k) - Math.sin(k * Math.PI) * N.base * 0.4, p = isoLayout().placed.mushrooms;
           a.x = lerp(x0, x1, k); a.y = isoAt((p.i + 0.5) / ISO_G, (p.j + 0.5) / ISO_G)[1] + 1;
           a.alt = a.y - size * 0.45 - (top - size * 0.32); a.hop = k < 0.12 ? 0.5 : 0;
@@ -409,7 +453,15 @@ function updateActors(dt) {
         } else a.hop = Math.abs(Math.sin(a.ph * 5)) * 0.8;
       }
       else if (a.decor === "spring") a.alt = Math.sin(a.ph * 2.5) * N.base * 0.04;
-    }
+      // getting on: from where it stood up to the seat (or the first cap) in a short eased climb, not a jump
+      if (a.from) {
+        a.blend = Math.min(1, a.blend + dt * 2.5);
+        const k = a.blend * a.blend * (3 - 2 * a.blend);
+        a.x = lerp(a.from[0], a.x, k); a.y = lerp(a.from[1], a.y, k); a.alt = lerp(a.from[2], a.alt, k);
+        if (a.blend >= 1) a.from = null;
+      }
+    } else a.from = null;
+    faceMoments(a, cr, dt);
     // needs show up as little thought bubbles now and then
     const wants = callOf(cr);
     if (!a.emote && a.state !== "sleep" && Math.random() < dt * (wants ? 0.4 : 0.07)) {

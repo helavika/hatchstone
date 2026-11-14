@@ -209,6 +209,18 @@ const BEHAVIOR_NAMES = { flutter: "flutterers", hop: "hoppers", nap: "nappers", 
 
 const STAGES = ["Baby", "Young", "Grown", "Radiant"];
 const stageOf = level => level < 5 ? 0 : level < 10 ? 1 : level < 15 ? 2 : 3;
+/**
+ * How each age carries itself: a baby is the most playful, a radiant one serene.
+ * rest: how long it lingers between things (×), go: walking pace (×), hop: how high it bounces (×),
+ * fidget: how often its body and face do little things, and how quickly (×).
+ */
+const CALM = [
+  { rest: 1,   go: 1,    hop: 1,    fidget: 1 },    // Baby
+  { rest: 1.3, go: 0.9,  hop: 0.8,  fidget: 0.85 }, // Young
+  { rest: 1.7, go: 0.8,  hop: 0.6,  fidget: 0.72 }, // Grown
+  { rest: 2.2, go: 0.7,  hop: 0.45, fidget: 0.6 },  // Radiant
+];
+const calmOf = level => CALM[stageOf(level || 1)];
 const xpNeed = level => 20 + level * 15;
 const MAX_LEVEL = 20;
 

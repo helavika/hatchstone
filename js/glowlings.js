@@ -304,12 +304,20 @@ function drawHeadTop(c, s, sp, t, pal, top, level) {
   }
 }
 
+/** Blinks come irregularly: now one, now a quick two, now none for a while (worked out from the time alone, so a frame never changes). */
+function blinkAt(t) {
+  const W = 1900, n = Math.floor(t / W), h = Math.abs(Math.sin(n * 12.9898) * 43758.5453) % 1, off = t - n * W;
+  if (h > 0.42) return false;
+  const at = h / 0.42 * (W - 450);
+  return (off >= at && off < at + 120) || (h < 0.07 && off >= at + 260 && off < at + 380);
+}
+
 function drawFace(c, s, sp, t, mood, eating) {
   const fy = BODY[sp.body].face * s, ex = eyeX(sp) * s;
   const ink = "#2a1f4a";
   c.fillStyle = ink; c.strokeStyle = ink; c.lineCap = "round";
   c.lineWidth = Math.max(1.2, s * 0.025);
-  const blink = (t % 3800) < 140;
+  const blink = blinkAt(t);
   if (mood === "asleep") {
     for (const d of [-1, 1]) { c.beginPath(); c.arc(d * ex, fy - s * 0.01, s * 0.045, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke(); }
   } else if (mood === "happy" || mood === "joy") {
@@ -457,12 +465,14 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   const R = seeded(sp.id);
   s *= [0.82, 1, 1.12, 1.22][stage];
   const asleep = mood === "asleep";
-  const bob = (asleep ? Math.sin(t * 0.0015) * 0.015 : Math.sin(t * 0.003) * 0.03) * s;
+  // a slow breath, slower with age; a hop lifts it less the older it is
+  const bw = (asleep ? 0.0011 : 0.0019) * (0.7 + 0.3 * calmOf(level).fidget), hk = o.hopK ?? 1;
+  const bob = (asleep ? Math.sin(t * bw) * 0.015 : Math.sin(t * bw) * 0.03) * s;
   const hop = o.hop || 0;
-  const sq = (asleep ? 1 + Math.sin(t * 0.0015) * 0.03 : 1 + Math.sin(t * 0.003) * 0.025) - hop * 0.08;
+  const sq = (asleep ? 1 + Math.sin(t * bw) * 0.03 : 1 + Math.sin(t * bw) * 0.025) - hop * 0.08 * hk;
   const B = BODY[sp.body], top = B.top * s;
   c.save();
-  c.translate(x, y + bob - Math.sin(hop * Math.PI) * s * 0.35);
+  c.translate(x, y + bob - Math.sin(hop * Math.PI) * s * 0.35 * hk);
   if (!o.sil && o.glow !== false) {
     const gr = Math.min(s * (0.95 + stage * 0.15), o.maxGlow || Infinity);
     const g = c.createRadialGradient(0, 0, s * 0.2, 0, 0, gr);
@@ -516,14 +526,14 @@ function drawCreature(c, x, y, s, sp, o = {}) {
     const m = c.getTransform(), at = (lx, ly) => [(m.a * lx + m.c * ly + m.e) / 2, (m.b * lx + m.d * ly + m.f) / 2];
     const fy = BODY[sp.body].face * s, ex = eyeX(sp) * s, bx = ex + s * 0.1;
     faceStamp.push({ eyes: [at(-ex, fy), at(ex, fy)], mouth: at(0, fy + s * 0.09), blush: [at(-bx, fy + s * 0.11), at(bx, fy + s * 0.11)], cat: sp.ears === "cat" || sp.ears === "fox",
-      r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" || (sp.beh || BEHAVIOR[sp.id]) === "curious" ? "sleepy" : sp.eyes, eating: !!o.eating, blink: (t % 3800) < 140, t });
+      r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" && o.tired !== false ? "tired" : sp.eyes, eating: !!o.eating, blink: blinkAt(t), face: o.face || "", t });
   } else drawFace(c, s, sp, t, mood, o.eating);
   // growing up: orbiting sparkles, then a halo
   if (stage >= 2) {
     const n = stage === 3 ? 5 : 3;
     c.fillStyle = "#fff";
     for (let i = 0; i < n; i++) {
-      const a = t * 0.0015 + i * TAU / n;
+      const a = t * 0.001 + i * TAU / n;
       sparklePath(c, Math.cos(a) * s * 0.72, Math.sin(a) * s * 0.22 - s * 0.05, s * 0.045); c.fill();
     }
   }
@@ -635,14 +645,14 @@ function drawSprite(x, y, s, sp, o = {}) {
   const grow = [0.82, 1, 1.12, 1.22][stageOf(o.level || 1)], look = o.look ?? (typeof opts === "function" ? opts().look : 0);
   if (o.glow !== false && look) {
     // a pool of the glowling's own light, breathing slowly, laid on with "lighter" so it glows rather than paints
-    const gr = s * grow * (look === 2 ? 1.35 : 1.15), pulse = 0.85 + 0.15 * Math.sin((o.t ?? game.time) * 0.0025 + sp.id.length), n = neonOf(sp), k = (o.glowK ?? 1) * pulse;
+    const gr = s * grow * (look === 2 ? 1.35 : 1.15), pulse = 0.85 + 0.15 * Math.sin((o.t ?? game.time) * 0.0015 + sp.id.length), n = neonOf(sp), k = (o.glowK ?? 1) * pulse;
     const g = ctx.createRadialGradient(x, y, s * 0.15, x, y, gr);
     g.addColorStop(0, n.css(0.42 * k)); g.addColorStop(0.5, n.css(0.18 * k)); g.addColorStop(1, n.css(0));
     ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, gr, 0, TAU); ctx.fill(); ctx.restore();
   }
   // pixel-art pace: a new frame every 100 ms, drawn once and reused, placed on whole pixels so it never shimmers
   const t = Math.floor((o.t ?? game.time) / 100) * 100;
-  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${t}|${PX}|${o.acc || ""}|${!!o.cap}|${!!o.sil}`;
+  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${o.hopK ?? 1}|${o.face || ""}|${o.tired ?? ""}|${t}|${PX}|${o.acc || ""}|${!!o.cap}|${!!o.sil}`;
   let f = spriteFrames.get(key);
   if (!f) {
     if (spriteFrames.size > 400) spriteFrames.clear();
@@ -714,7 +724,10 @@ function stampFace(d, w, h, solid, f, ox, oy) {
   const eyes = f.eyes.map(([x, y]) => [Math.round(x - ox - e / 2), Math.round(y - oy - tall / 2)]);
   const arc = (x, y, up) => { for (let k = -1; k <= e; k++) put(x + k, y + (k === -1 || k === e ? (up ? 1 : 0) : (up ? 0 : 1)), FACE.ink); };
   const round = (x0, y0, E, T) => { for (let j = 0; j < T; j++) for (let k = 0; k < E; k++) if (E < 3 || ((k + 0.5 - E / 2) / (E / 2)) ** 2 + ((j + 0.5 - T / 2) / (T / 2)) ** 2 <= 1.2) put(x0 + k, y0 + j, FACE.ink); };
-  for (const [x, y] of eyes) {
+  // a moment's face (only on a calm one): eyes shut a blink, a happy squint, or open and turned aside (and up, thinking)
+  const fc = f.mood === "ok" || f.mood === "happy" ? f.face : "", side = /L$/.test(fc) ? -1 : /R$/.test(fc) ? 1 : 0, lift = /^think/.test(fc) ? -1 : 0;
+  for (let [x, y] of eyes) {
+    x += side; y += lift;
     if (f.mood === "hungry" && !f.blink && !f.eating && R >= 8) {
       // hungry: big, round, shiny puppy eyes (larger than usual, two glints, a wet shine along the bottom)
       const E = Math.max(3, Math.round(e * 1.4)), Th = Math.max(4, Math.round(tall * 1.3)), x0 = Math.round(x + e / 2 - E / 2), y0 = Math.round(y + tall / 2 - Th / 2);
@@ -723,16 +736,19 @@ function stampFace(d, w, h, solid, f, ox, oy) {
       for (let j = 0; j < g; j++) for (let k = 0; k < g; k++) put(x0 + E - 1 - g + k - (E >= 5 ? 1 : 0), y0 + 1 + j, FACE.hi);
       put(x0 + 1, y0 + Th - 2 - (E >= 6 ? 1 : 0), FACE.hi);
     }
-    else if (f.mood === "happy" || f.mood === "joy") arc(x, y + Math.floor(tall / 2), true);
+    else if (f.mood === "joy" || fc === "squint") arc(x, y + Math.floor(tall / 2), true);
     else if (f.mood === "asleep") arc(x, y + Math.floor(tall / 2) - 1, false);
-    else if (f.blink) for (let k = 0; k < e; k++) put(x + k, y + Math.floor(tall / 2), FACE.ink);
-    else if (f.kind === "sleepy") { for (let k = -1; k <= e; k++) put(x + k, y + Math.floor(tall / 2) - 1, FACE.ink); for (let k = 0; k < e; k++) for (let j = 0; j < Math.ceil(tall / 2); j++) put(x + k, y + Math.floor(tall / 2) + j, FACE.ink); }
+    else if (f.blink || fc === "blink") for (let k = 0; k < e; k++) put(x + k, y + Math.floor(tall / 2), FACE.ink);
+    else if (f.kind === "tired" || (f.kind === "sleepy" && e < 3)) { for (let k = -1; k <= e; k++) put(x + k, y + Math.floor(tall / 2) - 1, FACE.ink); for (let k = 0; k < e; k++) for (let j = 0; j < Math.ceil(tall / 2); j++) put(x + k, y + Math.floor(tall / 2) + j, FACE.ink); }
     else if (e >= 3) {
-      // a round eye with a glint high on the lit side, and a little one low on the other
+      // a round eye with a glint high on the lit side, and a little one low on the other (both swap round to follow a look aside);
+      // the sleepy-eyed kinds, awake, have the same open eye under a flat lid line
       round(x, y, e, tall);
-      const g = e >= 5 ? 2 : 1, gx = x + Math.max(0, Math.round(e * 0.22) - (e >= 5 ? 0 : 0)), gy = y + Math.max(0, Math.round(tall * 0.15));
+      const lid = f.kind === "sleepy";
+      if (lid) for (let k = -1; k <= e; k++) put(x + k, y, FACE.ink);
+      const g = e >= 5 ? 2 : 1, in1 = Math.round(e * 0.22), gx = side > 0 ? x + e - g - in1 : x + in1, gy = y + Math.max(lid ? 1 : 0, lift ? 0 : Math.round(tall * 0.15));
       for (let j = 0; j < g; j++) for (let k = 0; k < g; k++) put(gx + k, gy + j, FACE.hi);
-      if (e >= 4 || f.kind === "sparkle") put(x + e - 1 - (e >= 5 ? 1 : 0), y + tall - 2, FACE.hi);
+      if (e >= 4 || f.kind === "sparkle") put(side > 0 ? x + (e >= 5 ? 1 : 0) : x + e - 1 - (e >= 5 ? 1 : 0), y + tall - 2, FACE.hi);
       if (e >= 4) for (let k = 1; k < e - 1; k++) if (d[((y + tall - 1) * w + x + k) * 4] === FACE.ink[0]) put(x + k, y + tall - 1, FACE.deep);
     }
     else {
