@@ -2892,7 +2892,9 @@ function gazeboPosts() {
 
 /** Each sleeper's own place on the bed: a 2×2 spread on the big isometric bed, side by side on the straight-on one. */
 function bedSpot(id) {
-  const sleepers = save.creatures.filter(c => c.sleeping).map(c => c.id).sort((p, q) => p - q), k = Math.max(0, sleepers.indexOf(id)), n = sleepers.length;
+  // (counted in this glowling's own room: every room has its own bed, and sleepers elsewhere don't take places in it)
+  const me = save.creatures.find(c => c.id === id), r = me ? roomOf(me) : save.room;
+  const sleepers = save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q), k = Math.max(0, sleepers.indexOf(id)), n = sleepers.length;
   const p = N.iso && isoLayout().placed.bed;
   if (p && bedStyle() === "hammock") {
     // side by side in the sling, spread along the wall it stands by (straight across it would push one into the wall,
