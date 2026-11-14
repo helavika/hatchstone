@@ -34,6 +34,13 @@ const CRYSTALS = [
   { id: "tigereye", name: "Tiger's Eye", rarity: "rare", style: "flash", c: ["#b8742a", "#ffd36a", "#4a2a0e"], fact: "Quartz made of fine fibers: golden stripes shimmer and roll as you turn it." },
   { id: "emerald", name: "Emerald", rarity: "legendary", style: "cavity", c: ["#2fbf71", "#b4ffd6", "#13693c"], fact: "Green beryl. Almost every emerald has tiny flaws inside, called its \"garden\"." },
   { id: "lapis", name: "Lapis Lazuli", rarity: "legendary", style: "flecks", c: ["#3a4fb8", "#9fb0ff", "#1c2366"], fact: "Deep blue with gold pyrite specks like stars. Ground into ultramarine paint for 6,000 years." },
+  { id: "desertrose", name: "Desert Rose", rarity: "common", style: "cavity", c: ["#e3a77c", "#fde3c8", "#a8653f"], fact: "Thin gypsum blades that grew inside desert sand, trapping the grains as they went, so each cluster looks like a stone rose." },
+  { id: "mossagate", name: "Moss Agate", rarity: "common", style: "cavity", c: ["#cfe6cf", "#f6fff4", "#3d8a4c"], fact: "Not banded like other agates: milky chalcedony with green mineral threads inside that look like moss, ferns or tiny forests." },
+  { id: "obsidian", name: "Obsidian", rarity: "common", style: "flash", c: ["#5a5278", "#b4acd9", "#231d33"], fact: "Volcanic glass: lava that cooled too fast to grow crystals. Its broken edges are sharper than a steel scalpel." },
+  { id: "stibnite", name: "Stibnite", rarity: "rare", style: "cavity", c: ["#a9b0c2", "#eef1f8", "#555b70"], fact: "Sprays of long steel-grey needles that shine like polished metal. Ground to powder, it has been used as black eyeliner (kohl) since ancient times." },
+  { id: "vanadinite", name: "Vanadinite", rarity: "rare", style: "cavity", c: ["#e2533a", "#ffb08c", "#8c2618"], fact: "Bright red six-sided barrels, each a tiny crystal. The best come from old mines in the Atlas Mountains of Morocco." },
+  { id: "kyanite", name: "Kyanite", rarity: "rare", style: "cavity", c: ["#4f86d6", "#c2e2ff", "#22407f"], fact: "Long blue blades with two hardnesses: a knife scratches it along the blade, but not across it." },
+  { id: "bismuth", name: "Bismuth", rarity: "legendary", style: "flash", c: ["#e08ad8", "#ffe08a", "#4f86d8"], fact: "A heavy metal that cools into hollow stair-step \"hopper\" crystals. A skin of oxide thinner than a soap bubble paints them in rainbow colors." },
 ];
 const CRYSTAL = Object.fromEntries(CRYSTALS.map(c => [c.id, c]));
 
@@ -128,7 +135,24 @@ const SPECIES = [
   { id: "tigrell", name: "Tigrell", crystal: "tigereye", pal: ["#dc9a3c", "#f7cf78", "#8a5420"], body: "bean", ears: "cat", back: "tail", pattern: "stripes", eyes: "sparkle", snack: "cookie", voice: 1.0,
     lore: "Its stripes flash gold when it turns its head. So it turns its head a lot." },
   { id: "gladewing", name: "Gladewing", crystal: "emerald", pal: ["#2fae68", "#8fe8b4", "#13693c"], body: "drop", head: "sprout", back: "mothwings", pattern: "spots", eyes: "sparkle", snack: "dew", voice: 1.1,
-    lore: "Carries a tiny garden inside, just like an emerald. It lets you look, if you ask nicely." }
+    lore: "Carries a tiny garden inside, just like an emerald. It lets you look, if you ask nicely." },
+  // glowlings shaped like their minerals: rosettes, moss, glass, needles, barrels, diamonds, blades and stair steps
+  { id: "dunebloom", name: "Dunebloom", crystal: "desertrose", body: "wide", head: "rosette", pattern: "freckles", eyes: "sleepy", snack: "cookie", voice: 0.9, beh: "nap",
+    lore: "Grew its rose out of sand and patience. Shakes a little desert out of its petals whenever it yawns." },
+  { id: "fernlet", name: "Fernlet", crystal: "mossagate", body: "drop", head: "fern", pattern: "moss", eyes: "round", snack: "dew", voice: 1.05, beh: "nap",
+    lore: "Carries a whole forest inside, grown thread by thread. Very patient with seedlings, and with sad days." },
+  { id: "vitrikin", name: "Vitrikin", crystal: "obsidian", body: "wide", ears: "shards", pattern: "belly", eyes: "big", snack: "berry", voice: 0.85, beh: "curious",
+    lore: "Born in fire, cooled in a hurry: sharp at the edges, soft in the middle. On dark nights it sits by the nest door, so nobody else has to." },
+  { id: "stibbit", name: "Stibbit", crystal: "stibnite", body: "bean", back: "needles", pattern: "belly", eyes: "big", snack: "cookie", voice: 1.0, beh: "dance",
+    lore: "Looks prickly. Isn't. Bristles up to stand in front of the little ones, then folds every needle flat for a hug." },
+  { id: "hexlet", name: "Hexlet", crystal: "vanadinite", body: "round", head: "barrels", pattern: "spots", eyes: "round", snack: "berry", voice: 1.15, beh: "hop",
+    lore: "Keeps three little red barrels on its head and won't say what's inside. (It's warmth. It's always warmth.)" },
+  { id: "octavine", name: "Octavine", crystal: "fluorite", body: "bean", head: "octahedron", pattern: "bubbles", eyes: "sparkle", snack: "dew", voice: 1.2, beh: "flutter",
+    lore: "Wears a perfect eight-sided diamond, split from its stone with one gentle tap. Glows a little brighter whenever you're kind to someone." },
+  { id: "kyabun", name: "Kyabun", crystal: "kyanite", body: "round", ears: "blades", pattern: "freckles", eyes: "round", snack: "berry", voice: 1.1, beh: "hop",
+    lore: "Soft along the grain and hard across it, like its stone. Easy to cuddle, impossible to bend into being unkind." },
+  { id: "zigglet", name: "Zigglet", crystal: "bismuth", body: "round", head: "hopper", pattern: "iridescent", eyes: "sparkle", snack: "berry", voice: 1.1, beh: "dance",
+    lore: "Builds its crown one rainbow step at a time and never skips one. When things go wrong, it starts again from the bottom step, humming." }
 ];
 const rarityOf = sp => sp.moon ? "moon" : CRYSTAL[sp.crystal].rarity;
 const SP = Object.fromEntries(SPECIES.map(s => [s.id, s]));
