@@ -396,7 +396,7 @@ $$(".mute").forEach(b => b.addEventListener("click", () => {
 }));
 $$("#tabs [data-tab]").forEach(b => b.addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
-  sfx.tick(); if (coopSession) coopEnd("navigation", true);
+  b.dataset.tab === "lib" ? sfx.page() : sfx.tick(); if (coopSession) coopEnd("navigation", true);
   if (b.dataset.tab === "nest" && game.scene === "nest" && awayPlace()) goRoom(save.rooms.findIndex(r => r.kind === "nest"));
   setScene(b.dataset.tab);
 }));
@@ -675,7 +675,7 @@ $("fileIn").addEventListener("change", async e => {
 $$("[data-lib]").forEach(b => b.addEventListener("click", () => {
   game.libTab = b.dataset.lib;
   $$("[data-lib]").forEach(x => x.classList.toggle("on", x === b));
-  sfx.tick();
+  sfx.page();
   renderLib();
 }));
 

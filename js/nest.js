@@ -231,7 +231,7 @@ function openShop() {
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
   $$("#shopList [data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
   $("arrangeOpen")?.addEventListener("click", startArrange);
-  $$("#shopList [data-bed]").forEach(b => b.addEventListener("click", () => { save.rooms[save.room].bed = b.dataset.bed; persist(); sfx.tick(); toast(tr("A new bed: {0} ✦", tr(BEDS.find(x => x.id === b.dataset.bed).name))); openShop(); }));
+  $$("#shopList [data-bed]").forEach(b => b.addEventListener("click", () => { save.rooms[save.room].bed = b.dataset.bed; persist(); sfx.setDown(); toast(tr("A new bed: {0} ✦", tr(BEDS.find(x => x.id === b.dataset.bed).name))); openShop(); }));
   $$("#shopList [data-build]").forEach(b => b.addEventListener("click", () => buildRoom(b.dataset.build)));
   $("nestUp")?.addEventListener("click", buyNestUp);
   $("toMarket")?.addEventListener("click", openMarket);
@@ -294,7 +294,7 @@ function buyFood(id, n = 1) {
   const s = SNACKS[id];
   if (!s || s.garden || save.shards < s.cost * n) return;
   save.shards -= s.cost * n; save.pantry = { ...save.pantry, [id]: ((save.pantry || {})[id] || 0) + n };
-  sfx.tick(); persist(); updateTopbar(); openShop();
+  sfx.coin(); persist(); updateTopbar(); openShop();
 }
 function marketFood() {
   const pantry = save.pantry || {}, row = ([id, s]) => {
@@ -425,7 +425,7 @@ function buySeed(id, then = openGarden) {
   const sd = SEEDS[id], g = garden();
   if (save.shards < sd.cost || (sd.ok && !sd.ok())) return;
   save.shards -= sd.cost; g.seeds[id] = (g.seeds[id] || 0) + 1;
-  sfx.tick(); persist(); updateTopbar(); then();
+  sfx.coin(); persist(); updateTopbar(); then();
 }
 function plantSeed(id) {
   const g = garden(), i = g.slots.findIndex(q => !q);
@@ -441,7 +441,7 @@ function waterPlot(i, who) {
   const q = garden().slots[i];
   if (!q || stageOf2(q) === 3 || (q.wet && Date.now() - q.wet < WATER_EVERY)) return false;
   q.at -= SEEDS[q.seed].hrs * 3600e3 * WATER_BOOST; q.wet = Date.now();
-  if (!who) { sfx.tone && sfx.ready() && sfx.tone(sfx.ac.currentTime, 1400, 0.05, 0.3, "sine", 900, true); coreAdd("ritual"); openGarden(); }
+  if (!who) { sfx.pour(); coreAdd("ritual"); openGarden(); }
   persist();
   return true;
 }
@@ -1141,6 +1141,7 @@ function renderPlaceBar() {
 function arriveAt(kind) {
   ensurePlace(kind);
   toRoomKind(kind);
+  sfx.arrive(kind);
   const h = HEROES[kind];
   if (h && (!(save.heroTalk || {})[kind] || (h.who === PIP && sparkNews()))) setTimeout(() => tapHero(true), 500);
   else if (kind === "yard") {
@@ -1255,7 +1256,7 @@ function goRoom(i, via) {
     a.tx = tx; a.ty = ty; a.goal = a.friend = a.decor = null;
     if (a.state !== "sleep") { a.state = "idle"; a.t = rand(lead ? 2 : 0.5, lead ? 3 : 1.5); }
   }
-  sfx.tick();
+  sfx.whoosh();
   renderNest(true);
   litTabs();
 }
@@ -1305,7 +1306,7 @@ function buyDecor(id) {
   const d = DECO[id], owned = save.decor[id];
   if (owned) {
     if (!owned.on && !roomFor(id)) { toast(tr("No room on the floor: put something away first")); sfx.tick(); return; }
-    owned.on = !owned.on; sfx.tick();
+    owned.on = !owned.on; owned.on ? sfx.setDown() : sfx.tick();
     if (owned.on) claimDecor(id);
   }
   else {
