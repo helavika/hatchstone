@@ -18,6 +18,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "nest" && cloudAt(x, y)) { pointer.cloud = true; return; }
   if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
+  if (game.scene === "nest" && !remote && lanternDown(x, y)) { pointer.lantern = true; return; }
   if (game.scene === "nest" && !remote && wickAt(x, y)) { pointer = null; openWick(); return; }
   if (game.scene === "nest" && !remote && isPlace()) { const pr = propAt(x, y); if (pr && PROP_TAP[pr]) { pointer = null; if (heroHere()?.none) { markTip("hall"); setHint(""); } PROP_TAP[pr](); return; } if (heroAt(x, y) || (pr && !heroHere()?.none)) { pointer = null; tapHero(); return; } }
   if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
@@ -37,6 +38,7 @@ function handlePointerMove(x, y, now = performance.now(), remote = false) {
   }
   if (game.scene === "nest" && pointer.cloud) { if (pointer.moved > 6) { moveCloud(x, y); pointer.cloudMoved = true; } pointer.lx = x; pointer.ly = y; return; }
   if (game.scene === "nest" && pointer.arrange) { if (pointer.moved > 6) arrangeMove(x, y); pointer.lx = x; pointer.ly = y; return; }
+  if (pointer.lantern) { lanternMove(x, y); pointer.lx = x; pointer.ly = y; return; }
   if (game.scene === "nest") {
     if (pointer.call) game.nest.call = { x: clamp(x, N.x0, N.x1), y: clamp(y, N.y0, N.y1), t: game.time };
     else if (pointer.warm) warmEgg(d);
@@ -51,6 +53,7 @@ function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (!pointer) return;
   if (pointer.cloud) { const moved = pointer.cloudMoved; pointer = null; if (moved) { persist(); sfx.tick(); } else playDecor({ id: "cushion" }); return; }
   if (pointer.arrange) { pointer = null; arrangeUp(); return; }
+  if (pointer.lantern) { pointer = null; lanternUp(); return; }
   const tap = pointer.moved < 10 && now - pointer.t0 < 350, calling = pointer.call, decorHit = pointer.decor;
   if (!remote && coopIsGuest()) { coopSendInput("up", x, y); pointer = null; return; }
   pointer = null;
@@ -61,7 +64,7 @@ function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (game.scene === "crack") { const egg = game.egg; if (egg.state === "open" && Math.hypot(x - L.ecx, y - L.ecy) < L.ew * 0.25) { egg.hop = 1; sfx.chirp(egg.species.voice); } }
   if (game.scene === "nest" && !calling) { const a = actorAt(x, y); if (a && a.id !== save.active) selectCreature(a.id); else if (a) { const cr = activeCreature(), v = actorView(a); if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); } } }
 }
-function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
+function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; lanternUp(); game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
 cvs.addEventListener("pointerdown", e => { if (game.scene === "menu") return; try { cvs.setPointerCapture(e.pointerId); } catch {} handlePointerDown(e.clientX, e.clientY); });
 cvs.addEventListener("pointermove", e => handlePointerMove(e.clientX, e.clientY));
 cvs.addEventListener("pointerup", e => handlePointerUp(e.clientX, e.clientY));
@@ -529,6 +532,7 @@ const FAQ = [
   ["How do I look after my glowling?", "Use the three buttons under the room: Hunger feeds it from your pantry, Boredom opens a game, and Sleepiness tucks it in when its eyes are closing. Stroke it with your finger too. The button for what it needs right now glows. A happy glowling earns XP and grows up to level 20, and a well-rested, happy one cheers you on when you crack an egg: a few more shards."],
   ["What are hungry, sleepy, lonely and messy?", "The four things a glowling calls you for, shown as a little icon by its picture next to the needs buttons. Hungry: give it a snack. Sleepy: tuck it in, or it will nod off right where it stands. Lonely: stroke it or play a game together. Messy: dust bunnies are piling up, so sweep them away. When someone at home needs you, the Nest tab gets a little dot."],
   ["What are dust bunnies?", "Little grey puffs that gather on the floor while your glowlings are awake. A couple of them make a glowling feel messy, and an untidy room wears joy down faster. Tap one to sweep it away."],
+  ["What are the shadows in the nest?", "Now and then a few soft shadows of the Gloom seep into the nest, and your glowlings huddle together. Hold a finger on a shadow to shine your lantern on it: glowlings close to your light shine with you, and it goes faster. Each shadow lets go of the little light hidden inside it. Leave them be and they drift off by themselves: nothing is lost."],
   ["What games can I play with my glowling?", "Tap Boredom in the nest. Sparkle catch: drag to catch sparkles and dodge pebbles. Echo song: listen to the tune the stones sing, then sing it back. Playing makes a glowling happy but tires it out, so let it nap."],
   ["Can my glowlings have a baby?", "Yes. When two glowlings reach level 5, the Laboratory opens on the map. Ollo keeps the incubator there: two happy glowlings at level 5 or higher can share a mixed egg. The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up. Your mixes live in Book → Hybrids."],
   ["What does shiny mean?", "Now and then a glowling hatches shiny, with a sparkly look of its own: about 1 in 25 from geodes and 1 in 10 from moon eggs. A sunpetal from the garden makes your next egg far more likely to be shiny, and a little Luck helps too."],

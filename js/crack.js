@@ -1107,6 +1107,7 @@ function talkMoments(scene) {
 function nestHint() {
   if (!save.creatures.length) return "";
   if (!tipDone("pet")) return tr("stroke {0} to pet it ♥", activeCreature()?.name || tr("your glowling"));
+  if (game.scene === "nest" && gloomNow.on) return tipDone("lantern") ? tr("the Gloom's shadows: shine your light on them, together") : tr("shadows of the Gloom! hold your finger on one to shine your lantern");
   // (only about someone who is right here: not from the shop or the forge, nor for someone in another room)
   const cr = activeCreature(), call = cr && !isPlace() && roomOf(cr) === save.room && !cr.out && callOf(cr);
   if (call) return { hungry: tr("{0} is hungry: give it a snack", cr.name), sleepy: tr("{0} is sleepy: tuck it in", cr.name), messy: tr("dust bunnies! tap them to sweep the nest"), lonely: tr("{0} feels lonely: pet it or play", cr.name) }[call];
@@ -1146,6 +1147,8 @@ function coachMove() {
   if (game.scene === "nest" && incHere() && tipDone("pet") && save.incubator && Date.now() >= save.incubator.due) {
     const [x, y] = incSpot(); return { kind: "tap", at: [x, y - N.base * 0.4] };
   }
+  // the first of the Gloom's shadows: a finger shows where to hold your light
+  if (game.scene === "nest" && gloomNow.on && !tipDone("lantern")) { const w = gloomNow.wisps.find(q => q.on && q.t > 0.6); if (w) return { kind: "tap", at: [w.x, w.y - gloomAlt()] }; }
   // the first dust bunny in the nest: a tap on it shows how it's swept
   if (game.scene === "nest" && tipDone("pet") && !tipDone("sweep")) { const s = dustSpots()[0]; if (s) return { kind: "tap", at: [s.x, s.y - s.r * 0.6] }; }
   if (game.scene === "nest" && !tipDone("pet")) {

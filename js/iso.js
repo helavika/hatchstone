@@ -334,6 +334,12 @@ function updateActors(dt) {
       target = [f.x + Math.cos(an) * N.base * 0.75, f.y + Math.sin(an) * N.base * 0.4];
       speed = base * 2.6;
     } else if (a.state === "begging") { a.state = "idle"; a.t = rand(1, 2); }
+    // the Gloom's shadows are in: the little ones huddle close together, and gather round your light while it shines (gloomHuddle)
+    const hud = !target && !cr.sleeping && a.state !== "eat" && gloomHuddle(a);
+    if (hud) {
+      if (a.state !== "huddle") { a.goal = a.friend = a.decor = null; a.rain = a.garden = false; }
+      a.state = "huddle"; target = hud; speed = base * (gloomNow.lamp.on ? 2.2 : 1.3);
+    } else if (a.state === "huddle") { a.state = "idle"; a.t = rand(1, 2); }
     // until the first stroke, your glowling waits in the middle of the room where the hint points
     if (!target && !cr.sleeping && a.id === save.active && !tipDone("pet") && a.state !== "eat") {
       target = decorSpot("rug"); a.goal = a.friend = null;

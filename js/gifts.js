@@ -163,7 +163,7 @@ let giftNow = null;
 function giftArrive() {
   const l = save.gifts;
   if (giftNow || !l || !(l.wait || []).length || game.scene !== "nest" || !save.creatures.length || document.hidden) return;
-  if (talkNow || talkQueue.length || coopSession || arrange.on || $$(".overlay").some(o => !o.classList.contains("hidden"))) return;
+  if (talkNow || talkQueue.length || coopSession || arrange.on || gloomNow.on || $$(".overlay").some(o => !o.classList.contains("hidden"))) return;
   giftNow = l.wait[0];
   const from = giftNow.f || tr("a friend");
   talkQueue.push([[PIP, tr("Knock knock! I came up through the tunnels with a parcel for you, {0}.", myName())],

@@ -788,7 +788,11 @@ function drawSprite(x, y, s, sp, o = {}) {
     f.t = t;
     spriteFrames.set(key, f);
   }
-  drawBaked(look && !o.sil ? neonize(f, sp, look) : f, x, y);
+  const shown = look && !o.sil ? neonize(f, sp, look) : f;
+  drawBaked(shown, x, y);
+  // dimmed (in the Gloom's shadow): the same picture again, multiplied over itself, so its colors sink without going see-through
+  // (only when painting normally: a picture used to cut others out stays as it is)
+  if (o.dim > 0.02 && ctx.globalCompositeOperation === "source-over") { const ga = ctx.globalAlpha; ctx.globalCompositeOperation = "multiply"; ctx.globalAlpha = ga * Math.min(1, o.dim); drawBaked(shown, x, y); ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = ga; }
 }
 const spriteFrames = new Map();
 
