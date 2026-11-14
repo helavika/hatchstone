@@ -325,7 +325,7 @@ function wmVeilDraw(g, id, alpha, now) {
 
 // ---------- the living map: water that sparkles, smoke from the chimneys, fireflies, clouds drifting over ----------
 
-const wm = { raf: 0, t0: 0, smoke: [], flies: [], cv: null, K: 3, fade: {}, rise: {}, lifting: null };
+const wm = { raf: 0, t0: 0, smoke: [], flies: [], cv: null, K: 3, fade: {}, rise: {}, lifting: null, press: null, hint: null };
 const WM_CHIMNEYS = { forge: [8, -26], nest: [9, -27], trail: [-2, -2] };
 function worldFrame(now) {
   const base = worldBase(), cv = wm.cv, g = cv.getContext("2d"), C = WM_COL, t = now / 1000;
@@ -483,16 +483,15 @@ function wardSights(id) {
   const all = landSights(id);
   return all.length ? [all.filter(x => save.sparks.got[x.id]).length, all.length] : null;
 }
-/** The banner under a land: ??? while it's hidden, how many stones stand while you ward it, its name once it's found. */
+/** The banner under a land: a lock pin while it's hidden (a tap shows its hint: see wmHint), its name once it's found. */
 function wardBanner(w) {
   if (wardFound(w.id)) {
     const s = wardSights(w.id);
     return `<b>${tr(w.name)}</b><small>${tr("the road is still being cleared")}</small>` + (s ? `<small class="wsights">${tr("✦ sights {0} of {1}", s[0], s[1])}</small>` : "");
   }
-  if (!wardsOpen()) return "<b>???</b>";
-  return `<b>???</b><small>${wardOk(w.id) ? tr("wardstones {0} of {1}", wardsSet(w.id), w.wards.length) : wardHow(w.id)}</small>`;
+  return ic("lock");
 }
-/** How many stones are in hand, at the top of the map. */
+/** How many stones are in hand, in the strip under the map. */
 function wardHand() {
   const el = $("wardHand"), ws = wards();
   if (!el) return;
@@ -539,7 +538,13 @@ function wmWardButtons() {
     $("worldMap").appendChild(b);
   });
   // (a land whose veil has lifted is found only once its stone has risen: the banner changes with the toast, not before)
-  for (const b of $$("#worldMap [data-mystery]")) { const w = wardLand(b.dataset.mystery); b.querySelector(".wbanner").innerHTML = wardBanner(w); b.classList.toggle("found", wardFound(w.id)); }
+  for (const b of $$("#worldMap [data-mystery]")) {
+    const w = wardLand(b.dataset.mystery), found = wardFound(w.id);
+    b.querySelector(".wbanner").innerHTML = wardBanner(w); b.classList.toggle("found", found); b.classList.toggle("pin", !found);
+    if (found) b.removeAttribute("aria-label"); else b.setAttribute("aria-label", "??? · " + tr(w.hint));
+  }
+  // no pin's hint is open (or its land has just been found): the strip goes back to its quiet line
+  if (!document.querySelector("#worldMap .wplace.pin.on")) wmHint(null);
   if (wm.K) { wmPlaceWards(); wmClampBanners(); }
 }
 /** The lands at the map's edges keep their banners inside it (the snowfields' and the Gloom's would hang off the side). */
@@ -554,13 +559,12 @@ function wmClampBanners() {
 function wmPlaceWards() {
   for (const b of $$("#worldMap [data-ward]")) { const [id, i] = b.dataset.ward.split("."), [x, y] = wardLand(id).wards[i]; b.style.left = x * wm.K + "px"; b.style.top = (y - 3) * wm.K + "px"; }
 }
-/** A tap on a land past the valley: its hint while hidden, how the warding goes, and once it's found, its name and its sights. */
+/** A tap on a land past the valley: while it's hidden, its hint and how the warding goes, in the strip under the map; once it's found, its name and its sights. */
 function tapMystery(id) {
   const w = wardLand(id), s = wardSights(id);
   sfx.tick();
   if (wardFound(id)) { toast(tr("{0}: the road is still being cleared. Pip will lead the way when it's ready.", tr(w.name)) + (s ? " · " + tr("{0}: {1} of {2} sights home", tr(w.name), s[0], s[1]) : "")); return; }
-  if (!wardsOpen()) { toast(tr(w.hint)); return; }
-  toast(tr(w.hint) + " · " + (wardOk(id) ? tr("Set a wardstone on each spot at the edge of the veil.") : wardHow(id)));
+  wmHint(id, tr(w.hint), !wardsOpen() ? "" : wardOk(id) ? tr("wardstones {0} of {1}", wardsSet(id), w.wards.length) + " · " + tr("Set a wardstone on each spot at the edge of the veil.") : wardHow(id));
 }
 
 /** Where you are right now, as a place on the map. */
@@ -570,21 +574,47 @@ function wherePlace() {
   return { yard: "garden", lab: "lab", shop: "shop", forge: "forge", camp: "trail", grotto: "grotto" }[k] || "nest";
 }
 const WM_KEEPERS = { shop: "tansy", forge: "ember", trail: "pip", lab: "ollo", garden: "fennel" };
-/** How big the map is drawn: zoom 0 fits it all on screen, each step in is half as big again. */
+
+// ---------- looking around: how big the map is drawn, where it may rest, and when a press is a drag ----------
+// (plain sums, so the tests can run them in Node: see tests/world-pan.test.cjs)
+
+/** How big the map is drawn: the first step fits it all on screen, each step in is bigger. */
 const WM_ZOOMS = [1, 1.8, 2.8, 4];
-function wmFit() {
-  const sc = $("worldScroll"), top = parseFloat(getComputedStyle($("worldMap")).marginTop) || 0, bottom = parseFloat(getComputedStyle($("worldMap")).marginBottom) || 0;
-  return Math.max(0.5, Math.min((sc.clientWidth - 16) / WM_W, (sc.clientHeight - top - bottom) / WM_H));
+// a screen with this much more height than the whole map needs (a phone held upright) opens the map filling its height
+const WM_TALL = 1.3;
+/** The sizes the map can be drawn at (screen px per art px) and the step it opens at, from the sizes that fit the screen's
+ *  width and its height. A wide screen opens on the whole map. An upright phone opens a step in, the map as tall as the
+ *  screen and dragged sideways, with the whole map one step out. */
+function wmSteps(byW, byH) {
+  const whole = Math.max(0.5, Math.min(byW, byH));
+  return byH < whole * WM_TALL ? { ks: WM_ZOOMS.map(z => whole * z), home: 0 } : { ks: [whole, byH, byH * 1.5, byH * 2.2], home: 1 };
 }
+/** Where the map may rest: never past its own edges (a map smaller than its window stays put). */
+const wmPanClamp = (at, size, view) => Math.max(0, Math.min(at, size - view));
+/** The scroll that brings a point of the map to the middle of its window, as near as the edges allow. */
+const wmPanTo = (p, size, view) => wmPanClamp(p - view / 2, size, view);
+// a press may wander this far (screen px) and still be a tap; any further and it drags the map and taps nothing
+const WM_TAP = 8;
+const wmDragged = (dx, dy) => Math.hypot(dx, dy) > WM_TAP;
+
+// ---------- the map sheet: laid out, opened, dragged about, and the strip under it ----------
+
+/** The sizes at which the map would just fit the sheet's width, and its height. */
+function wmFit() {
+  const sc = $("worldScroll"), css = getComputedStyle($("worldMap"));
+  return [(sc.clientWidth - 16) / WM_W, (sc.clientHeight - (parseFloat(css.marginTop) || 0) - (parseFloat(css.marginBottom) || 0)) / WM_H];
+}
+/** Draw the map at a zoom step (none given: the step it opens at); keep: what's in the middle of the screen stays there. */
 function layoutWorld(zoom, keep) {
   const sc = $("worldScroll"), map = $("worldMap"), old = wm.K, cx = keep ? (sc.scrollLeft + sc.clientWidth / 2 - map.offsetLeft) / old : 0, cy = keep ? (sc.scrollTop + sc.clientHeight / 2 - map.offsetTop) / old : 0;
-  wm.zoom = clamp(zoom, 0, WM_ZOOMS.length - 1);
-  const K = wm.K = wmFit() * WM_ZOOMS[wm.zoom];
+  const { ks, home } = wmSteps(...wmFit());
+  wm.zoom = clamp(zoom ?? home, 0, ks.length - 1);
+  const K = wm.K = ks[wm.zoom];
   map.style.width = WM_W * K + "px"; map.style.height = WM_H * K + "px";
-  map.classList.toggle("far", wm.zoom === 0); map.style.setProperty("--k", K);
+  map.classList.toggle("far", wm.zoom <= home); map.style.setProperty("--k", K);
   for (const b of $$("#worldMap [data-place], #worldMap [data-mystery]")) { const [x, y] = wmAt(b.dataset.place || b.dataset.mystery); b.style.left = x * K + "px"; b.style.top = (y - 32) * K + "px"; b.firstElementChild.style.width = 40 * K + "px"; b.firstElementChild.style.height = 36 * K + "px"; }
   wmPlaceWards(); wmClampBanners();
-  $("worldIn").disabled = wm.zoom >= WM_ZOOMS.length - 1; $("worldOut").disabled = wm.zoom <= 0;
+  $("worldIn").disabled = wm.zoom >= ks.length - 1; $("worldOut").disabled = wm.zoom <= 0;
   if (keep) { sc.scrollLeft = map.offsetLeft + cx * K - sc.clientWidth / 2; sc.scrollTop = map.offsetTop + cy * K - sc.clientHeight / 2; }
 }
 function openWorld() {
@@ -593,28 +623,33 @@ function openWorld() {
   const map = $("worldMap"), fresh = save.mapFresh || [], here = wherePlace(), cr = activeCreature();
   map.innerHTML = `<canvas id="worldCv" width="${WM_W}" height="${WM_H}"></canvas>` + WORLD.map(w => {
     const ok = placeOk(w.id), isNew = fresh.includes(w.id), keeper = ok && WM_KEEPERS[w.id];
-    return `<button class="wplace${ok && w.call && w.call() ? " call" : ""}${isNew ? " fresh" : ""}${ok ? "" : " locked"}${w.id === here ? " here" : ""}" data-place="${w.id}" ${ok ? "" : "disabled"}>`
+    // (a place not open yet is a lock pin: a tap shows how it opens, in the strip under the map)
+    return `<button class="wplace${ok && w.call && w.call() ? " call" : ""}${isNew ? " fresh" : ""}${ok ? "" : " locked pin"}${w.id === here ? " here" : ""}" data-place="${w.id}"${ok ? "" : ` aria-label="??? · ${w.how()}"`}>`
       + `<span class="wplace-hit"></span>`
       + (keeper ? `<img class="wkeeper" src="${keeperMini(keeper)}" alt="">` : "")
       + (ok && w.id === here && cr ? `<img class="where" src="${creatureImage(specOf(cr), { art: 20, level: cr.level, shiny: cr.shiny, acc: cr.acc })}" alt="">` : "")
-      + `<span class="wbanner"><b>${ok ? tr(w.name) : ic("lock") + "???"}</b><small>${ok ? (isNew ? tr("new! ✦") : w.note()) : w.how()}</small></span></button>`;
+      + `<span class="wbanner">${ok ? `<b>${tr(w.name)}</b><small>${isNew ? tr("new! ✦") : w.note()}</small>` : ic("lock")}</span></button>`;
   }).join("");
   map.innerHTML += WM_MYSTERY.map(w => `<button class="wplace mystery" data-mystery="${w.id}"><span class="wplace-hit"></span><span class="wbanner">${wardBanner(w)}</span></button>`).join("");
   if (!$("wardHand")) { const h = document.createElement("button"); h.id = "wardHand"; h.addEventListener("click", () => { sfx.tick(); toast(tr(wards().have.length ? "Tap a glowing spot at the edge of the fog to set a wardstone." : "No wardstone in hand. Ember forges them at the workbench ✦")); }); $("worldSheet").appendChild(h); }
+  // the stones in hand sit in the strip under the map, before the hint
+  $("worldStrip").prepend($("wardHand"));
   wm.cv = $("worldCv");
   if (fresh.length) { save.mapFresh = []; persist(); updateCalls(); }
   $$("#worldMap [data-mystery]").forEach(b => b.addEventListener("click", () => tapMystery(b.dataset.mystery)));
   wmWardButtons(); wardHand();
   $$("#worldMap [data-place]").forEach(b => b.addEventListener("click", () => {
     const w = WORLD.find(x => x.id === b.dataset.place);
+    if (!placeOk(w.id)) { sfx.tick(); wmHint(w.id, w.how()); return; }
     if (coopSession) coopEnd("navigation", true);
     closeWorld(); w.go();
   }));
   show("worldSheet", true);
   setHint("");
-  // the whole valley at first
-  wm.K = 1; layoutWorld(0, false);
-  const sc = $("worldScroll"); sc.scrollLeft = 0; sc.scrollTop = 0;
+  // fitted to the screen at first (an upright phone fills its height), with the place you stand in in the middle
+  wm.K = 1; layoutWorld(null, false);
+  const sc = $("worldScroll"), [hx, hy] = wmAt(here);
+  sc.scrollLeft = wmPanTo(map.offsetLeft + hx * wm.K, sc.scrollWidth, sc.clientWidth); sc.scrollTop = wmPanTo(map.offsetTop + (hy - 14) * wm.K, sc.scrollHeight, sc.clientHeight);
   cancelAnimationFrame(wm.raf); wm.raf = requestAnimationFrame(worldFrame);
   litTabs();
   if (wardsOpen()) setTimeout(() => worldOpen() && talk("wardSpots"), 600);
@@ -627,6 +662,52 @@ function closeWorld() {
   litTabs();
 }
 const worldOpen = () => !$("worldSheet").classList.contains("hidden");
+
+/** A lock pin's hint, in the strip under the map: a tap on the pin shows it, a tap on it again (or anywhere else: see wmClick) puts it away. */
+function wmHint(id, text = "", sub = "") {
+  const on = !!id && wm.hint !== id, pins = $$("#worldMap .wplace.pin");
+  wm.hint = on ? id : null;
+  for (const b of pins) b.classList.toggle("on", on && (b.dataset.place || b.dataset.mystery) === id);
+  $("worldHint").innerHTML = on ? `${ic("lock")}<span>${text}${sub ? `<small>${sub}</small>` : ""}</span>` : pins.length ? tr("tap a lock for its hint") : "";
+  $("worldStrip").classList.toggle("on", on);
+}
+/** A press on the map is a tap until it has moved (see wmDragged): from then on it drags the map, and taps nothing. */
+function wmPress(e) {
+  if (!e.isPrimary || e.button || (wm.press && wm.press.pan && !wm.press.up)) return;
+  const sc = $("worldScroll");
+  wm.press = { id: e.pointerId, x: e.clientX, y: e.clientY, left: sc.scrollLeft, top: sc.scrollTop, pan: false, up: false };
+}
+function wmDrag(e) {
+  const p = wm.press, sc = $("worldScroll");
+  if (!p || p.up || p.id !== e.pointerId) return;
+  if (e.pointerType === "mouse" && !(e.buttons & 1)) { wmRelease(e); return; }
+  if (!p.pan) {
+    if (!wmDragged(e.clientX - p.x, e.clientY - p.y)) return;
+    // the drag starts from here, so the map doesn't jump the first few pixels
+    p.pan = true; p.x = e.clientX; p.y = e.clientY;
+    sc.setPointerCapture(e.pointerId); sc.classList.add("panning");
+  }
+  sc.scrollLeft = wmPanClamp(p.left - (e.clientX - p.x), sc.scrollWidth, sc.clientWidth);
+  sc.scrollTop = wmPanClamp(p.top - (e.clientY - p.y), sc.scrollHeight, sc.clientHeight);
+}
+function wmRelease(e) {
+  const p = wm.press;
+  if (!p || p.id !== e.pointerId) return;
+  p.up = true; $("worldScroll").classList.remove("panning");
+  // a tap is over with; a drag is remembered a moment longer, for the click that may come with letting go
+  if (p.pan) setTimeout(() => { if (wm.press === p) wm.press = null; }, 400); else wm.press = null;
+}
+/** Every click on the map sheet comes through here first: the one that ends a drag is dropped, and a tap anywhere but on a lock pin puts the hint away. */
+function wmClick(e) {
+  if (wm.press && wm.press.pan) { wm.press = null; e.stopPropagation(); e.preventDefault(); return; }
+  if (wm.hint && !e.target.closest(".wplace.pin")) wmHint(null);
+}
+// a new press anywhere on the sheet (the zoom buttons, the strip) means the last drag is over with
+$("worldSheet").addEventListener("pointerdown", () => { if (wm.press && wm.press.up) wm.press = null; }, true);
+$("worldScroll").addEventListener("pointerdown", wmPress);
+$("worldScroll").addEventListener("pointermove", wmDrag);
+for (const ev of ["pointerup", "pointercancel"]) addEventListener(ev, wmRelease);
+$("worldSheet").addEventListener("click", wmClick, true);
 
 // what Ember says over the first wardstone, Pip at the first sight of the ward spots, and Pip as each land comes out of the dark
 Object.assign(TALKS, {
