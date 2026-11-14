@@ -517,6 +517,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.ser
 window.addEventListener("resize", resize);
 window.addEventListener("hashchange", coopImportLocationInvite);
 for (const cr of save.creatures) applyTime(cr);
+clearDoorways();
 resize();
 updateTopbar();
 checkThemes();

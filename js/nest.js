@@ -967,25 +967,29 @@ function arriveAt(kind) {
     if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
   }
 }
-// ---------- passages between rooms: dark arches in the walls, like a real cave (and a heap of rubble where a new room could be carved) ----------
+// ---------- passages between rooms: dark arches in the walls, like a real cave ----------
 
-/** Where each wall's passage leads: the home rooms in order, and rubble to dig through when there's a room still to carve. */
+/**
+ * The home rooms stand in a row, west to east, in the order they were carved: each room's left (west) wall opens onto the
+ * one before it and its right (east) wall onto the one after, so you come into a room through the wall facing the way you
+ * came. The rooms at the ends have a door on their inner side only. New rooms come from the shop's Renovation, not from here.
+ */
+function roomDoors(i = save.room) {
+  const homes = save.rooms.map((_, k) => k).filter(k => roomOpen(k) && !isOutside(k)), at = homes.indexOf(i), out = [];
+  if (at < 0) return out;
+  if (at > 0) out.push({ wall: "L", to: homes[at - 1] });
+  if (at < homes.length - 1) out.push({ wall: "R", to: homes[at + 1] });
+  return out;
+}
+/** The passages drawn and tappable right now. */
 function passages() {
   if (!N.iso || isPlace() || game.scene !== "nest" || arrange.on) return [];
-  const homes = save.rooms.map((_, i) => i).filter(i => roomOpen(i) && !isOutside(i)), at = homes.indexOf(save.room), n = homes.length, carve = !!nextRoomKind();
-  if (at < 0) return [];
-  const prev = homes[(at - 1 + n) % n], next = homes[(at + 1) % n];
-  const out = [];
-  if (n >= 2) out.push({ wall: "R", to: next });
-  else if (carve) out.push({ wall: "R", rubble: true });
-  if (n >= 3) out.push({ wall: "L", to: prev });
-  else if (n === 2 && carve) out.push({ wall: "L", rubble: true });
-  return out;
+  return roomDoors();
 }
 let passageShapes = [];
 /** The arch's outline on its wall, near the front end, in screen pixels. */
 function passageShape(wall) {
-  const c = 0.8, w = 0.085, hgt = Math.min(N.isoWall * 0.62, N.base * 1.6);
+  const c = DOOR_AT, w = DOOR_W, hgt = Math.min(N.isoWall * 0.62, N.base * 1.6);
   const a = wall === "R" ? isoAt(c - w, 0) : isoAt(0, c - w), b = wall === "R" ? isoAt(c + w, 0) : isoAt(0, c + w);
   const pts = [a];
   for (let k = 0; k <= 10; k++) { const f = k / 10, x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f - hgt * (0.72 + 0.28 * Math.sin(f * Math.PI)); pts.push([x, y]); }
@@ -1002,23 +1006,15 @@ function drawPassages() {
     ctx.fillStyle = "#3a3440"; path(P * 3); ctx.fill();
     ctx.fillStyle = "#5d5666"; path(P * 1.5); ctx.fill();
     ctx.fillStyle = "#0b0614"; path(0); ctx.fill();
-    if (!p.rubble) {
-      const top = Math.min(...pts.map(q => q[1])), bot = pts[0][1], mid = (pts[0][0] + pts[pts.length - 1][0]) / 2;
-      const gr = ctx.createLinearGradient(0, bot, 0, top); gr.addColorStop(0, "rgba(255,226,150,.28)"); gr.addColorStop(1, "rgba(255,226,150,0)");
-      ctx.fillStyle = gr; path(-P * 2); ctx.fill();
-      for (let k = 0; k < 3; k++) { ctx.fillStyle = "#2a2148"; ctx.fillRect(Math.round(mid - P * 4 + k * P * 3), Math.round(bot - P * (2 + k)), P * 2, P); }
-    } else {
-      // rubble heaped in the opening: there's a room to carve here
-      const bot = pts[0][1], x0 = pts[0][0], x1 = pts[pts.length - 1][0];
-      const hgt = bot - Math.min(...pts.map(q => q[1]));
-      for (let k = 0; k < 40; k++) { const f = 0.08 + pxHash(k, 3) * 0.84, x = x0 + (x1 - x0) * f, y = bot + (pts[pts.length - 1][1] - pts[0][1]) * f - hgt * 0.62 * pxHash(k, 5) * Math.sin(f * Math.PI); const sz = P * (2 + Math.round(pxHash(k, 8) * 2)); ctx.fillStyle = ["#5d5666", "#8a8494", "#3a3440", "#6b5a9a"][k % 4]; ctx.fillRect(Math.round(x - sz), Math.round(y - sz), sz * 2, Math.round(sz * 1.6)); ctx.fillStyle = "#b9b3c0"; ctx.fillRect(Math.round(x - sz), Math.round(y - sz), P, P); }
-    }
+    const top = Math.min(...pts.map(q => q[1])), bot = pts[0][1], mid = (pts[0][0] + pts[pts.length - 1][0]) / 2;
+    const gr = ctx.createLinearGradient(0, bot, 0, top); gr.addColorStop(0, "rgba(255,226,150,.28)"); gr.addColorStop(1, "rgba(255,226,150,0)");
+    ctx.fillStyle = gr; path(-P * 2); ctx.fill();
+    for (let k = 0; k < 3; k++) { ctx.fillStyle = "#2a2148"; ctx.fillRect(Math.round(mid - P * 4 + k * P * 3), Math.round(bot - P * (2 + k)), P * 2, P); }
     // where it goes, written over the arch
-    const top = Math.min(...pts.map(q => q[1])), mid = (pts[0][0] + pts[pts.length - 1][0]) / 2;
-    const label = p.rubble ? "⛏ " + tr("a new room") : roomName(p.to);
+    const label = roomName(p.to);
     fx.save(); fx.font = `400 ${Math.round(clamp(N.base * 0.2, 12, 16))}px ${PIXEL_FONT}`; fx.textAlign = "center";
     fx.fillStyle = "#160c26"; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) fx.fillText(label, mid + dx, top - 6 + dy);
-    fx.fillStyle = p.rubble ? "#c9b8ff" : "#ffe9a8"; fx.fillText(label, mid, top - 6); fx.restore();
+    fx.fillStyle = "#ffe9a8"; fx.fillText(label, mid, top - 6); fx.restore();
     ctx.restore();
     passageShapes.push({ p, pts });
   }
@@ -1033,13 +1029,9 @@ function passageAt(x, y) {
   }
   return null;
 }
+/** Through an arch: out of this room's east wall is in at the next one's west wall, and back again. */
 function goPassage(p) {
-  if (p.rubble) {
-    sfx.tick(); toast(tr("Rubble. Tansy's cousin can carve a room here: ask at the shop, in Renovation"));
-    arriveAt("shop"); const st = shopOf(); st.mode = "market"; st.tab = "reno"; st.pick = null; setTimeout(openShop, 600);
-    return;
-  }
-  sfx.tick(); goRoom(p.to);
+  sfx.tick(); goRoom(p.to, p.wall === "R" ? "L" : "R");
 }
 /** Which room a decoration stands in, or -1 if it's in storage. */
 function decorRoom(id) {
@@ -1055,7 +1047,8 @@ function packRoom() {
   r.on = Object.keys(save.decor).filter(hasDecor);
   for (const k of ROOM_KEYS) r[k] = save[k] ?? null;
 }
-function goRoom(i) {
+/** Into another room: through the arch on its wall `via` (L or R) when you walked there, else into the middle of it. */
+function goRoom(i, via) {
   i = (i + save.rooms.length) % save.rooms.length;
   if (i === save.room) return;
   if (arrange.on) stopArrange();
@@ -1073,8 +1066,14 @@ function goRoom(i) {
   syncActors();
   const here = residents(i);
   if (here.length && !here.some(c => c.id === save.active)) save.active = here[0].id;
-  // they wander in from the middle of the room
-  for (const a of actors.values()) { const [x, y] = roomSpot("rug"); a.x = a.tx = x + rand(-1, 1) * N.base * 0.6; a.y = a.ty = y + rand(-0.5, 0.5) * N.base * 0.3; a.goal = a.friend = a.decor = null; if (a.state !== "sleep") { a.state = "idle"; a.t = rand(0.5, 1.5); } }
+  // they wander in from the middle of the room; walking in through an arch, the one you look after comes with you, in at that wall
+  const door = via && N.iso && roomDoors(i).some(d => d.wall === via) && doorStep(via);
+  for (const a of actors.values()) {
+    const [x, y] = roomSpot("rug"), tx = x + rand(-1, 1) * N.base * 0.6, ty = y + rand(-0.5, 0.5) * N.base * 0.3, lead = door && a.id === save.active && a.state !== "sleep";
+    [a.x, a.y] = lead ? door : [tx, ty];
+    a.tx = tx; a.ty = ty; a.goal = a.friend = a.decor = null;
+    if (a.state !== "sleep") { a.state = "idle"; a.t = rand(lead ? 2 : 0.5, lead ? 3 : 1.5); }
+  }
   sfx.tick();
   renderNest(true);
   litTabs();
@@ -1092,7 +1091,7 @@ function litTabs() {
 /** The shop's renovation corner: build a new room at home, or make room for one more glowling. */
 function marketReno() {
   const next = nextRoomKind(), nu = save.nestUp || 0, cost = NEST_UP_COST[nu];
-  return `<p class="me-hint">${tr("Tansy's cousin carves new rooms into the rock: they appear at home, a tap of the arrows away.")}</p>`
+  return `<p class="me-hint">${tr("Tansy's cousin carves new rooms into the rock: each opens off the last one at home, through a new arch in its wall.")}</p>`
     + ROOM_KINDS.filter(k => k.cost).map(k => {
       const built = save.rooms.some(r => r.kind === k.id), soon = !built && next && next.id !== k.id;
       return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.theme || "amethyst")}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small></span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${save.shards < k.cost ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;
