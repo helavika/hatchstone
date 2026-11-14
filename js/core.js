@@ -428,9 +428,9 @@ const sfx = {
   setDown() {
     if (!this.ready()) return;
     const t = this.ac.currentTime;
-    this.tone(t, rand(480, 560), 0.017, 0.07, "triangle", 300);
-    this.tone(t, 200, 0.008, 0.12, "sine", 140);
-    this.grain(t, 0.02, 1800, 1, 0.025, "lowpass");
+    this.tone(t, rand(480, 560), 0.03, 0.07, "triangle", 300);
+    this.tone(t, 200, 0.014, 0.12, "sine", 140);
+    this.grain(t, 0.02, 1800, 1, 0.04, "lowpass");
   },
 
   /** A page of the Book turning: paper brushing past, then lying flat. */
