@@ -279,7 +279,7 @@ function wmMysteryArt(id) {
     }
   });
 }
-// a pre-painted veil of darkness over the Gloom's land and a bank of fog over the snowfields (drawn shifting each frame)
+// a pre-painted veil of darkness over the Gloom's land and a bank of fog over the snowfields (drawn breathing each frame)
 let wmVeils = null;
 function worldVeils() {
   if (wmVeils) return wmVeils;
@@ -323,10 +323,11 @@ function worldFrame(now) {
   }
   // the aurora over the north-east, the veils, two eyes that open in the dark now and then, the lighthouse blinking
   for (let x = 220; x < WM_W; x++) { const y = 10 + Math.sin(x / 17 + t * 0.6) * 6 + Math.sin(x / 7 + t) * 2; for (let k = 0; k < 6; k++) put(x, y + k, k < 3 ? WM_COL.foam : [232, 139, 177], 0.18 + 0.12 * Math.sin(t + x / 30)); }
+  // the veils stay put and only breathe: nudged a pixel at a time, their dither crawled and the map's edges peeked out from under them
   const veil = worldVeils();
-  g.drawImage(veil.cloud, Math.round(Math.sin(t * 0.2) * 3), 0);
-  g.globalAlpha = 0.92 + Math.sin(t * 0.7) * 0.06; g.drawImage(veil.dark, Math.round(Math.sin(t * 0.35) * 2), Math.round(Math.cos(t * 0.27) * 2)); g.globalAlpha = 1;
-  g.drawImage(veil.fog, Math.round(Math.sin(t * 0.15) * 4), 0);
+  g.globalAlpha = 0.9 + Math.sin(t * 0.2) * 0.1; g.drawImage(veil.cloud, 0, 0);
+  g.globalAlpha = 0.92 + Math.sin(t * 0.7) * 0.06; g.drawImage(veil.dark, 0, 0);
+  g.globalAlpha = 0.88 + Math.sin(t * 0.15) * 0.12; g.drawImage(veil.fog, 0, 0); g.globalAlpha = 1;
   g.drawImage(veil.night, 0, 0);
   // a festival's snow (or petals, or leaves) falls only on the high, cold ground: the peaks and the snowfields
   const fall = eventNow()?.fall;
