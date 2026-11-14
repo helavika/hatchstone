@@ -564,16 +564,116 @@ function openLantern(needed) {
   show("lantern", true);
 }
 
-function startLevel(n) {
+// ---------- home caves and a choice of three geodes ----------
+
+/** At home a crystal turns up this many times as often as the others of its rarity. */
+const HOME_WEIGHT = 3;
+/** Which crystal of this rarity a geode holds. Wander and playing together draw from every cave alike, as they always have. */
+function rollCrystal(conf, rarity) {
+  const pool = CRYSTALS.filter(c => c.rarity === rarity);
+  if (conf.wander) return pick(pool);
+  const w = c => c.cave === conf.cave ? HOME_WEIGHT : 1;
+  let r = Math.random() * pool.reduce((sum, c) => sum + w(c), 0);
+  return pool.find(c => (r -= w(c)) < 0) || pool[pool.length - 1];
+}
+
+/**
+ * The odds for each of the three geodes you choose from. Three tries at the level's own odds would hand out far too many
+ * rare ones, so each gets a smaller share: a shimmer shows among the three at most 1.5 times as often as one geode had it.
+ * The stone's color hints which shimmer could be legendary, so those are a little scarcer still (×0.8):
+ * even choosing as cleverly as the tells allow finds a legendary about 1.5 times as often as before, no more.
+ */
+function offerOdds(conf) {
+  const p = conf.rare + conf.legendary, q = Math.min(p, 1 - Math.cbrt(1 - Math.min(1, 1.5 * p)));
+  const legendary = conf.legendary * q / p * 0.8;
+  return { rare: q - legendary, legendary };
+}
+function rollOffer(conf) {
+  const odds = offerOdds(conf);
+  return Array.from({ length: 3 }, () => {
+    const r = Math.random();
+    return rollCrystal(conf, r < odds.legendary ? "legendary" : r < odds.legendary + odds.rare ? "rare" : "common");
+  });
+}
+
+/** You choose your geode in Wander and on a level you have opened before. A first visit and a geode sealed by the Gloom
+ *  hand you theirs (the moon egg and playing together never come this way). */
+const choosesGeode = n => n === 0 || !!save.stars[n];
+
+/** How many eggs have hatched in this nest, all told. */
+const hatched = () => Object.values(save.seen).reduce((sum, s) => sum + s.count, 0);
+
+/**
+ * The three geodes waiting on level n, and what each lets on: the stone of its home cave, a shimmer if it's rare or better,
+ * and a ? if the Book doesn't have it yet. They stay the same until one is taken, so closing the sheet is no second roll.
+ */
+function offerFor(n) {
+  const offers = save.offers || (save.offers = {});
+  let kept = offers[n];
+  if (kept && !(kept.took === undefined && Array.isArray(kept.ids) && kept.ids.length === 3 && kept.ids.every(id => CRYSTAL[id]))) kept = null;
+  if (!kept) { kept = offers[n] = { ids: rollOffer(levelConf(n)).map(c => c.id) }; persist(); }
+  const three = kept.ids.map(id => CRYSTAL[id]);
+  // one ? at most, however many would be new: it points at one, it doesn't count them
+  const fresh = three.findIndex(c => !save.geodes[c.id]);
+  return three.map((crystal, i) => ({ crystal, shimmer: crystal.rarity !== "common", fresh: i === fresh }));
+}
+
+/** The geode you took on level n and left unopened. It waits for you until an egg has hatched, so walking out is no way to try the other two. */
+function waitingGeode(n) {
+  const kept = save.offers && save.offers[n];
+  return kept && kept.took === hatched() && CRYSTAL[kept.chose] || null;
+}
+
+const caveShells = [];
+/** A closed geode in the stone of cave k, small and pixelled like the pictures in the Book. One picture per cave, so two alike give nothing away. */
+function caveShell(k) {
+  return caveShells[k] || (caveShells[k] = pixelate(makeShell(CAVE_STONES[k]).canvas, 30, 40).toDataURL());
+}
+
+let picking = null; // while the sheet is open: the level, its three geodes, and where the keyboard was
+function openPick(n) {
+  picking = { n, three: offerFor(n), from: document.activeElement };
+  $("pickRow").innerHTML = picking.three.map((g, i) => {
+    const cave = CAVES[g.crystal.cave], says = [cave, g.shimmer && tr("rare or better"), g.fresh && tr("new for the book")].filter(Boolean).join(", ");
+    return `<button data-geo="${i}"${g.shimmer ? ' class="shim"' : ""} aria-label="${says}"><span class="pg"><img src="${caveShell(g.crystal.cave)}" alt="">${g.shimmer ? "<i></i><i></i><i></i>" : ""}</span><small>${cave}</small>${g.fresh ? '<b class="new" aria-hidden="true">?</b>' : ""}</button>`;
+  }).join("");
+  $$("#pickRow [data-geo]").forEach(b => b.addEventListener("click", () => takeGeode(Number(b.dataset.geo))));
+  sfx.tick();
+  show("pickSheet", true);
+  $("pickRow").firstElementChild.focus({ preventScroll: true });
+}
+/** Putting the sheet away without choosing costs nothing: no oil is burnt until a geode is in your hands. */
+function closePick() {
+  const from = picking && picking.from;
+  picking = null;
+  show("pickSheet", false);
+  if (from && from.isConnected) from.focus({ preventScroll: true });
+}
+function takeGeode(i) {
+  const { n, three } = picking;
+  closePick();
+  startLevel(n, three[i].crystal);
+}
+
+/** Into the grotto. chosen: the crystal of the geode taken from the sheet, when there was one. */
+function startLevel(n, chosen) {
   // a trip into the grotto takes a drop of lantern oil
   const paid = tripCosts(n);
+  // with oil for the trip you choose your geode first, and the drop is burnt only once you have
+  const asks = !chosen && choosesGeode(n) && (!paid || oilNow() >= 1), left = asks && waitingGeode(n);
+  if (asks && !left) return openPick(n);
+  if (left) chosen = left;
   if (paid && !burnOil()) { sfx.tick(); openLantern(true); coreFell(); return; }
   sfx.tick();
   game.chips = []; game.sparks = [];
   setScene("crack");
   const conf = levelConf(n);
   if (n && n % 6 === 0 && !save.stars[n]) { conf.gloom = n / 6; conf.hp = Math.round(conf.hp * 1.4); }
+  if (chosen) conf.chosen = chosen;
   newEgg(conf, true);
+  // it arrives in the stone you saw on the sheet; once an egg has hatched, three new ones will be waiting here
+  if (chosen) { game.egg.stone = CAVE_STONES[chosen.cave]; refitEgg(game.egg); save.offers[n] = { chose: chosen.id, took: hatched() }; persist(); }
+  if (left) setHint(tr("the geode you chose is still waiting for you"));
   if (conf.gloom) { talk("g" + conf.gloom); setHint(tr("a geode sealed by the Gloom: crack it and set the spark free")); }
   game.egg.paid = paid;
 }

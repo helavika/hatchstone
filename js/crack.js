@@ -156,7 +156,7 @@ const toEgg = (x, y) => [(x - L.ex0) / L.ew, (y - L.ey0) / L.ew];
 function newEgg(conf, animate = true) {
   const r = Math.random();
   const rarity = r < conf.legendary ? "legendary" : r < conf.legendary + conf.rare ? "rare" : "common";
-  const crystal = conf.forced ? conf.forced.crystal : pick(CRYSTALS.filter(c => c.rarity === rarity));
+  const crystal = conf.forced ? conf.forced.crystal : conf.chosen || rollCrystal(conf, rarity);
   const species = conf.forced ? conf.forced.species : pick(SPECIES.filter(s => s.crystal === crystal.id && !s.moon));
   const sun = !conf.coop && !conf.forced && animate && save.sunlit > 0;
   if (sun) { save.sunlit--; setTimeout(() => toast(tr("A sunpetal warms this egg ☀️ a far better chance it's shiny")), 600); }
