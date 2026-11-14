@@ -864,6 +864,20 @@ function isoCask(T, x, y, rx, hgt, { hoops = [0.1, 0.3, 0.7, 0.9], fill = null, 
   T.grain(1, () => T.disc(x, y - hgt + 0.4, r - 1.6, fill || ((xx, yy) => (xx - x + (yy - y) * 2) % 6 === 0 ? IC.w3 : IC.w1)));
   if (!fill) { T.px(x + r * 0.25, y - hgt + 1, IC.ink2); T.px(x + r * 0.25 + 1, y - hgt + 1, IC.w3); }
 }
+/** Something round lying along u (a log, a bedroll, a rolled map): its axis from u0 to u1 at (v, z + R), R its radius.
+ *  side(lit, a, b, s) colours its skin (a toward the viewer's left, b up), end(rr, a, b) the near end it shows. */
+function isoRoll(K, T, u0, u1, v, z, R, side, end) {
+  for (let s = u0; s <= u1 + 1e-6; s += 0.5) {
+    const [cx, cy] = K.P(s, v, z + R), cap = s + 0.5 > u1 + 1e-6;
+    T.grain(cap ? 0 : 1, () => {
+      for (let py = Math.floor(cy - 2 * R - 1); py <= Math.ceil(cy + 2 * R + 1); py++) for (let px = Math.floor(cx - 2 * R - 1); px <= Math.ceil(cx + 2 * R + 1); px++) {
+        const a = -(px + 0.5 - cx) / 2, b = a - (py + 0.5 - cy), rr = Math.hypot(a, b) / R;
+        if (rr > 1) continue;
+        T.px(px, py, cap ? end(rr, a, b) : side((0.85 * b + 0.45 * a) / R, a, b, s));
+      }
+    });
+  }
+}
 const BURLAP = ["#ece0bc", "#cdb98c", "#a38d62", "#72603f", "#433625"].map(pxHex);
 /** A burlap sack sitting on the floor at (x, y): a soft round body with a flat bottom, creases falling from a neck tied with
  *  rope and a gathered tuft above it, or, opened, its rim rolled down over what it holds. */
@@ -1533,72 +1547,149 @@ const ISO_ART = {
   },
   // ---- the explorers' camp
   tent(t, T, ax, ay) {
-    // a canvas wall tent: four short walls and a ridged roof, the door flaps tied back, guy ropes to pegs, a stovepipe smoking
-    const cv = [pxHex("#6b5e44"), pxHex("#9c8c68"), pxHex("#c8b890"), pxHex("#e2d6b4")];
-    const x = ax, y = ay + t * 0.25, a = t * 0.9, b = t * 0.8, wall = Math.round(t * 0.55), roof = Math.round(t * 0.55);
-    const q = T.box(x, y, a, b, wall, cv[2], (px, py) => (px % 7 === 0 ? cv[1] : cv[2]), (px, py) => (px % 7 === 0 ? cv[0] : cv[1]));
-    const up = p => [p[0], p[1] - wall];
-    const L = up(q.Bv), F = up(q.Buv), Rr = up(q.Bu), B = q.top;
-    const r0 = [(B[0] + L[0]) / 2, (B[1] + L[1]) / 2 - roof], r1 = [(Rr[0] + F[0]) / 2, (Rr[1] + F[1]) / 2 - roof];
-    T.poly([L, F, r1, r0], (px, py) => (Math.round(px + py * 2) % 9 === 0 ? cv[2] : cv[3]));
-    T.poly([F, Rr, r1], cv[1]);
-    T.line(r0[0], r0[1], r1[0], r1[1], cv[0]);
-    // the doorway on the front wall, flaps tied back to either side
-    const d0 = [q.Bv[0] + (q.Buv[0] - q.Bv[0]) * 0.38, q.Bv[1] + (q.Buv[1] - q.Bv[1]) * 0.38], d1 = [q.Bv[0] + (q.Buv[0] - q.Bv[0]) * 0.62, q.Bv[1] + (q.Buv[1] - q.Bv[1]) * 0.62];
-    T.poly([d0, d1, [d1[0], d1[1] - wall - roof * 0.45], [(d0[0] + d1[0]) / 2, (d0[1] + d1[1]) / 2 - wall - roof * 0.75], [d0[0], d0[1] - wall - roof * 0.45]], IC.ink2);
-    T.glow((d0[0] + d1[0]) / 2, (d0[1] + d1[1]) / 2 - wall * 0.4, t * 0.4, IC.y0, 0.45);
-    for (const [d, side] of [[d0, -1], [d1, 1]]) T.poly([d, [d[0] + side * 3, d[1] + side * 1.5], [d[0] + side * 2, d[1] - wall], [d[0], d[1] - wall - 2]], cv[1]);
-    // guy ropes to pegs
-    for (const [p, dx, dy] of [[L, -t * 0.35, t * 0.35], [F, -t * 0.05, t * 0.5], [Rr, t * 0.35, t * 0.3]]) { T.line(p[0], p[1], p[0] + dx, p[1] + dy + wall, cv[0]); T.line(p[0] + dx, p[1] + dy + wall, p[0] + dx, p[1] + dy + wall - 2, IC.w3); }
-    // the stovepipe through the roof
-    const sp = [r1[0] * 0.7 + r0[0] * 0.3, r1[1] * 0.7 + r0[1] * 0.3 + 2];
-    T.line(sp[0], sp[1], sp[0], sp[1] - t * 0.35, IC.s3); T.line(sp[0] + 1, sp[1], sp[0] + 1, sp[1] - t * 0.35, IC.s2);
-    for (let k = 0; k < 5; k++) T.px(sp[0] + Math.round(Math.sin(k) * 2), sp[1] - t * 0.4 - k * 3, IC.s1);
+    // a canvas ridge tent: its gable and doorway turned to the fire, flaps tied back on a warm lamplit inside with a bedroll,
+    // the ridge pole poking out, roof panels sewn in strips, low walls, guy ropes to pegs, a stovepipe smoking through the roof
+    const U = t / 2, K = isoKit(T, ax, ay), cv = ["#efe6cc", "#d8cba6", "#b5a47c", "#8a7a56", "#5e5139"].map(pxHex);
+    const u0 = 0.15 * U, u1 = 1.85 * U, v0 = 0.12 * U, v1 = 1.75 * U, wz = Math.round(t * 0.45), rz = wz + Math.round(t * 1.15), um = (u0 + u1) / 2;
+    const seams = (n, fn) => { for (let k = 1; k < n; k++) fn(k / n); };
+    // the far slope, in the light
+    K.quad([[u0, v0, wz], [um, v0, rz], [um, v1, rz], [u0, v1, wz]], cv[1], 0);
+    seams(5, f => K.seg([u0, v0 + (v1 - v0) * f, wz], [um, v0 + (v1 - v0) * f, rz], cv[2]));
+    K.seg([u0, v0, wz], [u0, v1, wz], cv[0]);
+    // the stovepipe through it, smoking
+    { const [x, y] = K.P(um * 0.75, v0 + (v1 - v0) * 0.3, rz - 4); T.line(x, y, x, y - t * 0.55, IC.m3); T.line(x + 1, y, x + 1, y - t * 0.55, IC.m2); T.line(x - 1, y - t * 0.55, x + 2, y - t * 0.55, IC.m3);
+      for (let k = 0; k < 7; k++) T.px(x + Math.round(Math.sin(k * 0.8) * 2) + k * 0.4, y - t * 0.6 - k * 2.5, k % 2 ? IC.s1 : IC.s0); }
+    // the near wall and slope, in shade
+    K.faceU(u1, v0, v1, 0, wz, cv[3], 0);
+    seams(5, f => K.seg([u1, v0 + (v1 - v0) * f, 0], [u1, v0 + (v1 - v0) * f, wz], cv[4]));
+    K.quad([[u1, v0, wz], [um, v0, rz], [um, v1, rz], [u1, v1, wz]], cv[2], 0);
+    seams(5, f => K.seg([u1, v0 + (v1 - v0) * f, wz], [um, v0 + (v1 - v0) * f, rz], cv[3]));
+    K.seg([u1, v0, wz], [u1, v1, wz], cv[1]); K.seg([um, v0, rz], [um, v1 + 0.1 * U, rz], cv[4]);
+    // the gable, facing the camp
+    K.quad([[u0, v1, 0], [u1, v1, 0], [u1, v1, wz], [um, v1, rz], [u0, v1, wz]], cv[1], 0);
+    K.seg([u0, v1, wz], [um, v1, rz], cv[0]); K.seg([um, v1, rz], [u1, v1, wz], cv[2]);
+    // the doorway: lamplight inside, a bedroll on the floor, the pole up the middle, flaps tied back to each side
+    const d0 = um - 0.36 * U, d1 = um + 0.36 * U, dz = rz - 6;
+    K.quad([[d0, v1, 0], [d1, v1, 0], [d1, v1, wz * 0.9], [um, v1, dz], [d0, v1, wz * 0.9]], IC.w3, 0);
+    K.quad([[d0 + 1, v1, 0], [d1 - 2, v1, 0], [d1 - 2, v1, wz * 0.6], [um, v1, dz * 0.7], [d0 + 1, v1, wz * 0.6]], IC.w2, 0);
+    K.quad([[d0 + 1, v1, 0], [d1 - 2, v1, 0], [d1 - 2, v1, 3], [d0 + 1, v1, 3]], IC.r2, 0);
+    { const [x, y] = K.P(um, v1, wz * 0.9); T.glow(x, y, t * 0.75, IC.y0, 0.5); }
+    K.seg([um, v1, 0], [um, v1, dz], IC.w1);
+    for (const [dd, side] of [[d0, -1], [d1, 1]]) K.quad([[dd, v1 + 0.05 * U, 2], [dd + side * 0.22 * U, v1 + 0.05 * U, wz * 0.6], [dd + side * 0.08 * U, v1 + 0.05 * U, wz * 1.25], [dd, v1 + 0.05 * U, wz * 1.35]], side < 0 ? cv[0] : cv[2], 0);
+    for (const dd of [d0 - 0.12 * U, d1 + 0.12 * U]) K.dot(dd, v1 + 0.05 * U, wz * 0.75, BURLAP[3]);
+    // the ridge pole's end, and guy ropes out to pegs
+    K.seg([um, v1, rz], [um, v1 + 0.16 * U, rz + 1], IC.w2);
+    for (const [from, to] of [[[um, v1 + 0.16 * U, rz + 1], [um + 0.05 * U, v1 + 0.62 * U, 0]], [[u1, v1, wz], [u1 + 0.3 * U, v1 + 0.35 * U, 0]], [[u1, v0 + 0.5 * U, wz], [u1 + 0.42 * U, v0 + 0.5 * U, 0]], [[u0, v1, wz], [u0 - 0.1 * U, v1 + 0.45 * U, 0]]]) {
+      K.seg(from, to, cv[4]); K.seg(to, [to[0], to[1], 3], IC.w3); K.dot(to[0], to[1], 3, IC.w1);
+    }
   },
   campfire(t, T, ax, ay, o) {
-    // a ring of stones, crossed logs, the fire, and an iron pot hanging from a tripod over it, steaming
-    const cx = ax, cy = ay + t / 2, f = (o.frame || 0) % 4;
-    T.glow(cx, cy - 4, t * 1.8, IC.y1, 0.32);
-    for (let k = 0; k < 10; k++) { const an = k / 10 * TAU; T.ball(cx + Math.cos(an) * t * 0.36, cy + Math.sin(an) * t * 0.18, 2.2, IC.s1, IC.s2, IC.s3); }
-    T.box(cx - t * 0.3, cy - 2, t * 0.3, 1, 2, IC.w1, IC.w2, IC.w3); T.box(cx + t * 0.05, cy - 4, 1, t * 0.3, 2, IC.w1, IC.w2, IC.w3);
-    const tall = t * 0.5;
-    for (const [dx, k0, w] of [[0, 1, 3], [-3, 0.7, 2], [3, 0.8, 2]]) {
-      const hh = Math.round(tall * k0 * (f % 2 ? 1 : 0.88));
-      for (let k = 0; k < hh; k++) { const sway = Math.round(Math.sin((k + f * 2) * 0.6) * (k / hh) * 1.5), ww = Math.max(1, Math.round(w * (1 - k / hh))); for (let j = -ww + 1; j < ww; j++) T.px(cx + dx + sway + j, cy - 2 - k, k < hh * 0.35 ? IC.y0 : k < hh * 0.7 ? IC.y1 : IC.r1); }
+    // a ring of rounded stones round a bed of ash, split logs stacked in a cone and burning, sparks; over it a tripod of
+    // poles lashed at the top, a chain, and an iron pot of stew with a bail handle, steaming
+    const U = t / 2, K = isoKit(T, ax, ay), f = (o.frame || 0) % 4, c = 0.5 * U, [x, y] = K.P(c, c, 0);
+    T.glow(x, y - 4, t * 1.9, IC.y1, 0.3);
+    const stones = [];
+    for (let k = 0; k < 11; k++) { const an = k / 11 * TAU; stones.push([c + Math.cos(an) * 0.36 * U, c + Math.sin(an) * 0.36 * U]); }
+    const ring = back => stones.filter(([u, v]) => (u + v < 2 * c) === back).sort((p, q) => p[0] + p[1] - q[0] - q[1]).forEach(([u, v], k) => { const [sx, sy] = K.P(u, v, 0), r = 2.6 + pxHash(k, back ? 1 : 2) * 1.2; T.ball(sx, sy - r * 0.6, r, IC.s1, IC.s2, IC.s3, r * 0.75); T.px(sx - r * 0.4, sy - r * 1.1, IC.s0); });
+    ring(true);
+    T.disc(x, y, U * 0.32 * 2.83, (xx, yy) => pxHash(xx, yy) > 0.8 ? IC.s2 : pxHash(xx + 1, yy) > 0.6 ? IC.s3 : IC.s4);
+    for (let k = 0; k < 6; k++) { const [ex, ey] = K.P(c + (pxHash(k, 3) - 0.5) * 0.4 * U, c + (pxHash(3, k) - 0.5) * 0.4 * U, 0); T.px(ex, ey, (k + f) % 3 ? IC.r1 : IC.y1); }
+    // the logs leaning together
+    const tip = [c, c, Math.round(t * 0.55)];
+    for (let k = 0; k < 5; k++) { const an = (k + 0.3) / 5 * TAU, foot = [c + Math.cos(an) * 0.26 * U, c + Math.sin(an) * 0.26 * U, 0]; K.seg(foot, tip, IC.w3); K.seg([foot[0] - 0.5, foot[1], 0], [tip[0] - 0.5, tip[1], tip[2] - 1], k % 2 ? IC.w2 : IC.ink2); }
+    // the flames: tongues in layers, red outside, yellow, a pale heart; they lick up and sway with the frame
+    for (const [du, dv, k0, w] of [[0, 0, 1, 4], [-0.08, 0.05, 0.7, 3], [0.1, -0.04, 0.8, 3], [0.03, 0.1, 0.55, 2]]) {
+      const [fx, fy] = K.P(c + du * U, c + dv * U, 1), hh = Math.round(t * 0.75 * k0 * (f % 2 ? 1 : 0.86));
+      for (let k = 0; k < hh; k++) { const q = k / hh, sway = Math.round(Math.sin((k + f * 2.3) * 0.5) * q * 2), ww = Math.max(0.5, w * Math.sin(Math.PI * Math.min(1, q * 1.2 + 0.15)) * (1 - q * 0.3)); for (let j = Math.floor(-ww); j <= Math.ceil(ww); j++) { const e = Math.abs(j) / (ww + 0.5); T.px(fx + sway + j, fy - k, e > 0.7 ? (q > 0.6 ? IC.r2 : IC.r1) : e > 0.35 || q > 0.75 ? IC.y1 : q > 0.45 ? IC.y0 : IC.white); } }
     }
-    // the tripod and the pot
-    const top = [cx, cy - t * 1.05];
-    for (const [dx, dy] of [[-t * 0.42, t * 0.05], [t * 0.4, t * 0.1], [t * 0.05, -t * 0.22]]) T.line(top[0], top[1], cx + dx, cy + dy, IC.w3);
-    T.line(top[0], top[1], top[0], top[1] + t * 0.35, IC.s3);
-    T.ball(cx, top[1] + t * 0.5, t * 0.17, IC.s2, IC.s3, IC.s4, t * 0.14); T.line(cx - t * 0.17, top[1] + t * 0.4, cx + t * 0.17, top[1] + t * 0.4, IC.s4);
-    for (let k = 0; k < 4; k++) T.px(cx - 2 + k + ((k + f) % 2), top[1] + t * 0.3 - k * 3, IC.s0);
+    for (let k = 0; k < 4; k++) T.px(x - 3 + k * 2 + (k + f) % 2, y - t * 0.9 - ((k * 3 + f * 2) % 7), k % 2 ? IC.y0 : IC.r1);
+    ring(false);
+    // the tripod: three poles lashed at the top, a chain down to the pot
+    const top = [c, c, Math.round(t * 1.75)], feet = [[c - 0.48 * U, c - 0.05 * U], [c + 0.18 * U, c - 0.5 * U], [c + 0.3 * U, c + 0.45 * U]];
+    for (const [fu, fv] of feet.slice(0, 2)) { K.seg([fu, fv, 0], top, IC.w3); K.seg([fu + 0.6, fv, 0], [top[0] + 0.6, top[1], top[2]], IC.w2); }
+    for (let k = 0; k < 3; k++) K.dot(c, c, top[2] - 2 - k, BURLAP[k % 2 ? 2 : 1]);
+    const zp = Math.round(t * 0.8);
+    for (let z = zp + 9; z < top[2] - 3; z += 2) K.dot(c, c, z, z % 4 ? IC.m1 : IC.m3);
+    // the pot: a squat iron belly, a rim, stew inside, the bail arching over it
+    { const [px0, py0] = K.P(c, c, zp), pr = U * 0.3 * 2.83; T.ball(px0, py0 + 1, pr, IC.m2, IC.m3, IC.m4, pr * 0.62); T.px(px0 - pr * 0.5, py0 - 1, IC.m1); T.px(px0 - pr * 0.45, py0, IC.m1);
+      T.disc(px0, py0 - pr * 0.45, pr * 0.92, IC.m3); T.disc(px0, py0 - pr * 0.42, pr * 0.72, (xx, yy) => pxHash(xx, yy) > 0.75 ? IC.w1 : IC.r2);
+      for (let k = 0; k <= 12; k++) { const an = Math.PI + k / 12 * Math.PI; T.px(px0 + Math.cos(an) * pr * 0.95, py0 - pr * 0.45 + Math.sin(an) * pr * 0.9, k < 5 ? IC.m1 : IC.m2); }
+      for (let k = 0; k < 6; k++) T.px(px0 - 2 + Math.round(Math.sin(k + f) * 1.5) + (k % 2) * 3, py0 - pr - 3 - k * 2.5, k % 2 ? IC.s0 : IC.white); }
+    { const [fu, fv] = feet[2]; K.seg([fu, fv, 0], top, IC.w3); K.seg([fu + 0.6, fv, 0], [top[0] + 0.6, top[1], top[2]], IC.w1); }
   },
   logs(t, T, ax, ay) {
-    // two logs to sit on, cut ends showing their rings
-    const x = ax, y = ay + t * 0.2;
-    for (const [dx, dy] of [[0, 0], [-t * 0.5, t * 0.32]]) {
-      T.box(x + dx, y + dy, t * 0.88, t * 0.2, Math.round(t * 0.36), IC.w1, IC.w2, IC.w3);
-      const ex = x + dx + t * 1.76 - t * 0.4, ey = y + dy + t * 0.88 + t * 0.2 - t * 0.2;
-      T.ball(ex, ey - t * 0.12, t * 0.2, IC.w0, IC.w0, IC.w1); T.px(ex, ey - t * 0.12, IC.w2); T.px(ex + 2, ey - t * 0.12, IC.w2);
-    }
+    // a fallen trunk dragged up to sit on (rough bark, moss on top, the sawn end showing its rings and a crack), and beside
+    // it a chopping block with an axe in it
+    const U = t / 2, K = isoKit(T, ax, ay), R = 0.36 * U;
+    isoRoll(K, T, 0.08 * U, 1.42 * U, 0.48 * U, 0, R, (lit, a, b, s) => {
+      if (b > R * 0.62 && pxNoise(s * 0.25, a * 0.6) > 0.55) return lit > 0.75 ? IC.g1 : IC.g2;
+      const ridge = pxNoise(s * 0.12, Math.atan2(b, a) * 3.2) > 0.6;
+      return lit > 0.55 ? (ridge ? IC.w2 : IC.w1) : lit > -0.1 ? (ridge ? IC.w3 : IC.w2) : ridge ? IC.ink2 : IC.w3;
+    }, (rr, a, b) => rr > 0.86 ? IC.w3 : Math.abs(a * 0.3 - b) < 0.6 && a > 0 ? IC.w2 : Math.round(rr * 6) % 2 ? IC.w1 : IC.w0);
+    // a stub of a branch
+    { const [x, y] = K.P(0.6 * U, 0.48 * U, R * 2 - 1); T.box(x - 1, y - 3, 1.5, 1.5, 4, IC.w1, IC.w2, IC.w3, false); }
+    // the chopping block, the axe bitten into it, and split wood
+    const bu = 1.72 * U, bv = 0.55 * U, bh = Math.round(t * 0.55);
+    K.cyl(bu, bv, 0, 0.26 * U, bh, IC.w0, IC.w2, IC.w3);
+    { const [x, y] = K.P(bu, bv, bh); T.disc(x, y, 0.26 * U * 2.83 - 1.5, (xx, yy) => Math.round(Math.hypot(xx - x, (yy - y) * 2) / 2) % 2 ? IC.w1 : IC.w0);
+      T.line(x - 3, y - t * 0.55, x + 2, y + 1, IC.w2); T.line(x - 2, y - t * 0.55, x + 3, y + 1, IC.w3);
+      T.poly([[x + 1, y + 1], [x + 6, y - 1], [x + 6, y - 5], [x + 2, y - 3]], IC.m1); T.line(x + 6, y - 1, x + 6, y - 5, IC.m0); }
   },
   packs(t, T, ax, ay) {
-    // two backpacks, a bedroll and a rolled-up map
-    const cx = ax, cy = ay + t / 2;
-    T.box(cx - t * 0.3, cy - t * 0.5, t * 0.22, t * 0.18, Math.round(t * 0.5), IC.g1, IC.g2, IC.g3); T.ball(cx - t * 0.3, cy - t * 0.5 - t * 0.45, t * 0.16, IC.g0, IC.g1, IC.g2, t * 0.1);
-    T.box(cx + t * 0.15, cy - t * 0.35, t * 0.2, t * 0.16, Math.round(t * 0.42), IC.r1, IC.r2, IC.r3);
-    T.cyl(cx, cy + t * 0.1, t * 0.12, 2, IC.y0, IC.w0, IC.w1); T.line(cx - t * 0.4, cy + t * 0.2, cx + t * 0.3, cy + t * 0.05, IC.b2);
+    // explorers' rucksacks: canvas bodies with a buckled flap, side pockets and straps, a bedroll strapped on top of one,
+    // a coil of rope, a rolled map
+    const U = t / 2, K = isoKit(T, ax, ay);
+    const pack = (u, v, a, b, h, c, roll) => {
+      K.box(u, v, 0, a, b, h, c[0], c[1], c[2]);
+      // the flap folds over the top and hangs down the front, with a buckled strap
+      K.box(u - 0.02 * U, v - 0.02 * U, h, a + 0.04 * U, b + 0.04 * U, 2, c[0], c[1], c[2], false);
+      K.faceV(v + b + 0.02 * U, u, u + a, h - h * 0.35, h + 1, c[1], 0); K.faceV(v + b + 0.02 * U, u, u + a, h - h * 0.35, h - h * 0.35 + 1, c[2], 0);
+      K.faceV(v + b + 0.03 * U, u + a * 0.45, u + a * 0.58, h * 0.25, h - h * 0.3, IC.w3, 0); K.dot(u + a * 0.5, v + b + 0.03 * U, h - h * 0.3, IC.y1);
+      // a pocket on the side
+      K.box(u + a, v + b * 0.2, h * 0.15, 0.12 * U, b * 0.6, h * 0.4, c[1], c[1], c[2], false);
+      if (roll) isoRoll(K, T, u - 0.04 * U, u + a + 0.06 * U, v + b * 0.5, h + 2, 0.17 * U, (lit) => lit > 0.4 ? IC.r1 : lit > -0.2 ? IC.r2 : IC.r3, (rr) => Math.round(rr * 4) % 2 ? IC.r1 : IC.r3);
+    };
+    pack(0.15 * U, 0.12 * U, 0.42 * U, 0.3 * U, Math.round(t * 0.95), [IC.g1, IC.g2, IC.g3], true);
+    pack(0.62 * U, 0.4 * U, 0.34 * U, 0.26 * U, Math.round(t * 0.72), [BURLAP[2], BURLAP[3], BURLAP[4]], false);
+    // the rope, coiled
+    { const [x, y] = K.P(0.35 * U, 0.75 * U, 0); for (let k = 0; k < 4; k++) for (let j = 0; j < 24; j++) { const an = j / 24 * TAU, r = 5 - k * 0.6; T.px(x + Math.cos(an) * r, y - k + Math.sin(an) * r * 0.5, Math.sin(an) > 0 ? BURLAP[2] : BURLAP[1]); } T.disc(x, y - 3, 2, IC.ink2, 1); }
+    isoRoll(K, T, 0.55 * U, 0.95 * U, 0.85 * U, 0, 1.6, (lit) => lit > 0.3 ? IC.w0 : IC.w1, (rr) => rr > 0.6 ? IC.w0 : IC.w1);
   },
-  camplamp(t, T, ax, ay) { ISO_ART.lamppost(t, T, ax, ay); },
+  camplamp(t, T, ax, ay) {
+    // a lantern hung from an iron hook on a stake: glass panes glowing in a dark iron frame under a little cap and ring
+    const U = t / 2, K = isoKit(T, ax, ay), c = 0.5 * U, H = Math.round(t * 2.1), [x, y] = K.P(c, c, 0);
+    T.line(x - 1, y, x - 1, y - H, IC.w1); T.line(x, y, x, y - H, IC.w3); T.px(x - 1, y - H - 1, IC.w2);
+    K.seg([c, c, H - 2], [c + 0.45 * U, c, H], IC.m3); K.seg([c, c, H - 3], [c + 0.45 * U, c, H - 1], IC.m2);
+    const [lx, ly] = K.P(c + 0.42 * U, c, H - 9), lw = 4, lh = 9;
+    T.glow(lx, ly - lh / 2, t * 1.2, IC.y0, 0.42);
+    T.line(lx, ly - lh - 3, lx, ly - lh - 6, IC.m3); T.px(lx - 1, ly - lh - 7, IC.m3); T.px(lx + 1, ly - lh - 7, IC.m3);
+    T.poly([[lx - lw - 1, ly - lh], [lx, ly - lh - 4], [lx + lw + 1, ly - lh]], IC.m3); T.line(lx - lw, ly - lh - 1, lx, ly - lh - 3, IC.m1);
+    T.poly([[lx - lw, ly - lh], [lx + lw, ly - lh], [lx + lw, ly], [lx - lw, ly]], IC.y1);
+    T.poly([[lx - lw + 1, ly - lh + 1], [lx - 1, ly - lh + 1], [lx - 1, ly - 1], [lx - lw + 1, ly - 1]], IC.y0);
+    T.line(lx - 2, ly - lh + 3, lx - 2, ly - 3, IC.white);
+    for (const dx of [-lw, 0, lw]) T.line(lx + dx, ly - lh, lx + dx, ly, IC.m3);
+    T.line(lx - lw - 1, ly + 1, lx + lw + 1, ly + 1, IC.m3);
+    T.disc(x, y, 3, IC.w3, 1.5);
+  },
   maptable(t, T, ax, ay) {
-    // a folding camp table with a map spread out, a brass compass and a candle stub
-    const cx = ax, cy = ay + t / 2, h = Math.round(t * 0.5);
-    for (const [dx, dy] of [[-t * 0.3, -t * 0.05], [t * 0.3, -t * 0.05]]) { T.line(cx + dx - 3, cy + dy, cx + dx + 3, cy + dy - h, IC.w3); T.line(cx + dx + 3, cy + dy, cx + dx - 3, cy + dy - h, IC.w2); }
-    T.box(cx - 1, cy - h - t * 0.32, t * 0.36, t * 0.3, 2, IC.w1, IC.w2, IC.w3);
-    T.poly([[cx - t * 0.55, cy - h - t * 0.05], [cx, cy - h + t * 0.2], [cx + t * 0.55, cy - h - t * 0.05], [cx, cy - h - t * 0.3]], (px, py) => pxHash(px >> 1, py) > 0.9 ? IC.w2 : IC.w0);
-    T.line(cx - t * 0.3, cy - h - t * 0.05, cx + t * 0.2, cy - h - t * 0.12, IC.r1); T.px(cx + t * 0.2, cy - h - t * 0.12, IC.r2);
-    T.disc(cx - t * 0.2, cy - h - t * 0.12, 2.5, IC.y1, 1.6); T.px(cx - t * 0.2, cy - h - t * 0.13, IC.r2);
-    T.line(cx + t * 0.35, cy - h - t * 0.05, cx + t * 0.35, cy - h - t * 0.2, IC.white); T.px(cx + t * 0.35, cy - h - t * 0.22, IC.y0);
+    // a folding camp table on crossed legs, a map spread on it with its ends curling, a route inked across it, a brass compass,
+    // a stone holding a corner down, a tin mug and a candle stub
+    const U = t / 2, K = isoKit(T, ax, ay), h = Math.round(t * 1.25), u0 = 0.12 * U, u1 = 0.88 * U, v0 = 0.16 * U, v1 = 0.84 * U;
+    for (const v of [v0 + 0.06 * U, v1 - 0.06 * U]) { K.seg([u0 + 0.08 * U, v, 0], [u1 - 0.08 * U, v, h - 2], IC.w3); K.seg([u1 - 0.08 * U, v, 0], [u0 + 0.08 * U, v, h - 2], v > 0.5 * U ? IC.w1 : IC.w2); K.seg([u1 - 0.08 * U + 0.5, v, 0], [u0 + 0.08 * U + 0.5, v, h - 2], IC.w2); }
+    K.seg([0.5 * U, v0 + 0.06 * U, h * 0.5], [0.5 * U, v1 - 0.06 * U, h * 0.5], IC.w3);
+    K.box(u0, v0, h - 2, u1 - u0, v1 - v0, 2, IC.w1, IC.w2, IC.w3);
+    // the map: parchment, a coastline, a dotted route, an X; rolled up at both ends
+    const mu0 = u0 + 0.06 * U, mu1 = u1 - 0.06 * U, mv0 = v0 + 0.1 * U, mv1 = v1 - 0.1 * U;
+    K.flat(mu0, mv0, mu1, mv1, h + 1, (xx, yy) => pxHash(xx >> 1, yy) > 0.9 ? IC.y1 : IC.y0, 0);
+    for (let k = 0; k <= 16; k++) { const f = k / 16; K.dot(mu0 + (mu1 - mu0) * f, mv0 + (mv1 - mv0) * (0.3 + 0.18 * Math.sin(f * 7)), h + 1, IC.b2); }
+    for (let k = 0; k <= 10; k++) { const f = k / 10; if (k % 2) K.dot(mu0 + (mu1 - mu0) * (0.15 + f * 0.6), mv0 + (mv1 - mv0) * (0.75 - f * 0.25), h + 1, IC.r2); }
+    { const [xx, yy] = K.P(mu0 + (mu1 - mu0) * 0.78, mv0 + (mv1 - mv0) * 0.48, h + 1); T.px(xx - 1, yy - 1, IC.r2); T.px(xx + 1, yy + 1, IC.r2); T.px(xx, yy, IC.r2); T.px(xx + 1, yy - 1, IC.r2); T.px(xx - 1, yy + 1, IC.r2); }
+    for (const u of [mu0, mu1]) isoRoll(K, T, u - 0.5, u + 0.5, (mv0 + mv1) / 2 - (mv1 - mv0) / 2, h + 1, 1.3, lit => lit > 0.2 ? IC.y0 : IC.y1, () => IC.w1);
+    // the compass, a stone on a corner, a mug, a candle
+    { const [cx2, cy2] = K.P(mu0 + 0.12 * U, mv1 - 0.1 * U, h + 1); T.disc(cx2, cy2 - 1, 3.2, IC.y1, 1.7); T.disc(cx2, cy2 - 1.4, 2.2, IC.white, 1.1); T.px(cx2, cy2 - 2, IC.r2); T.px(cx2 + 1, cy2 - 1, IC.ink); }
+    { const [sx, sy] = K.P(mu1 - 0.04 * U, mv0 + 0.04 * U, h + 1); T.ball(sx, sy - 1.5, 2.6, IC.s1, IC.s2, IC.s3, 1.8); }
+    K.cyl(u1 - 0.12 * U, v1 - 0.08 * U, h, 0.07 * U, 5, IC.m3, IC.m1, IC.m2);
+    { const [cx3, cy3] = K.P(u0 + 0.1 * U, v0 + 0.1 * U, h); T.line(cx3, cy3, cx3, cy3 - 4, IC.s0); T.px(cx3, cy3 - 5, IC.y0); T.px(cx3, cy3 - 6, IC.y1); T.glow(cx3, cy3 - 6, U * 0.6, IC.y0, 0.4); }
   },
   // ---- the lab
   labdesk(t, T, ax, ay) {
