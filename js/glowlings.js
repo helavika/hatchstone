@@ -413,13 +413,13 @@ function drawAccessory(c, s, sp, top, id) {
     }
   } else if (id === "scarf") {
     // round the neck, just under the face, as wide as the body is there
-    const y = fy + s * (sp.body === "wide" ? 0.2 : 0.26), band = y - s * 0.06;
+    const scarf = scarfTint(), y = fy + s * (sp.body === "wide" ? 0.2 : 0.26), band = y - s * 0.06;
     const half = sp.body === "drop" ? 0.47 * s * Math.sqrt(Math.max(0, 1 - ((band / s - 0.1) / 0.47) ** 2)) : B.rx * s * Math.sqrt(Math.max(0, 1 - (band / (B.ry * s)) ** 2));
-    c.strokeStyle = "#e0634f"; c.lineWidth = s * 0.11; c.lineCap = "round";
+    c.strokeStyle = scarf; c.lineWidth = s * 0.11; c.lineCap = "round";
     c.beginPath(); c.ellipse(0, band, Math.max(s * 0.2, half * 0.86), s * 0.1, 0, 0.1 * Math.PI, 0.9 * Math.PI); c.stroke();
     // the loose end hangs down the front, but never below the tummy
     const end = Math.min(s * 0.22, (sp.body === "drop" ? 0.5 : B.ry - 0.06) * s - y);
-    c.fillStyle = "#e0634f"; c.fillRect(s * 0.16, y - s * 0.02, s * 0.1, end);
+    c.fillStyle = scarf; c.fillRect(s * 0.16, y - s * 0.02, s * 0.1, end);
     c.fillStyle = "#fff0b5"; for (const k of [0.08, 0.15]) if (k * s < end - s * 0.03) c.fillRect(s * 0.16, y - s * 0.02 + k * s, s * 0.1, s * 0.03);
   } else if (id === "glasses") {
     c.strokeStyle = "#22143a"; c.lineWidth = Math.max(s * 0.03, thin);
@@ -652,7 +652,7 @@ function drawSprite(x, y, s, sp, o = {}) {
   }
   // pixel-art pace: a new frame every 100 ms, drawn once and reused, placed on whole pixels so it never shimmers
   const t = Math.floor((o.t ?? game.time) / 100) * 100;
-  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${o.hopK ?? 1}|${o.face || ""}|${o.tired ?? ""}|${t}|${PX}|${o.acc || ""}|${!!o.cap}|${!!o.sil}`;
+  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${o.hopK ?? 1}|${o.face || ""}|${o.tired ?? ""}|${t}|${PX}|${o.acc || ""}|${!!o.cap}|${!!o.sil}|${o.acc === "scarf" ? scarfTint() : ""}`;
   let f = spriteFrames.get(key);
   if (!f) {
     if (spriteFrames.size > 400) spriteFrames.clear();
@@ -847,7 +847,7 @@ function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down
 const thumbCache = new Map();
 /** A glowling as a small picture: for the nest switcher, the glowpedia and the found card. */
 function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, mood = "ok", art = 0, acc = null } = {}) {
-  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}|${art}|${acc || ""}`;
+  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}|${art}|${acc || ""}${acc === "scarf" ? scarfTint() : ""}`;
   if (thumbCache.has(key)) return thumbCache.get(key);
   // a real pixel sprite (about one art pixel per three of yours), scaled up with hard edges.
   // With `art`, it stays at exactly that many pixels, for the page to blow up by a whole number (2× or 3×) so every pixel is the same size
