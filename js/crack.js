@@ -452,7 +452,8 @@ function taskDone(id) {
 function renderTaskPill() {
   const t = todayTasks(), n = t.ids.filter(i => t.done[i]).length;
   $("taskCount").innerHTML = `${ic("tasks")}${n}/${t.ids.length}`;
-  $("taskPill").classList.toggle("fresh", n === 0 && !t.seen);
+  // (new tasks can wait out the first minute home after a day or more: see homeQuiet)
+  $("taskPill").classList.toggle("fresh", n === 0 && !t.seen && !homeQuiet());
 }
 
 function openTasks() {
