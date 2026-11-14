@@ -348,7 +348,9 @@ const ghostSheet = like => { if (!ghostCv || ghostCv.width !== like.width || gho
 function actorLook(a, cr) {
   const act = activeCreature(), mine = act && a.id === act.id, asleep = a.state === "sleep" || a.state === "nap";
   const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || a.state === "visit" || (a.emote && a.emote.text === "♥") ? "happy" : moodOf(cr);
-  return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, cap: a.state === "sleep", hop: a.hop, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 };
+  // only a truly tired one (not just a bit low) looks sleepy-eyed; a little moment's face while it rests; older ones hop lower
+  return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, cap: a.state === "sleep", hop: a.hop, hopK: calmOf(cr.level).hop * 0.75, eating: a.state === "eat", t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35,
+    tired: cr.energy < 12, face: faceNow(a) };
 }
 
 function drawActor(a) {
@@ -375,6 +377,14 @@ function drawActor(a) {
       }
       fx.globalAlpha = 1;
     } else if (a.emote) drawEmote(a, v);
+    else if (a.face && a.face.kind === "think") {
+      // thinking: little dots rising one by one beside its head, on the side it's looking
+      ctx.fillStyle = "#efe6ff";
+      for (let i = 0; i < Math.min(3, Math.floor(a.face.t / 0.4) + 1); i++) {
+        const r = Math.max(1, Math.round(v.size * (0.03 + i * 0.015) / PX)) * PX;
+        ctx.fillRect(Math.round((v.x + a.face.side * v.size * (0.36 + i * 0.12)) / PX) * PX, Math.round((v.y - v.size * (0.5 + i * 0.14)) / PX) * PX, r, r);
+      }
+    }
   }
 }
 
