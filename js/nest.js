@@ -667,7 +667,7 @@ function openJukebox() {
 let noteT = 0;
 function musicNotes(dt) {
   const p = N.iso && hasDecor("musicbox") && isoLayout().placed.musicbox;
-  if (!p || save.muted || (noteT -= dt) > 0) return;
+  if (!p || sfx.muted || (noteT -= dt) > 0) return;
   noteT = rand(1.1, 1.9);
   const [x, y] = isoPieceAt(p);
   floatText(pick(["♪", "♫", "♪"]), x + rand(-8, 8), y - N.isoW / ISO_G * 1.6, pick(["#fff0b5", "#ffc4da", "#b8e6f5", "#d2bfff"]));
