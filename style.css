@@ -589,7 +589,9 @@ img.px2 { object-fit: fill; image-rendering: pixelated; }
 #libGrid { grid-auto-rows: 1fr; }
 #libGrid button { display: flex; flex-direction: column; align-items: center; }
 #libGrid .pg { align-self: stretch; display: grid; place-items: center; }
-#libGrid b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.05; max-width: 100%; }
+#libGrid b { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; line-height: 1.05; max-width: 100%; hyphens: auto; overflow-wrap: anywhere; }
+/* the story's chapter names are long words in Ukrainian ("Міль із ліхтариком"): a third line rather than a cut-off word */
+#libGrid [data-st] b { padding-left: 2px; padding-right: 2px; -webkit-line-clamp: 3; }
 #libGrid small { margin-top: auto; padding-top: 2px; }
 #switcher button img.px2 { display: block; margin: auto; }
 #switcher button.on { background: var(--px-gold-lo) !important; }
