@@ -309,7 +309,7 @@ const faceNow = a => !a.face ? "" : a.face.kind === "blink" ? (a.face.t % 0.25 <
 
 function updateActors(dt) {
   syncActors();
-  game.nest.obst = roomObstacles();
+  game.nest.obst = N.iso ? roomObstacles() : frontBedObstacle(roomObstacles());
   const list = [...actors.values()], call = game.nest.call;
   // a finger held still on the floor keeps calling (moving it is not needed)
   if (call && pointer && pointer.call) call.t = game.time;
@@ -439,10 +439,11 @@ function updateActors(dt) {
     } else if (a.state === "toBed" && d <= 8) a.state = "sleep";
     keepInRoom(a, dt);
     // standing on the bed (it fills its corner, so there's no "behind" it): up on its soft top, with a little hop on the way up
-    const onBed = isoOnBed(a.x, a.y);
+    // (straight on: lying in the bed at its own place there, see frontInBed)
+    const onBed = N.iso ? isoOnBed(a.x, a.y) : frontInBed(a);
     if (onBed && !a.onBed) a.hop = 1;
     a.onBed = onBed;
-    a.perch = lerp(a.perch || 0, onBed ? isoBedTop() : 0, Math.min(1, dt * 10));
+    a.perch = lerp(a.perch || 0, onBed ? (N.iso ? isoBedTop() : frontBedTop(a)) : 0, Math.min(1, dt * 10));
     // fliers hover, swimmers glide, hoppers bounce
     const ease = (to, k) => { a.alt = lerp(a.alt, to, Math.min(1, dt * k)); };
     if (a.state === "sleep") ease(0, 4);
@@ -519,7 +520,7 @@ function drawRoom() {
   const [rcx, rcy] = roomSpot("rug"), [rrx, rry] = rugSize();
   drawBaked(frontRug(rcx, rcy, rrx, rry, hasDecor("rug")));
   // furniture from the back of the room to the front, so nearer things overlap farther ones
-  const items = [{ y: N.bedY, draw: () => drawCushion(N.bedX, N.bedY + N.base * 0.1 * depthK(N.bedY), N.base * 0.72 * depthK(N.bedY)) },
+  const items = [...frontBedItems(),
     ...(incHere() ? [{ y: incSpot()[1], draw: drawIncubator }] : [])];
   // pieces made only as isometric pixel art stand in the room as they are, at their own spots
   for (const d of DECOR) if (hasDecor(d.id) && d.iso && !d.wall && !DRAW_DECOR[d.id] && ISO_ART[d.id]) {
@@ -2580,22 +2581,23 @@ function bedCrystal(T, x, y, h, w, lean = 0, ramp = [IC.white, IC.l0, IC.l1, IC.
  * "post") is drawn again over whoever sleeps in it, so they lie down in the hollow instead of on top of it.
  * look: R (outer radius), H (rim height), F (how high the soft bottom is), Ri/Rf (the hollow at the rim and at the bottom,
  * as parts of R), shell(x, y, lit), rim(d, x, y), wall(s, f, x, y) (s: down the wall, f: across a crystal or a strand),
- * floor(x, y, lit, edge), blanket (a ramp), and back/front extras.
+ * floor(x, y, lit, edge), blanket (a ramp), and back/front extras; q, how tall its rings stand for how wide they are
+ * (a half on the isometric floor, flatter seen straight on from a little above).
  */
 function bedBowl(T, t, ax, ay, o, look) {
-  const lipOnly = o.part === "post", cx = ax, cy = ay + t, { R, H, F } = look, Ri = R * look.Ri, Rf = R * look.Rf;
-  const ell = (x, y, z, r) => Math.hypot((x + 0.5 - cx) / r, (y + 0.5 - cy + z) / (r / 2));
+  const lipOnly = o.part === "post", cx = ax, cy = ay + t, { R, H, F } = look, Ri = R * look.Ri, Rf = R * look.Rf, q = look.q ?? 0.5;
+  const ell = (x, y, z, r) => Math.hypot((x + 0.5 - cx) / r, (y + 0.5 - cy + z) / (r * q));
   const shellR = z => R * (0.68 + 0.32 * Math.sin(z / H * Math.PI / 2));
   // the shell: rings stacked up to the rim, rounded under like a bowl, lit from the left and catching more light higher up
   for (let z = 0; z < H; z++) {
     const r = shellR(z);
-    for (let y = Math.floor(cy - z - r / 2); y <= Math.ceil(cy - z + r / 2); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+    for (let y = Math.floor(cy - z - r * q); y <= Math.ceil(cy - z + r * q); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
       if (ell(x, y, z, r) > 1 || (lipOnly && ell(x, y, H, R) <= 1)) continue;
       T.px(x, y, look.shell(x, y, -(x + 0.5 - cx) / r * 0.7 + z / H * 0.6 - 0.25));
     }
   }
   // the cut rim, in rings (front half only for the lip)
-  for (let y = Math.floor(cy - H - R / 2); y <= Math.ceil(cy - H + R / 2); y++) for (let x = Math.floor(cx - R); x <= Math.ceil(cx + R); x++) {
+  for (let y = Math.floor(cy - H - R * q); y <= Math.ceil(cy - H + R * q); y++) for (let x = Math.floor(cx - R); x <= Math.ceil(cx + R); x++) {
     const d = ell(x, y, H, R);
     if (d > 1 || d < look.Ri || (lipOnly && y + 0.5 <= cy - H)) continue;
     T.px(x, y, look.rim((d - look.Ri) / (1 - look.Ri), x, y));
@@ -2604,17 +2606,17 @@ function bedBowl(T, t, ax, ay, o, look) {
   if (!lipOnly) {
     if (look.back) look.back(cx, cy);
     // the hollow: its back wall down to the soft bottom
-    for (let y = Math.floor(cy - H - Ri / 2); y <= Math.ceil(cy - H + Ri / 2); y++) for (let x = Math.floor(cx - Ri); x <= Math.ceil(cx + Ri); x++) {
+    for (let y = Math.floor(cy - H - Ri * q); y <= Math.ceil(cy - H + Ri * q); y++) for (let x = Math.floor(cx - Ri); x <= Math.ceil(cx + Ri); x++) {
       if (!inner(x, y)) continue;
       const ex = x + 0.5 - cx, df = ell(x, y, F, Rf);
-      if (df <= 1) { T.px(x, y, look.floor(x, y, -ex / Rf * 0.4 - (y + 0.5 - cy + F) / (Rf / 2) * 0.35, df > 0.84)); continue; }
-      const yr = cy - H - Ri / 2 * Math.sqrt(Math.max(0, 1 - (ex / Ri) ** 2)), yf = Math.abs(ex) < Rf ? cy - F - Rf / 2 * Math.sqrt(1 - (ex / Rf) ** 2) : cy - F;
+      if (df <= 1) { T.px(x, y, look.floor(x, y, -ex / Rf * 0.4 - (y + 0.5 - cy + F) / (Rf * q) * 0.35, df > 0.84)); continue; }
+      const yr = cy - H - Ri * q * Math.sqrt(Math.max(0, 1 - (ex / Ri) ** 2)), yf = Math.abs(ex) < Rf ? cy - F - Rf * q * Math.sqrt(1 - (ex / Rf) ** 2) : cy - F;
       T.px(x, y, look.wall(clamp((y + 0.5 - yr) / Math.max(2, yf - yr), 0, 1), Math.acos(clamp(ex / Ri, -1, 1)) / Math.PI, x, y));
     }
     // a pillow at the back on the lit side, and the blanket over the front, its edge running along the floor's axis
     bedPlush(T, cx - Rf * 0.42, cy - F - Rf * 0.1, t * 0.44, t * 0.24, BED_FLEECE, { curls: true });
     const B = look.blanket, edge = x => cy - F + Rf * 0.02 + ((x + 0.5 - cx) / Rf) ** 2 * Rf * 0.08;
-    for (let y = Math.floor(cy - F - Rf / 2); y <= Math.ceil(cy - F + Rf / 2); y++) for (let x = Math.floor(cx - Rf); x <= Math.ceil(cx + Rf); x++) {
+    for (let y = Math.floor(cy - F - Rf * q); y <= Math.ceil(cy - F + Rf * q); y++) for (let x = Math.floor(cx - Rf); x <= Math.ceil(cx + Rf); x++) {
       const e = y + 0.5 - edge(x), df = ell(x, y, F, Rf);
       if (e < 0 || df > 1 || !inner(x, y)) continue;
       // turned down at the top in fleece, a row of stitches under it, soft folds running down to the front
@@ -2628,8 +2630,8 @@ function bedBowl(T, t, ax, ay, o, look) {
   const x0 = cx - R * 0.42, x1 = cx + R * 0.42, zb = H * 0.22;
   for (let x = Math.floor(x0); x <= Math.ceil(x1); x++) {
     const ex = x + 0.5 - cx, side = Math.min(x + 0.5 - x0, x1 - x - 0.5), rb = shellR(zb);
-    const yTop = cy - H + Ri / 2 * Math.sqrt(Math.max(0, 1 - (ex / Ri) ** 2)) - 1, yRim = cy - H + R / 2 * Math.sqrt(Math.max(0, 1 - (ex / R) ** 2));
-    const yBot = cy - zb + rb / 2 * Math.sqrt(Math.max(0, 1 - (ex / rb) ** 2)) + Math.sin(ex * 0.42) * 1.2 - (side < 3 ? 3 - side : 0);
+    const yTop = cy - H + Ri * q * Math.sqrt(Math.max(0, 1 - (ex / Ri) ** 2)) - 1, yRim = cy - H + R * q * Math.sqrt(Math.max(0, 1 - (ex / R) ** 2));
+    const yBot = cy - zb + rb * q * Math.sqrt(Math.max(0, 1 - (ex / rb) ** 2)) + Math.sin(ex * 0.42) * 1.2 - (side < 3 ? 3 - side : 0);
     for (let y = Math.floor(yTop); y <= Math.ceil(yBot); y++) {
       if (y + 0.5 < yTop || y - 0.5 > yBot) continue;
       const B = look.blanket, onTop = y + 0.5 < yRim, fold = Math.sin(ex * 0.5) * 0.3;
@@ -2658,9 +2660,9 @@ const BED_ART = {
     // the geode cradle: half a geode lying open side up, its knobbly crust outside, rings of agate round the cut rim,
     // amethyst points lining the hollow; a bed of moss at its bottom, a fleece pillow and a teal felt blanket from the
     // keepers, spilling over the front; a few crystals standing up from the back of the rim, glowing softly
-    const R = t * 1.6, H = Math.round(t * 0.58), F = Math.round(t * 0.28);
+    const R = t * 1.6, H = Math.round(t * 0.58), F = Math.round(t * 0.28), q = o.q ?? 0.5;
     bedBowl(T, t, ax, ay, o, {
-      R, H, F, Ri: 0.8, Rf: 0.64, blanket: BED_FELT,
+      R, H, F, q, Ri: 0.8, Rf: 0.64, blanket: BED_FELT,
       shell: (x, y, lit) => BED_CRUST[1 + bedBand(lit - 0.15 + (pxNoise(x * 0.3, y * 0.55) - 0.5) * 0.8, [0.35, -0.05, -0.45], x, y)],
       rim: (s, x, y) => { s += (pxNoise(x * 0.12, y * 0.25) - 0.5) * 0.28; return s > 0.84 ? BED_CRUST[1] : s > 0.6 ? BED_CRUST[0] : s > 0.48 ? BED_AGATE[3] : s > 0.34 ? BED_AGATE[0] : s > 0.2 ? BED_AGATE[2] : IC.l1; },
       wall: (s, f, x, y) => {
@@ -2672,15 +2674,15 @@ const BED_ART = {
       floor: (x, y, lit, edge) => BED_MOSS[edge ? 3 : bedBand(lit + (pxNoise(x * 0.45, y * 0.8) - 0.5) * 0.7, [0.3, -0.1, -0.5], x, y)],
       back: (cx, cy) => {
         for (const [an, hs] of [[-2.55, [0.9, 0.5]], [-0.55, [0.66, 0.36]]]) {
-          const bx = cx + Math.cos(an) * R * 0.9, by = cy - H + Math.sin(an) * R * 0.45;
+          const bx = cx + Math.cos(an) * R * 0.9, by = cy - H + Math.sin(an) * R * (q * 0.9);
           T.glow(bx, by - t * 0.3, t * 0.85, IC.l4, 0.22);
           hs.forEach((h, k) => bedCrystal(T, bx + (k ? 1 : -0.3) * t * 0.16 * (an < -1.5 ? 1 : -1), by + k * 2, t * h, Math.max(2.5, t * 0.16 - k * 0.6), (k ? 1 : -0.6) * t * 0.16 * (an < -1.5 ? -1 : 1)));
         }
       },
       front: (cx, cy, lipOnly) => {
         // moss creeping over the rim at the front left, glowcaps sprouting on the right
-        for (const [an, r] of [[2.55, 0.2], [2.3, 0.16], [2.78, 0.13]]) bedPlush(T, cx + Math.cos(an) * R * 0.9, cy - H + Math.sin(an) * R * 0.45 - 1, t * r, t * r * 0.7, BED_MOSS, { gloss: r > 0.15 });
-        const gx = cx + Math.cos(0.75) * R * 0.92, gy = cy - H + Math.sin(0.75) * R * 0.46;
+        for (const [an, r] of [[2.55, 0.2], [2.3, 0.16], [2.78, 0.13]]) bedPlush(T, cx + Math.cos(an) * R * 0.9, cy - H + Math.sin(an) * R * (q * 0.9) - 1, t * r, t * r * 0.7, BED_MOSS, { gloss: r > 0.15 });
+        const gx = cx + Math.cos(0.75) * R * 0.92, gy = cy - H + Math.sin(0.75) * R * (q * 0.92);
         bedGlowcap(T, gx, gy, Math.round(t * 0.4), t * 0.2); bedGlowcap(T, gx + t * 0.26, gy + 2, Math.round(t * 0.24), t * 0.13);
         if (!lipOnly) T.glow(gx, gy - t * 0.25, t * 0.6, BED_GLOW[4], 0.3);
       },
@@ -2689,20 +2691,20 @@ const BED_ART = {
   basket(t, T, ax, ay, o = {}) {
     // the root nest: roots woven into a deep round nest, a braided rim, lined with fleece; moss at the bottom, a rose felt
     // blanket over the front, glowcaps growing out of the weave at the back
-    const R = t * 1.5, H = Math.round(t * 0.42), F = Math.round(t * 0.22);
+    const R = t * 1.5, H = Math.round(t * 0.42), F = Math.round(t * 0.22), q = o.q ?? 0.5;
     const weave = (x, y) => (Math.floor((x + 2 * y) / 5) + Math.floor((x - 2 * y + 400) / 5)) & 1;
     bedBowl(T, t, ax, ay, o, {
-      R, H, F, Ri: 0.78, Rf: 0.7, blanket: BED_ROSE,
+      R, H, F, q, Ri: 0.78, Rf: 0.7, blanket: BED_ROSE,
       shell: (x, y, lit) => { const k = 1 + bedBand(lit + (weave(x, y) ? 0.22 : -0.22), [0.35, -0.05, -0.45], x, y); return BED_ROOT[Math.min(4, k + ((x + 2 * y) % 5 === 0 || (x - 2 * y + 400) % 5 === 0 ? 1 : 0))]; },
       rim: (s, x, y) => BED_ROOT[bedBand(0.55 - Math.abs(s - 0.5) * 1.6 + (((Math.floor((x + y * 2) / 4)) & 1) ? 0.22 : -0.22), [0.45, 0.05, -0.35], x, y)],
       wall: (s, f, x, y) => BED_FLEECE[Math.min(3, 1 + bedBand(0.45 - s * 0.9 - Math.abs(f - 0.5) * 0.5, [0.2, -0.25], x, y) + ((x + y * 3) % 5 === 0 && pxHash(x, y) > 0.5 ? 1 : 0))],
       floor: (x, y, lit, edge) => BED_MOSS[edge ? 3 : bedBand(lit + (pxNoise(x * 0.45, y * 0.8) - 0.5) * 0.7, [0.3, -0.1, -0.5], x, y)],
       back: (cx, cy) => {
-        const gx = cx + Math.cos(-0.8) * R * 0.86, gy = cy - H + Math.sin(-0.8) * R * 0.43;
+        const gx = cx + Math.cos(-0.8) * R * 0.86, gy = cy - H + Math.sin(-0.8) * R * (q * 0.86);
         T.glow(gx, gy - t * 0.4, t * 1.0, BED_GLOW[4], 0.32);
         bedGlowcap(T, gx, gy, Math.round(t * 0.62), t * 0.26); bedGlowcap(T, gx + t * 0.3, gy + 2, Math.round(t * 0.38), t * 0.18); bedGlowcap(T, gx - t * 0.28, gy + 1, Math.round(t * 0.26), t * 0.13);
       },
-      front: (cx, cy) => { for (const [an, r] of [[2.5, 0.18], [2.75, 0.13]]) bedPlush(T, cx + Math.cos(an) * R * 0.9, cy - H + Math.sin(an) * R * 0.45 - 1, t * r, t * r * 0.7, BED_MOSS, { gloss: r > 0.15 }); },
+      front: (cx, cy) => { for (const [an, r] of [[2.5, 0.18], [2.75, 0.13]]) bedPlush(T, cx + Math.cos(an) * R * 0.9, cy - H + Math.sin(an) * R * (q * 0.9) - 1, t * r, t * r * 0.7, BED_MOSS, { gloss: r > 0.15 }); },
     });
   },
   hammock(t, T, ax, ay, o = {}) {
@@ -2848,6 +2850,182 @@ function bedThumb(id) {
   const t = 14, c = isoArt(t * 4 + 8, Math.round(t * 4.4 + 8), T => ISO_ART.bed(t, T, t * 2 + 4, 4 + t * 2.2, { style: id }));
   return bedThumbs[id] = c.toDataURL();
 }
+// ---------- the beds seen straight on (the front view) ----------
+// Straight on and from a little above, each bed is the same piece as on the isometric floor: the same felt, fleece, moss,
+// crystal and glowcaps, cel-shaded and inked in plum, on the art grid. Its rings lie flatter (FRONT_Q) and its boxes show a
+// front face under a shallow top. Each is drawn with (cx, cy) at the middle of its footprint on the floor, t art pixels to a tile.
+const FRONT_Q = 0.34;
+const FRONT_BED_ART = {
+  nest: (t, T, cx, cy, o) => BED_ART.nest(t, T, cx, cy - t, { ...o, q: FRONT_Q }),
+  basket: (t, T, cx, cy, o) => BED_ART.basket(t, T, cx, cy - t, { ...o, q: FRONT_Q }),
+  // (the hammock is slung across the view already: straight on it hangs between its glowcaps just the same, a size down to fit the corner)
+  hammock: (t, T, cx, cy, o) => BED_ART.hammock(t * 0.84, T, cx, cy - t * 0.84 * 1.12, o),
+  canopy(t, T, cx, cy, o = {}) {
+    // a low bed of root-wood with a carved headboard, the mossy mattress, fleece pillows and a rose felt quilt, under a great
+    // glowcap growing from behind its far left corner and arching over it. Whoever sleeps there is tucked in: the quilt and
+    // the frame's front (o.part "post") go over them, and the cap ("roof") over everything
+    const base = !o.part || o.part === "base", quilt = !o.part || o.part === "post", roof = !o.part || o.part === "roof";
+    const w = t * 1.5, d = t * 0.5, hb = Math.round(t * 0.16), hm = Math.round(t * 0.12), zt = hb + hm, yB = cy - d, yF = cy + d;
+    const sx = cx - w + t * 0.18, sy = yB - 1, kx = cx + t * 0.05, ky = cy - t * 2.6, Hs = sy - ky;
+    const capDraw = () => {
+      const rx = t * 1.45, ry = t * 0.66;
+      T.disc(kx, ky + 1, rx, (x) => ((x - kx) % 3 === 0 ? BED_GLOW[3] : BED_GLOW[2]), rx * 0.24);
+      for (let y = Math.floor(ky - ry); y <= ky; y++) for (let x = Math.floor(kx - rx); x <= Math.ceil(kx + rx); x++) {
+        const dx = (x + 0.5 - kx) / rx, dy = (y + 0.5 - ky) / ry;
+        if (dx * dx + dy * dy > 1) continue;
+        T.px(x, y, Math.abs(dx) > 0.88 || y === ky ? BED_GLOW[1] : BED_GLOW[1 + bedBand(-dx * 0.6 - dy * 0.5 - 0.1, [0.4, -0.05, -0.45], x, y)]);
+      }
+      { const gx = kx - rx * 0.4, gy = ky - ry * 0.62; T.disc(gx, gy, rx * 0.2, IC.white, ry * 0.14); }
+      for (const [dx, dy] of [[-0.62, 0.3], [0.2, 0.5], [0.55, 0.22], [-0.15, 0.2]]) T.px(kx + dx * rx, ky - dy * ry, BED_GLOW[0]);
+      for (let k = 0; k < 6; k++) { const x = kx + (pxHash(k, 3) - 0.5) * rx * 1.6, y = ky + 4 + pxHash(3, k) * t * 0.9; T.px(x, y, k % 2 ? BED_GLOW[0] : BED_GLOW[1]); }
+    };
+    const hy = yB - zt, hh = t * 0.5;
+    if (base) {
+      T.glow(kx, ky + t * 0.4, t * 2.1, BED_GLOW[4], 0.3);
+      // the stem: thick at its foot, curving out over the bed, pale and glowing from inside
+      for (let k = 0; k <= Hs + 2; k++) {
+        const f = k / Hs, x = sx + (kx - sx) * f * f, sw = Math.max(2, t * (0.2 - 0.08 * f)) + (k < 3 ? 2 : 0);
+        for (let q = -sw; q <= sw; q++) T.px(x + q, sy - k, q < -sw * 0.4 ? BED_GLOW[1] : q < sw * 0.35 ? BED_GLOW[0] : BED_GLOW[2]);
+      }
+      bedPlush(T, sx, sy, t * 0.42, t * 0.18, BED_MOSS, { gloss: false });
+      // the headboard: a board of root-wood with a rounded top between two posts, a knot or two in it
+      T.grain(1, () => {
+        for (let x = Math.floor(cx - w + 2); x <= Math.ceil(cx + w - 2); x++) {
+          const f = (x + 0.5 - cx) / w, yt = hy - hh * (0.75 + 0.25 * Math.sqrt(Math.max(0, 1 - f * f)));
+          for (let y = Math.floor(yt); y <= hy; y++) T.px(x, y, y < yt + 1.5 ? BED_ROOT[0] : BED_ROOT[f < -0.2 ? 1 : f < 0.5 ? 2 : 3]);
+        }
+      });
+      for (const [kx2, ky2] of [[-0.45, 0.45], [0.3, 0.6]]) { T.px(cx + kx2 * w, hy - hh * ky2, BED_ROOT[4]); T.px(cx + kx2 * w + 1, hy - hh * ky2, BED_ROOT[3]); }
+      for (const px of [cx - w, cx + w]) for (let y = Math.round(hy - hh - 3); y <= yF; y++) for (let q = -1; q <= 1; q++) T.px(px + q, y, y < hy - hh - 1 ? BED_ROOT[0] : BED_ROOT[px < cx ? 1 + q + 1 : 2 + q + 1]);
+      // the mattress: its mossy top running back to the headboard, its front above the frame; pillows along the headboard
+      for (let y = Math.floor(yB - zt); y < yF - hb; y++) for (let x = Math.floor(cx - w + 2); x <= Math.ceil(cx + w - 2); x++) {
+        const top = y < yF - zt, f = (x + 0.5 - cx) / w;
+        T.px(x, y, BED_MOSS[top ? bedBand(0.3 - f * 0.4 - (y - yB + zt) / (2 * d) * 0.3 + (pxNoise(x * 0.4, y * 0.8) - 0.5) * 0.5, [0.4, -0.05], x, y) + 1 : f < 0.6 ? 2 : 3]);
+      }
+      for (const u of [-0.55, 0.55]) bedPlush(T, cx + u * w, hy + t * 0.04, t * 0.46, t * 0.22, BED_FLEECE, { curls: true });
+    }
+    if (quilt) {
+      // the frame's front in root-wood, the posts at its corners
+      T.grain(1, () => {
+        for (let y = yF - hb; y <= yF; y++) for (let x = Math.floor(cx - w + 2); x <= Math.ceil(cx + w - 2); x++) T.px(x, y, y === yF - hb ? BED_ROOT[1] : y >= yF - 1 ? BED_ROOT[3] : BED_ROOT[x < cx + w * 0.6 ? 2 : 3]);
+      });
+      for (const px of [cx - w, cx + w]) for (let y = Math.round(yF - zt - t * 0.14); y <= yF; y++) for (let q = -1; q <= 1; q++) T.px(px + q, y, y < yF - zt - t * 0.14 + 2 ? BED_ROOT[0] : BED_ROOT[px < cx ? 2 + q : 3 + Math.min(0, q)]);
+      // the quilt pulled up over the sleepers, turned down in fleece at the top: rose felt quilted in plump squares, each
+      // lit from the top left like a little cushion, stitched between; over the front edge it hangs in a stitched hem
+      const yq = Math.round(yB - zt + d * 0.9), yE = yF - zt, cw = Math.max(6, Math.round(t * 0.42)), ch = Math.max(4, Math.round((yE - yq - 4) / 2));
+      for (let x = Math.floor(cx - w + 2); x <= Math.ceil(cx + w - 2); x++) {
+        const f = (x + 0.5 - cx) / w, hem = yF - Math.round(hb * 0.45) + (Math.abs(f) > 0.93 ? -1 : 0) + ((x >> 2) & 1);
+        for (let y = yq - ((x >> 3) & 1 ? 1 : 0); y <= hem; y++) {
+          const e = y - yq;
+          let col;
+          if (e < 3) col = e < 1 ? BED_FLEECE[0] : e < 2 ? BED_FLEECE[1] : BED_FLEECE[2];
+          else if (y >= hem - 1) col = y === hem ? BED_ROSE[4] : (x % 3 === 0 ? BED_FLEECE[0] : BED_ROSE[3]);
+          else if (y >= yE) col = BED_ROSE[2 + bedBand(-f * 0.6 + Math.sin((x + 0.5 - cx) / cw * Math.PI) * 0.3 - 0.05, [0.0], x, y)];
+          else {
+            // which square, and where in it (the stitching runs between them)
+            const sy = (e - 3) / ch, sx = (x - Math.floor(cx - w + 2)) / cw + (Math.floor(sy) & 1) * 0.5, u = sx - Math.floor(sx), v = sy - Math.floor(sy);
+            if (u < 1 / cw || v < 1 / ch) col = BED_ROSE[2];
+            else col = BED_ROSE[1 + bedBand(0.3 - (u - 0.5) * 0.7 - (v - 0.5) * 0.9 - f * 0.35 - Math.floor(sy) * 0.15, [0.55, -0.25], x, y)];
+          }
+          T.px(x, y, col);
+        }
+      }
+    }
+    if (roof) capDraw();
+  },
+  gazebo(t, T, cx, cy, o = {}) {
+    // a wooden deck, four posts of root-wood, a peaked roof thatched with moss, crystal lights round its front eave and
+    // plush cushions of felt and fleece inside. The front posts (o.part "post") and the roof ("roof") go over whoever is in it
+    const base = !o.part || o.part === "base", front = !o.part || o.part === "post", roof = !o.part || o.part === "roof";
+    const A = t * 1.55, D = t * 0.56, dh = Math.max(3, Math.round(t * 0.2)), ph = Math.round(t * 2.75), pa = A * 0.86, pd = D * 0.78;
+    const yB = cy - D, yF = cy + D;
+    const post = (px, py, h) => { for (let k = 0; k < h; k++) { T.px(px - 2, py - k, BED_ROOT[0]); T.px(px - 1, py - k, BED_ROOT[1]); T.px(px, py - k, BED_ROOT[1]); T.px(px + 1, py - k, BED_ROOT[2]); T.px(px + 2, py - k, BED_ROOT[3]); } };
+    const pyB = Math.round(cy - pd - dh), pyF = Math.round(cy + pd - dh);
+    if (base) {
+      // the deck: boards running across its top, lit at the front edge, its front face in shade
+      T.grain(1, () => {
+        for (let y = Math.round(yB - dh); y <= yF; y++) for (let x = Math.floor(cx - A); x <= Math.ceil(cx + A); x++) {
+          const onTop = y < yF - dh, f = (x + 0.5 - cx) / A;
+          T.px(x, y, onTop ? (y === Math.round(yF - dh) - 1 ? IC.w0 : (y - Math.round(yB - dh)) % 4 === 3 ? IC.w2 : IC.w1) : y >= yF - 1 ? IC.w3 : f < 0.55 ? IC.w2 : IC.w3);
+        }
+      });
+      post(Math.round(cx - pa), pyB, ph); post(Math.round(cx + pa), pyB, ph);
+      // cushions heaped along the back, a small one at the front
+      for (const [dx, dy, r, ramp] of [[0, -0.75, 0.5, BED_ROSE], [-0.62, -0.5, 0.42, BED_FELT], [0.62, -0.5, 0.42, BED_MOSS], [-0.25, -0.15, 0.32, BED_FLEECE], [0.45, 0.1, 0.28, BED_ROSE]])
+        bedPlush(T, cx + dx * A, cy + dy * D - dh - t * 0.12, t * r, t * r * 0.66, ramp, { curls: ramp === BED_FLEECE });
+    }
+    if (front) { post(Math.round(cx - pa), pyF, ph); post(Math.round(cx + pa), pyF, ph); }
+    if (!roof) return;
+    // the roof: a peak over the middle, its eaves out past the posts; the front slope faces you, the sides show as slivers
+    const ex = A * 1.08, eF = pyF - ph + 1, eB = pyB - ph + 1, apex = [cx, (eF + eB) / 2 - t * 0.95];
+    const mid = (p, q, u) => [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u];
+    // (moss laid in overlapping rows like thatch: each row lit along its top, its lower edge in lumpy tufts over the next)
+    const rh = Math.max(4, Math.round(t * 0.2)), y0 = Math.round(apex[1]);
+    const thatch = lit => (xx, yy) => {
+      const lump = Math.round(pxHash(Math.floor(xx / 3), Math.floor((yy - y0) / rh)) * 2), v = ((yy - y0 + lump) % rh) / rh;
+      return BED_MOSS[Math.min(3, bedBand(lit + 0.3 - v * 0.75 + (pxNoise(xx * 0.3, yy * 0.5) - 0.5) * 0.3, [0.35, -0.1, -0.5], xx, yy))];
+    };
+    const L0 = [cx - ex, eB], L1 = [cx - ex, eF + 1], R0 = [cx + ex, eB], R1 = [cx + ex, eF + 1];
+    T.poly([L0, L1, apex], thatch(0.55)); T.poly([R0, R1, apex], thatch(-0.45));
+    T.poly([L1, R1, apex], thatch(0.12));
+    T.line(...apex, ...L1, BED_MOSS[0]);
+    T.line(L1[0], L1[1], R1[0], R1[1], BED_MOSS[1]); T.line(L1[0], L1[1] + 1, R1[0], R1[1] + 1, BED_ROOT[2]);
+    // crystal lights hanging in little loops under the front eave, glowing
+    for (let k = 1; k < 11; k++) { const [lx, ly] = mid(L1, R1, k / 11), sag = 2 + Math.round(Math.sin((k % 3) / 3 * Math.PI) * 2), [c0, c1] = k % 3 ? [BED_GLOW[1], BED_GLOW[2]] : [IC.l0, IC.l2]; T.px(lx, ly + sag, c0); T.px(lx + 1, ly + sag, c1); T.px(lx, ly + sag + 1, c1); T.glow(lx, ly + sag, 3, c1, 0.35); }
+    bedCrystal(T, apex[0], apex[1] + 1, Math.max(5, t * 0.4), Math.max(1.5, t * 0.09));
+  },
+};
+/**
+ * Each bed straight on: where its sleepers lie by how many, [across, forward] from its middle in tiles (as many as its soft
+ * top holds), how high each lies there (top, by how far across; below zero, down in a bowl behind its front), how far it
+ * reaches either side, and the layers drawn again over them when they aren't the isometric ones (BED_LAYERS).
+ */
+const FRONT_BED = {
+  nest: { slots: [[[0, 0]], [[-0.62, 0], [0.62, 0.04]], [[-1.0, -0.04], [0, 0.08], [1.0, 0]]], top: () => -0.3, reach: 1.75 },
+  basket: { slots: [[[0, 0]], [[-0.6, 0], [0.6, 0.04]], [[-0.95, -0.04], [0, 0.08], [0.95, 0]]], top: () => -0.24, reach: 1.65 },
+  // (tucked in under the quilt, which is drawn again over them)
+  canopy: { slots: [[[0, -0.1]], [[-0.62, -0.12], [0.62, -0.08]], [[-0.95, -0.14], [0, -0.06], [0.95, -0.12]]], top: () => 0.12, reach: 1.6, layers: ["post", "roof"] },
+  gazebo: { slots: [[[0, 0.12]], [[-0.6, 0.1], [0.6, 0.14]]], top: () => 0.2, reach: 1.75 },
+  // (in the sling: lowest in the middle, a little higher toward each end)
+  hammock: { slots: [[[0, 0]], [[-0.55, 0], [0.55, 0.04]], [[-0.85, -0.03], [0, 0.06], [0.85, 0]]], reach: 2.05,
+    top: a => { const T = 0.84 * 1.12, S = clamp(0.5 + a / (2 * 1.24 * T), 0, 1); return T * (1.02 - 0.55 * Math.sin(Math.PI * S)) - 0.1; } },
+};
+const FRONT_BED_BACK = 0.3, FRONT_BED_FRONT = 0.25; // where its layers sort, in tiles behind and in front of its middle: just round its sleepers
+/** How big the bed is drawn straight on: art pixels to a tile, by its depth in the room (about as big beside a glowling as on the isometric floor). */
+const frontBedT = () => Math.max(8, Math.round(N.base * depthK(N.bedY) * 0.72 / PX));
+/** Where the bed stands straight on (the middle of its footprint): at its spot in the corner, moved in as far as it takes to stay on the floor. */
+function frontBedAt() {
+  const u = frontBedT() * PX, F = FRONT_BED[bedStyle()] || FRONT_BED.nest, y = Math.min(N.bedY, N.y1 - 0.42 * u), e = floorHalf(y) - N.base * 0.08 - F.reach * u;
+  return [Math.round(clamp(N.bedX, N.cx - e, N.cx + e)), Math.round(y)];
+}
+/** One layer of the bed straight on, baked: the whole bed ("base"), or what goes over whoever sleeps in it ("post", "roof"). */
+function frontBedPiece(style, part) {
+  const t = frontBedT(), [bx, by] = frontBedAt(), w = Math.ceil(t * 5.4) + 12, h = Math.ceil(t * 6.2) + 12, ax = Math.round(w / 2), ay = Math.round(t * 5.2) + 6;
+  return cachedSprite(roomSprites, "bed" + part, `${style}|${t}|${bx}|${by}|${PX}`,
+    () => ({ c: isoArt(w, h, T => FRONT_BED_ART[style](t, T, ax, ay, { part, style })), x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX }));
+}
+/** The bed's layers for the front view's back-to-front order: the bed itself just behind its sleepers, its front and roof just in front of them. */
+function frontBedItems() {
+  const style = FRONT_BED_ART[bedStyle()] ? bedStyle() : "nest", u = frontBedT() * PX, by = frontBedAt()[1];
+  return [{ y: by - FRONT_BED_BACK * u, draw: () => drawBaked(frontBedPiece(style, "base")) },
+    ...(FRONT_BED[style].layers || BED_LAYERS[style] || []).map((part, k) => ({ y: by + FRONT_BED_FRONT * u + k * 0.01, draw: () => drawBaked(frontBedPiece(style, part)) }))];
+}
+/** Straight on, walkers keep off the whole bed where it really stands (it's wider than the cushion its spot was made for). */
+function frontBedObstacle(obst) {
+  const o = obst.find(o => o.id === "bed");
+  if (!o) return obst;
+  const F = FRONT_BED[bedStyle()] || FRONT_BED.nest, u = frontBedT() * PX, [x, y] = frontBedAt();
+  Object.assign(o, { x, y, rx: F.reach * u * 0.9, ry: Math.max(o.ry, 0.4 * u) });
+  return obst;
+}
+/** Straight on: is this sleeper lying in the bed (at its own place there, not curled up on the floor beside it)? */
+function frontInBed(a) {
+  if (a.state !== "sleep" && a.state !== "toBed") return false;
+  const at = bedPlaces(), s = at.get(a.id);
+  return !!s && !!at.up && at.up.has(a.id) && Math.hypot(a.x - s[0], a.y - s[1]) < N.base * 0.3;
+}
+/** How high a sleeper lies in the bed straight on (the sling holds them up off the floor, the canopy's mattress a little). */
+const frontBedTop = a => bedPlaces().up?.get(a.id) || 0;
 /** The baked picture of one placed piece, in CSS pixels ready for drawBaked. */
 function isoPiece(p, extra = {}, ahead = false) {
   const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3, base = pieceDims(p.id, false);
@@ -3305,12 +3483,20 @@ let bedPlacesCache = null;
 function bedPlaces(r = save.room) {
   const sleepers = save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q);
   const p = N.iso && isoLayout().placed.bed, style = bedStyle();
-  const key = [r, style, sleepers.join(","), p ? isoLayout().key : "front", N.isoW, N.base, N.bedX, N.bedY].join("|");
+  const key = [r, style, sleepers.join(","), p ? isoLayout().key : "front", N.isoW, N.base, N.bedX, N.bedY, PX].join("|");
   if (bedPlacesCache && bedPlacesCache.key === key) return bedPlacesCache.at;
   const at = new Map();
   if (!p) {
-    // seen straight on: side by side along the bed
-    sleepers.forEach((id, k) => at.set(id, [N.bedX + (k - (sleepers.length - 1) / 2) * N.base * 0.42, N.bedY + (k % 2) * N.base * 0.1]));
+    // seen straight on: side by side in the bed as many as it holds (see FRONT_BED), each at its height there (at.up),
+    // and the rest curled up on the floor beside it, toward the middle of the room (in front of its layers: nothing of it hides them)
+    const F = FRONT_BED[style] || FRONT_BED.nest, u = frontBedT() * PX, size = N.base * depth(N.bedY), [bx, by] = frontBedAt();
+    const slots = F.slots[Math.min(sleepers.length, F.slots.length) - 1] || [];
+    at.up = new Map();
+    sleepers.forEach((id, k) => {
+      if (k < slots.length) { const [a, b] = slots[k]; at.set(id, [bx + a * u, by + b * u]); at.up.set(id, F.top(a) * u); return; }
+      const j = k - slots.length;
+      at.set(id, [bx - F.reach * u - size * (0.42 + j * 0.8), by + FRONT_BED_FRONT * u + 2 + (j % 2) * size * 0.12]);
+    });
     bedPlacesCache = { key, at };
     return at;
   }
@@ -4470,7 +4656,7 @@ function frontArt(slot, x, y, w, h, ax, ay, base, frame, paint, { sq = null, ...
   }
   return f;
 }
-/** A soft shadow on the floor in whole art pixels: rows of translucent dark, stepped like a pixel ellipse. */
+/** A soft shadow on the floor in whole art pixels: rows of translucent dark, stepped like a pixel ellipse. Given a light colour it paints a glow the same way. */
 function pxShadow(x, y, rx, ry, a = 0.3, rgb = "10,4,24") {
   const cx = Math.round(x / PX), cy = Math.round(y / PX), R = rx / PX, Ry = Math.max(1, ry / PX);
   ctx.fillStyle = `rgba(${rgb},${a})`;
