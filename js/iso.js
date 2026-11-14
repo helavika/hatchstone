@@ -2828,6 +2828,30 @@ function isoRug(starry) {
 const isoTone = (ramp, v, x, y, k = 0.3) => { const n = ramp.length - 1; return ramp[clamp(Math.floor(clamp(v, 0, 1) * n + 0.5 + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * k), 0, n)]; };
 const mixHex = (a, b, k) => a.map((c, i) => Math.round(c + (b[i] - c) * k));
 
+/** An iron wall lantern on its bracket, the plate at the left edge against the wall, the arm reaching into the room. */
+const LANTERN = [
+  "h.........",
+  "mhh.......",
+  "mkkhh.....",
+  "m.kkkhh...",
+  "m.h..kkhh.",
+  "m.k...k.kk",
+  "m..k.k...k",
+  "m...k....m",
+  "mkk.....hmk",
+  "m......hmmmk",
+  "......hmmmmmk",
+  "......mBAAABk",
+  "......mAAWAAk",
+  "......mAWWWAk",
+  "......mAWWWAk",
+  "......mAAWAAk",
+  "......mBAAABk",
+  "......hmmmmmk",
+  ".......kmmmk",
+  "........kmk",
+  ".........k",
+];
 /** The isometric room in art pixels: a diamond floor on a thick slab, and (indoors) a lit left wall and a shaded right one.
  *  Every surface is a material laid along its own plane, lit from the top left: caves are layered rock with ledges and
  *  fissures over a pebbly floor; the abbey dressed stone in courses over flagstones; the timber hall an oak frame with
@@ -3146,26 +3170,143 @@ function paintRoomIso(id) {
         for (let k = 0; k < len; k++) put(x, yTop + 2 + k, pxPick(wallC, 0.62 - k * 0.07, x, k));
       }
     }
-    // a window in the left wall: a parallelogram that follows the wall, arched in the abbey. It has depth: a deep reveal
-    // in the wall on one side, a wooden frame with a cross of glazing bars, a stone sill that sticks out at the bottom,
-    // and through the glass a moonlit night with far hills, stars of different brightness and a faint shine on the panes.
-    // The timber hall's is square-headed under an oak lintel, glazed in small diamond panes of lead
+    // a window in the left wall: a parallelogram that follows the wall. It has depth: a deep reveal in the wall on one
+    // side, a stone sill that sticks out at the bottom, and through it a moonlit night with far hills and stars of different
+    // brightness. The ruins' is a broken pointed arch; the timber hall's is square-headed under an oak lintel, glazed in
+    // small diamond panes of lead; the abbey's is Gothic (below)
     const sky = (night ? night.sky : ["#0d0a2a", "#160c33", "#2d2468", "#463592"]).map(pxHex);
-    const woodW = [IC.w0, IC.w1, IC.w2, IC.w3], white = pxHex("#ffffff"), moon = pxHex("#fff8d6");
-    const glazed = kind === "hall" || kind === "timber", sillC = kind === "timber" ? [oak[1], oak[4]] : [wallC[1], wallC[Math.min(6, wallC.length - 1)]];
+    const white = pxHex("#ffffff"), moon = pxHex("#fff8d6");
+    const glazed = kind === "timber", sillC = kind === "timber" ? [oak[1], oak[4]] : [wallC[1], wallC[Math.min(6, wallC.length - 1)]];
+    if (kind === "hall") {
+      // the abbey's window is Gothic: a pointed arch cut deep through the wall and splayed, so both its sides show, with a
+      // broad stone seat; four tall lancets with trefoil heads under a net of lozenges (three, two, one), all on the wall's
+      // slant. Behind the glass a cold violet night with a moon and stars, and an iron lantern on a curled bracket either side
+      const tc = 0.42, xc = Math.round(cx - tc * hw), foot = x => Math.floor(top + (cx - x) / hw * hh);
+      // a pointed arch of half-width w: two arcs, each centred as far beyond the middle as the arch is wide
+      const rise = w => w * Math.sqrt(3), arch = (a, z, w, z0, z1) => z >= z0 && Math.abs(a) < w && (z < z1 || Math.hypot(Math.abs(a) + w, z - z1) < 2 * w);
+      const zb = Math.round(wall * (wall < 120 ? 0.2 : 0.27)), seatUp = Math.max(2, Math.round(Math.min(4 * S, wall * 0.03))), zA = Math.min(Math.round(wall * 0.88), Math.round(wall) - 8);
+      // the wall's depth, the splay and a mullion; on a low wall the window is narrower, with fewer lights
+      const m = 2, wMax = Math.min(Math.round(hw * 0.17), Math.floor((zA - zb) * 0.62 / Math.sqrt(3)));
+      const D = Math.max(2, Math.round(Math.min(3 * S, wMax * 0.1))), sp = Math.max(2, Math.round(Math.min(5 * S, wMax * 0.16)));
+      const fit = n => Math.floor((2 * (wMax - sp) - 2 - (n - 1) * m) / n), nL = [4, 3].find(n => fit(n) >= 8) || 2;
+      const L = Math.max(4, fit(nL)), wi = (nL * L + (nL - 1) * m + 2) / 2, wo = wi + sp, zs = zA - Math.round(rise(wo)), zg = zb + seatUp;
+      // the opening t of the way in (0 at the room, 1 at the glass): narrower, its sill higher, and seen shifted up and left
+      const openAt = (a, z, t) => arch(a + 0.5 + D * t, z - D * t, wo - sp * t, zb + seatUp * t, zs);
+      const lav = pxHex("#d2bfff"), vio = hexes(["#160c26", "#22143a", "#2e1d4f", "#3d2866", "#523a85", "#6b4fa8", "#8a6cc9", "#ad91e6", "#d2bfff", "#efe6ff"]);
+      // the glass, in its own plane: the stone frame, mullions, the lights' trefoil heads and the lozenges above them
+      const TREFOIL = [0, 1, 2, 2, 1, 3, 4, 4, 3], hL = L / 2, zh = zs + 2 - Math.round(TREFOIL.length * hL / 5.5), rowH = Math.round(Math.max(wi * 0.46, L * 1.1)), rw = (L + m) / 2 - 2, rh = rowH / 2 - 0.5;
+      const lz = [];
+      for (let r = 0; r < nL - 1; r++) for (let k = 0; k < nL - 1 - r; k++) lz.push([(k - (nL - 2 - r) / 2) * (L + m), zh + TREFOIL.length * hL / 5.5 + rowH * 0.45 + r * rowH]);
+      const moonA = -wi + 1 + (nL >> 1) * (L + m) + hL, moonZ = zh - Math.round(rowH * 0.9), moonR = Math.max(2.5, Math.min(L * 0.36, wi * 0.16));
+      const glassAt = (ga, gz) => {
+        const a = ga + 0.5;
+        if (!arch(a, gz, wi, zg, zs)) return null;
+        if (!arch(a, gz, wi - 1, zg + 1, zs)) return -1;
+        const rel = ga + wi - 1, k = Math.floor(rel / (L + m)), off = rel - k * (L + m);
+        if (gz < zh) return off >= L ? -1 : 1;
+        // a light's head: a trefoil, a pointed lobe over two round ones, with stone cusps pointing in between them
+        const row = TREFOIL.length - 1 - Math.floor((gz - zh) * 5.5 / hL);
+        if (off < L && row >= 0 && Math.abs(off - (L - 1) / 2) <= TREFOIL[row] * (hL - 0.5) / 5 + 0.01) return 1;
+        for (const [x0, z0] of lz) { const da = Math.abs(a - x0) / rw, dz = Math.abs(gz - z0) / rh; if (da ** 1.4 + dz ** 1.4 < 1) return 2; }
+        return -1;
+      };
+      const skyV = (ga, gz, x, y, kindG) => {
+        const md = Math.hypot(ga + 0.5 - moonA, gz - moonZ);
+        if (md < moonR) return Math.hypot(ga + 0.5 - moonA + 1.2, gz - moonZ + 1) > moonR ? 0.82 : 1;
+        let v = 0.3 + 0.12 * (gz - zg) / (zA - zg) + (md < moonR + 2.5 ? 0.34 : md < moonR + 7 ? 0.18 : md < moonR + 13 ? 0.08 : 0) + (kindG === 2 ? 0.42 : 0);
+        const st = pxHash(x * 5 + 1, y * 3 + seed);
+        if (st > 0.99) v = 0.95; else if (st > 0.975) v += 0.25;
+        return v;
+      };
+      const isGlass = (ga, gz) => (glassAt(ga, gz) || 0) > 0;
+      const x0 = xc - wo - 6, x1 = xc + wo + 6;
+      for (let x = x0; x <= x1; x++) for (let y = foot(x) - zA - 8; y <= foot(x) - zb + 1; y++) {
+        const a = x - xc, z = foot(x) - y, ac = a + 0.5;
+        if (openAt(a, z, 0)) {
+          if (openAt(a, z, 1)) {
+            // through the glass
+            const ga = a + D, gz = z - D, gk = glassAt(ga, gz);
+            if (gk > 0) { put(x, y, isoTone(vio, skyV(ga, gz, x, y, gk), x, y)); continue; }
+            // stone: lit where it faces up or left into the light, in shade where it turns away
+            let v = 0.32;
+            if (gk === -1 && !arch(ga + 0.5, gz, wi - 1, zg + 1, zs)) v = 0.42;
+            else if (isGlass(ga - 1, gz)) v = 0.58; else if (isGlass(ga, gz + 1)) v = 0.55; else if (isGlass(ga + 1, gz)) v = 0.18; else if (isGlass(ga, gz - 1)) v = 0.22;
+            put(x, y, isoTone(wallC, v, x, y)); continue;
+          }
+          // the reveal: how far in the wall turns this pixel's way, and which face it is
+          let t = 0; while (t < 1 && openAt(a, z, t + 1 / 24)) t += 1 / 24;
+          const tn = t + 1 / 24, za = z - D * tn, aa = ac + D * tn, deep = t;
+          let v;
+          if (za < zb + seatUp * tn) v = 0.74 - 0.12 * deep;                       // the seat, lit from above
+          else if (aa > 0) v = (za < zs ? 0.3 : 0.2) - 0.08 * deep - (((za % 11) + 11) % 11 < 1 ? 0.18 : 0);   // the far side, in shade
+          else v = za < zs ? 0.62 : 0.5;                                            // the near side's splay, catching the light
+          if (t < 1 / 24) v += aa > 0 ? 0.14 : 0.2;                                 // the arris
+          if (t > 0.9 && za >= zb + seatUp) { put(x, y, isoTone(wallC, 0.06, x, y)); continue; }   // where the stone meets the glass
+          // the moonlight coming in silvers the seat and the near side, more the deeper in
+          put(x, y, aa > 0 && za >= zb + seatUp * tn ? isoTone(wallC, v, x, y) : mixHex(isoTone(wallC, v, x, y), lav, deep > 0.5 ? 0.22 : 0.1));
+          continue;
+        }
+        // round the opening, on the wall's face: a chamfered surround of dressed voussoirs, and a hood mould over the arch
+        if (z < zb) continue;
+        const ring = r => arch(ac, z, wo + r, zb, zs);
+        if (ring(1)) put(x, y, isoTone(wallC, ac < 0 || z > zs + rise(wo) * 0.6 ? 0.84 : 0.46, x, y));
+        else if (ring(4)) {
+          const jt = z < zs ? ((z - zb) % 9 === 0) : Math.abs(((Math.atan2(z - zs, Math.abs(ac) + wo) / 0.13) % 1) - 0.5) > 0.42;
+          put(x, y, isoTone(wallC, jt ? 0.1 : ac < 0 ? 0.62 : 0.5, x, y));
+        } else if (ring(5) && z > zs - 3) put(x, y, isoTone(wallC, 0.08, x, y));
+        else if (ring(7) && z > zs - 3) put(x, y, isoTone(wallC, ring(6) ? 0.66 : 0.86, x, y));
+      }
+      // the seat: a broad slab that sticks out of the wall under the window, its top lit, its front in half light,
+      // its end in shade, and a shadow on the wall beneath
+      const E = Math.max(3, Math.round(6 * S)), sh = Math.max(2, Math.round(4 * S)), xl = xc - wo - 3, xr = xc + wo + 3;
+      for (let x = xl; x <= xr + E; x++) {
+        const y0 = foot(x) - zb;
+        for (let k = 0; k <= sh + 3; k++) { const o = x - E; if (o >= xl && o <= xr) put(x, y0 + E + k, isoTone(wallC, k <= sh ? (k === 0 ? 0.9 : k === sh ? 0.08 : 0.5) : 0.1, x, y0 + E + k)); }
+        for (let e = 0; e < E; e++) { const o = x - e; if (o >= xl && o <= xr) put(x, y0 + e, isoTone(wallC, e === 0 ? 0.6 : 0.76, x, y0 + e)); }
+      }
+      for (let e = 1; e <= E; e++) for (let k = 0; k <= sh; k++) put(xr + e, foot(xr) - zb + Math.floor(e / 2) + k, isoTone(wallC, k === sh ? 0.06 : 0.26, xr + e, 0));
+      // two iron lanterns on curled brackets, each with a soft lavender glow on the stone round it
+      for (const side of [-1, 1]) {
+        const xw = xc + (side < 0 ? -wo - 21 : wo + 7), yw = foot(xw) - (zs + Math.round(6 * S)), lx = xw + 9, gy = yw + 13, R = Math.round(20 * S);
+        for (let y = gy - R; y <= gy + R; y++) for (let x = lx - R; x <= lx + R; x++) {
+          const dd = Math.hypot(x - lx, (y - gy) * 1.15) / R + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * 0.16;
+          if (dd >= 1 || x < 0 || y < 0 || x >= w || y >= h || y >= foot(x)) continue;
+          const i = (y * w + x) * 4; put(x, y, mixHex([d[i], d[i + 1], d[i + 2]], lav, dd < 0.4 ? 0.34 : 0.17));
+        }
+        // the bracket: a plate on the wall, an arm out into the room lit along its top, a brace with a curl under it;
+        // the lantern hangs from the arm's end: a pointed cap, glass glowing round a white flame, a foot and a finial
+        const ironC = { k: IC.m4, m: IC.m3, h: IC.m2, W: IC.white, A: IC.l0, B: IC.l1 };
+        LANTERN.forEach((row, r) => [...row].forEach((ch, k) => { if (ironC[ch]) put(xw + k, yw + r - 1, ironC[ch]); }));
+      }
+      // the moonlight it lets in: each pane laid out across the flagstones, long and slanting, the mullions' shadows between
+      const mz = 1.6, ms = 0.3, u0 = 0.05;
+      for (let y = Math.floor(top); y <= Math.ceil(top + hw); y++) for (let x = Math.floor(cx - hw); x <= cx + hw * 0.2; x++) {
+        const a = (x - cx) / hw, b = (y - top) / hh, u = (a + b) / 2, v = (b - a) / 2;
+        if (u < 0.02 || v < 0.02 || u > 0.9 || v > 0.98) continue;
+        const ga = Math.round(cx - (v - ms * u) * hw - xc), gz = Math.round(zg + (u - u0) * hw * mz);
+        if (!isGlass(ga, gz)) continue;
+        const i = (y * w + x) * 4, f = 1 - u / 0.75, edge = !isGlass(ga + 1, gz) || !isGlass(ga - 1, gz) || !isGlass(ga, gz + 2) || !isGlass(ga, gz - 2);
+        const k = f + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * 0.2 > 0.55 ? 0.5 : 0.34;
+        if (edge) { put(x, y, mixHex([d[i], d[i + 1], d[i + 2]], lav, k * 0.6)); continue; }
+        put(x, y, mixHex([d[i], d[i + 1], d[i + 2]], lav, k));
+      }
+    }
+    else {
+    // how far out a point is in the cave's pointed opening (1 on its edge): two arcs meeting at the top, a round foot
+    const pointed = (lx, hy) => { const a = Math.abs(lx), k = wall / (hw * 0.14); return hy > 0.55 ? Math.hypot(a + 1.6, (hy - 0.55) * k) / 2.6 : hy < 0.44 ? Math.hypot(a, (0.44 - hy) * k) : a; };
     for (let x = Math.floor(cx - hw * 0.67); x <= Math.ceil(cx - hw * 0.33); x++) {
       const tt = (cx - x) / hw, base = top + tt * hh, lx = (tt - 0.5) / 0.14;
       for (let y = Math.floor(base - wall * 0.86); y < base - wall * 0.26; y++) {
-        const hy = (base - y) / wall, archTop = kind === "hall" || kind === "ruin" ? 0.84 - 0.12 * Math.abs(lx) ** 1.6 : kind === "timber" ? 0.78 : 0.8 - 0.08 * lx * lx;
-        // a cave's opening is a ragged hole worn through the rock: no frame, no sill, rough edges
+        const hy = (base - y) / wall, archTop = kind === "ruin" ? 0.84 - 0.12 * Math.abs(lx) ** 1.6 : kind === "timber" ? 0.78 : 0.8 - 0.08 * lx * lx;
+        // a cave's opening is hacked through the rock in a rough pointed arch: no frame, no sill, ragged edges
         if (kind === "cave") {
-          const rough = 0.18 * pxNoise(x * 0.3 + seed, y * 0.3) + 0.08 * pxNoise(x * 0.9, y * 0.9 + seed);
-          const r = Math.hypot(lx * 0.95, (hy - 0.58) / 0.21);
+          const rough = 0.14 * pxNoise(x * 0.3 + seed, y * 0.3) + 0.08 * pxNoise(x * 0.9, y * 0.9 + seed);
+          const r = pointed(lx * 0.95, hy);
           if (r > 1.05 + rough) continue;
           // a lip of rock round the hole: lit along its lower left, in shadow up top
           if (r > 0.9 + rough) { put(x, y, wallC[lx < 0 && hy < 0.6 ? 4 : 0]); continue; }
           // the rock is thick: you look down a short tunnel to the sky, its sides lit from inside on the left, dark on the right
-          const ri = Math.hypot((lx - 0.2) * 1.3, (hy - 0.6) / 0.15);
+          const ri = pointed((lx - 0.2) * 1.3, 0.55 + (hy - 0.6) * 1.3);
           if (ri > 1 + rough * 0.6) { const k = clamp((r - 0.35) / 0.55, 0, 1); put(x, y, isoTone(wallC, lx < 0.2 ? 0.2 + 0.45 * k : 0.08 + 0.12 * k, x, y)); continue; }
         } else {
           // the sill: a ledge under the window, a little wider than it, lit on top, its shadow on the wall below
@@ -3178,8 +3319,7 @@ function paintRoomIso(id) {
         let col;
         if (kind === "cave") col = null;
         else if (Math.abs(lx) > 0.88 || hy > archTop - 0.03) col = kind === "timber" ? (lx > 0 ? daub[1] : daub[4]) : lx > 0 ? wallC[1] : wallC[4];   // the reveal: the wall's thickness
-        else if (glazed && (Math.abs(lx) > 0.78 || hy > archTop - 0.075 || hy < 0.37)) col = kind === "timber" ? oak[lx > 0 ? 2 : 4] : woodW[lx > 0 ? 2 : 1];  // the frame
-        else if (kind === "hall" && (Math.abs(lx) < 0.05 || Math.abs(hy - 0.57) < 0.013)) col = woodW[2];                     // the glazing bars
+        else if (glazed && (Math.abs(lx) > 0.78 || hy > archTop - 0.075 || hy < 0.37)) col = oak[lx > 0 ? 2 : 4];  // the frame
         else if (kind === "timber") {
           // lead cames in diamonds: lines that follow the wall's slant one way and cross it the other
           const da = x - (cx - hw * 0.5), db = base - y, P = 8 * S, m1 = ((db + da * 1.4) / P % 1 + 1) % 1, m2 = ((db - da * 1.4) / P % 1 + 1) % 1;
@@ -3197,8 +3337,6 @@ function paintRoomIso(id) {
             const md = Math.hypot(x - (cx - hw * mt), y - (top + mt * hh - (kind === "cave" ? 0.66 : 0.68) * wall)) / mr;
             if (md < 1) col = md > 0.7 && pxHash(x, y) > 0.6 ? sky[3] : moon; else if (md < 1.5 && PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.4) col = sky[3];
           }
-          // a faint shine slanting across the glass
-          if (kind === "hall" && ((x + y * 2) % 23 + 23) % 23 < 2 && hy > 0.5) col = sky[3];
         }
         put(x, y, col);
       }
@@ -3208,6 +3346,7 @@ function paintRoomIso(id) {
       const a = (x - cx) / hw, b = (y - top) / hh, u = (a + b) / 2, v = (b - a) / 2;
       if (u < 0.03 || u > 0.3 || v < 0.38 + u * 0.3 || v > 0.62 + u * 0.3) continue;
       if (PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.18 * (1 - u / 0.3)) put(x, y, sky[3]);
+    }
     }
     if (kind === "ruin") {
       // tufts of grass at the foot of the walls, and a fallen block or two
