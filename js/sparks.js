@@ -84,14 +84,19 @@ function bringSpark(c, hrs, trip) {
 }
 /** The toast's few words for a spark that just came home. */
 const sparkNote = s => `✨ ${tr(s.name)}`;
-/** Open the newest spark's card when nothing else is on screen (a chat, a sheet, a toast-heavy moment). */
+/**
+ * Open the newest spark's card when nothing else is on screen (a chat, a sheet, a toast-heavy moment). Away from the nest
+ * (the map, the Book, a geode) it keeps waiting, and shows once you're back in a calm nest; then the next one, if any.
+ */
 function showNewSparks(wait = 1600) {
-  setTimeout(() => {
+  clearTimeout(showNewSparks.t);
+  showNewSparks.t = setTimeout(() => {
     if (!game.sparkNew?.length) return;
-    const busy = talkNow || game.scene !== "nest" || $$(".overlay.modal").some(o => !o.classList.contains("hidden"));
-    if (busy) { if (game.scene === "nest") showNewSparks(1500); return; }
+    const busy = talkNow || game.scene !== "nest" || worldOpen() || $$(".overlay.modal").some(o => !o.classList.contains("hidden"));
+    if (busy) { showNewSparks(1500); return; }
     const id = game.sparkNew.shift();
     openSpark(id, true);
+    if (game.sparkNew.length) showNewSparks();
   }, wait);
 }
 
