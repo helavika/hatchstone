@@ -485,11 +485,17 @@ function updateActors(dt) {
   }
 }
 
+/** What the room's walls and floor are painted from: when it changes, they're painted again. */
+const roomKey = () => `${currentTheme()}|${isPlace() ? save.rooms[save.room].kind : ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}${N.iso}`;
 function drawRoom() {
   const { y1 } = N, cx = N.cx, kind = ROOM_KIND[currentTheme()] || "cave";
-  // the walls and floor of this backdrop, painted once in art pixels
-  const rk = `${currentTheme()}|${isPlace() ? save.rooms[save.room].kind : ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}`;
-  if (roomCanvas.key !== rk + N.iso) { roomCanvas.key = rk + N.iso; roomCanvas.c = N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()); }
+  // the walls and floor of this backdrop, painted once in art pixels (or ahead of time: see bakeAhead), and kept a while
+  // after you leave, so walking back in is smooth too
+  const rk = roomKey();
+  if (roomCanvas.key !== rk) {
+    if (roomCanvas.c && roomCanvas.key) keepAhead(roomAhead, roomCanvas.key, roomCanvas.c, 8);
+    roomCanvas.key = rk; roomCanvas.c = roomAhead.get(rk) || (N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()));
+  }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
   // a round window onto the night sky in the cave wall (the abbey has its own arched one; outdoors the sky is already there)
   const wr = N.win.r, wy = N.win.y;
@@ -2539,7 +2545,7 @@ function bedThumb(id) {
   return bedThumbs[id] = c.toDataURL();
 }
 /** The baked picture of one placed piece, in CSS pixels ready for drawBaked. */
-function isoPiece(p, extra = {}) {
+function isoPiece(p, extra = {}, ahead = false) {
   const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3, base = pieceDims(p.id, false);
   // (room above the footprint for tall pieces: dressers, chimneys, a greenhouse's roof)
   const w = Math.ceil((base.fw + base.fd) * tw + pad * 2), h = (base.fw + base.fd) * tw / 2 + tw * 4 + pad;
@@ -2547,7 +2553,11 @@ function isoPiece(p, extra = {}) {
   // (where it stands on screen is part of the key: a resized window can move the room without changing its size)
   const [bx, by] = isoAt(p.i / ISO_G, p.j / ISO_G);
   const key = `${p.id}|${p.i},${p.j}|${p.flip}|${tw.toFixed(2)}|${Math.round(bx)},${Math.round(by)}|${JSON.stringify(extra)}`;
-  return cachedSprite(isoPieces, p.id + (extra.part || ""), key, () => {
+  const slot = p.id + (extra.part || ""), id = slot + "|" + key;
+  // baking ahead (see bakeAhead): painted now and put by until the room is walked into, the room you're in left as it is
+  if (ahead) { if (isoPieces[slot]?.key !== key && !isoAhead.has(id)) keepAhead(isoAhead, id, make(), 60); return null; }
+  return cachedSprite(isoPieces, slot, key, () => { const f = isoAhead.get(id); isoAhead.delete(id); return f || make(); });
+  function make() {
     let c = isoArt(w, h, T => ISO_ART[p.id](tw, T, ax0, ay, extra)), ax = ax0;
     if (p.flip) {
       // turned to face the other wall: a mirror image (the back corner stays the back corner)
@@ -2557,7 +2567,7 @@ function isoPiece(p, extra = {}) {
       c = m; ax = c.width - ax0;
     }
     return { c, x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX };
-  });
+  }
 }
 
 /** The geode shelf on its wall, showing your three shiniest geodes in their own colors. */
@@ -2742,6 +2752,82 @@ function drawArrangeGrid() {
   ctx.restore();
 }
 const isoPieces = {};
+
+// ---------- baking ahead: the places' rooms, pieces and keepers are painted in idle moments, so walking in is smooth ----------
+const roomAhead = new Map(), isoAhead = new Map();
+/** Put something by in a little store that forgets the oldest first. */
+const keepAhead = (m, k, v, max) => { m.delete(k); m.set(k, v); while (m.size > max) m.delete(m.keys().next().value); };
+/** The map's places and the room each one is (the garden is the yard outside, the trail leads to the explorers' camp). */
+const PLACE_ROOM = { garden: "yard", trail: "camp" };
+/** Everything as if you stood in room i (its decor, its layout, its backdrop) while fn paints; then all back as it was. */
+function asIfIn(i, fn) {
+  const was = save.room, keep = ROOM_KEYS.map(k => [k, k in save, save[k]]), on = Object.entries(save.decor).map(([id, d]) => [d, d.on]), layout = isoLayoutCache;
+  try {
+    const r = save.rooms[i];
+    save.room = i;
+    for (const [id, d] of Object.entries(save.decor)) d.on = r.on.includes(id);
+    for (const k of ROOM_KEYS) { if (r[k] == null) delete save[k]; else save[k] = r[k]; }
+    isoLayoutCache = null;
+    fn();
+  } finally {
+    save.room = was;
+    for (const [k, had, v] of keep) { if (had) save[k] = v; else delete save[k]; }
+    for (const [d, v] of on) d.on = v;
+    isoLayoutCache = layout;
+  }
+}
+/** One place's backdrop and walls ("room"), its furniture ("pieces") or its keeper ("keeper"), painted ahead of time. */
+function bakePlace(kind, part) {
+  let i = save.rooms.findIndex(r => r.kind === kind);
+  const added = i < 0;
+  // (a place never visited has no room yet: one stands in for it while it's painted, the way ensurePlace will make it)
+  if (added) { save.rooms.push({ kind, on: [], theme: ROOM_KINDS.find(k => k.id === kind).theme }); i = save.rooms.length - 1; }
+  try {
+    asIfIn(i, () => {
+      // (the same view and pixel grid as when you get there, or there's nothing to gain)
+      if ((roomView() === "iso") !== !!N.iso || !N.iso) return;
+      if (part === "room") {
+        bgFor("nest");
+        const key = roomKey();
+        if (roomCanvas.key !== key && !roomAhead.has(key)) keepAhead(roomAhead, key, paintRoomIso(currentTheme()), 8);
+      } else if (part === "pieces") {
+        // (as drawRoomIso paints them: the incubator and the swing draw themselves, wall pieces hang elsewhere)
+        for (const p of Object.values(isoLayout().placed)) {
+          if (p.id === "incubator" || p.id === "swing" || typeof ISO_ART[p.id] !== "function") continue;
+          const extra = pieceExtra(p), layers = p.id === "bed" && BED_LAYERS[extra.style];
+          isoPiece(p, layers ? { ...extra, part: "base" } : extra, true);
+          if (layers) for (const part of layers) isoPiece(p, { ...extra, part }, true);
+        }
+      } else if (heroHere() && !heroHere().none) {
+        // the keeper drawn once out of sight, which bakes the pose they'll stand in
+        const real = ctx, said = game.hero;
+        ctx = bakeScratch.getContext("2d"); game.hero = null;
+        try { drawHero(); } finally { ctx = real; game.hero = said; }
+      }
+    });
+  } finally { if (added) save.rooms.pop(); }
+}
+const bakeScratch = document.createElement("canvas");
+let aheadJobs = null;
+/**
+ * Paint the places you can go to before you get there, one job at a time when the browser is idle (after Play, and when the
+ * map opens): the first step into the forge or the camp is then as smooth as the hundredth.
+ */
+function bakeAhead() {
+  if (aheadJobs) return;
+  const here = save.rooms[save.room]?.kind;
+  const kinds = WORLD.filter(w => w.id !== "nest" && placeOk(w.id)).map(w => PLACE_ROOM[w.id] || w.id).filter(k => k !== here && ROOM_KINDS.some(r => r.id === k));
+  aheadJobs = kinds.flatMap(k => ["room", "pieces", "keeper"].map(part => () => bakePlace(k, part)));
+  const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 2000 }) : setTimeout(f, 250));
+  const next = () => {
+    // (only on the room's own pixel grid: not while cracking, nor in the middle of playing together)
+    if (!aheadJobs.length || !["nest", "map", "lib"].includes(game.scene) || coopSession) { aheadJobs = null; return; }
+    // (a job that fails costs nothing but its own head start)
+    try { aheadJobs.shift()(); } catch (e) { console.warn("bakeAhead", e); }
+    idle(next);
+  };
+  idle(next);
+}
 
 // ---------- the floating cloud: it drifts above everything, you can drag it anywhere, and sleepy glowlings nap on top ----------
 const CLOUD_DEFAULT = [0.16, 0.5];

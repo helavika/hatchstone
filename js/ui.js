@@ -407,7 +407,7 @@ $("crackTab").addEventListener("click", () => {
 });
 $("worldTab").addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
-  if (worldOpen()) { sfx.tick(); closeWorld(); } else openWorld();
+  if (worldOpen()) { sfx.tick(); closeWorld(); } else { openWorld(); bakeAhead(); }
 });
 $("worldClose").addEventListener("click", () => { sfx.tick(); closeWorld(); });
 $("spaceClose").addEventListener("click", () => show("spaceSheet", false));

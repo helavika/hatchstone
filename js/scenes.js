@@ -82,7 +82,8 @@ function setScene(scene) {
   $("nestEmpty").hidden = !(scene === "nest" && !save.creatures.length);
   if (scene === "map") renderMap();
   if (scene === "lib") { renderLib(); taskDone("book"); }
-  if (scene === "nest") { renderNest(true); nudgeBackup(); }
+  // (in the nest, the places you can go to are painted ahead while nothing else is going on)
+  if (scene === "nest") { renderNest(true); nudgeBackup(); bakeAhead(); }
   updateTopbar();
   talkMoments(scene);
 }
