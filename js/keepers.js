@@ -423,8 +423,8 @@ function keeperImage(id, blink = false, S = 1) {
   const key = `url|${id}|${blink ? 1 : 0}|${S}`;
   return keeperCache[key] || (keeperCache[key] = keeperCanvas(id, blink, S).toDataURL());
 }
-/** Where a portrait's window moves to (art pixels right, down) when the head isn't at the very top: under Fennel's tall straw hat. */
-const KEEPER_FACE_AT = { fennel: [4, 9] };
+/** Where a portrait's window moves to (art pixels right, down) when the head is not at the top or middle of the sprite: under Fennel's tall straw hat, out along a beak or a snout. */
+const KEEPER_FACE_AT = { fennel: [4, 9], pip: [5, 1], tansy: [3, 0] };
 /** Just the head and shoulders, for the dialog box. */
 function keeperFace(id) {
   const key = id + ":face";
