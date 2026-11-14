@@ -864,6 +864,7 @@ function showFound() {
   $("foundNestSub").textContent = adopt.sibling ? tr("{0} met a sibling: +40 XP", mine.name) : tr("{0} is waiting for you", mine.name);
   $("nextLvl").textContent = conf.coop ? (coopIsHost() ? tr("Another shared egg") : tr("Waiting for host")) : conf.moon ? tr("Back to the grotto") : conf.wander ? tr("Another egg") : conf.n >= LEVELS ? tr("Wander on") : tr("Next level");
   $("nextLvl").disabled = !!conf.coop && !coopIsHost();
+  if (conf.heart) heartFound(conf);
   updateTopbar();
   show("found", true);
   if (conf.coop) coopBroadcast(true); // deliver the result before a host can send the next egg

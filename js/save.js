@@ -43,6 +43,10 @@ function moonSaveOf(m, d) {
   return nights ? { last: had && typeof m.last === "string" ? m.last : "", nights, streak: nights } : null;
 }
 
+/** The star niches in the save: for each cave where a heart geode has been cracked, whether it was the first niche's and the second's.
+ *  A save from before the niches has cracked none, so whichever its stars already reach are simply open. */
+const cacheSaveOf = c => Object.fromEntries(Object.entries(c && typeof c === "object" && !Array.isArray(c) ? c : {}).filter(([k, v]) => /^\d$/.test(k) && Array.isArray(v)).map(([k, v]) => [k, [v[0] === true, v[1] === true]]));
+
 /** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
 function migrate(d) {
   d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {}; d.forge = d.forge || {};
@@ -85,6 +89,8 @@ function migrate(d) {
   if (typeof d.cardBorder !== "boolean") d.cardBorder = true;
   // wardstones (see wards.js): the ones in hand and the ones set on the map
   d.wards = wardSaveOf(d.wards);
+  // star niches (see scenes.js): which heart geodes have been cracked
+  d.caches = cacheSaveOf(d.caches);
   d.v = SAVE_VERSION;
   return d;
 }
@@ -575,10 +581,10 @@ const bgCache = new Map();
 /** The grotto behind everything: a dithered crystal cave drawn at art resolution, its middle left open. */
 function makeBackground() { bgCache.clear(); }
 
-/** Which backdrop shows now: the chapter's own cave while cracking, moonlight for moon eggs, your pick elsewhere. */
+/** Which backdrop shows now: the chapter's own cave while cracking (a heart geode's too), moonlight for moon eggs, your pick elsewhere. */
 function currentTheme() {
   const c = game.scene === "crack" && game.egg && game.egg.conf;
-  if (c) return c.moon ? "churchyard" : c.wander ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
+  if (c) return c.moon ? "churchyard" : c.wander && !c.heart ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
   const fits = roomThemes();
   return THEME[save.theme] && (THEME[save.theme].ok() || isPlace()) && fits.includes(save.theme) ? save.theme : fits[0];
 }
