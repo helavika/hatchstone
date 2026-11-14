@@ -279,7 +279,7 @@ const stat = {
   cracked: () => Math.max(cnt("cracked"), Object.values(save.seen).reduce((a, v) => a + (v.count || 0), 0)),
   species: () => SPECIES.filter(sp => save.seen[sp.id]).length,
   level: () => Math.max(0, ...save.creatures.map(c => c.level)),
-  streak: () => Math.max(cnt("moonBest"), save.moon ? save.moon.streak : 0),
+  nights: () => moonNights(),
 };
 /** Each award: its rarity, and a test that says how far along you are [now, goal]. */
 const AWARDS = [
@@ -299,7 +299,7 @@ const AWARDS = [
   { id: "grown", tier: "rare", name: "All grown up", how: "Raise a glowling to level 10", test: () => [stat.level(), 10] },
   { id: "hybrid", tier: "rare", name: "Matchmaker", how: "Hatch a hybrid", test: () => [save.creatures.some(c => c.mix) ? 1 : 0, 1] },
   { id: "forge5", tier: "rare", name: "Blacksmith", how: "Buy 5 upgrades at the Forge", test: () => [Object.values(save.forge || {}).reduce((a, b) => a + b, 0), 5] },
-  { id: "streak3", tier: "rare", name: "Night owl", how: "Open moon eggs 3 nights in a row", test: () => [stat.streak(), 3] },
+  { id: "streak3", tier: "rare", name: "Night owl", how: "Open the moon egg on any 3 nights", test: () => [stat.nights(), 3] },
   { id: "room2", tier: "rare", name: "More room", how: "Add a room to your home", test: () => [(save.rooms || []).length, 2] },
   { id: "echo5", tier: "rare", name: "Good ear", how: "Sing back 5 tunes in Echo song", test: () => [save.echoBest || 0, 5] },
   { id: "wick3", tier: "rare", name: "A good customer", how: "Buy 3 things from Wick", test: () => [cnt("wickBought"), 3] },
@@ -315,7 +315,7 @@ const AWARDS = [
   { id: "radiant", tier: "epic", name: "Radiant", how: "Raise a glowling to level 15", test: () => [stat.level(), 15] },
   { id: "shiny", tier: "epic", name: "Something shiny", how: "Hatch a shiny glowling", test: () => [save.creatures.some(c => c.shiny) || cnt("shiny") ? 1 : 0, 1] },
   { id: "vault", tier: "epic", name: "Into the Vault", how: "Reach the fourth cave", test: () => [unlocked(19) ? 1 : 0, 1] },
-  { id: "streak7", tier: "epic", name: "Moon keeper", how: "Open moon eggs 7 nights in a row", test: () => [stat.streak(), 7] },
+  { id: "streak7", tier: "epic", name: "Moon keeper", how: "Open the moon egg on any 7 nights", test: () => [stat.nights(), 7] },
   { id: "event", tier: "epic", name: "In season", how: "Meet a limited event glowling", test: () => [SPECIES.some(sp => sp.event && save.seen[sp.id]) ? 1 : 0, 1] },
   { id: "arsenal", tier: "epic", name: "Arsenal", how: "Own every tool at the Forge", test: () => [TOOL_SKINS.filter(k => !k.cost || (save.toolSkins || {})[k.id]).length, TOOL_SKINS.length] },
   { id: "legend", tier: "legendary", name: "Legend", how: "Meet a legendary glowling", test: () => [legendOk() ? 1 : 0, 1] },
@@ -324,6 +324,7 @@ const AWARDS = [
   { id: "level20", tier: "legendary", name: "Brightest of all", how: "Raise a glowling to level 20", test: () => [stat.level(), MAX_LEVEL] },
   { id: "story", tier: "legendary", name: "The whole story", how: "Hear every part of Mossa's story", test: () => [STORY.filter(p => talkSeen(p.id)).length, STORY.length] },
   { id: "rescueAll", tier: "legendary", name: "Gloombreaker", how: "Free all four sparks from the Gloom", test: () => [cnt("rescued"), 4] },
+  { id: "nights30", tier: "legendary", name: "Friend of the moon", how: "Open the moon egg on any 30 nights", test: () => [stat.nights(), 30] },
   { id: "everyone", tier: "legendary", name: "Every last one", how: "Meet every kind of glowling", test: () => [stat.species(), SPECIES.length] }
 ];
 /** Hand out what you've earned. The first time (or with quiet) they arrive together, with one word in the corner. */
@@ -425,39 +426,53 @@ function moonToday() {
 }
 
 const moonDone = () => save.moon && save.moon.last === dayKey();
-function moonStreak() {
-  if (!save.moon) return 0;
+/** Nights kept: every day a moon egg was opened, all of them together. A day away takes nothing: it only ever rises. */
+const moonNights = () => (save.moon && save.moon.nights) || 0;
+/** Back after a gap: there are nights kept, but yesterday's egg (and today's, so far) stayed shut. The moon doesn't mind. */
+function moonWaited() {
+  if (!moonNights() || moonDone()) return false;
   const y = new Date(); y.setDate(y.getDate() - 1);
-  return save.moon.last === dayKey() || save.moon.last === dayKey(y) ? save.moon.streak : 0;
+  return save.moon.last !== dayKey(y);
 }
+/** The nights kept under the moon's mark, for the end of a line (the mark holds on to the last word, so it never wraps alone). */
+const moonNote = () => { const n = moonNights(); return n ? ` · ${n} ${pl(n, "night kept", "nights kept")}\u00a0🌙` : ""; };
 
-/** What today's moon egg holds, in a line. */
+/** What today's moon egg holds, in a line; after days away the moon says hello first, and nothing about the days. */
 function moonLine() {
-  const streak = moonStreak(), sp = moonToday();
-  if (moonDone()) return tr("next one in {0}", untilTomorrow()) + (streak ? tr(" · streak {0} 🔥", streak) : "");
-  return tr("{0} sleeps inside ✦ +25 shards", sp.event && !save.seen[sp.id] ? tr("the {0} glowling", eventName(EVENT[sp.event])) : sp.moon && !save.seen[sp.id] ? tr(/^[aeiou]/.test(sp.moon) ? "an {0} moon glowling" : "a {0} moon glowling", seasonName(sp.moon)) : tr("a {0} glowling", rar(rarityOf(sp)))) + (streak ? tr(" · streak {0} 🔥", streak) : "");
+  const sp = moonToday();
+  if (moonDone()) return tr("next one in {0}", untilTomorrow()) + moonNote();
+  return (moonWaited() ? tr("The moon waited. It's good at that.") + "\n" : "") + tr("{0} sleeps inside ✦ +25 shards", sp.event && !save.seen[sp.id] ? tr("the {0} glowling", eventName(EVENT[sp.event])) : sp.moon && !save.seen[sp.id] ? tr(/^[aeiou]/.test(sp.moon) ? "an {0} moon glowling" : "a {0} moon glowling", seasonName(sp.moon)) : tr("a {0} glowling", rar(rarityOf(sp)))) + moonNote();
 }
-function startMoon() {
+/** The moon stone grows with you: as hard as the first stone of the deepest cave you've opened, and never softer than
+ *  level 6's, which is what it used to be for everyone. */
+function moonConf() {
+  const cave = [3, 2, 1, 0].find(k => unlocked(k * 6 + 1));
+  return levelConf(Math.max(6, cave * 6 + 1));
+}
+/** greeted: the altar's card has just said the moon's hello, so the egg doesn't say it again. */
+function startMoon(greeted) {
   if (moonDone()) return;
   sfx.tick();
   game.chips = []; game.sparks = [];
   setScene("crack");
   const sp = moonToday();
-  newEgg({ ...levelConf(6), n: "moon", moon: true, wander: true, forced: { species: sp, crystal: CRYSTAL.moonstone } }, true);
-  setHint(tr("today's moon egg: something special sleeps inside 🌙"));
+  newEgg({ ...moonConf(), n: "moon", moon: true, wander: true, forced: { species: sp, crystal: CRYSTAL.moonstone } }, true);
+  setHint(!greeted && moonWaited() ? tr("The moon waited. It's good at that.") : tr("today's moon egg: something special sleeps inside 🌙"));
 }
 
-/** Called when a moon egg opens: streak and bonus shards. */
+/** Called when a moon egg opens: one more night kept, and bonus shards. */
 function finishMoon() {
-  const y = new Date(); y.setDate(y.getDate() - 1);
-  const streak = save.moon && save.moon.last === dayKey(y) ? save.moon.streak + 1 : 1;
-  save.moon = { last: dayKey(), streak };
-  if (streak > cnt("moonBest")) save.counts = { ...save.counts, moonBest: streak };
-  // every moon egg brings a firefly square; every third night in a row, a star bar
-  giveBar(streak % 3 ? "firefly" : "star");
+  // (one night a day, even if the egg somehow opens twice, say in two tabs)
+  const nights = moonNights() + (moonDone() ? 0 : 1);
+  // streak, moonBest: the same number under its old names, so a tab or a phone still on an older game finds a number where
+  // it looks for one, and whatever it writes back turns into nights kept again without losing any (see moonSaveOf)
+  save.moon = { last: dayKey(), nights, streak: nights };
+  save.counts = { ...save.counts, moonBest: nights };
+  // every moon egg brings a firefly square; every third night kept, a star bar
+  giveBar(nights % 3 ? "firefly" : "star");
   taskDone("moon");
   coreAdd("ritual");
-  return 25 + Math.min(50, (streak - 1) * 5);
+  return 25 + Math.min(50, (nights - 1) * 5);
 }
 
 function untilTomorrow() {

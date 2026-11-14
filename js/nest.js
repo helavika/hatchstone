@@ -1073,7 +1073,7 @@ function openThing(what) {
   if (what === "moon") {
     $("thingTitle").textContent = tr(moonDone() ? "Moon egg opened" : "Today's moon egg");
     $("thingText").textContent = moonLine();
-    $("thingGo").hidden = moonDone(); $("thingGo").textContent = tr("Crack it 🌙"); $("thingGo").onclick = () => { show("thingSheet", false); startMoon(); };
+    $("thingGo").hidden = moonDone(); $("thingGo").textContent = tr("Crack it 🌙"); $("thingGo").onclick = () => { show("thingSheet", false); startMoon(true); };
   } else if (ev) {
     const left = eventDaysLeft(ev);
     $("thingTitle").textContent = `${ev.emoji} ${eventName(ev)}`;

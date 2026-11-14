@@ -124,6 +124,8 @@ h2 { margin: 0 0 4px; }
 h3 { margin: 18px 0 8px; font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: var(--soft); text-align: left; }
 .lead { font-size: 17px; margin: 0 0 10px; }
 .sub { color: var(--soft); font-size: 14px; margin: 6px 0; line-height: 1.45; }
+/* the little card about one thing: the moon's hello stands on a line of its own */
+#thingText { white-space: pre-line; }
 .cta {
   margin-top: 18px; border: 0; border-radius: 999px; padding: 14px 34px; font-size: 18px; font-weight: 800;
   color: #1d1745; background: var(--accent); cursor: pointer;
