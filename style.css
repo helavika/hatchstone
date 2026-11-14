@@ -758,10 +758,17 @@ body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; 
 /* expeditions */
 .trip-who { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 6px; }
 .trip-where .theme small { display: block; font-size: 12px; }
+/* on someone at home: a compass where the place suits it (top right), a heart on a friend of the one picked (top left) */
+.trip-who .res .pal { right: auto; left: 3px; }
+/* what the pick adds, under the picker (on a phone, room for two lines, so nothing below jumps as the pick changes) */
+.trip-adds { margin-top: 6px; }
+@media (max-width: 600px) { .trip-adds { min-height: 2.7em; } }
 .trip-hrs { display: flex; width: fit-content; margin: 4px auto 0; }
 #tripGo { display: block; margin: 16px auto 4px; }
 .trip-away { display: flex; align-items: center; gap: 10px; padding: 6px 10px; margin-bottom: 6px; text-align: left; background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
 .trip-away img { width: 36px; height: 36px; image-rendering: pixelated; }
+/* two who went together stand shoulder to shoulder */
+.trip-away img + img { margin-left: -14px; }
 .trip-away b { display: block; font-weight: 400; }
 .trip-away small { color: var(--soft); font-size: 13px; }
 #tripsList h3 { margin: 14px 0 6px; text-align: left; }

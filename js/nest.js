@@ -563,74 +563,122 @@ function buyWare(id) {
 // ---------- expeditions: send a glowling off to a place on the map for a few hours; it comes back with finds and a story ----------
 
 const TRIP_PLACES = [
-  { id: "amethyst", theme: "amethyst", ok: () => true, finds: ["geode0", "shards"],
-    tales: ["{0} found a purple crystal humming in the dark and hummed back until it stopped.", "{0} got lost in the Amethyst Hollow, then found the way out by following the echo."] },
-  { id: "glowcap", theme: "glowcap", ok: () => true, finds: ["seeds", "nut"],
-    tales: ["{0} napped under a glowing mushroom and woke up covered in spores. Very sparkly spores.", "{0} chased a firefly all the way round the wood and back."] },
-  { id: "celestite", theme: "celestite", ok: () => unlocked(7), finds: ["geode1", "seeds", "shards"],
-    tales: ["{0} found a hidden pool in the Celestite Grotto and came back humming.", "{0} counted every blue crystal in the grotto. Twice. Lost count both times."] },
-  { id: "malachite", theme: "malachite", ok: () => unlocked(13), finds: ["geode2", "nut", "shards"],
-    tales: ["{0} followed the green bands in the Malachite Deep like a map, and they led to a geode.", "{0} met Dorma in a quiet corner of the Deep. They both had a little nap."] },
-  { id: "labradorite", theme: "labradorite", ok: () => unlocked(19), finds: ["geode3", "star", "shards"],
-    tales: ["{0} saw the Labradorite Vault flash blue and gold, and wouldn't stop talking about it.", "{0} felt the Gloom's cold somewhere deep, turned round and came straight home. Brave."] },
+  { id: "amethyst", theme: "amethyst", ok: () => true, finds: ["geode0", "shards"], suits: ["dance", "flutter"],
+    tales: ["{0} found a purple crystal humming in the dark and hummed back until it stopped.", "{0} got lost in the Amethyst Hollow, then found the way out by following the echo."],
+    pair: "{0} and {1} called their names into the Amethyst Hollow. The echo got them the wrong way round." },
+  { id: "glowcap", theme: "glowcap", ok: () => true, finds: ["seeds", "nut"], suits: ["curious", "nap"],
+    tales: ["{0} napped under a glowing mushroom and woke up covered in spores. Very sparkly spores.", "{0} chased a firefly all the way round the wood and back."],
+    pair: "{0} and {1} sat out the rain under one glowing mushroom. There was no rain." },
+  { id: "celestite", theme: "celestite", ok: () => unlocked(7), finds: ["geode1", "seeds", "shards"], suits: ["swim", "hop"],
+    tales: ["{0} found a hidden pool in the Celestite Grotto and came back humming.", "{0} counted every blue crystal in the grotto. Twice. Lost count both times."],
+    pair: "{0} and {1} took turns jumping into the hidden pool. Neither will say who made the bigger splash." },
+  { id: "malachite", theme: "malachite", ok: () => unlocked(13), finds: ["geode2", "nut", "shards"], suits: ["nap", "hop"],
+    tales: ["{0} followed the green bands in the Malachite Deep like a map, and they led to a geode.", "{0} met Dorma in a quiet corner of the Deep. They both had a little nap."],
+    pair: "{0} and {1} tiptoed past Dorma's nap in the Deep. Then they lay down next to her anyway." },
+  { id: "labradorite", theme: "labradorite", ok: () => unlocked(19), finds: ["geode3", "star", "shards"], suits: ["curious", "dance"],
+    tales: ["{0} saw the Labradorite Vault flash blue and gold, and wouldn't stop talking about it.", "{0} felt the Gloom's cold somewhere deep, turned round and came straight home. Brave."],
+    pair: "{0} and {1} walked the whole Labradorite Vault side by side. It's less dark with two." },
 ];
 const TRIP_HOURS = [1, 4, 8];
 const tripPlace = id => TRIP_PLACES.find(t => t.id === id);
 const placeName = pl => THEME[pl.theme].name;
 /** Who's on an expedition right now. */
 const onTrip = () => save.creatures.filter(c => c.trip);
+/** How a glowling likes to spend its time (a mix from the incubator carries its own). */
+const kindOf = c => specOf(c).beh || BEHAVIOR[c.sp] || "dance";
+/** Friends: two who have met five times or more (either of them remembers). */
+const areFriends = (a, b) => Math.max((a.pals || {})[b.id] || 0, (b.pals || {})[a.id] || 0) >= 5;
+const tripSuits = (pl, c) => pl.suits.includes(kindOf(c));
+/** Who went along, if they're still out there together (someone called home early leaves the other to finish alone). */
+const tripMate = c => c.trip.with == null ? undefined : save.creatures.find(x => x !== c && x.id === c.trip.with && x.trip && x.trip.with === c.id);
+/** The names of one or two, as a line says them. */
+const tripNames = list => list.length > 1 ? tr("{0} & {1}", list[0].name, list[1].name) : list[0].name;
+/** One find of a trip k hours long, rolled and put away; got keeps what to say about it. A small one (part 0.5) is half the shards, or half the chance of anything else. */
+function tripFind(f, k, got, part = 1) {
+  if (f === "shards") { const n = Math.round((6 * k + rand(0, 6 * k)) * part); save.shards += n; got.push(`✦ ${n}`); }
+  else if (part < 1 && Math.random() >= part) return;
+  else if (f.startsWith("geode")) {
+    const cave = Number(f.slice(5)), pool = CRYSTALS.filter(x => x.rarity === (Math.random() < 0.15 * k / 4 + cave * 0.05 ? "rare" : "common"));
+    if (Math.random() < 0.35 + k * 0.06) { const g = pick(pool), geo = save.geodes[g.id] || { count: 0, shine: -1 }; geo.count++; save.geodes[g.id] = geo; got.push(`💎 ${g.name}`); }
+  } else if (f === "seeds") { const sd = pick(["glowberry", "moonmint", "cookiecorn"]), n = 1 + Math.floor(k / 4); garden().seeds[sd] = (garden().seeds[sd] || 0) + n; got.push(`${seedName(sd)} ×${n}`); }
+  else if (Math.random() < 0.25 + k * 0.08) { giveBar(f); got.push(barName(f)); }
+}
+/** One thing more, for going where it suits you or going with a friend: a small find from the place's own, marked with a plus. */
+function tripExtra(pl, k) { const more = []; tripFind(pick(pl.finds), k, more, 0.5); return more.map(x => "+" + x); }
 /** Bring back anyone whose expedition is over, with their finds; returns what they said. */
 function tripsHome() {
   const now = Date.now(), back = [];
   for (const c of save.creatures) {
     if (!c.trip || now < c.trip.until) continue;
-    const pl = tripPlace(c.trip.place) || TRIP_PLACES[0], k = c.trip.hrs, got = [];
-    for (const f of pl.finds) {
-      if (f.startsWith("geode")) {
-        const cave = Number(f.slice(5)), pool = CRYSTALS.filter(x => x.rarity === (Math.random() < 0.15 * k / 4 + cave * 0.05 ? "rare" : "common"));
-        if (Math.random() < 0.35 + k * 0.06) { const g = pick(pool), geo = save.geodes[g.id] || { count: 0, shine: -1 }; geo.count++; save.geodes[g.id] = geo; got.push(`💎 ${g.name}`); }
-      } else if (f === "shards") { const n = Math.round(6 * k + rand(0, 6 * k)); save.shards += n; got.push(`✦ ${n}`); }
-      else if (f === "seeds") { const sd = pick(["glowberry", "moonmint", "cookiecorn"]), n = 1 + Math.floor(k / 4); garden().seeds[sd] = (garden().seeds[sd] || 0) + n; got.push(`${seedName(sd)} ×${n}`); }
-      else if (Math.random() < 0.25 + k * 0.08) { giveBar(f); got.push(barName(f)); }
+    const pl = tripPlace(c.trip.place) || TRIP_PLACES[0], mate = tripMate(c), pals = mate && areFriends(c, mate), all = [];
+    // friends who went together find one thing more between them, and come home with one tale for the two
+    const ours = pals ? tripExtra(pl, c.trip.hrs) : [];
+    for (const x of pals ? [c, mate] : [c]) {
+      const k = x.trip.hrs, got = [];
+      for (const f of pl.finds) tripFind(f, k, got);
+      // a place that suits it shows it one thing more
+      if (tripSuits(pl, x)) got.push(...tripExtra(pl, k));
+      // and sometimes a spark of inspiration: a song, a colour, a sight of the lands past the valley
+      const spark = bringSpark(x, k, true);
+      if (spark) got.push(sparkNote(spark));
+      x.sparked = true;
+      addXP(x, 6 * k);
+      all.push(...got);
+      const mine = [...got, ...ours];
+      if (pals) remember(x, mine.length ? "Went to {0} with {1} ♥ and came back with {2}" : "Went to {0} with {1} ♥", placeName(pl), (x === c ? mate : c).name, mine.join(", "));
+      else remember(x, got.length ? "Came back from {0} with {1}" : "Came back from {0}", placeName(pl), got.join(", "));
+      x.trip = null; x.roam = false; x.outAt = x.outAt || now;
     }
-    // and sometimes a spark of inspiration: a song, a colour, a sight of the lands past the valley
-    const spark = bringSpark(c, k, true);
-    if (spark) got.push(sparkNote(spark));
-    c.sparked = true;
-    addXP(c, 6 * k);
-    remember(c, got.length ? "Came back from {0} with {1}" : "Came back from {0}", placeName(pl), got.join(", "));
-    c.trip = null; c.roam = false; c.outAt = c.outAt || now;
-    back.push(tr(pick(pl.tales), c.name) + (got.length ? " " + tr("Brought back: {0}", got.join(" · ")) : ""));
+    all.push(...ours);
+    // (two friends tell it together, so their shards are counted into one heap)
+    const heap = all.reduce((n, x) => n + (Number(x.split("✦ ")[1]) || 0), 0), told = pals ? [...(heap ? [`✦ ${heap}`] : []), ...all.filter(x => !x.includes("✦ "))] : all;
+    back.push((pals ? tr(pl.pair, c.name, mate.name) : tr(pick(pl.tales), c.name)) + (told.length ? " " + tr("Brought back: {0}", told.join(" · ")) : ""));
   }
   if (back.length) { settleHome(); persist(); updateTopbar(); }
   return back;
 }
+/** The send-off sheet: who's away, then who goes (one, or two together), where and for how long; what the pick adds is said before anyone sets off. */
 function openTrips() {
   sfx.tick();
-  const g = game.trip = game.trip || { who: null, place: "amethyst", hrs: 4 };
+  const g = game.trip = game.trip || { who: [], place: "amethyst", hrs: 4 };
   const home = save.creatures.filter(c => !c.out && !c.sleeping);
-  if (!home.some(c => c.id === g.who)) g.who = home[0]?.id ?? null;
-  const now = Date.now(), away = onTrip();
+  g.who = g.who.filter(id => home.some(c => c.id === id));
+  const now = Date.now(), spot = tripPlace(g.place), going = g.who.map(id => home.find(c => c.id === id)), face = c => `<img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="">`;
+  // two who went together are one line (told by whoever hatched first)
+  const away = onTrip().filter(c => !(tripMate(c)?.id < c.id)).map(c => [c, tripMate(c)].filter(Boolean));
+  const fits = going.filter(c => tripSuits(spot, c)).length, pals = going.length > 1 && areFriends(going[0], going[1]);
+  const adds = !going.length ? tr("Pick one glowling, or two to go together.")
+    : [fits > 1 ? tr("Both suit this place: two more finds.") : fits ? tr("Suits this place: one more find.") : "", pals ? tr("Friends together: one more find and a tale.") : ""].filter(Boolean).join(" ")
+      || (going.length > 1 ? tr("Each brings back its own finds.") : tr("One more can go along."));
+  // on each one at home: a compass if the place suits it, a heart if it's a friend of the one picked (or the two picked are friends)
+  const marks = c => (tripSuits(spot, c) ? ic("compass", "mood") : "") + (going.some(x => x !== c && areFriends(x, c)) && (going.length < 2 || going.includes(c)) ? ic("heart", "mood pal") : "");
   $("tripsSub").textContent = tr("Send a glowling off to explore. It's away for a while, needs nothing, and comes back by itself with finds and a story. The longer the trip, the more it finds.");
-  $("tripsList").innerHTML = (away.length ? `<h3>${tr("Away now")}</h3>` + away.map(c => `<div class="trip-away"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt=""><span><b>${c.name}</b><small>${placeName(tripPlace(c.trip.place))} · ${tr("back in {0}", fmtLeft(c.trip.until - now))}</small></span></div>`).join("") : "")
-    + `<h3>${tr("Who goes")}</h3>` + (home.length ? `<div class="trip-who">${home.map(c => `<button class="res${c.id === g.who ? " on" : ""}" data-who="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt=""><small>${c.name}</small></button>`).join("")}</div>` : `<p class="me-hint">${tr("Everyone's asleep or away. Wake someone up first.")}</p>`)
-    + `<h3>${tr("Where to")}</h3><div class="themes trip-where">${TRIP_PLACES.map(pl => `<button class="theme${pl.id === g.place ? " on" : ""}${pl.ok() ? "" : " locked"}" data-place="${pl.id}" ${pl.ok() ? "" : "disabled"}><img src="${themeThumb(pl.theme)}" alt=""><b>${placeName(pl)}</b><small>${pl.ok() ? pl.finds.map(f => tr(f.startsWith("geode") ? "geodes" : f === "seeds" ? "seeds" : f === "shards" ? "shards" : "bars")).join(", ") : ic("lock") + tr(THEME[pl.theme].how)}</small></button>`).join("")}</div>`
+  $("tripsList").innerHTML = (away.length ? `<h3>${tr("Away now")}</h3>` + away.map(who => `<div class="trip-away">${who.map(face).join("")}<span><b>${tripNames(who)}</b><small>${placeName(tripPlace(who[0].trip.place))} · ${tr("back in {0}", fmtLeft(who[0].trip.until - now))}</small></span></div>`).join("") : "")
+    + `<h3>${tr("Who goes")}</h3>` + (home.length ? `<div class="trip-who">${home.map(c => `<button class="res${g.who.includes(c.id) ? " on" : ""}" data-who="${c.id}" aria-pressed="${g.who.includes(c.id)}">${face(c)}<small>${c.name}</small>${marks(c)}</button>`).join("")}</div><p class="me-hint trip-adds">${adds}</p>` : `<p class="me-hint">${tr("Everyone's asleep or away. Wake someone up first.")}</p>`)
+    + `<h3>${tr("Where to")}</h3><div class="themes trip-where">${TRIP_PLACES.map(pl => `<button class="theme${pl.id === g.place ? " on" : ""}${pl.ok() ? "" : " locked"}" data-place="${pl.id}" ${pl.ok() ? "" : "disabled"}><img src="${themeThumb(pl.theme)}" alt=""><b>${placeName(pl)}</b><small>${pl.ok() ? pl.finds.map(f => tr(f.startsWith("geode") ? "geodes" : f === "seeds" ? "seeds" : f === "shards" ? "shards" : "bars")).join(", ") : ic("lock") + tr(THEME[pl.theme].how)}</small>${pl.ok() ? `<small>${tr("Suits: {0}", pl.suits.map(b => BEHAVIOR_NAMES[b]).join(", "))}</small>` : ""}</button>`).join("")}</div>`
     + `<h3>${tr("How long")}</h3><div class="seg trip-hrs">${TRIP_HOURS.map(h => `<button data-hrs="${h}" class="${h === g.hrs ? "on" : ""}">${tr("{0} h", h)}</button>`).join("")}</div>`
-    + `<button class="cta" id="tripGo" ${g.who == null ? "disabled" : ""}>${tr("Send off")}</button>`;
-  $$("#tripsList [data-who]").forEach(b => b.addEventListener("click", () => { g.who = Number(b.dataset.who); openTrips(); }));
+    + `<button class="cta" id="tripGo" ${going.length ? "" : "disabled"}>${tr("Send off")}</button>`;
+  // a tap picks or unpicks; with two picked already, a third takes the place of whoever was picked first
+  $$("#tripsList [data-who]").forEach(b => b.addEventListener("click", () => { const id = Number(b.dataset.who); g.who = g.who.includes(id) ? g.who.filter(x => x !== id) : [...g.who, id].slice(-2); openTrips(); }));
   $$("#tripsList [data-place]").forEach(b => b.addEventListener("click", () => { g.place = b.dataset.place; openTrips(); }));
   $$("#tripsList [data-hrs]").forEach(b => b.addEventListener("click", () => { g.hrs = Number(b.dataset.hrs); openTrips(); }));
   $("tripGo")?.addEventListener("click", sendTrip);
   show("tripsSheet", true);
 }
+/** Off they go: one alone, or two as two expeditions that know of each other (each still finds its own, and they're due home at the same moment). */
 function sendTrip() {
-  const g = game.trip, c = save.creatures.find(x => x.id === g.who), pl = tripPlace(g.place);
-  if (!c || c.out || !pl || !pl.ok()) return;
-  c.out = true; c.roam = true; c.outAt = Date.now(); c.sleeping = false; c.selfSlept = false;
-  c.trip = { place: pl.id, hrs: g.hrs, until: Date.now() + g.hrs * 3600e3 };
-  if (save.active === c.id) save.active = residents(save.room)[0]?.id ?? c.id;
-  bump("trips"); sfx.chirp(specOf(c).voice * 1.2);
-  toast(tr("{0} set off for {1} 🧭 back in {2}", c.name, placeName(pl), tr("{0} h", g.hrs)));
+  const g = game.trip, pl = tripPlace(g.place), going = g.who.map(id => save.creatures.find(x => x.id === id)).filter(c => c && !c.out).slice(0, 2), now = Date.now();
+  if (!going.length || !pl || !pl.ok()) return;
+  for (const c of going) {
+    c.out = true; c.roam = true; c.outAt = now; c.sleeping = false; c.selfSlept = false;
+    c.trip = { place: pl.id, hrs: g.hrs, until: now + g.hrs * 3600e3 };
+    if (going.length > 1) c.trip.with = going.find(x => x !== c).id;
+    if (save.active === c.id) save.active = residents(save.room)[0]?.id ?? c.id;
+  }
+  // (every glowling sent is an expedition of its own, for the count and the award)
+  bump("trips", going.length); sfx.chirp(specOf(going[0]).voice * 1.2);
+  toast(going.length > 1 ? tr("{0} and {1} set off for {2} 🧭 back in {3}", going[0].name, going[1].name, placeName(pl), tr("{0} h", g.hrs)) : tr("{0} set off for {1} 🧭 back in {2}", going[0].name, placeName(pl), tr("{0} h", g.hrs)));
+  g.who = [];
   persist(); syncActors(); renderNest(true); updateTopbar(); openTrips();
 }
 /** Coming back to the nest: anyone home from a trip tells you about it. */
