@@ -53,6 +53,8 @@ function coreGrow(c, kind, now = Date.now()) {
   c.n += gain;
   return gain;
 }
+/** When the nest was last open, to the hour: enough for "a day or more", and a save doesn't change with every write. */
+const coreSeenNow = () => Math.floor(Date.now() / 36e5) * 36e5;
 /** Back after a pause of a day or more (seen: when the nest was last open)? Grows the core once that day. */
 const coreBack = (c, seen, now = Date.now()) => seen > 0 && now - seen >= CORE_PAUSE ? coreGrow(c, "back", now) : 0;
 /** Rested lately: the core glows softly for a while after sleep, a harvest or music. */
@@ -155,7 +157,7 @@ function coreMoments(scene) {
 // leaving the tab marks when you were last here; coming back after a day or more is a return too
 if (typeof addEventListener === "function") addEventListener("visibilitychange", () => {
   if (typeof save !== "object" || !save.core) return;
-  if (document.hidden) { save.core.seen = Date.now(); return; }
+  if (document.hidden) { save.core.seen = coreSeenNow(); return; }
   coreLastSeen = save.core.seen;
   if (game.scene !== "menu" && !talkNow) coreMoments(game.scene);
 });

@@ -70,7 +70,7 @@ function persist() {
     if (theirs && validSave(theirs) && ((theirs.rev || 0) > save.rev || (startedEmpty && !save.rev && theirs.creatures.length))) { adoptSave(theirs); return; }
   } catch {}
   save.rev = (save.rev || 0) + 1;
-  if (!document.hidden) save.core.seen = Date.now();
+  if (!document.hidden) save.core.seen = coreSeenNow();
   if (!store.set(SAVE_KEY, save)) {
     // storage is full: geode pictures can be redrawn, progress can't
     for (const g of Object.values(save.geodes)) delete g.img;
