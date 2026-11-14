@@ -694,6 +694,22 @@ body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; 
 .me-level small { color: var(--soft); }
 .me-level .aw-bar { position: relative; display: block; height: 12px; margin-top: 6px; background: linear-gradient(90deg, var(--px-gold) calc(var(--k) * 100%), var(--px-deep) 0); box-shadow: 0 0 0 2px var(--px-ink); }
 .me-level .aw-bar u { position: absolute; right: 4px; top: -1px; font-size: 11px; line-height: 14px; text-decoration: none; color: #fff; }
+/* the keeper's core: a crystal in a stone, its facets lit from the bottom up; a calm breath of light after a rest */
+.me-level .me-title { display: block; margin-top: 2px; color: var(--px-gold); font-size: 15px; }
+.me-core { margin: 6px 0; text-align: left; }
+.core-row { display: flex; align-items: center; gap: 14px; }
+.core-art { width: 120px; height: 120px; flex: none; image-rendering: pixelated; }
+.core-art.rest { animation: coreRest 4.5s ease-in-out infinite; }
+@keyframes coreRest { 50% { filter: drop-shadow(0 0 6px rgba(105, 183, 214, .55)); } }
+.core-row p { margin: 0; }
+.core-row b { display: block; color: #ffe9a8; font-weight: 400; font-size: 18px; line-height: 1.25; }
+.core-rest { display: block; margin-top: 6px; color: #b8e6f5; font-size: 14px; }
+.core-facets { margin: 8px 0 0; padding: 0; list-style: none; }
+.core-facets li { display: flex; gap: 8px; align-items: baseline; padding: 3px 0; }
+.core-facets i { font-style: normal; color: var(--px-gold); }
+.core-facets b { color: #fff; font-weight: 400; margin-right: 6px; }
+.core-facets small { color: var(--soft); font-size: 14px; }
+@media (prefers-reduced-motion: reduce) { .core-art.rest { animation: none; filter: drop-shadow(0 0 5px rgba(105, 183, 214, .45)); } }
 #meSkills h3 { display: flex; justify-content: flex-start; }
 #meSkills h3 span { color: var(--px-gold); letter-spacing: 0; }
 .forge.skill { cursor: default; }

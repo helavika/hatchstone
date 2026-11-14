@@ -1,9 +1,9 @@
 // Hatchstone offline support: the page itself is fetched fresh when online, everything else from the cache.
 // The test copy lives under /staging/ on the same site with its own worker: each keeps to its own caches and pages.
 const STAGING = self.registration.scope.includes("/staging/");
-const CACHE = (STAGING ? "staging-" : "") + "hatchstone-v49";
+const CACHE = (STAGING ? "staging-" : "") + "hatchstone-v50";
 const SHELL = [
-  "./", "index.html", "style.css", "js/i18n.js", "js/core.js", "js/music.js", "js/data.js", "js/pixel.js", "js/sparks.js", "js/save.js", "js/glowlings.js", "js/crack.js", "js/scenes.js", "js/nest.js", "js/world.js", "js/iso.js", "js/keepers.js", "js/play.js", "js/coop.js", "js/gifts.js", "js/ui.js", "js/main.js",
+  "./", "index.html", "style.css", "js/i18n.js", "js/core.js", "js/music.js", "js/data.js", "js/pixel.js", "js/sparks.js", "js/inner.js", "js/save.js", "js/glowlings.js", "js/crack.js", "js/scenes.js", "js/nest.js", "js/world.js", "js/iso.js", "js/keepers.js", "js/play.js", "js/coop.js", "js/gifts.js", "js/ui.js", "js/main.js",
   "coop-link.js", "coop-invite.js", "coop-state.js", "vendor/peerjs-1.5.5.min.js", "manifest.webmanifest",
   "icons/icon-192.png", "icons/icon-512.png", "icons/icon-maskable-512.png",
   "icons/apple-touch-icon.png", "icons/favicon-32.png", "fonts/jersey15-latin.woff2", "fonts/jersey10-latin.woff2", "fonts/handjet700-cyrillic.woff2", "fonts/handjet800-cyrillic.woff2",

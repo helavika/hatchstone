@@ -52,11 +52,14 @@ function migrate(d) {
   if (!Number.isFinite(d.dustT)) d.dustT = 0;
   // sparks of inspiration from exploring (see sparks.js): found ones, Pip's news, the scarf dye
   d.sparks = sparkSaveOf(d.sparks);
+  // the keeper's core (see inner.js): an older nest starts part-way, from what it's already been through
+  d.core = coreSaveOf(d.core, d);
   d.v = SAVE_VERSION;
   return d;
 }
 
 const save = loadSave();
+coreLastSeen = save.core.seen; // when this nest was last open: a day or more ago, and Mossa says welcome back
 let lastBak = 0, saveWarned = false;
 
 function persist() {
@@ -67,6 +70,7 @@ function persist() {
     if (theirs && validSave(theirs) && ((theirs.rev || 0) > save.rev || (startedEmpty && !save.rev && theirs.creatures.length))) { adoptSave(theirs); return; }
   } catch {}
   save.rev = (save.rev || 0) + 1;
+  if (!document.hidden) save.core.seen = Date.now();
   if (!store.set(SAVE_KEY, save)) {
     // storage is full: geode pictures can be redrawn, progress can't
     for (const g of Object.values(save.geodes)) delete g.img;

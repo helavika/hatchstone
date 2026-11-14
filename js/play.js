@@ -95,6 +95,7 @@ function playDecor(hit) {
       for (let i = 0; i < 14; i++) game.sparks.push({ x: x + rand(-0.4, 0.5) * b, y: y - b * rand(0.4, 0.8), vx: rand(-30, 30), vy: rand(-90, -40), t: 0, life: rand(0.8, 1.4), s: rand(2, 4), color: pick(["#8ff0d8", "#c9b8ff", "#ff9ecb", "#fff"]) });
       break;
     case "musicbox":
+      coreRest();
       openJukebox();
       break;
     case "painting": {
@@ -445,7 +446,8 @@ function updateGloom(dt) {
   }
   g.helpers = helpers;
   // the wisps: seep in, drift toward the little ones, give way to the light
-  const drain = 0.28 + 0.2 * helpers;
+  // (a whole core makes your light a little stronger: see inner.js)
+  const drain = (0.28 + 0.2 * helpers) * (coreGift("shine") ? 1.25 : 1);
   let left = 0, lit = false;
   for (const w of g.wisps) {
     if (!w.on) continue;

@@ -389,6 +389,7 @@ function plantSeed(id) {
   g.seeds[id]--; g.slots[i] = { seed: id, at: Date.now() };
   sfx.grain && sfx.ready() && sfx.grain(sfx.ac.currentTime, 0.15, 700, 0.8, 0.15, "lowpass");
   toast(tr("{0} planted 🌱", seedName(id)));
+  coreAdd("ritual");
   persist(); openGarden();
 }
 /** A drink for a plant: it grows a little at once. Once every half hour per plant. */
@@ -396,7 +397,7 @@ function waterPlot(i, who) {
   const q = garden().slots[i];
   if (!q || stageOf2(q) === 3 || (q.wet && Date.now() - q.wet < WATER_EVERY)) return false;
   q.at -= SEEDS[q.seed].hrs * 3600e3 * WATER_BOOST; q.wet = Date.now();
-  if (!who) { sfx.tone && sfx.ready() && sfx.tone(sfx.ac.currentTime, 1400, 0.05, 0.3, "sine", 900, true); openGarden(); }
+  if (!who) { sfx.tone && sfx.ready() && sfx.tone(sfx.ac.currentTime, 1400, 0.05, 0.3, "sine", 900, true); coreAdd("ritual"); openGarden(); }
   persist();
   return true;
 }
@@ -1269,7 +1270,7 @@ function toggleSleep() {
   if (!cr.sleeping && cr.energy >= SLEEPY_AT) { refuseWith(cr, tr("not sleepy yet!")); toast(tr("{0} is full of energy ({1}%). Bedtime comes below {2}%.", cr.name, Math.round(cr.energy), SLEEPY_AT)); return; }
   cr.sleeping = !cr.sleeping;
   cr.selfSlept = false;
-  if (cr.sleeping) { sfx.lullaby(); toast(tr("Sweet dreams, {0} 🌙", cr.name)); }
+  if (cr.sleeping) { sfx.lullaby(); toast(tr("Sweet dreams, {0} 🌙", cr.name)); coreRest(); }
   else { cr.wokeAt = Date.now(); sfx.chirp(specOf(cr).voice); const a = activeActor(); if (a) a.hop = 1; }
   persist();
   renderNest();

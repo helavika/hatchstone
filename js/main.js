@@ -482,7 +482,7 @@ function frame(now) {
     if (game.shake > 0.3 && !opts().calm) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     drawCushion(L.ecx, L.floor + 4, L.ew * 0.62);
     const cx = Math.min(L.ew * 0.66, W / 2 - 8 * PX);
-    drawCandle(L.ecx - cx, L.floor + 8, 12, 0); drawCandle(L.ecx + cx, L.floor + 10, 8, 2.1);
+    drawCandle(L.ecx - cx, L.floor + 8, 12, 0); (coreGift("lantern") ? drawCoreLantern : drawCandle)(L.ecx + cx, L.floor + 10, 8, 2.1);
     drawEgg();
     drawPieces();
     ctx.restore();
@@ -737,5 +737,6 @@ if (/[#&?]tgWebApp/.test(location.hash + location.search)) {
 
 // ---------- once every script has loaded: timers that reach across them ----------
 game.actors = actors;
+Object.assign(TALKS, CORE_TALKS);
 giftWire();
 setInterval(() => { if (game.scene !== "menu" && !talkNow) checkAwards(); }, 1500);

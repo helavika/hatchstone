@@ -827,7 +827,7 @@ function showFound() {
   checkThemes();
   taskDone("crack");
   if (shine >= 0.8) taskDone("polish");
-  if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); }
+  if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); coreTried(); }
 
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
@@ -1079,6 +1079,7 @@ document.addEventListener("keydown", ev => { if (talkNow && (ev.key === " " || e
 const talkLater = [];
 function talkMoments(scene) {
   if (!["nest", "map", "lib"].includes(scene) || !$("found").classList.contains("hidden")) return;
+  coreMoments(scene);
   while (talkLater.length) talk(...talkLater.shift());
   if (scene === "nest" && save.creatures.length) talk("firstPet");
   if (scene === "nest") tellTrips();
