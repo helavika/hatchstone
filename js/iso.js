@@ -528,10 +528,9 @@ function texShade(kind, x, y) {
   // thin grain lines, a few knots: texture, not blotches, so the shapes on a piece still read
   if (kind === "wood") { const g = pxNoise(x * 0.12, y * 0.9 + Math.floor(x / 19) * 3.1); if (pxHash(x >> 1, y >> 1) > 0.998) return -2; return Math.abs(g - 0.5) < 0.035 ? -1 : g > 0.82 ? 1 : 0; }
   if (kind === "stone") {
-    const row = Math.floor(y / 5), cx = x + (row % 2) * 4, col = Math.floor(cx / 8), lx = cx - col * 8, ly = y - row * 5;
-    if (ly === 4 || lx === 7) return -1;                 // the crevice between blocks
-    if (ly === 0 || lx === 0) return pxHash(col, row) > 0.3 ? 1 : 0; // the block's lit edge
-    if (Math.abs(pxNoise(x * 0.2 + col, y * 0.2) - 0.5) < 0.02) return -1; // a crack
+    // matte grit, soft blotches and the odd crack (coursing, where there is any, is drawn by the piece along its own faces)
+    if (Math.abs(pxNoise(x * 0.2, y * 0.2) - 0.5) < 0.015) return -1;
+    const g = pxFbm(x * 0.18, y * 0.18); if (g > 0.7) return -1; if (g < 0.24) return 1;
     const sp = pxHash(x, y); return sp > 0.985 ? 1 : sp < 0.015 ? -1 : 0;
   }
   if (kind === "steel") {
@@ -1245,7 +1244,9 @@ const ISO_ART = {
     const A = t * 0.95, h = Math.round(t * 0.62), f = (o.frame || 0) % 3, x0 = ax, y0 = ay + 2;
     const P = (u, v, z) => [x0 + 2 * u - 2 * v, y0 + u + v - z];       // a point in the piece: u along the right wall, v along the left, z up
     const quad = (pts, col) => T.poly(pts.map(([u, v, z]) => P(u, v, z)), col);
-    const brick = (side) => (px, py) => { const row = Math.floor(py / 4), col = Math.floor((px + (row % 2) * 4) / 8); return (py % 4 === 0 || (px + (row % 2) * 4) % 8 === 0) ? IC.s4 : pxHash(col, row) > 0.5 ? (side ? IC.s2 : IC.s1) : (side ? IC.s3 : IC.s2); };
+    // brick courses run along each face: on the left face they fall to the right (half a pixel down per pixel across), on the right face to the left
+    const brick = (side) => (px, py) => { const yy = side ? py + px * 0.5 : py - px * 0.5, row = Math.floor(yy / 4), along = Math.floor(px) + (((row % 2) + 2) % 2) * 4, col = Math.floor(along / 8);
+      return (((Math.floor(yy) % 4) + 4) % 4 === 0 || ((along % 8) + 8) % 8 === 0) ? IC.s4 : pxHash(col, row) > 0.5 ? (side ? IC.s2 : IC.s1) : (side ? IC.s3 : IC.s2); };
     // the table
     T.box(x0, y0, A, A, h, IC.s1, brick(0), brick(1));
     // the firepot: a square well in the top, dark rim, coals glowing in it
