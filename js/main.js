@@ -236,7 +236,7 @@ function drawGleam(e, x, y, w, h) {
   ctx.clip();
   const sx = lerp(x - w * 0.5, x + w * 1.5, k);
   const g = ctx.createLinearGradient(sx - 50, y, sx + 50, y + 80);
-  g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, "rgba(255,255,255,.6)"); g.addColorStop(1, "rgba(255,255,255,0)");
+  g.addColorStop(0, "rgba(255,255,255,0)"); g.addColorStop(0.5, `rgba(255,255,255,${opts().calm ? 0.25 : 0.6})`); g.addColorStop(1, "rgba(255,255,255,0)");
   ctx.fillStyle = g; ctx.fillRect(x, y, w, h);
   ctx.restore();
 }
@@ -256,7 +256,7 @@ function drawRays(e) {
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   ctx.translate(L.ecx, L.ecy);
-  ctx.rotate(game.time * 0.00012);
+  if (!opts().calm) ctx.rotate(game.time * 0.00012);
   const r = Math.max(W, H) * 0.7;
   ctx.fillStyle = e.crystal.c[1];
   for (let i = 0; i < 14; i++) {
@@ -402,11 +402,13 @@ function drawGlints() {
 
 function drawFlash() {
   const e = game.egg;
-  if (game.scene !== "crack" || !e || e.state !== "opening" || e.t > 0.6) return;
-  const k = 1 - e.t / 0.6;
+  // with less motion it's no white flash but a warm light that swells and fades, twice as slowly
+  const calm = opts().calm, life = calm ? 1.2 : 0.6;
+  if (game.scene !== "crack" || !e || e.state !== "opening" || e.t > life) return;
+  const k = calm ? 0.3 * Math.sin(Math.PI * e.t / life) : 0.9 * (1 - e.t / life), rgb = calm ? "255,233,168" : "255,255,255";
   const g = ctx.createRadialGradient(L.ecx, L.ecy, 4, L.ecx, L.ecy, L.ew * 1.4);
-  g.addColorStop(0, `rgba(255,255,255,${0.9 * k})`);
-  g.addColorStop(1, "rgba(255,255,255,0)");
+  g.addColorStop(0, `rgba(${rgb},${k})`);
+  g.addColorStop(1, `rgba(${rgb},0)`);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 }
@@ -669,6 +671,7 @@ for (const el of $$("[data-ic]")) el.style.backgroundImage = `url(${pxIcon(el.da
 let tg = null, tgCloud = false;
 /** A little buzz: Telegram's haptics when we have them, the phone's vibration otherwise. A pattern (array) is a "well done". */
 function buzz(p) {
+  if (!opts().buzz) return;
   const h = tg && tg.isVersionAtLeast("6.1") && tg.HapticFeedback;
   if (h) { if (Array.isArray(p)) h.notificationOccurred("success"); else h.impactOccurred(p >= 18 ? "heavy" : p >= 10 ? "medium" : p >= 7 ? "light" : "soft"); return; }
   if (navigator.vibrate) navigator.vibrate(p);

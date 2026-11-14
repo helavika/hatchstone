@@ -112,17 +112,18 @@ function fitTopbar() {
   if (over()) body.classList.add("tighter");
 }
 
-// ---------- settings: music on or off, music and sound volumes, less motion, bigger text ----------
+// ---------- settings: music on or off, music and sound volumes, vibration, less motion, bigger text ----------
 
-// less motion starts on if the device asks for it; the music starts on, and quiet
-const opts = () => ({ musicOn: true, music: 0.5, sfx: 1, calm: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, big: false, look: 1, ...(save.opts || {}) });
+// less motion starts on if the device asks for it; the music starts on, and quiet; so does the buzz under your finger
+const opts = () => ({ musicOn: true, music: 0.5, sfx: 1, buzz: true, calm: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, big: false, look: 1, ...(save.opts || {}) });
 function applyOpts() {
   const o = opts();
   sfx.setVolumes(o.music, o.sfx, o.musicOn !== false);
   document.body.classList.toggle("calm", !!o.calm);
   document.body.classList.toggle("bigtext", !!o.big);
 }
-function setOpt(k, v) { save.opts = { ...opts(), [k]: v }; persist(); applyOpts(); }
+// only what you set yourself is kept: less motion goes on following the device until you choose
+function setOpt(k, v) { save.opts = { ...(save.opts || {}), [k]: v }; persist(); applyOpts(); }
 function openOpts() {
   sfx.tick();
   const o = opts(), pct = v => `${Math.round(v * 100)}%`;
@@ -131,6 +132,7 @@ function openOpts() {
     <label class="opt"><span>${ic("sound")}${tr("Music volume")}<em id="vMusic">${pct(o.music)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.music}" data-opt="music"${o.musicOn ? "" : " disabled"}></label>
     <label class="opt"><span>${ic("bell")}${tr("Sounds")}<em id="vSfx">${pct(o.sfx)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.sfx}" data-opt="sfx"></label>
     <p class="me-hint">${tr("Music is the soundtrack: each place has its own, in its backdrop's key; sounds are everything else: taps, chirps, voices.")}</p>
+    <button class="opt-toggle${o.buzz ? " on" : ""}" data-toggle="buzz"><span>${tr("Vibration")}<small>${tr("a light buzz under your finger, where the phone can")}</small></span><b>${o.buzz ? tr("on") : tr("off")}</b></button>
     <button class="opt-toggle${o.calm ? " on" : ""}" data-toggle="calm"><span>${tr("Less motion")}<small>${tr("no shaking or bouncing, gentler effects")}</small></span><b>${o.calm ? tr("on") : tr("off")}</b></button>
     <button class="opt-toggle${o.big ? " on" : ""}" data-toggle="big"><span>${tr("Bigger text")}<small>${tr("for the cards, dialogs and hints")}</small></span><b>${o.big ? tr("on") : tr("off")}</b></button>`;
   $("optsList").innerHTML += `<div class="opt"><span>${ic("sparkle")}${tr("How glowlings shine")}</span></div><div class="seg look-seg">${[["Classic", 0], ["Glow", 1], ["Spirit", 2]].map(([n, v]) => `<button data-look="${v}" class="${o.look === v ? "on" : ""}">${tr(n)}</button>`).join("")}</div>`;
