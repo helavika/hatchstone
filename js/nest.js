@@ -787,11 +787,16 @@ function drawHero() {
   if (me && me.curl && since < 2600) {
     // poked once too often: Tansy rolls into a ball of spines, Fennel pulls into his shell
     const wob = Math.sin(t * 0.03) * px, r = s * 0.36, shell = h.who === FENNEL;
+    if (KEEPER_PIX[h.icon] && KEEPER_PIX[h.icon][shell ? "shell" : "curl"]) {
+      const pose = keeperCanvas(h.icon, false, S, shell ? "shell" : "curl");
+      ctx.drawImage(pose, Math.round((left + wob) / PX) * PX, Math.round((y - hgt) / PX) * PX, wid, hgt);
+    } else {
     ctx.fillStyle = shell ? "#4a4020" : "#5e3a1c"; ctx.beginPath(); ctx.ellipse(x + wob, y - r * (shell ? 0.7 : 1), r * (shell ? 1.25 : 1), r * (shell ? 0.75 : 1), 0, 0, TAU); ctx.fill();
     ctx.fillStyle = shell ? "#6e6030" : "#946027";
     if (shell) { for (let k = -1; k <= 1; k++) ctx.fillRect(Math.round(x + wob + k * r * 0.6 - px * 2), Math.round(y - r * 1.1), Math.ceil(px * 4), Math.ceil(px * 3)); }
     else
     for (let k = 0; k < 14; k++) { const an = k / 14 * TAU + 0.2; ctx.fillRect(Math.round(x + wob + Math.cos(an) * r * 1.05 - px), Math.round(y - r + Math.sin(an) * r * 1.05 - px), Math.ceil(px * 2), Math.ceil(px * 2)); }
+    }
   } else {
     // Ollo looks the other way now and then
     const turned = h.quirk === "turn" && Math.sin(t * 0.0011) > 0.75;
