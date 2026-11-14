@@ -275,8 +275,9 @@ function chapterArt(ci) {
   return (chapterArtCache[ci] = c.toDataURL());
 }
 
-/** A dithered crystal cave on a W×H canvas. Ramps are [r,g,b] lists; the floor sits at floorY, lit from (lx, ly). */
-function pixelCave(th, W, H, { floorY = H - 8, lx, ly = H * .62, crystals = 16, reach = 1, girth = 1, spill = .22, keepClear = 0 } = {}) {
+/** A dithered crystal cave on a W×H canvas. Ramps are [r,g,b] lists; the floor sits at floorY, lit from (lx, ly).
+ *  With deep, the floor doesn't sink into the dark under its edge: it runs on down to the bottom as worn rock, stalagmites standing on it. */
+function pixelCave(th, W, H, { floorY = H - 8, lx, ly = H * .62, crystals = 16, reach = 1, girth = 1, spill = .22, keepClear = 0, deep = false } = {}) {
   const seed = th.seed, c = document.createElement("canvas"); c.width = W; c.height = H;
   const g = c.getContext("2d"), img = g.createImageData(W, H), d = img.data;
   const { wall, crystal: crys, glow, pool, flash } = th;
@@ -288,22 +289,49 @@ function pixelCave(th, W, H, { floorY = H - 8, lx, ly = H * .62, crystals = 16, 
   const spot = (i, k) => { const x = Math.floor(pxHash(i, k) * (W - 2 * keepClear)); return keepClear && x >= W / 2 - keepClear ? x + 2 * keepClear : x; };
   for (let i = 0; i < crystals; i++) { const x = spot(i, seed); pts.push([x, floor(x) + 2, (7 + pxHash(i, seed + 2) * 15) * reach, (1.5 + pxHash(i, seed + 3) * 2.5) * girth, true]); }
   for (let i = 0; i < Math.round(crystals * .55); i++) { const x = spot(i, seed + 5); pts.push([x, ceil(x) - 1, (4 + pxHash(i, seed + 6) * 9) * reach * 0.6, (1 + pxHash(i, seed + 7) * 2) * girth, false]); }
+  // stalagmites on a deep floor, often a little one beside a big one; the nearer ones stand in front
+  const stones = [];
+  if (deep) for (let i = 0; i < Math.round(W * (H - floorY) / (reach * reach * 230)); i++) {
+    const x = Math.floor(pxHash(i, seed + 12) * W), far = floor(x) + 4 * reach, y = far + pxHash(i, seed + 13) * (H - far);
+    const sh = (6 + pxHash(i, seed + 14) * 8) * reach * .8, sw = (2 + pxHash(i, seed + 15) * 2) * reach * .8;
+    stones.push([x, y, sh, sw, true, true]);
+    if (pxHash(i, seed + 17) > .45) stones.push([x + Math.round(sw * (pxHash(i, seed + 18) > .5 ? 1.1 : -1.1)), y + reach, sh * .5, sw * .6, true, true]);
+  }
+  stones.sort((a, b) => b[1] - a[1]);
   lx ??= W * (.3 + .4 * pxHash(seed, 9));
   const lr = W * .44, lh = H * .65;
   // per column, worked out once: the floor and ceiling lines, and only the crystals that reach that column (in the same order)
   const floorA = Float32Array.from({ length: W }, (_, x) => floor(x)), ceilA = Float32Array.from({ length: W }, (_, x) => ceil(x));
-  const colPts = Array.from({ length: W }, (_, x) => pts.filter(([sx, , , sw]) => Math.abs(x - sx) <= sw + .5));
+  const colPts = Array.from({ length: W }, (_, x) => [...stones, ...pts].filter(([sx, , , sw]) => Math.abs(x - sx) <= sw + .5));
+  // a deep floor is rock in flat slabs, like the room's own walls: the nearest of a scatter of points owns each pixel, every slab
+  // lit along its far edge and darker toward you, cracks between them, grit on top
+  const ground = (x, y, f, light) => {
+    const cw = 11 * reach, ch = 4.2 * reach, b = y - f, gi = Math.floor(x / cw), gj = Math.floor(b / ch);
+    let d1 = 1e9, d2 = 1e9, id = 0, oy = 0;
+    for (let j = gj - 1; j <= gj + 1; j++) for (let i = gi - 1; i <= gi + 1; i++) {
+      const sy = (j + .1 + .8 * pxHash(j + 3, i + seed)) * ch, dd = Math.hypot(x - (i + .1 + .8 * pxHash(i, j + seed)) * cw, (b - sy) * cw / ch);
+      if (dd < d1) { d2 = d1; d1 = dd; id = i * 131 + j; oy = (b - sy) / ch; } else if (dd < d2) d2 = dd;
+    }
+    if (d2 - d1 < 1.2 && b > 2) return .05;
+    return Math.max(.2, .36 + .16 * (pxHash(id, seed) - .5) - .2 * oy + (d2 - d1 < 2.6 && oy < 0 ? .14 : 0) + .1 * (pxFbm(x * .3, y * .3) - .5) + light * .3 + (pxHash(x, y + seed) > .99 ? .15 : 0));
+  };
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const light = Math.max(0, 1 - Math.hypot((x - lx) / lr, (y - ly) / lh));
     let col = null, air = false;
-    for (const [sx, sb, sh, sw, up] of colPts[x]) {
+    for (const [sx, sb, sh, sw, up, rock] of colPts[x]) {
       const t = up ? (sb - y) / sh : (y - sb) / sh;
+      // (a stalagmite is rock: it flares out at the foot, in rings of flowstone, and stands in a little shade)
+      if (rock) {
+        if (t >= 0 && t <= 1 && Math.abs(x - sx) <= sw * (1 - t) ** 1.5 + .5) { col = pxPick(wall, (x < sx ? .8 : .1) - ((sb - y) / reach % 2.5 < .6 ? .2 : 0) + light * .25 + pxFbm(x, y) * .08, x, y); break; }
+        if (t < 0 && ((x - sx) / (sw + .5)) ** 2 + ((y - sb) / (sw * .35)) ** 2 < 1) { col = wall[0]; break; }
+        continue;
+      }
       if (t >= 0 && t <= 1 && Math.abs(x - sx) <= sw * (1 - t) + .5) { col = pxPick(crys, (x < sx ? .8 - t * .15 : .4 + t * .15) + light * .25 + pxFbm(x, y) * .08, x, y); break; }
     }
     if (!col) {
       const f = floorA[x];
       if (pool && y >= f - 1 && y < f + 10 && Math.abs(x - lx) < W * .21) col = pxPick(pool, .35 + light * .5 + .2 * Math.sin(x * .9 + y * 3) * (y % 2), x, y);
-      else if (y >= f) col = pxPick(wall, .45 - (y - f) / 14 + pxFbm(x * .25, y * .25) * .3 + light * .35, x, y);
+      else if (y >= f) col = pxPick(wall, deep ? ground(x, y, f, light) : .45 - (y - f) / 14 + pxFbm(x * .25, y * .25) * .3 + light * .35, x, y);
       else if (y <= ceilA[x]) col = pxPick(wall, .12 + pxFbm(x * .2, y * .2) * .3, x, y);
       else {
         air = true;
@@ -547,12 +575,12 @@ const NIGHT_PROPS = {
 
 /** The backdrop for a theme at the size of the screen's art grid. */
 /** A backdrop; `floor` is where its ground line sits (a share of the height), so the nest can stand on it. */
-function paintTheme(id, w, h, floor = 0.86) {
+function paintTheme(id, w, h, floor = 0.86, deep = false) {
   const t = THEME[id] || THEME.amethyst;
   if (t.art === undefined) return pixelNight(t.id, w, h, floor);
   const a = CHAPTER_ART[t.art];
   const th = { seed: 5 + t.art * 7, wall: a.wall.map(pxHex), crystal: a.crystal.map(pxHex), glow: pxHex(a.glow), pool: a.pool?.map(pxHex), flash: a.flash?.map(pxHex), bands: a.bands };
-  const c = pixelCave(th, w, h, { floorY: Math.round(h * floor), lx: w / 2, ly: h * 0.55, crystals: Math.round(w / 12), reach: h / 150, girth: 1.6, spill: 0.04, keepClear: Math.round(w * 0.32) });
+  const c = pixelCave(th, w, h, { floorY: Math.round(h * floor), lx: w / 2, ly: h * 0.55, crystals: Math.round(w / 12), reach: h / 150, girth: 1.6, spill: 0.04, keepClear: Math.round(w * 0.32), deep });
   // cobwebs in the top corners
   const o = c.getContext("2d");
   o.strokeStyle = "rgba(228,223,232,.32)"; o.lineWidth = 1;
