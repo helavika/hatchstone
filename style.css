@@ -1162,6 +1162,17 @@ body.compact .place-who img { width: 36px; height: 36px; }
 #placeActs .act { font-size: 16px; padding-left: 4px; padding-right: 4px; }
 .wplace.mystery .wbanner { background: rgba(10, 6, 20, .7); color: var(--soft); }
 .wplace.mystery .wbanner b { font-size: 14px; letter-spacing: 1px; }
+/* wardstones: spots at the edge of each veil (the stones themselves are drawn on the map), and the ones in hand */
+.wplace.mystery.found .wbanner { background: rgba(22, 12, 38, .86); color: var(--px-gold); }
+.wplace.mystery.found .wbanner b { letter-spacing: 0; }
+.wward { position: absolute; transform: translate(-50%, -50%); width: calc(var(--k) * 12px); height: calc(var(--k) * 12px); min-width: 30px; min-height: 30px; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%; z-index: 1; }
+.wward:focus-visible { outline: 2px solid var(--px-gold); }
+#wardHand { position: fixed; top: calc(var(--top) + 66px); left: 12px; z-index: 3; display: flex; align-items: center; gap: 4px; padding: 4px 10px 4px 6px; border: 0; font: inherit; color: var(--soft); background: rgba(22, 12, 38, .9); box-shadow: var(--px-frame); cursor: pointer; }
+#wardHand[hidden] { display: none; }
+#wardHand img { width: 27px; height: 33px; image-rendering: pixelated; }
+#wardHand b { font-weight: 400; font-size: 20px; color: var(--px-gold); }
+#wardHand small { font-size: 13px; }
+#wardHand.full img { animation: pxBob 1.2s steps(2) infinite; }
 #libGrid .aw.folk { align-items: flex-start; }
 #libGrid .aw.folk > span { min-width: 0; }
 #libGrid .aw.folk b { border: 0; padding: 0; }

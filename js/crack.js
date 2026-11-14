@@ -509,27 +509,33 @@ const RECIPES = [
   { id: "seeds", rarity: "common", need: 2, name: "A bundle of seeds", note: "glowberry, moon mint and starfruit, two of each", icon: () => plantImage("glowberry", 3), give: () => { const g = garden().seeds; for (const k of ["glowberry", "moonmint", "cookiecorn"]) g[k] = (g[k] || 0) + 2; } },
   { id: "star", rarity: "rare", need: 3, name: "Star bar", note: "fills the lantern to the brim", icon: () => pxIcon("barStar"), give: () => giveBar("star") },
   { id: "shards", rarity: "legendary", need: 1, name: "150 shards", note: "a legendary spare, cut and sold", icon: () => pxIcon("shard"), give: () => { save.shards += 150; } },
+  // Ember forges more than hammers: a wardstone holds ground on the map, and its rune lights in the colour of the crystal it was made from
+  { id: "ward", rarity: "common", need: 2, shards: 30, name: "Wardstone", note: "set it on the map, where the fog is thickest", ward: true, ok: () => wardsOpen(), how: "reach chapter III", icon: () => wardIcon(spareOf("common")?.id), give: used => forgeWard(used[0]) },
+  { id: "wardRare", rarity: "rare", need: 1, name: "Wardstone of a rare crystal", note: "one rare spare and no shards", ward: true, ok: () => wardsOpen(), how: "reach chapter III", icon: () => wardIcon(spareOf("rare")?.id || "celestite"), give: used => forgeWard(used[0]) },
 ];
 /** How many spare geodes of a rarity you have (the first of each kind stays in the book). */
 const spares = rarity => CRYSTALS.filter(c => c.rarity === rarity).reduce((n, c) => n + Math.max(0, ((save.geodes[c.id] || {}).count || 0) - 1), 0);
+/** The spare a recipe takes next: from the kind you have most of. */
+const spareOf = rarity => CRYSTALS.filter(x => x.rarity === rarity && ((save.geodes[x.id] || {}).count || 0) > 1).sort((p, q) => save.geodes[q.id].count - save.geodes[p.id].count)[0];
+const canCraft = r => (!r.ok || r.ok()) && spares(r.rarity) >= r.need && save.shards >= (r.shards || 0);
 function craft(id) {
   const r = RECIPES.find(x => x.id === id);
-  if (!r || spares(r.rarity) < r.need) return;
-  // the spares come from the kinds you have most of
-  for (let k = 0; k < r.need; k++) {
-    const c = CRYSTALS.filter(x => x.rarity === r.rarity && ((save.geodes[x.id] || {}).count || 0) > 1).sort((p, q) => save.geodes[q.id].count - save.geodes[p.id].count)[0];
-    save.geodes[c.id].count--;
-  }
-  r.give(); bump("crafted"); sfx.levelUp(); buzz([12, 30, 12]);
+  if (!r || !canCraft(r)) return;
+  const used = [];
+  for (let k = 0; k < r.need; k++) { const c = spareOf(r.rarity); save.geodes[c.id].count--; used.push(c.id); }
+  save.shards -= r.shards || 0;
+  r.give(used); bump("crafted"); sfx.levelUp(); buzz([12, 30, 12]);
   toast(tr("Made at the workbench: {0} ✦", tr(r.name)));
   persist(); updateTopbar(); openForge();
+  if (r.ward) setTimeout(() => talk("firstWard"), 500);
 }
 const RARITY_WORD = { common: "common ones", rare: "rare ones", legendary: "legendary ones" };
 function workbenchList() {
   return `<h3 class="forge-h">${tr("Workbench")}</h3><p class="me-hint">${tr("Every geode past the first of its kind is a spare. The first one always stays in the book; spares melt down into useful things here.")}</p>`
     + RECIPES.map(r => {
-      const have = spares(r.rarity);
-      return `<button class="forge craft" data-craft="${r.id}" ${have < r.need ? "disabled" : ""}><img class="skin-img" src="${r.icon()}" alt=""><span class="txt"><b>${tr(r.name)}</b><small>${tr(r.note)}</small></span><span class="cost">${tr("{0} {1} spares", r.need, tr(RARITY_WORD[r.rarity]))}<em>${tr("you have {0}", have)}</em></span></button>`;
+      const have = spares(r.rarity), shut = r.ok && !r.ok(), inHand = r.ward && wards().have.length;
+      const cost = shut ? tr(r.how) : tr("{0} {1} spares", r.need, tr(RARITY_WORD[r.rarity])) + (r.shards ? `<br>+ ✦ ${r.shards}` : "");
+      return `<button class="forge craft${r.ward ? " ward" : ""}" data-craft="${r.id}" ${canCraft(r) ? "" : "disabled"}><img class="skin-img" src="${r.icon()}" alt=""><span class="txt"><b>${tr(r.name)}</b><small>${tr(r.note)}${inHand ? " · " + tr("in hand: {0}", inHand) : ""}</small></span><span class="cost">${cost}${shut ? "" : `<em>${tr("you have {0}", have)}</em>`}</span></button>`;
     }).join("");
 }
 
