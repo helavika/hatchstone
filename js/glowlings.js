@@ -5,11 +5,16 @@
 // ---------- glowlings ----------
 
 const BODY = {
-  round: { rx: 0.5, ry: 0.42, top: -0.42, face: -0.03, feet: 0.38 },
-  bean: { rx: 0.42, ry: 0.5, top: -0.5, face: -0.08, feet: 0.46 },
-  wide: { rx: 0.56, ry: 0.38, top: -0.38, face: 0, feet: 0.34 },
-  drop: { rx: 0.47, ry: 0.47, top: -0.6, face: 0.1, feet: 0.53 },
+  round: { rx: 0.5, ry: 0.42, top: -0.42, face: -0.03, feet: 0.38, gloss: [-0.22, -0.2] },
+  bean: { rx: 0.42, ry: 0.5, top: -0.5, face: -0.08, feet: 0.46, gloss: [-0.17, -0.27] },
+  wide: { rx: 0.56, ry: 0.38, top: -0.38, face: 0, feet: 0.34, gloss: [-0.27, -0.17] },
+  drop: { rx: 0.47, ry: 0.47, top: -0.6, face: 0.1, feet: 0.53, gloss: [-0.17, -0.12] },
 };
+
+/** Eyes sit wide apart, the way baby faces do (in units of s from the middle). */
+const eyeX = sp => sp.body === "wide" ? 0.22 : sp.body === "bean" ? 0.18 : 0.2;
+/** Mix two "#rrggbb" colours (k = 0 is a, 1 is b), as a "#rrggbb". */
+const tint = (a, b, k) => "#" + [1, 3, 5].map(i => Math.round(lerp(parseInt(a.slice(i, i + 2), 16), parseInt(b.slice(i, i + 2), 16), k)).toString(16).padStart(2, "0")).join("");
 
 function bodyPath(c, s, type) {
   c.beginPath();
@@ -26,19 +31,20 @@ function bodyPath(c, s, type) {
 }
 
 /** Wings, fins and tails sit behind the body. */
-function drawBack(c, s, sp, t, pal) {
+function drawBack(c, s, sp, t, pal, ink1 = 1) {
   const [main, light, deep] = pal;
   switch (sp.back) {
     case "mothwings": {
       const flap = 0.78 + 0.22 * Math.sin(t * 0.008);
+      // pale oval wings, each with an eye-spot
       for (const d of [-1, 1]) {
         c.save();
-        c.translate(d * s * 0.28, -s * 0.12); c.rotate(d * 0.5); c.scale(flap, 1);
-        c.globalAlpha = 0.9; c.fillStyle = light;
-        c.beginPath(); c.ellipse(d * s * 0.22, -s * 0.05, s * 0.3, s * 0.2, 0, 0, TAU); c.fill();
-        c.beginPath(); c.ellipse(d * s * 0.14, s * 0.15, s * 0.18, s * 0.12, d * 0.4, 0, TAU); c.fill();
-        c.globalAlpha = 1; c.fillStyle = deep;
-        c.beginPath(); c.arc(d * s * 0.27, -s * 0.06, s * 0.055, 0, TAU); c.fill();
+        c.translate(d * s * 0.3, -s * 0.02); c.rotate(d * 0.12); c.scale(flap, 1);
+        c.beginPath(); c.ellipse(d * s * 0.24, 0, s * 0.36, s * 0.23, 0, 0, TAU);
+        c.fillStyle = tint(light, "#ffffff", 0.55); c.fill();
+        c.fillStyle = tint(light, main, 0.4); c.beginPath(); c.ellipse(d * s * 0.24, s * 0.1, s * 0.3, s * 0.1, 0, 0, Math.PI); c.fill();
+        c.fillStyle = main; c.beginPath(); c.arc(d * s * 0.36, -s * 0.01, s * 0.075, 0, TAU); c.fill();
+        c.fillStyle = tint(light, "#ffffff", 0.5); c.beginPath(); c.arc(d * s * 0.36 - s * 0.02, -s * 0.03, s * 0.03, 0, TAU); c.fill();
         c.restore();
       }
       break;
@@ -46,9 +52,11 @@ function drawBack(c, s, sp, t, pal) {
     case "fins":
       for (const d of [-1, 1]) {
         c.save();
-        c.translate(d * s * 0.43, s * 0.08); c.rotate(d * (0.3 + Math.sin(t * 0.01) * 0.2));
-        c.fillStyle = light; c.globalAlpha = 0.9;
-        c.beginPath(); c.moveTo(0, -s * 0.13); c.lineTo(d * s * 0.3, -s * 0.02); c.lineTo(0, s * 0.13); c.closePath(); c.fill();
+        c.translate(d * s * 0.4, s * 0.1); c.rotate(d * (0.2 + Math.sin(t * 0.01) * 0.15));
+        // pale fins, white at the tip
+        c.beginPath(); c.moveTo(0, -s * 0.14); c.quadraticCurveTo(d * s * 0.2, -s * 0.12, d * s * 0.32, -s * 0.03); c.quadraticCurveTo(d * s * 0.2, s * 0.1, 0, s * 0.14); c.closePath();
+        c.fillStyle = tint(light, "#ffffff", 0.75); c.fill();
+        c.fillStyle = tint(light, main, 0.3); c.beginPath(); c.moveTo(0, s * 0.02); c.quadraticCurveTo(d * s * 0.2, s * 0.06, d * s * 0.3, -s * 0.02); c.quadraticCurveTo(d * s * 0.18, s * 0.11, 0, s * 0.14); c.closePath(); c.fill();
         c.restore();
       }
       break;
@@ -84,9 +92,14 @@ function drawBack(c, s, sp, t, pal) {
       break;
     }
     case "tail": {
-      const wag = Math.sin(t * 0.005) * s * 0.07;
-      c.strokeStyle = main; c.lineWidth = s * 0.1; c.lineCap = "round";
-      c.beginPath(); c.moveTo(s * 0.45, s * 0.2); c.quadraticCurveTo(s * 0.85, s * 0.15, s * 0.7 + wag, -s * 0.25); c.stroke();
+      const wag = Math.sin(t * 0.005) * s * 0.07, path = () => { c.beginPath(); c.moveTo(s * 0.4, s * 0.22); c.quadraticCurveTo(s * 0.88, s * 0.18, s * 0.7 + wag, -s * 0.25); };
+      c.lineCap = "round";
+      c.strokeStyle = main; c.lineWidth = s * 0.13; path(); c.stroke();
+      c.strokeStyle = tint(main, light, 0.6); c.lineWidth = s * 0.05; c.save(); c.translate(-s * 0.02, -s * 0.02); path(); c.stroke(); c.restore();
+      // a striped one is ringed all the way to its tip
+      if (sp.pattern === "stripes") {
+        c.strokeStyle = tint(main, deep, 0.8); c.lineWidth = s * 0.13; c.lineCap = "butt"; c.setLineDash([s * 0.05, s * 0.09]); path(); c.stroke(); c.setLineDash([]);
+      }
       break;
     }
     case "fluff":
@@ -111,7 +124,7 @@ function drawBack(c, s, sp, t, pal) {
 }
 
 /** Ears and crowns that peek out from behind the body. */
-function drawBehindHead(c, s, sp, t, pal, top) {
+function drawBehindHead(c, s, sp, t, pal, top, ink1 = 1) {
   const [main, light, deep] = pal;
   switch (sp.ears) {
     case "bunny":
@@ -130,6 +143,11 @@ function drawBehindHead(c, s, sp, t, pal, top) {
         c.beginPath(); c.moveTo(d * s * (big ? 0.08 : 0.12), top + s * 0.12); c.lineTo(d * s * 0.46, top + s * 0.2); c.lineTo(d * s * (big ? 0.38 : 0.32), top - s * (big ? 0.32 : 0.2)); c.closePath(); c.fill();
         c.fillStyle = light;
         c.beginPath(); c.moveTo(d * s * 0.18, top + s * 0.12); c.lineTo(d * s * 0.38, top + s * 0.16); c.lineTo(d * s * (big ? 0.35 : 0.31), top - s * (big ? 0.18 : 0.08)); c.closePath(); c.fill();
+        // tabby ears carry their stripes up to the tips
+        if (sp.pattern === "stripes") {
+          c.strokeStyle = tint(main, deep, 0.8); c.lineWidth = Math.max(s * 0.04, ink1 * 1.6); c.lineCap = "butt";
+          for (const k of [-0.02, 0.08]) { c.beginPath(); c.moveTo(d * s * 0.44, top + s * k); c.lineTo(d * s * 0.33, top + s * (k + 0.02)); c.stroke(); }
+        }
       }
       break;
     }
@@ -141,13 +159,17 @@ function drawBehindHead(c, s, sp, t, pal, top) {
       break;
   }
   if (sp.head === "petals") {
-    for (let i = 0; i < 7; i++) {
-      const a = -Math.PI / 2 + (i - 3) * 0.33, open = 1 + Math.sin(t * 0.002) * 0.04;
+    // a crown of petals fanned from the middle out, each inked where it overlaps the last, with a lit tip
+    for (const i of [0, 4, 1, 3, 2]) {
+      const a = -Math.PI / 2 + (i - 2) * 0.5, open = 1 + Math.sin(t * 0.002) * 0.04;
       c.save();
-      c.translate(Math.cos(a) * s * 0.34 * open, top + s * 0.12 + Math.sin(a) * s * 0.34 * open);
+      c.translate(Math.cos(a) * s * 0.28 * open, top + s * 0.06 + Math.sin(a) * s * 0.28 * open);
       c.rotate(a + Math.PI / 2);
-      c.fillStyle = i % 2 ? light : main;
-      c.beginPath(); c.ellipse(0, 0, s * 0.08, s * 0.15, 0, 0, TAU); c.fill();
+      c.beginPath(); c.ellipse(0, 0, s * 0.13, s * 0.2, 0, 0, TAU);
+      if (faceStamp) { c.save(); c.globalCompositeOperation = "source-atop"; c.strokeStyle = "#22143a"; c.lineWidth = ink1 * 2.4; c.stroke(); c.restore(); }
+      c.fillStyle = i % 2 ? tint(main, deep, 0.25) : main; c.fill();
+      c.fillStyle = tint(main, light, 0.6); c.beginPath(); c.ellipse(-s * 0.02, -s * 0.07, s * 0.07, s * 0.09, 0, 0, TAU); c.fill();
+      c.fillStyle = tint(light, "#ffffff", 0.4); c.beginPath(); c.ellipse(-s * 0.03, -s * 0.11, s * 0.03, s * 0.04, 0, 0, TAU); c.fill();
       c.restore();
     }
   }
@@ -167,34 +189,47 @@ function drawPattern(c, s, sp, t, pal, R) {
   const [main, light, deep] = pal;
   switch (sp.pattern) {
     case "freckles":
-      c.fillStyle = "rgba(255,255,255,.85)";
-      for (const d of [-1, 1]) for (let i = 0; i < 3; i++) {
-        c.beginPath(); c.arc(d * s * (0.27 + (i % 2) * 0.05), BODY[sp.body].face * s + s * (0.13 + i * 0.03), s * 0.016, 0, TAU); c.fill();
-      }
+      // a sprinkle of pale freckles up on the crown, clear of the blush
+      c.fillStyle = tint(light, "#ffffff", 0.6);
+      for (const [x, y] of [[0.12, 0.1], [0.2, 0.16], [0.05, 0.17]]) { c.beginPath(); c.arc(x * s, BODY[sp.body].top * s + y * s, s * 0.022, 0, TAU); c.fill(); }
       break;
     case "spots":
-      c.fillStyle = deep; c.globalAlpha = 0.28;
-      for (let i = 0; i < 5; i++) { c.beginPath(); c.arc((R() - 0.5) * s * 0.85, (R() - 0.35) * s * 0.6, s * (0.04 + R() * 0.06), 0, TAU); c.fill(); }
-      c.globalAlpha = 1;
+      // soft darker spots, round the sides and top, never on the face
+      c.fillStyle = tint(main, deep, 0.35);
+      for (let i = 0, n = 0; i < 12 && n < 4; i++) {
+        const x = (R() - 0.5) * s * 1.0, y = (R() - 0.45) * s * 0.75, r = s * (0.04 + R() * 0.04), fy = BODY[sp.body].face * s;
+        if (Math.abs(x) < s * 0.24 || (Math.abs(x) < s * 0.36 && Math.abs(y - fy - s * 0.05) < s * 0.2)) continue;
+        c.beginPath(); c.arc(x, y, r, 0, TAU); c.fill(); n++;
+      }
       break;
-    case "stripes":
-      c.fillStyle = deep; c.globalAlpha = 0.3;
-      for (let i = 0; i < 3; i++) c.fillRect(-s, BODY[sp.body].top * s + s * (0.12 + i * 0.16), s * 2, s * 0.065);
-      c.globalAlpha = 1;
+    case "stripes": {
+      // tabby marks: three on the forehead, and a pair curling in from each side
+      const top = BODY[sp.body].top * s, rx = (sp.body === "drop" ? 0.47 : BODY[sp.body].rx) * s, ink = tint(main, deep, 0.8);
+      const m = c.getTransform(); c.strokeStyle = ink; c.lineWidth = Math.max(s * 0.045, 2.6 / (Math.hypot(m.a, m.b) || 1)); c.lineCap = "round";
+      for (const k of [-1, 0, 1]) { c.beginPath(); c.moveTo(k * s * 0.09, top - s * 0.02); c.lineTo(k * s * 0.08, top + s * (k ? 0.11 : 0.14)); c.stroke(); }
+      for (const d of [-1, 1]) for (const k of [0, 1]) {
+        const y = BODY[sp.body].face * s + s * (0.02 + k * 0.12);
+        c.beginPath(); c.moveTo(d * (rx + s * 0.05), y - s * 0.02); c.lineTo(d * (rx - s * 0.1), y + s * 0.01); c.stroke();
+      }
       break;
+    }
     case "heart":
-      c.fillStyle = "rgba(255,255,255,.75)";
+      c.fillStyle = tint(light, "#ffffff", 0.5);
       c.save(); c.translate(0, s * 0.2); c.scale(s * 0.11, s * 0.11);
       c.beginPath(); c.moveTo(0, 0.35); c.bezierCurveTo(-1.1, -0.35, -0.45, -1.05, 0, -0.45); c.bezierCurveTo(0.45, -1.05, 1.1, -0.35, 0, 0.35); c.fill();
       c.restore();
       break;
     case "bubbles":
-      c.strokeStyle = "rgba(255,255,255,.65)"; c.lineWidth = Math.max(1, s * 0.012);
-      for (let i = 0; i < 4; i++) { c.beginPath(); c.arc((R() - 0.5) * s * 0.7, (R() - 0.2) * s * 0.5, s * (0.035 + R() * 0.04), 0, TAU); c.stroke(); }
+      c.strokeStyle = tint(light, "#ffffff", 0.6); c.lineWidth = Math.max(s * 0.02, 2.4 / (Math.hypot(c.getTransform().a, c.getTransform().b) || 1));
+      for (let i = 0, n = 0; i < 12 && n < 3; i++) {
+        const x = (R() - 0.5) * s * 0.85, y = (R() - 0.3) * s * 0.6, fy = BODY[sp.body].face * s;
+        if (Math.abs(x) < s * 0.36 && Math.abs(y - fy - s * 0.05) < s * 0.2) continue;
+        c.beginPath(); c.arc(x, y, s * (0.04 + R() * 0.03), 0, TAU); c.stroke(); n++;
+      }
       break;
     case "belly":
-      c.fillStyle = "rgba(255,255,255,.45)";
-      c.beginPath(); c.ellipse(0, s * 0.14, s * 0.27, s * 0.22, 0, 0, TAU); c.fill();
+      c.fillStyle = tint(light, "#ffffff", 0.3);
+      c.beginPath(); c.ellipse(0, s * 0.27, s * 0.26, s * 0.15, 0, 0, TAU); c.fill();
       break;
     case "galaxy": {
       const neb = c.createRadialGradient(s * 0.1, -s * 0.1, 1, s * 0.1, -s * 0.1, s * 0.4);
@@ -222,13 +257,13 @@ function drawHeadTop(c, s, sp, t, pal, top, level) {
   switch (sp.head) {
     case "antennae": {
       const sway = Math.sin(t * 0.004) * s * 0.03;
-      c.strokeStyle = deep; c.lineWidth = Math.max(1.2, s * 0.022); c.lineCap = "round";
+      const m = c.getTransform(); c.strokeStyle = tint(main, light, 0.4); c.lineWidth = Math.max(2.6 / (Math.hypot(m.a, m.b) || 1), s * 0.028); c.lineCap = "round";
       for (const d of [-1, 1]) {
         const ex = d * s * 0.27 + sway, ey = top - s * 0.3;
         c.beginPath(); c.moveTo(d * s * 0.08, top + s * 0.05); c.quadraticCurveTo(d * s * 0.1, top - s * 0.2, ex, ey); c.stroke();
-        const g = c.createRadialGradient(ex, ey, 1, ex, ey, s * 0.08);
-        g.addColorStop(0, "#fff"); g.addColorStop(0.5, light); g.addColorStop(1, "rgba(255,255,255,0)");
-        c.fillStyle = g; c.beginPath(); c.arc(ex, ey, s * 0.08, 0, TAU); c.fill();
+        // a pale bulb on each tip, lit from the top left
+        c.fillStyle = tint(light, "#ffffff", 0.35); c.beginPath(); c.arc(ex, ey - s * 0.02, s * 0.085, 0, TAU); c.fill();
+        c.fillStyle = "#ffffff"; c.beginPath(); c.arc(ex - s * 0.025, ey - s * 0.045, s * 0.03, 0, TAU); c.fill();
       }
       break;
     }
@@ -270,7 +305,7 @@ function drawHeadTop(c, s, sp, t, pal, top, level) {
 }
 
 function drawFace(c, s, sp, t, mood, eating) {
-  const fy = BODY[sp.body].face * s, ex = s * (sp.body === "wide" ? 0.18 : 0.16);
+  const fy = BODY[sp.body].face * s, ex = eyeX(sp) * s;
   const ink = "#2a1f4a";
   c.fillStyle = ink; c.strokeStyle = ink; c.lineCap = "round";
   c.lineWidth = Math.max(1.2, s * 0.025);
@@ -346,7 +381,7 @@ function headAt(body, x) {
 }
 /** Draw one accessory on a glowling (in its own coordinates: centered, s wide, the top of its head at `top`). */
 function drawAccessory(c, s, sp, top, id) {
-  const B = BODY[sp.body], fy = B.face * s, ex = s * (sp.body === "wide" ? 0.18 : 0.16), head = x => headAt(sp.body, x / s) * s;
+  const B = BODY[sp.body], fy = B.face * s, ex = eyeX(sp) * s, head = x => headAt(sp.body, x / s) * s;
   // fine lines stay at least one pixel wide, so small pictures don't smudge them
   const m = c.getTransform(), thin = 1.2 / (Math.hypot(m.a, m.b) || 1);
   c.save();
@@ -436,8 +471,18 @@ function drawCreature(c, x, y, s, sp, o = {}) {
     c.fillStyle = g; c.beginPath(); c.arc(0, 0, gr, 0, TAU); c.fill();
   }
   c.scale(1 / sq, sq);
-  drawBack(c, s, sp, t, pal);
-  drawBehindHead(c, s, sp, t, pal, top);
+  // one art pixel in these units (the sprite is cut from a buffer at twice its size), for ink lines that survive the cut
+  const ink1 = 1.6 / (Math.hypot(c.getTransform().a, c.getTransform().b) || 1);
+  drawBack(c, s, sp, t, pal, ink1);
+  drawBehindHead(c, s, sp, t, pal, top, ink1);
+  // little stubby feet, tucked under the body
+  if (sp.back !== "wisp") {
+    c.fillStyle = tint(pal[0], pal[2], 0.35);
+    for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * s * 0.19, (B.feet + 0.045) * s, s * 0.1, s * 0.07, 0, 0, TAU); c.fill(); }
+  }
+  // a dark line where the body sits in front of its wings, ears and feet ("source-atop" only inks what's already there,
+  // so only inside a sprite cut, whose buffer holds nothing but this glowling)
+  if (faceStamp) { c.save(); c.globalCompositeOperation = "source-atop"; bodyPath(c, s, sp.body); c.strokeStyle = "#22143a"; c.lineWidth = ink1 * 2.4; c.stroke(); c.restore(); }
   bodyPath(c, s, sp.body);
   const galaxy = sp.pattern === "galaxy";
   if (galaxy) {
@@ -445,21 +490,21 @@ function drawCreature(c, x, y, s, sp, o = {}) {
     g.addColorStop(0, shade(pal[0], 0.15)); g.addColorStop(0.3, pal[0]); g.addColorStop(1, pal[2]);
     c.fillStyle = g; c.fill();
   } else {
-    // three flat tones, as pixel artists shade: the body color, a crescent of shadow low on the right, a small light high on the left
-    c.fillStyle = pal[0]; c.fill();
+    // soft cel shading in flat tones: a shadowed band underneath, the body colour, a lit top-left and a big glossy blob
+    c.fillStyle = tint(pal[0], pal[2], 0.45); c.fill();
     c.save(); c.clip();
-    c.translate(-s * 0.07, -s * 0.08); bodyPath(c, s, sp.body); c.fillStyle = pal[1]; c.fill();
-    c.fillStyle = shade(pal[1], 0.3); c.beginPath(); c.ellipse(-s * 0.2, top * 0.62, s * 0.18, s * 0.11, -0.4, 0, TAU); c.fill();
+    c.save(); c.translate(0, -s * 0.11); bodyPath(c, s, sp.body); c.fillStyle = pal[0]; c.fill(); c.restore();
+    c.save(); c.translate(-s * 0.1, -s * 0.13); c.scale(0.92, 0.9); bodyPath(c, s, sp.body); c.fillStyle = tint(pal[0], pal[1], 0.6); c.fill(); c.restore();
+    c.fillStyle = tint(pal[1], "#ffffff", 0.45); c.beginPath(); c.ellipse(B.gloss[0] * s, B.gloss[1] * s, s * 0.13, s * 0.08, -0.6, 0, TAU); c.fill();
     c.restore();
     bodyPath(c, s, sp.body);
   }
-  // and one small hard glint, a few pixels across
-  if (!galaxy && !o.sil) { c.fillStyle = "rgba(255,255,255,.75)"; c.beginPath(); c.ellipse(-s * 0.36, top * 0.8, s * 0.04, s * 0.028, -0.5, 0, TAU); c.fill(); }
+  // and a hard white glint in the gloss
+  if (!galaxy && !o.sil) { c.fillStyle = "#ffffff"; c.beginPath(); c.ellipse((B.gloss[0] - 0.05) * s, (B.gloss[1] - 0.03) * s, s * 0.05, s * 0.035, -0.6, 0, TAU); c.fill(); }
+  bodyPath(c, s, sp.body);
   c.save(); c.clip();
   drawPattern(c, s, sp, t, pal, R);
   c.restore();
-  bodyPath(c, s, sp.body);
-  c.strokeStyle = shade(pal[2], -0.25); c.globalAlpha = 0.3; c.lineWidth = 1; c.stroke(); c.globalAlpha = 1;
   // a glowling with its own little hat takes it off for a hat from the wardrobe, and for the nightcap at bedtime
   const hatOn = (mood !== "asleep" && ["flowers", "mushroom", "crown"].includes(o.acc)) || (mood === "asleep" && !o.sil && o.cap);
   if (!(sp.head === "cap" && hatOn)) drawHeadTop(c, s, sp, t, pal, top, level);
@@ -469,14 +514,10 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   if (faceStamp && !o.sil) {
     // inside a sprite cut, remember where the face goes; it's stamped pixel by pixel afterwards so the eyes stay crisp
     const m = c.getTransform(), at = (lx, ly) => [(m.a * lx + m.c * ly + m.e) / 2, (m.b * lx + m.d * ly + m.f) / 2];
-    const fy = BODY[sp.body].face * s, ex = s * (sp.body === "wide" ? 0.18 : 0.16);
-    faceStamp.push({ eyes: [at(-ex, fy), at(ex, fy)], mouth: at(0, fy + s * 0.1), blush: [at(-s * 0.28, fy + s * 0.08), at(s * 0.28, fy + s * 0.08)],
+    const fy = BODY[sp.body].face * s, ex = eyeX(sp) * s, bx = ex + s * 0.1;
+    faceStamp.push({ eyes: [at(-ex, fy), at(ex, fy)], mouth: at(0, fy + s * 0.09), blush: [at(-bx, fy + s * 0.11), at(bx, fy + s * 0.11)], cat: sp.ears === "cat" || sp.ears === "fox",
       r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" || (sp.beh || BEHAVIOR[sp.id]) === "curious" ? "sleepy" : sp.eyes, eating: !!o.eating, blink: (t % 3800) < 140, t });
   } else drawFace(c, s, sp, t, mood, o.eating);
-  if (sp.back !== "wisp") {
-    c.fillStyle = shade(pal[0], -0.15);
-    for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * s * 0.16, B.feet * s, s * 0.09, s * 0.05, 0, 0, TAU); c.fill(); }
-  }
   // growing up: orbiting sparkles, then a halo
   if (stage >= 2) {
     const n = stage === 3 ? 5 : 3;
@@ -519,8 +560,35 @@ function neonOf(sp) {
   return neonCache[sp.id] = { rgb, css: (a) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})` };
 }
 /**
- * The ethereal look, made from a baked sprite: its silhouette edge lit in its neon, a two-pixel halo of light around it,
- * and (in the "spirit" look) the body fading toward its feet, as if it were made of light more than of anything else.
+ * The glowling look, on a freshly cut sprite (see cutSprite's post): the outline in plum ink, a touch lighter on the lit
+ * top-left edges, and a rim of the glowling's own saturated colour along its underside, as if it sat in its own light.
+ * Undiscovered ones (sil) are a flat plum shape inside the same ink.
+ */
+/** Greyish glowlings (smoky ones) keep the palette's stone greys; everyone else snaps without them, so pale ones stay clean. */
+const lutOf = sp => { const [r, g, b] = pxHex(palOf(sp)[0]); return Math.max(r, g, b) - Math.min(r, g, b) < 40 && r + g + b < 600 ? PIXEL_LUT : SPRITE_LUT; };
+const GLOW_INK = { dark: pxHex("#22143a"), lit: pxHex("#3d2866"), sil: pxHex("#523a85") };
+function glowStyle(sp, sil) {
+  return (d, w, h, solid) => {
+    let y0 = h, y1 = 0;
+    for (let p = 0; p < w * h; p++) if (solid[p]) { const y = (p / w) | 0; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    const low = y0 + (y1 - y0) * 0.62, [nr, ng, nb] = neonOf(sp).rgb, at = (x, y) => x >= 0 && y >= 0 && x < w && y < h && solid[y * w + x];
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const p = y * w + x, i = p * 4;
+      if (!solid[p]) {
+        if (!d[i + 3]) continue;
+        // the outline: lit where it wraps the top and left of the glowling
+        const lit = (at(x + 1, y) || at(x, y + 1)) && !at(x - 1, y) && !at(x, y - 1) && y < low, col = lit ? GLOW_INK.lit : GLOW_INK.dark;
+        d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2];
+        continue;
+      }
+      if (sil) { d[i] = GLOW_INK.sil[0]; d[i + 1] = GLOW_INK.sil[1]; d[i + 2] = GLOW_INK.sil[2]; continue; }
+      if (!at(x, y + 1) || (y > low && (!at(x - 1, y) || !at(x + 1, y)))) { d[i] = nr; d[i + 1] = ng; d[i + 2] = nb; }
+    }
+  };
+}
+/**
+ * The ethereal looks, made from a baked sprite: a soft halo of the glowling's neon around its outline, a few "+" sparkles
+ * twinkling near it, and (in the "spirit" look) the body fading toward its feet, as if it were made of light more than of anything else.
  */
 function neonize(f, sp, look) {
   const key = "n" + look;
@@ -529,19 +597,36 @@ function neonize(f, sp, look) {
   const g = c.getContext("2d"); g.drawImage(src, 0, 0);
   const im = g.getImageData(0, 0, w, h), d = im.data, solid = new Uint8Array(w * h);
   for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 40 ? 1 : 0;
-  let y0 = h, y1 = 0; for (let i = 0; i < w * h; i++) if (solid[i]) { const y = (i / w) | 0; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-  const [nr, ng, nb] = neonOf(sp).rgb, near = (x, y, r) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < w && Y < h && solid[Y * w + X] && Math.abs(dx) + Math.abs(dy) <= r) return true; } return false; };
-  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
-    const i = y * w + x, o = i * 4;
-    if (solid[i]) {
-      const edge = !(x > 0 && solid[i - 1]) || !(x < w - 1 && solid[i + 1]) || !(y > 0 && solid[i - w]) || !(y < h - 1 && solid[i + w]);
-      if (edge) { d[o] = nr + (255 - nr) * 0.15; d[o + 1] = ng + (255 - ng) * 0.15; d[o + 2] = nb + (255 - nb) * 0.15; }
-      else { d[o] = d[o] + (nr - d[o]) * 0.12; d[o + 1] = d[o + 1] + (ng - d[o + 1]) * 0.12; d[o + 2] = d[o + 2] + (nb - d[o + 2]) * 0.12; }
-      if (look === 2) { const k = clamp((y - (y0 + (y1 - y0) * 0.55)) / ((y1 - y0) * 0.45), 0, 1); d[o + 3] = d[o + 3] * (1 - 0.55 * k); }
+  let x0 = w, x1 = 0, y0 = h, y1 = 0; for (let i = 0; i < w * h; i++) if (solid[i]) { const x = i % w, y = (i / w) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const [nr, ng, nb] = neonOf(sp).rgb, R = Math.max(2, Math.min(4, Math.round((y1 - y0) / 14)));
+  // how many steps each empty pixel is from the sprite (grown a ring at a time, so it costs a few passes, not a search per pixel)
+  const dist = new Uint8Array(w * h).fill(255);
+  for (let i = 0; i < w * h; i++) if (solid[i]) dist[i] = 0;
+  for (let r = 1; r <= R; r++) for (let i = 0; i < w * h; i++) {
+    if (dist[i] !== 255) continue;
+    const x = i % w;
+    if ((x > 0 && dist[i - 1] === r - 1) || (x < w - 1 && dist[i + 1] === r - 1) || (i >= w && dist[i - w] === r - 1) || (i < w * h - w && dist[i + w] === r - 1)) dist[i] = r;
+  }
+  for (let i = 0; i < w * h; i++) {
+    const o = i * 4, r = dist[i];
+    if (!r) {
+      if (look === 2) { const k = clamp(((i / w | 0) - (y0 + (y1 - y0) * 0.55)) / ((y1 - y0) * 0.45), 0, 1); d[o + 3] = d[o + 3] * (1 - 0.55 * k); }
       continue;
     }
-    if (near(x, y, 1)) { d[o] = nr; d[o + 1] = ng; d[o + 2] = nb; d[o + 3] = look === 2 ? 140 : 120; }
-    else if (near(x, y, 2) && PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.5) { d[o] = nr; d[o + 1] = ng; d[o + 2] = nb; d[o + 3] = 55; }
+    // the halo: strongest against the outline, thinning out over a few pixels
+    if (r <= R) { d[o] = nr; d[o + 1] = ng; d[o + 2] = nb; d[o + 3] = (look === 2 ? 130 : 110) * (1 - (r - 1) / R) ** 1.2; }
+  }
+  // "+" sparkles in its own colour, each in its own spot, twinkling in turn
+  const Rn = seeded(sp.id + "+"), t = f.t || 0, n = 4, arm = (y1 - y0) > 34 ? 2 : 1, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
+  const lite = [nr + (255 - nr) * 0.55, ng + (255 - ng) * 0.55, nb + (255 - nb) * 0.55];
+  const dot = (x, y, col, a) => { if (x < 0 || y < 0 || x >= w || y >= h || solid[y * w + x]) return; const o = (y * w + x) * 4; d[o] = col[0]; d[o + 1] = col[1]; d[o + 2] = col[2]; d[o + 3] = a; };
+  for (let k = 0; k < n; k++) {
+    const an = (k + 0.15 + Rn() * 0.7) / n * TAU - Math.PI / 2, rr = 0.62 + Rn() * 0.18, ph = Math.sin(t * 0.0021 + k * 2.4 + Rn() * 6);
+    if (ph < -0.35) continue;
+    const x = Math.round(cx + Math.cos(an) * ((x1 - x0) / 2 + arm * 2 + 2) * rr * 1.25), y = Math.round(cy + Math.sin(an) * ((y1 - y0) / 2 + arm * 2 + 2) * rr * 1.2);
+    const a = ph > 0.35 ? arm : 1;
+    for (let j = 1; j <= a; j++) for (const [dx, dy] of [[j, 0], [-j, 0], [0, j], [0, -j]]) dot(x + dx, y + dy, [nr, ng, nb], 255);
+    dot(x, y, lite, 255);
   }
   g.putImageData(im, 0, 0);
   return f[key] = { c, x: f.x, y: f.y };
@@ -554,21 +639,15 @@ function drawSprite(x, y, s, sp, o = {}) {
     const g = ctx.createRadialGradient(x, y, s * 0.15, x, y, gr);
     g.addColorStop(0, n.css(0.42 * k)); g.addColorStop(0.5, n.css(0.18 * k)); g.addColorStop(1, n.css(0));
     ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, gr, 0, TAU); ctx.fill(); ctx.restore();
-  } else if (o.glow !== false) {
-    // a lighter pool of light behind it: the dark outline needs something brighter to sit on
-    const gr = s * grow * 1.05, g = ctx.createRadialGradient(x, y, s * 0.3, x, y, gr);
-    g.addColorStop(0, `rgba(210,191,255,${0.55 * (o.glowK ?? 1)})`);
-    g.addColorStop(0.6, `rgba(138,108,201,${0.3 * (o.glowK ?? 1)})`);
-    g.addColorStop(1, "rgba(138,108,201,0)");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, gr, 0, TAU); ctx.fill();
   }
   // pixel-art pace: a new frame every 100 ms, drawn once and reused, placed on whole pixels so it never shimmers
   const t = Math.floor((o.t ?? game.time) / 100) * 100;
-  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${t}|${PX}|${o.acc || ""}|${!!o.cap}`;
+  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${t}|${PX}|${o.acc || ""}|${!!o.cap}|${!!o.sil}`;
   let f = spriteFrames.get(key);
   if (!f) {
     if (spriteFrames.size > 400) spriteFrames.clear();
-    f = bakeSprite(0, 0, s * grow, () => drawCreature(ctx, 0, 0, s, sp, { ...o, t, glow: false }), { lut: SPRITE_LUT, soft: false });
+    f = bakeSprite(0, 0, s * grow, () => drawCreature(ctx, 0, 0, s, sp, { ...o, t, glow: false }), { lut: lutOf(sp), soft: false, post: glowStyle(sp, o.sil) });
+    f.t = t;
     spriteFrames.set(key, f);
   }
   drawBaked(look && !o.sil ? neonize(f, sp, look) : f, x, y);
@@ -623,58 +702,61 @@ function cachedSprite(owner, slot, key, make) {
 /** Draw something as a crisp sprite onto a canvas whose transform maps to its pixels: see drawSprite. */
 /** Faces waiting to be stamped while a sprite is being cut (drawCreature fills it in). */
 let faceStamp = null;
-const FACE = { ink: pxHex("#22143a"), hi: pxHex("#ffffff"), blush: pxHex("#e88bb1"), mouthIn: pxHex("#8f3460") };
+const FACE = { ink: pxHex("#22143a"), deep: pxHex("#3d2866"), hi: pxHex("#ffffff"), blush: pxHex("#e88bb1"), blushHi: pxHex("#ffc4da"), mouthIn: pxHex("#8f3460") };
 /**
  * A glowling's face in whole pixels, sized to the sprite (the way small pixel faces are drawn):
- * tiny sprites get one-pixel eyes, middle ones 2×2 eyes with a white glint, big ones 3×3; smiles are three pixels,
- * blush is two pink pixels, closed and happy eyes are little pixel arcs.
+ * big round dark eyes set wide, with a white glint (two in bigger ones), a little smile (a "w" for cats and foxes),
+ * and a pink "+" of blush under each eye; tiny sprites get one-pixel eyes and a dot of a mouth.
  */
 function stampFace(d, w, h, solid, f, ox, oy) {
   const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h || !solid[y * w + x]) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
-  const R = f.r, e = R < 8 ? 1 : R < 17 ? 2 : R < 26 ? 3 : Math.round(R * 0.13), big = f.kind === "big", tall = e + (big && e > 1 ? 1 : 0) + (e === 1 && R >= 6 ? 1 : 0) + (e >= 4 ? Math.round(e * 0.3) : 0);
+  const R = f.r, big = f.kind === "big", e = R < 7 ? 1 : Math.max(2, Math.round(R * (big ? 0.26 : 0.22))), tall = e === 1 ? (R >= 5 ? 2 : 1) : e + Math.max(1, Math.round(e * 0.25));
   const eyes = f.eyes.map(([x, y]) => [Math.round(x - ox - e / 2), Math.round(y - oy - tall / 2)]);
-  const arc = (x, y, up) => { for (let k = 0; k <= e; k++) put(x + k, y + (k === 0 || k === e ? (up ? 1 : 0) : (up ? 0 : 1)), FACE.ink); };
+  const arc = (x, y, up) => { for (let k = -1; k <= e; k++) put(x + k, y + (k === -1 || k === e ? (up ? 1 : 0) : (up ? 0 : 1)), FACE.ink); };
+  const round = (x0, y0, E, T) => { for (let j = 0; j < T; j++) for (let k = 0; k < E; k++) if (E < 3 || ((k + 0.5 - E / 2) / (E / 2)) ** 2 + ((j + 0.5 - T / 2) / (T / 2)) ** 2 <= 1.2) put(x0 + k, y0 + j, FACE.ink); };
   for (const [x, y] of eyes) {
     if (f.mood === "hungry" && !f.blink && !f.eating && R >= 8) {
       // hungry: big, round, shiny puppy eyes (larger than usual, two glints, a wet shine along the bottom)
-      const E = Math.max(3, Math.round(e * 1.6)), Th = Math.max(4, Math.round(tall * 1.45)), x0 = Math.round(x + e / 2 - E / 2), y0 = Math.round(y + tall / 2 - Th / 2);
-      for (let j = 0; j < Th; j++) for (let k = 0; k < E; k++) if (((k + 0.5 - E / 2) / (E / 2)) ** 2 + ((j + 0.5 - Th / 2) / (Th / 2)) ** 2 <= 1.08) put(x0 + k, y0 + j, FACE.ink);
-      // one bright glint high up (bigger in bigger eyes) and a tiny one low on the other side
+      const E = Math.max(3, Math.round(e * 1.4)), Th = Math.max(4, Math.round(tall * 1.3)), x0 = Math.round(x + e / 2 - E / 2), y0 = Math.round(y + tall / 2 - Th / 2);
+      round(x0, y0, E, Th);
       const g = E >= 6 ? 2 : 1;
       for (let j = 0; j < g; j++) for (let k = 0; k < g; k++) put(x0 + E - 1 - g + k - (E >= 5 ? 1 : 0), y0 + 1 + j, FACE.hi);
-      if (E >= 4) put(x0 + 1, y0 + Th - 2 - (E >= 6 ? 1 : 0), FACE.hi);
+      put(x0 + 1, y0 + Th - 2 - (E >= 6 ? 1 : 0), FACE.hi);
     }
     else if (f.mood === "happy" || f.mood === "joy") arc(x, y + Math.floor(tall / 2), true);
     else if (f.mood === "asleep") arc(x, y + Math.floor(tall / 2) - 1, false);
-    else if (f.blink) for (let k = 0; k <= e; k++) put(x + k - (e > 1 ? 0 : 0), y + Math.floor(tall / 2), FACE.ink);
-    else if (f.kind === "sleepy") { for (let k = 0; k < e + 1; k++) put(x + k, y + Math.floor(tall / 2) - 1, FACE.ink); for (let k = 0; k < e; k++) for (let j = 0; j < Math.ceil(tall / 2); j++) put(x + k, y + Math.floor(tall / 2) + j, FACE.ink); }
-    else if (e >= 4) {
-      // big sprites: a round eye, filled pixel by pixel, with a round glint
-      const cx = x + e / 2, cy = y + tall / 2;
-      for (let j = 0; j < tall; j++) for (let k = 0; k < e; k++) if (((k + 0.5 - e / 2) / (e / 2)) ** 2 + ((j + 0.5 - tall / 2) / (tall / 2)) ** 2 <= 1) put(x + k, y + j, FACE.ink);
-      const gr = Math.max(1, e * 0.18);
-      for (let j = -2; j <= 2; j++) for (let k = -2; k <= 2; k++) if (Math.hypot(k, j) <= gr) put(cx + e * 0.18 + k, cy - tall * 0.2 + j, FACE.hi);
+    else if (f.blink) for (let k = 0; k < e; k++) put(x + k, y + Math.floor(tall / 2), FACE.ink);
+    else if (f.kind === "sleepy") { for (let k = -1; k <= e; k++) put(x + k, y + Math.floor(tall / 2) - 1, FACE.ink); for (let k = 0; k < e; k++) for (let j = 0; j < Math.ceil(tall / 2); j++) put(x + k, y + Math.floor(tall / 2) + j, FACE.ink); }
+    else if (e >= 3) {
+      // a round eye with a glint high on the lit side, and a little one low on the other
+      round(x, y, e, tall);
+      const g = e >= 5 ? 2 : 1, gx = x + Math.max(0, Math.round(e * 0.22) - (e >= 5 ? 0 : 0)), gy = y + Math.max(0, Math.round(tall * 0.15));
+      for (let j = 0; j < g; j++) for (let k = 0; k < g; k++) put(gx + k, gy + j, FACE.hi);
+      if (e >= 4 || f.kind === "sparkle") put(x + e - 1 - (e >= 5 ? 1 : 0), y + tall - 2, FACE.hi);
+      if (e >= 4) for (let k = 1; k < e - 1; k++) if (d[((y + tall - 1) * w + x + k) * 4] === FACE.ink[0]) put(x + k, y + tall - 1, FACE.deep);
     }
     else {
       for (let k = 0; k < e; k++) for (let j = 0; j < tall; j++) put(x + k, y + j, FACE.ink);
-      // the glint, top right; sparkly eyes get a second one low left
-      if (e > 1) { put(x + e - 1, y, FACE.hi); if (f.kind === "sparkle" && e > 2) put(x, y + tall - 1, FACE.hi); }
+      if (e > 1) put(x, y, FACE.hi);
     }
   }
   if (f.mood === "sad" || f.mood === "hungry") eyes.forEach(([x, y], i) => { const dir = i ? 1 : -1; put(x + (dir < 0 ? e : -1), y - 2, FACE.ink); put(x + (dir < 0 ? e + 1 : -2), y - 3, FACE.ink); });
-  // blush: a short pink dash under each eye, a little outside
-  if (R >= 8) for (const [x, y] of f.blush) { const bw = Math.max(1, Math.round(R * 0.07)), bh = R >= 26 ? 2 : 1; for (let k = -bw; k < bw; k++) for (let j = 0; j < bh; j++) put(x - ox + k, y - oy + j, FACE.blush); }
+  // blush: a little pink "+" under each eye, a touch outside it (a single pixel on tiny sprites)
+  if (R >= 7) for (const [bx, by] of f.blush) {
+    const x = Math.round(bx - ox), y = Math.round(by - oy), arm = R >= 26 ? 2 : R >= 10 ? 1 : 0;
+    for (let k = 1; k <= arm; k++) for (const [dx, dy] of [[k, 0], [-k, 0], [0, k], [0, -k]]) put(x + dx, y + dy, FACE.blush);
+    put(x, y, arm ? FACE.blushHi : FACE.blush);
+  }
   // the mouth
-  const mx = Math.round(f.mouth[0] - ox), my = Math.round(f.mouth[1] - oy);
+  const mx = Math.round(f.mouth[0] - ox), my = Math.round(f.mouth[1] - oy), mw = R < 14 ? 1 : R < 30 ? 2 : 3;
   if (f.eating) { const open = Math.sin(f.t * 0.03) > 0; put(mx, my, FACE.ink); put(mx + 1, my, FACE.ink); if (open) { put(mx, my + 1, FACE.mouthIn); put(mx + 1, my + 1, FACE.ink); } }
   else if (R < 8) put(mx, my, FACE.ink);
   else if (f.mood === "sad" || f.mood === "hungry") { put(mx - 1, my + 1, FACE.ink); put(mx, my, FACE.ink); put(mx + 1, my + 1, FACE.ink); }
   else if (f.mood === "asleep") put(mx, my, FACE.ink);
-  else if (R >= 26) { const mw = Math.round(R * 0.11); for (let k = -mw; k <= mw; k++) put(mx + k, my + Math.round((1 - (k / mw) ** 2) * mw * 0.55), FACE.ink); }
-  else { put(mx - 1, my, FACE.ink); put(mx, my + 1, FACE.ink); put(mx + 1, my, FACE.ink); }
+  else for (let k = -mw; k <= mw; k++) put(mx + k, my + (Math.abs(k) === mw || (f.cat && k === 0 && mw > 1) ? 0 : 1), FACE.ink);
 }
 
-function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down = 1, side = 1.25, soft = false } = {}) {
+function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down = 1, side = 1.25, soft = false, post = null } = {}) {
   const M = target.getTransform(), k = Math.hypot(M.a, M.b);
   const cx = M.a * x + M.c * y + M.e, cy = M.b * x + M.d * y + M.f, r = size * k;
   const ox = Math.floor(cx - r * side) - 1, oy = Math.floor(cy - r * up) - 1;
@@ -738,6 +820,7 @@ function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down
       const i = p * 4; d[i] = ink[0]; d[i + 1] = ink[1]; d[i + 2] = ink[2]; d[i + 3] = 255;
     }
   }
+  if (post) post(d, w, h, solid);
   og.clearRect(0, 0, oc.width, oc.height);
   og.putImageData(im, 0, 0);
   target.save(); target.setTransform(1, 0, 0, 1, 0, 0);
@@ -758,7 +841,7 @@ function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, 
   const o = small.getContext("2d");
   o.setTransform(n / size, 0, 0, n / size, 0, 0);
   const grow = [0.82, 1, 1.12, 1.22][stageOf(level)];
-  const paint = () => cutSprite(o, size / 2, size * 0.56, size * 0.5, g => drawCreature(g, size / 2, size * 0.56, size * 0.5 / grow, sp, { t: 1000, sil, level, shiny, mood, glow: false, acc }));
+  const paint = () => cutSprite(o, size / 2, size * 0.56, size * 0.5, g => drawCreature(g, size / 2, size * 0.56, size * 0.5 / grow, sp, { t: 1000, sil, level, shiny, mood, glow: false, acc }), { lut: lutOf(sp), post: glowStyle(sp, sil) });
   paint();
   if (art) {
     // a small picture should be all glowling: find its edges, then draw it again filling the frame (more pixels for the eyes and ears)
@@ -774,12 +857,6 @@ function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, 
         paint();
       }
     }
-  }
-  if (sil) {
-    o.setTransform(1, 0, 0, 1, 0, 0);
-    o.globalCompositeOperation = "source-atop";
-    o.fillStyle = "#523a85";
-    o.fillRect(0, 0, n, n);
   }
   if (art) { const url = small.toDataURL("image/png"); thumbCache.set(key, url); return url; }
   const c = document.createElement("canvas");

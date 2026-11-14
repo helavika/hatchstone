@@ -125,7 +125,7 @@ const SPECIES = [
     lore: "Always sits closest to the lamp and hums like a kettle about to boil. Very good at being warm." },
   { id: "pippom", name: "Pippom", crystal: "garnet", body: "round", head: "petals", pattern: "spots", eyes: "big", snack: "berry", voice: 1.2,
     lore: "Named for pomegranate seeds, like its stone. Rattles softly when it hops, and nobody knows why." },
-  { id: "tigrell", name: "Tigrell", crystal: "tigereye", pal: ["#a8662a", "#e0a050", "#5a3410"], body: "bean", ears: "cat", back: "tail", pattern: "stripes", eyes: "sparkle", snack: "cookie", voice: 1.0,
+  { id: "tigrell", name: "Tigrell", crystal: "tigereye", pal: ["#dc9a3c", "#f7cf78", "#8a5420"], body: "bean", ears: "cat", back: "tail", pattern: "stripes", eyes: "sparkle", snack: "cookie", voice: 1.0,
     lore: "Its stripes flash gold when it turns its head. So it turns its head a lot." },
   { id: "gladewing", name: "Gladewing", crystal: "emerald", pal: ["#2fae68", "#8fe8b4", "#13693c"], body: "drop", head: "sprout", back: "mothwings", pattern: "spots", eyes: "sparkle", snack: "dew", voice: 1.1,
     lore: "Carries a tiny garden inside, just like an emerald. It lets you look, if you ask nicely." }
