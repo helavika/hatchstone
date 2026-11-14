@@ -546,7 +546,7 @@ function drawRoom() {
   // pieces made only as isometric pixel art stand in the room as they are, at their own spots
   for (const d of DECOR) if (hasDecor(d.id) && d.iso && !d.wall && !DRAW_DECOR[d.id] && ISO_ART[d.id]) {
     const [x, y] = decorSpot(d.id), k = depthK(y), tw = Math.max(6, Math.round(N.base * k * 0.6 / PX)), pad = Math.ceil(tw * 1.2) + 3;
-    const w = Math.ceil(2 * tw + pad * 2), h = tw + tw * 2 + pad, ax0 = tw + pad, ay = tw * 2 + pad / 2;
+    const w = Math.ceil(2 * tw + pad * 2), h = tw + tw * 3.2 + pad, ax0 = tw + pad, ay = tw * 3.2 + pad / 2;
     const extra = pieceExtra({ id: d.id });
     items.push({ y, draw: () => drawBaked(cachedSprite(roomSprites, d.id, `front|${x}|${y}|${tw}|${PX}|${JSON.stringify(extra)}`,
       () => ({ c: isoArt(w, h, T => ISO_ART[d.id](tw, T, ax0, ay, extra)), x: Math.round(x / PX - ax0) * PX, y: Math.round(y / PX - ay - tw) * PX }))) });
@@ -990,6 +990,46 @@ function isoRoll(K, T, u0, u1, v, z, R, side, end) {
 /** Polished brass: its own shades, off every texture ramp, so it stays smooth and bright. */
 const BRASS = ["#fff4c4", "#f0c868", "#c8923c", "#8e6226", "#5c3c16"].map(pxHex);
 const BURLAP = ["#ece0bc", "#cdb98c", "#a38d62", "#72603f", "#433625"].map(pxHex);
+// The nest's own furniture, made by the keepers: root-wood, moss velvet, cast iron, lacquer and glaze, each in a few flat
+// bands of its own (off the texture ramps, so the bands stay clean), lit from the top left like the glowlings and the beds
+const DECO_IRON = ["#b4bcd8", "#7c84a8", "#535a7c", "#353a56", "#1e2036"].map(pxHex);
+const DECO_VELVET = ["#c2e6a0", "#82bc6a", "#528c52", "#346642", "#1e402e"].map(pxHex);
+const DECO_ROSEWOOD = ["#d8907a", "#a85a50", "#7a3a40", "#52243a", "#301428"].map(pxHex);
+const DECO_LACQUER = ["#ffc2b4", "#f0705e", "#c4404a", "#8a2440", "#561634"].map(pxHex);
+const DECO_MOON = ["#ffffff", "#fff4c4", "#f6dc8a", "#d9b25a", "#a57a34"].map(pxHex);
+const DECO_AQUA = ["#ffffff", "#d4f6ff", "#9fe4f4", "#5cc0dc", "#3a8eb4", "#24607e"].map(pxHex);
+/** A turned shape standing at (x, y): a lamp's foot, a pedestal, a pot, a drum. Rings from z0 up to z1, r(z) wide, each in
+ *  the flat bands of its ramp from the lit left to the shaded right, dithered only where two bands meet; then its top as a lid
+ *  (lid: false leaves it open, or a function colours it). band(k, x, y, z) can nudge a band: flutes, pleats, hoops. */
+function isoLathe(T, x, y, z0, z1, r, ramp, { lid = true, lit = 0, band = null } = {}) {
+  const n = ramp.length - 1;
+  for (let z = z0; z <= z1; z++) {
+    const rr = r(z); if (rr <= 0.4) continue;
+    T.disc(x, y - z, rr, (xx, yy) => { let k = 1 + bedBand(-(xx + 0.5 - x) / rr * 0.9 + lit, [0.5, -0.02, -0.55], xx, yy); if (band) k = band(k, xx, yy, z); return ramp[clamp(k, 0, n)]; });
+  }
+  const rt = r(z1);
+  if (lid && rt > 0.4) T.disc(x, y - z1, rt, typeof lid === "function" ? lid : (xx, yy) => ramp[Math.min(n, bedBand(-(xx + 0.5 - x) / rt * 0.6 - (yy + 0.5 - y + z1) / rt + 0.25, [0.3, -0.5], xx, yy))]);
+}
+/** A little glint, the way the glowlings shine: a short bright stroke and a dot. */
+function decoGloss(T, x, y, n = 2) { for (let k = 0; k < n; k++) T.px(x + k, y - (k >> 1), IC.white); T.px(x + n + 1, y - (n >> 1), IC.white); }
+/** A tuft of moss lying on something, and now and then a glowcap growing out of it. */
+function decoMoss(T, x, y, r, cap = 0) {
+  bedPlush(T, x, y, r, Math.max(1.5, r * 0.62), BED_MOSS, { gloss: false, curls: true });
+  if (cap) bedGlowcap(T, x + r * 0.4, y - 1, Math.round(cap * 1.4), cap);
+}
+/** The swing's moon seat: a crescent lying on its back, its craters, a glossy shine and (cushion) a felt pad in its hollow
+ *  to sit on. (x, y) is the middle of its circle, r its radius in art pixels. */
+function moonSeat(T, x, y, r, cushion = true) {
+  for (let yy = Math.floor(y); yy <= Math.ceil(y + r); yy++) for (let xx = Math.floor(x - r); xx <= Math.ceil(x + r); xx++) {
+    const dx = xx + 0.5 - x, dy = yy + 0.5 - y, d = Math.hypot(dx, dy) / r, di = Math.hypot(dx, dy + r * 0.38) / (r * 0.92);
+    if (d > 1 || di < 1 || dy < r * 0.12) continue;
+    let k = 1 + bedBand(-dx / r * 0.6 - (di - 1) * 2.4 + 0.25, [0.35, -0.1, -0.5], xx, yy);
+    if (r > 6 && k < 4 && pxHash(xx >> 1, yy >> 1) > 0.9) k++;
+    T.px(xx, yy, DECO_MOON[k]);
+  }
+  if (r > 6) decoGloss(T, x - r * 0.72, y + r * 0.42, 1);
+  if (cushion && r > 6) bedPlush(T, x, y + r * 0.5, r * 0.46, Math.max(1.5, r * 0.17), BED_FELT, { gloss: false });
+}
 /** A burlap sack sitting on the floor at (x, y): a soft round body with a flat bottom, creases falling from a neck tied with
  *  rope and a gathered tuft above it, or, opened, its rim rolled down over what it holds. */
 function isoSack(T, x, y, r, hgt, { open = null, mark = null, lean = 0 } = {}) {
@@ -1037,48 +1077,79 @@ function isoGoods(K, T, kind, u, v, z, U, k = 0) {
 }
 const ISO_ART = {
   lamp(t, T, ax, ay, o) {
-    const cx = ax, cy = ay + t / 2, top = cy - t * 1.7;
-    if (!o.off) T.glow(cx, top + 2, t * 1.1, IC.y0, 0.38);
-    T.cyl(cx, cy, t * 0.24, 2, IC.l2, IC.l3, IC.l4);
-    for (let y = Math.round(top + 4); y < cy - 1; y++) { T.px(cx - 1, y, IC.l1); T.px(cx, y, IC.l4); }
-    // the crystal shade: a little prism, lit facets left and top
-    const sh = o.off ? [IC.s2, IC.s3, IC.s4] : [IC.y0, IC.y1, IC.w1];
-    T.poly([[cx, top - 5], [cx - 4, top], [cx, top + 4]], sh[0]);
-    T.poly([[cx, top - 5], [cx + 4, top], [cx, top + 4]], sh[1]);
-    T.poly([[cx - 4, top], [cx, top + 4], [cx + 4, top], [cx, top + 2]], sh[2]);
-    if (!o.off) T.px(cx - 1, top - 2, IC.white);
+    // a standard lamp of root-wood, taller than a keeper's shoulder: three roots gripping a mossy stone for its foot, a stem
+    // twisting up through a brass collar, a pleated felt shade glowing warm from inside with a beaded fringe, an amethyst
+    // hanging under it for the bulb and another for the finial. Switched off, the shade goes dusky and the glow goes out
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), H = Math.round(t * 2.2), on = !o.off;
+    const zs = H - Math.round(t * 0.62), sh = on ? [IC.white, IC.y0, pxHex("#f8d890"), IC.y1, pxHex("#c88a48")] : ["#d8cce6", "#b4a6c8", "#8a7aa6", "#5e507a", "#3d3358"].map(pxHex);
+    if (on) { T.glow(x, y - zs, t * 1.35, IC.y0, 0.34); T.glow(x, y - zs + t * 0.3, t * 0.8, IC.y0, 0.3); }
+    // the foot: a mossy stone, and three roots gripping it
+    isoLathe(T, x, y, 0, Math.round(t * 0.14), z => t * (0.36 - z / t * 0.7), [IC.s0, IC.s1, IC.s2, IC.s3, IC.s4]);
+    decoMoss(T, x - t * 0.18, y - t * 0.14, t * 0.14);
+    const zf = Math.round(t * 0.14);
+    for (const [dx, dy] of [[-0.34, 0.06], [0.3, 0.1], [0.04, 0.2]]) for (let k = 0; k < 2; k++) T.line(x + k, y - zf - 3, x + dx * t + k, y - zf + dy * t, BED_ROOT[k ? 3 : 1]);
+    // the stem, twisting gently, lit on the left
+    for (let z = zf; z < zs; z++) { const sx = x + Math.round(Math.sin(z * 0.22) * 0.8); T.px(sx - 1, y - z, BED_ROOT[1]); T.px(sx, y - z, (z & 3) ? BED_ROOT[2] : BED_ROOT[3]); T.px(sx + 1, y - z, BED_ROOT[3]); }
+    isoLathe(T, x, y, Math.round(zs * 0.42), Math.round(zs * 0.42) + 2, () => 2.6, BRASS);
+    isoLathe(T, x, y, zs - 3, zs, () => 2.2, BRASS);
+    // the bulb: an amethyst point hanging under the shade
+    for (let k = 0; k < 4; k++) for (let q = -1; q <= 1; q++) if (Math.abs(q) <= (3 - k) * 0.5 + 0.2) T.px(x + q, y - zs + 1 + k, on ? (q < 0 ? IC.white : q ? IC.y1 : IC.y0) : (q < 0 ? IC.l1 : IC.l3));
+    // the shade: a bell of pleated felt, wider at the bottom, its lower rim lit brightest from inside
+    const r0 = t * 0.46, r1 = t * 0.24, hs = H - zs;
+    isoLathe(T, x, y, zs, H, z => r1 + (r0 - r1) * Math.pow(1 - (z - zs) / hs, 1.4), sh, { lit: on ? 0.25 : 0,
+      band: (k, xx, yy, z) => (z === zs || z === zs + 1) && on ? 0 : k + ((xx - x + 40) % 3 === 0 ? 1 : 0), lid: (xx) => xx < x ? sh[1] : sh[2] });
+    T.disc(x, y - H, r1 - 1.6, on ? sh[0] : sh[2]);
+    // a beaded fringe along the hem
+    for (let dx = -Math.floor(r0) + 1; dx < r0; dx += 2) { const fy = y - zs + r0 / 2 * Math.sqrt(Math.max(0, 1 - (dx / r0) ** 2)); T.px(x + dx, fy + 1, BRASS[dx < 0 ? 1 : 2]); T.px(x + dx, fy + 2, dx % 4 ? BRASS[3] : IC.l2); }
+    bedCrystal(T, x, y - H, Math.max(4, t * 0.2), Math.max(1.5, t * 0.06));
+    if (on) decoGloss(T, x - r0 * 0.55, y - zs - hs * 0.45, 1);
   },
   bookcase(t, T, ax, ay) {
-    const a = t / 2 - 0.5, b = t * 0.32, hgt = Math.round(t * 1.55);
-    const B = T.box(ax, ay, a, b, hgt, IC.w1, IC.w2, IC.w3);
-    // the open front faces the room (the left-hand face): shelves and books on it
-    const at = (s, z) => [B.Bv[0] + (B.Buv[0] - B.Bv[0]) * s, B.Bv[1] + (B.Buv[1] - B.Bv[1]) * s - z];
-    // real books: spines two or three pixels wide in a cloth color with a shaded edge, light bands near the top and bottom,
-    // different heights, a gap now and then, and one leaning on its neighbour
+    // a tall oak bookcase, a head over the keepers: a plinth, the carcass with a raised panel down its side, a cornice on
+    // top; inside, four shelves in shadow under each board, filled with real books (spines in cloth colours with gilt bands,
+    // different heights, a gap, one leaning, one lying flat), a geode, a jar of glowcaps; moss creeping over the cornice and
+    // a crystal cluster standing on it
+    const U = t / 2, K = isoKit(T, ax, ay), u0 = 0.05 * U, u1 = 0.95 * U, v0 = 0.08 * U, v1 = 0.62 * U, H = Math.round(t * 2.05), so = 0.09 * U;
+    K.box(u0 - 0.02 * U, v0, 0, u1 - u0 + 0.04 * U, v1 - v0 + 0.03 * U, 4, IC.w2, IC.w2, IC.w3);
+    K.box(u0, v0, 4, u1 - u0, v1 - v0, H - 8, IC.w1, IC.w2, IC.w3);
+    // the raised panel on the side
+    { const f = (a, b, z0, z1, col) => K.faceU(u1, a, b, z0, z1, col, 7), a = v0 + 0.08 * U, b = v1 - 0.08 * U, z0 = 8, z1 = H - 10;
+      f(a, b, z0, z1, IC.ink2); f(a + 0.4, b - 0.4, z0 + 1, z1 - 1, IC.w3); f(a + 0.4, b - 0.4, z1 - 2, z1 - 1, IC.w2); f(a + 0.4, a + 0.9, z0 + 1, z1 - 1, IC.w2); }
+    // the inside: dark at the back, a shelf board every row with a lit edge and a shadow under it
+    const ua = u0 + so, ub = u1 - so, zi0 = 6, zi1 = H - 7, rows = 4, rh = (zi1 - zi0) / rows;
+    K.faceV(v1, ua, ub, zi0, zi1, IC.w3, 1);
+    for (let r = 0; r < rows; r++) { const z = zi0 + r * rh; K.faceV(v1, ua, ub, z + rh - 3, z + rh, IC.ink2, 0); }
     const BOOKS = [[IC.p1, IC.p3, IC.y0], [IC.b1, IC.b3, IC.y0], [IC.g1, IC.g3, IC.y1], [IC.r1, IC.r3, IC.y0], [IC.l2, IC.l4, IC.white], [IC.y1, IC.w3, IC.r2], [IC.b2, IC.b3, IC.y1], [IC.s1, IC.s3, IC.p2]];
-    const fw = Math.max(6, Math.abs(B.Buv[0] - B.Bv[0])), ds = 1 / fw, rowH = (hgt - 3) / 3;
-    const book = (s, w, z0, tall, col, lean = 0) => {
-      for (let z = z0; z < tall; z++) for (let c = 0; c < w; c++) {
-        const ss = s + (c + Math.round((z - z0) * lean)) * ds;
-        if (ss >= 1 - ds) continue;
-        const band = (z === z0 + 1 || z === tall - 2) && c < w - 1, [x, y] = at(ss, z);
-        T.px(x, y, band ? col[2] : c === w - 1 ? col[1] : col[0]);
-      }
+    const vb = v1 - 0.04 * U, book = (u, w, z0, tall, col, lean = 0) => {
+      for (let c = 0; c < w; c++) for (let z = z0; z < z0 + tall; z++) { const uu = u + c * 0.5 + (z - z0) * lean * 0.5; if (uu > ub - 0.4) continue; const band = (z === z0 + 1 || z === z0 + tall - 2) && c < w - 1; K.dot(uu, vb, z, band ? col[2] : c === w - 1 ? col[1] : col[0]); }
     };
-    for (let row = 0; row < 3; row++) {
-      const z0 = 2 + row * rowH, top = z0 + rowH - 1;
-      let s = 1.5 * ds, k = row * 7;
-      while (s < 1 - 4 * ds) {
+    for (let r = 0; r < rows; r++) {
+      const z0 = Math.round(zi0 + r * rh) + 1, top = Math.round(rh) - 2;
+      let u = ua + 0.3, k = r * 7;
+      while (u < ub - 1.2) {
         k++;
-        if (pxHash(k, 5 + row) > 0.9) { s += 2 * ds; continue; }
-        const w = pxHash(k, row + 3) > 0.5 ? 4 : 3, col = BOOKS[Math.floor(pxHash(k, 11 + row) * BOOKS.length)];
-        const tall = Math.round(top - 1 - pxHash(k, 7) * Math.min(3, rowH * 0.3));
-        if (row === 1 && s > 0.62 && s < 0.8) { book(s, 3, z0, Math.round(tall - 1), col, 0.35); s += 6 * ds; continue; }
-        book(s, w, z0, tall, col);
-        s += w * ds;
+        const col = BOOKS[Math.floor(pxHash(k, 11 + r) * BOOKS.length)];
+        if (r === 3 && u > ua + (ub - ua) * 0.55) {
+          // the top shelf ends with a half geode and a jar of glowcaps
+          const [gx, gy] = K.P(u + 0.9, vb - 0.1 * U, z0); T.ball(gx, gy - 3, 3.2, IC.s1, IC.s2, IC.s3, 3); T.disc(gx - 1, gy - 3, 2.2, (xx, yy) => pxHash(xx, yy) > 0.5 ? IC.l1 : IC.l3, 2.4); T.px(gx - 2, gy - 4, IC.white);
+          const [jx, jy] = K.P(u + 2.6, vb - 0.1 * U, z0); T.glow(jx, jy - 4, 5, BED_GLOW[3], 0.4); T.disc(jx, jy - 3, 2.4, BED_GLOW[4], 3.5); T.px(jx - 1, jy - 5, BED_GLOW[1]); T.px(jx + 1, jy - 3, BED_GLOW[2]); T.px(jx - 2, jy - 3, IC.white); T.line(jx - 2, jy - 7, jx + 2, jy - 7, IC.w1);
+          break;
+        }
+        if (pxHash(k, 5 + r) > 0.88) { u += 1; continue; }
+        if (r === 1 && pxHash(k, 2) > 0.8) { for (let j = 0; j < 3; j++) K.box(u, vb - 0.2 * U, z0 + j * 2, 2.2, 0.2 * U, 2, BOOKS[(k + j) % 8][0], BOOKS[(k + j) % 8][0], BOOKS[(k + j) % 8][1], false); u += 2.6; continue; }
+        const w = pxHash(k, r + 3) > 0.5 ? 4 : 3, tall = top - Math.round(pxHash(k, 7) * Math.min(3, top * 0.3));
+        if (r === 2 && pxHash(k, 9) > 0.75) { book(u, 3, z0, tall - 1, col, 0.4); u += 2.6; continue; }
+        book(u, w, z0, tall, col);
+        u += w * 0.5;
       }
-      for (let s2 = 0; s2 <= 1; s2 += ds / 2) { const [x, y] = at(s2, z0 - 1); T.px(x, y, IC.w3); }
     }
+    // the stiles over the books' ends, and the cornice
+    K.faceV(v1, u0, ua, 4, H - 4, IC.w2, 3); K.faceV(v1, ub, u1, 4, H - 4, IC.w2, 3); K.seg([u0, v1, H - 5], [u0, v1, 5], IC.w1);
+    K.box(u0 - 0.05 * U, v0 - 0.03 * U, H - 4, u1 - u0 + 0.1 * U, v1 - v0 + 0.08 * U, 4, IC.w1, IC.w2, IC.w3);
+    K.faceV(v1 + 0.05 * U, u0 - 0.05 * U, u1 + 0.05 * U, H - 2, H - 1, IC.w3, 1);
+    { const [cx, cy] = K.P(0.68 * U, 0.3 * U, H); for (const [dx, h, w, l] of [[-2, 0.36, 0.07, -0.08], [1, 0.5, 0.085, 0.04], [4, 0.28, 0.06, 0.12]]) bedCrystal(T, cx + dx, cy, t * h, Math.max(1.5, t * w), l * t); }
+    decoMoss(T, ...K.P(0.18 * U, 0.5 * U, H), t * 0.16, t * 0.08);
+    for (let k = 0; k < 4; k++) K.dot(0.08 * U + k * 0.6, v1 + 0.06 * U, H - 2 - (k % 3) - 1, BED_MOSS[2]);
   },
   spring(t, T, ax, ay, o) {
     // a little moon pond: a ring of rounded stones, water dark in the deep middle and light at the shallow rim,
@@ -1105,109 +1176,137 @@ const ISO_ART = {
     for (let k = 0; k < 16; k++) { const an = k / 16 * TAU; if (k % 2) T.px(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr / 2, IC.b0); }
   },
   armchair(t, T, ax, ay) {
-    // a big puffy bubble chair in deep green velvet: a ring of fat round cushions (tall at the back, lower for the arms,
-    // plump pumpkin-like ones along the front), a seat of more cushions inside, and a fine dotted weave all over
-    const cx = ax, cy = ay + t / 2 + 1, rx = t * 0.8, ry = rx / 2, r = Math.max(2.5, t * 0.23), seatY = cy - r * 0.8, seam = pxHex("#123a24");
-    const bubble = (x, y, rr, rh, lit0 = IC.g1, mid = IC.g2) => {
-      T.ball(x, y + 0.6, rr + 0.9, seam, seam, seam, rh + 0.9);         // a dark seam where it presses into its neighbours
-      T.ball(x, y, rr, lit0, mid, IC.g3, rh);
-      T.px(x - rr * 0.4, y - rh * 0.5, IC.g0);                            // a soft sheen
-      // the dotted weave: little dents in a staggered grid
-      for (let py = Math.ceil(y - rh) + 1; py < y + rh; py += 2) for (let px = Math.ceil(x - rr) + (py & 2 ? 1 : 0); px < x + rr; px += 3) {
-        const dx = (px + 0.5 - x) / rr, dy = (py + 0.5 - y) / rh, lit = -dx * 0.6 - dy * 0.8;
-        if (dx * dx + dy * dy < 0.72 && lit > -0.35) T.px(px, py, lit > 0.45 ? mid : IC.g3);
-      }
+    // a wingback armchair the keepers upholstered in moss-green velvet: a carved root-wood frame on cabriole legs, a camel
+    // back buttoned in a diamond, wings, rolled arms with a scroll at the front, a plump seat cushion with piping, a teal
+    // felt pillow and an amethyst set in the crest. Its seat is a glowling's lap height
+    const U = t / 2, K = isoKit(T, ax, ay), V = DECO_VELVET, R = BED_ROOT;
+    const u0 = 0.06 * U, u1 = 0.94 * U, v0 = 0.06 * U, v1 = 0.96 * U, aw = 0.2 * U, bd = 0.24 * U, lg = 0.1 * U;
+    const L = Math.round(t * 0.16), zs = L + Math.round(t * 0.26), zc = zs + Math.round(t * 0.12), za = Math.round(t * 0.74), zw = Math.round(t * 1.12), zb = Math.round(t * 1.38);
+    const leg = (u, v) => { K.box(u, v, 0, lg, lg, L, R[1], R[2], R[3], false); K.dot(u + lg, v + lg, 0, BRASS[1]); };
+    leg(u0 + 0.04 * U, v0); leg(u1 - lg - 0.04 * U, v0);
+    // the back, rising in a camel hump, and its show-wood crest
+    const ub0 = u0 + 0.06 * U, ub1 = u1 - 0.06 * U, vb = v0 + bd, hump = u => (t * 0.16 * Math.sin(Math.PI * clamp((u - ub0) / (ub1 - ub0), 0, 1)));
+    K.box(ub0, v0, L, ub1 - ub0, bd, zb - L, V[1], V[2], V[3]);
+    for (let u = ub0; u < ub1; u += 0.5) { const p = hump(u), q = hump(u + 0.5); K.quad([[u, vb, zb], [u + 0.55, vb, zb], [u + 0.55, vb, zb + q], [u, vb, zb + p]], V[2], 0); K.quad([[u, v0, zb + p], [u + 0.55, v0, zb + q], [u + 0.55, vb, zb + q], [u, vb, zb + p]], V[1], 0); }
+    for (let u = ub0; u <= ub1; u += 0.5) { K.dot(u, vb, zb + Math.round(hump(u)), R[1]); K.dot(u, vb, zb + Math.round(hump(u)) - 1, R[2]); }
+    // buttons in a diamond, each sunk in a little dimple
+    for (let row = 0; row < 3; row++) for (let k = 0; k < 4 - (row % 2); k++) {
+      const u = ub0 + (ub1 - ub0) * ((k + (row % 2 ? 1 : 0.5)) / 4), z = zc + 4 + row * Math.round((zb - zc - 6) / 3);
+      K.dot(u, vb, z, V[4]); K.dot(u - 0.5, vb, z + 1, V[3]); K.dot(u + 0.5, vb, z - 1, V[1]);
+    }
+    { const [cx, cy] = K.P((ub0 + ub1) / 2, vb, zb + Math.round(hump((ub0 + ub1) / 2))); bedCrystal(T, cx, cy + 1, Math.max(4, t * 0.17), Math.max(1.5, t * 0.06)); }
+    // a side: its wing, then the rolled arm running forward, a scroll on its front
+    const side = u => {
+      K.box(u, vb, L, aw, 0.32 * U, zw - L, V[1], V[2], V[3]);
+      K.box(u, vb, L, aw, v1 - vb - 0.04 * U, za - L, V[1], V[2], V[3]);
+      K.seg([u + aw * 0.5, vb + 0.32 * U, za], [u + aw * 0.5, v1 - 0.04 * U, za], V[0]);
+      const [sx, sy] = K.P(u + aw * 0.5, v1 - 0.04 * U, za - 3);
+      T.disc(sx, sy, 2.4, V[3], 2.2); T.px(sx, sy, V[1]); T.px(sx - 1, sy - 1, V[0]);
     };
-    T.cyl(cx, cy - 1, rx * 0.9, Math.round(r * 1.2), IC.g2, IC.g3, IC.g3);    // the solid body under the cushions, right on the floor
-    const ring = (front) => {
-      const n = 10, out = [];
-      for (let k = 0; k < n; k++) {
-        const an = (k + 0.5) / n * TAU, sn = Math.sin(an);
-        if ((sn > 0.05) !== front) continue;
-        const back = Math.max(0, -sn), rr = r * (1 + back * 0.3), rh = front ? rr * 1.15 : rr * 1.05;
-        out.push([cx + Math.cos(an) * rx * 0.8, seatY + sn * ry * 0.8 - (front ? -r * 0.35 : r * (0.4 + back * 1.5)), rr, rh]);
-      }
-      out.sort((p, q) => p[1] - q[1]).forEach(q => bubble(...q));
-    };
-    ring(false);
-    // the back cushions you lean on, filling in between the high back and the seat
-    for (const dx of [-0.42, 0, 0.42]) bubble(cx + dx * rx, seatY - ry * 0.3 - r * (1.2 - Math.abs(dx)), r * 1.05, r * 0.9);
-    // the seat: plump cushions tucked inside the ring
-    // the seat, sunk a little and catching the light from above, so you can see where to sit
-    for (const [dx, dy] of [[-0.24, -0.25], [0.24, -0.25], [0, 0.2]]) bubble(cx + dx * rx, seatY - r * 0.45 + dy * ry, r * 0.95, r * 0.6, IC.g0, IC.g1);
-    ring(true);
+    side(u0);
+    // the seat and its cushion, sunk between the arms, lit from above so you can see where to sit
+    K.box(u0 + aw, vb, L, u1 - u0 - 2 * aw, v1 - vb - 0.04 * U, zs - L, V[2], V[2], V[3]);
+    K.box(u0 + aw, vb, zs, u1 - u0 - 2 * aw, v1 - vb - 0.02 * U, zc - zs, V[0], V[1], V[2]);
+    K.seg([u0 + aw, v1 - 0.02 * U, zc], [u1 - aw, v1 - 0.02 * U, zc], V[0]);
+    { const [gx, gy] = K.P(u0 + aw + 0.12 * U, vb + 0.3 * U, zc); decoGloss(T, gx, gy, 2); }
+    { const [px, py] = K.P(0.5 * U, vb + 0.14 * U, zc + Math.round(t * 0.2)); bedPlush(T, px, py, t * 0.24, t * 0.2, BED_FELT, { curls: true }); }
+    // a carved apron along the front, scalloped
+    for (let u = u0 + aw; u <= u1 - aw; u += 0.5) { const s = Math.round(1.5 + Math.sin((u - u0) * 1.3) * 1.2); for (let z = L - 1; z < L + s; z++) K.dot(u, v1 - 0.04 * U, z, z === L + s - 1 ? R[1] : R[2]); }
+    side(u1 - aw);
+    leg(u0 + 0.04 * U, v1 - lg - 0.04 * U); leg(u1 - lg - 0.04 * U, v1 - lg - 0.04 * U);
   },
-  cushion(t, T, ax, ay, o = {}) {
-    const cx = ax, cy = ay + t / 2;
-    if (!o.float) T.disc(cx, cy + 1, t * 0.5, IC.l3);
-    for (const [dx, dy, r] of [[-0.24, -0.08, 0.24], [0.2, -0.1, 0.26], [0, -0.26, 0.28], [-0.05, 0.02, 0.26]]) T.ball(cx + dx * t, cy + dy * t, r * t, IC.l0, IC.l1, IC.l2, r * t * 0.82);
+  cushion(t, T, ax, ay) {
+    // the cloud cushion as it floats in the room (see paintCloud), here for the Decor list, a little smaller
+    const s = Math.round(t * 0.95), w = s * 2 + 12, h = s + 14, ox = Math.round(ax - w / 2), oy = Math.round(ay + t / 2 - h * 0.8);
+    paintCloud({ ...T, px: (x, y, c) => T.px(x + ox, y + oy, c) }, s, w, h);
   },
   swing(t, T, ax, ay, o = {}) {
-    // a little wooden A-frame with a brass moon on its bar; in the room the moon seat hangs from it and swings (drawSwingIso)
-    const h = t / 2, H = Math.round(t * 1.8), at = (du, dv, up = 0) => [ax + 2 * du - 2 * dv, ay + du + dv - up], th = Math.max(2, Math.round(t / 14));
-    for (const du of [h * 0.08, h * 0.92]) {
-      const [tx, ty] = at(du, h * 0.5, H);
-      // sturdy legs, lit on the left: a light edge, the wood, a dark edge
-      for (const dv of [h * 0.05, h * 0.95]) { const [fx, fy] = at(du, dv); for (let k = 0; k <= th; k++) T.line(tx + k, ty, fx + k, fy, k === 0 ? IC.w0 : k === th ? IC.w3 : IC.w1); }
-    }
-    const [b0x, b0y] = at(h * 0.02, h * 0.5, H + 1), [b1x, b1y] = at(h * 0.98, h * 0.5, H + 1);
-    for (let k = 0; k <= th; k++) T.line(b0x, b0y + k, b1x, b1y + k, k === 0 ? IC.w0 : k === th ? IC.w3 : IC.w1);
-    const [mx, my] = at(h * 0.5, h * 0.5, H + 5);
-    T.px(mx, my, IC.y0); T.px(mx - 1, my + 1, IC.y0); T.px(mx - 1, my + 2, IC.y1); T.px(mx, my + 3, IC.y1);
+    // an A-frame of root-wood posts, bark on their shaded side, pegged to a crossbar with moss draped over it and a brass moon
+    // in the middle; glowcaps grow at one foot. In the room the moon seat hangs from the bar and swings (drawSwingIso)
+    const U = t / 2, K = isoKit(T, ax, ay), H = Math.round(t * 1.8), c = 0.5 * U, R = BED_ROOT;
+    const post = (u, v) => { const [fx, fy] = K.P(u, v, 0), [tx, ty] = K.P(u, c, H), n = Math.max(2, Math.round(t / 12)); for (let k = 0; k <= n; k++) T.line(tx + k - 1, ty, fx + k - 1, fy, k === 0 ? R[0] : k === n ? R[3] : (k === 1 ? R[1] : R[2])); T.px(fx - 1, fy + 1, R[3]); T.px(fx + n, fy + 1, R[3]); };
+    for (const u of [0.06 * U, 0.94 * U]) { post(u, 0.04 * U); }
+    // the crossbar, and moss hanging off it in strands
+    K.box(0, c - 0.07 * U, H - 2, U, 0.14 * U, 3, R[1], R[2], R[3]);
+    for (let u = 0.04 * U; u < U * 0.96; u += 0.5) { const n = (pxHash(Math.round(u * 2), 3) * 4) | 0, near = u < 0.3 * U || u > 0.7 * U; if (near) { K.dot(u, c + 0.07 * U, H + 1, BED_MOSS[1]); for (let k = 0; k < n; k++) K.dot(u, c + 0.07 * U, H - 2 - k, BED_MOSS[k === n - 1 ? 3 : 2]); } }
+    { const [mx, my] = K.P(c, c + 0.07 * U, H + 1); moonSeat(T, mx, my - Math.round(t * 0.2), t * 0.17, false); }
+    for (const u of [0.06 * U, 0.94 * U]) post(u, 0.96 * U);
+    bedGlowcap(T, ...K.P(0.18 * U, 0.98 * U, 0), Math.round(t * 0.28), t * 0.12);
+    bedGlowcap(T, ...K.P(0.3 * U, 0.86 * U, 0), Math.round(t * 0.16), t * 0.08);
     if (!o.room) {
-      // for the Decor list: the seat at rest
-      const [sx, sy] = at(h * 0.5, h * 0.5, H * 0.3), r = Math.max(3, t * 0.28);
-      for (const d of [-1, 1]) T.line(sx + d * r * 0.7, sy - 2, b0x + (b1x - b0x) * (0.5 + d * 0.3), b0y + (b1y - b0y) * (0.5 + d * 0.3) + 1, IC.s1);
-      for (let y = -r; y <= r; y++) for (let x = -r; x <= r; x++) if (Math.hypot(x, y) <= r && Math.hypot(x, y + r * 0.45) > r * 0.85 && y > -r * 0.2) T.px(sx + x, sy + y, y > r * 0.5 ? IC.y1 : IC.y0);
+      // for the Decor list: the seat at rest under the bar, on its ropes
+      const [sx, sy] = K.P(c, c, H * 0.28), r = t * 0.62;
+      for (const d of [-1, 1]) T.line(sx + d * r * 0.7, sy - r * 0.15, ...K.P(c + d * 0.3 * U, c, H - 2), IC.s1);
+      moonSeat(T, sx, sy, r);
     }
   },
   musicbox(t, T, ax, ay, o = {}) {
-    // a legendary music cabinet: dark polished wood, a gold crown with a gem, a window of colored lights that glow while it plays,
-    // a gold-dotted speaker grille and little gold feet
-    const a = t * 0.4, b = t * 0.32, hgt = Math.round(t * 1.25), x = ax + 1, y = ay + 3;
-    const B = T.box(x, y, a, b, hgt, IC.p3, IC.r3, IC.ink2);
-    const at = (s, z) => [B.Bv[0] + (B.Buv[0] - B.Bv[0]) * s, B.Bv[1] + (B.Buv[1] - B.Bv[1]) * s - z];
-    const fw = Math.max(6, Math.abs(B.Buv[0] - B.Bv[0])), ds = 1 / fw;
-    // the grille: gold dots on the dark
-    for (let z = Math.round(hgt * 0.12); z < hgt * 0.5; z += 2) for (let s = 0.18; s < 0.84; s += 2 * ds) { const [px, py] = at(s, z); T.px(px, py, IC.y1); }
-    // the arched window: a rim of colored lights that chase round it, and behind the glass a spinning record
-    // (grooves, a pink label, and a glint that turns with the music)
-    const f = o.frame || 0, bars = [IC.p0, IC.y0, IC.g0, IC.b0, IC.l1], archTop = s => hgt * 0.9 - ((s - 0.5) / 0.36) ** 2 * hgt * 0.14;
-    const z0 = Math.round(hgt * 0.56), rc = [0.5, (z0 + hgt * 0.84) / 2], rr = hgt * 0.15;
-    for (let s = 0.14; s < 0.87; s += ds) for (let z = z0; z <= archTop(s) + 1; z++) {
-      const edge = s < 0.14 + ds * 1.2 || s > 0.87 - ds * 1.2 || z === z0 || z > archTop(s);
-      const [px, py] = at(s, z);
-      if (edge) { T.px(px, py, bars[(Math.floor(s / ds) + Math.floor(z) + f) % bars.length]); continue; }
-      const du = (s - rc[0]) / ds / 2, dz = z - rc[1], d = Math.hypot(du, dz) / rr;
-      if (d < 1) {
-        const an = Math.atan2(dz, du), glint = Math.abs(((an / TAU * 8 + f) % 8 + 8) % 8 - 4) < 0.5;
-        T.px(px, py, d < 0.28 ? (d < 0.1 ? IC.white : IC.p1) : glint ? IC.s1 : Math.round(d * 6) % 2 ? IC.ink : IC.ink2);
-      } else T.px(px, py, IC.ink2);
+    // a legendary music box, the upright kind with a big steel disc: a cabinet of rosewood on bun feet, a glass door in an
+    // arched brass frame with the disc turning behind it (its pins catching the light, a brass hub), bulbs round the arch
+    // that chase while it plays, a drawer of spare discs, a carved crest with a rose crystal, and a crank on its side
+    const U = t / 2, K = isoKit(T, ax, ay), RW = DECO_ROSEWOOD, f = o.frame || 0;
+    const u0 = 0.12 * U, u1 = 0.88 * U, v0 = 0.2 * U, v1 = 0.78 * U, H = Math.round(t * 1.42), zp = 4;
+    for (const [u, v] of [[u0 + 0.05 * U, v1 - 0.05 * U], [u1 - 0.05 * U, v1 - 0.05 * U], [u1 - 0.05 * U, v0 + 0.05 * U]]) { const [fx, fy] = K.P(u, v, 0); T.ball(fx, fy - 1, 2, BRASS[1], BRASS[2], BRASS[3], 1.6); }
+    K.box(u0 - 0.03 * U, v0 - 0.03 * U, 1, u1 - u0 + 0.06 * U, v1 - v0 + 0.06 * U, zp - 1, RW[1], RW[2], RW[3]);
+    K.box(u0, v0, zp, u1 - u0, v1 - v0, H - zp - 3, RW[1], RW[2], RW[3]);
+    K.box(u0 - 0.04 * U, v0 - 0.04 * U, H - 3, u1 - u0 + 0.08 * U, v1 - v0 + 0.08 * U, 3, RW[0], RW[1], RW[3]);
+    // the drawer, with two brass knobs
+    const zd1 = Math.round(H * 0.3);
+    K.faceV(v1, u0 + 0.08 * U, u1 - 0.08 * U, zp + 2, zd1, RW[3], 0); K.faceV(v1, u0 + 0.1 * U, u1 - 0.1 * U, zp + 3, zd1 - 1, RW[2], 0);
+    K.seg([u0 + 0.1 * U, v1, zd1 - 1], [u1 - 0.1 * U, v1, zd1 - 1], RW[1]);
+    for (const s of [0.3, 0.7]) { K.dot(u0 + (u1 - u0) * s, v1, Math.round((zp + zd1) / 2), BRASS[1]); K.dot(u0 + (u1 - u0) * s - 0.5, v1, Math.round((zp + zd1) / 2) + 1, BRASS[0]); }
+    // the door: an arch in brass, the dark inside, and the disc with its pins in rings, turning with the music
+    const ua = u0 + 0.12 * U, ub = u1 - 0.12 * U, uc = (ua + ub) / 2, za = zd1 + 3, zt = H - 5, wu = (ub - ua) / 2;
+    const arch = u => zt - Math.round((1 - Math.sqrt(Math.max(0, 1 - ((u - uc) / wu) ** 2))) * (zt - za) * 0.45);
+    const dz = Math.round((za + zt) / 2) - 1, dr = Math.min(wu * 2.24, (zt - za) / 2) * 0.86;
+    for (let u = ua; u <= ub + 1e-6; u += 0.5) for (let z = za; z <= arch(u); z++) {
+      const rim = u < ua + 0.6 || u > ub - 0.6 || z === za || z > arch(u) - 1, d = Math.hypot((u - uc) * 2.24, z - dz) / dr;
+      let col = IC.ink2;
+      if (rim) col = u < uc ? BRASS[1] : BRASS[2];
+      else if (d < 1) {
+        const an = Math.atan2(z - dz, (u - uc) * 2.24), glint = Math.abs(((an / TAU * 8 - f) % 8 + 8) % 8 - 2) < 0.6;
+        col = d < 0.2 ? (d < 0.1 ? BRASS[0] : BRASS[2]) : d > 0.92 ? IC.m2 : glint ? IC.m0 : Math.round(d * 9) % 2 ? IC.m1 : IC.m2;
+      }
+      K.dot(u, v1, z, col);
     }
-    // a row of little selector buttons and a coin slot under the window
-    for (let k = 0; k < 6; k++) { const [px, py] = at(0.22 + k * 0.11, hgt * 0.53); T.px(px, py, [IC.r1, IC.y0, IC.g0, IC.b0, IC.p0, IC.white][k]); }
-    { const [px, py] = at(0.82, hgt * 0.53); T.px(px, py, IC.ink); T.px(px, py - 1, IC.ink); }
-    // glowing tubes up the side, cycling through the colors
-    const side = (s, z) => [B.Bu[0] + (B.Buv[0] - B.Bu[0]) * s, B.Bu[1] + (B.Buv[1] - B.Bu[1]) * s - z];
-    for (const [k, s2] of [[0, 0.3], [2, 0.65]]) for (let z = 3; z < hgt - 3; z++) { const [px, py] = side(s2, z); T.px(px, py, bars[(k + Math.floor(z / 4) + f) % bars.length]); }
-    // gold trim up both sides and along the top of the front
-    for (let z = 1; z < hgt - 1; z++) for (const s of [ds * 0.6, 1 - ds * 1.4]) { const [px, py] = at(s, z); T.px(px, py, IC.y1); }
-    for (let s = 0; s < 1; s += ds) { const [px, py] = at(s, hgt - 1); T.px(px, py, IC.y0); }
-    if (!o.quiet) { const [gx, gy] = at(0.5, hgt * 0.72); T.glow(gx, gy, t * 0.8, IC.y0, 0.3); }
-    // the gold crown on top, with a pink gem
-    const [cx, cy] = [x + a - b, y + (a + b) / 2 - hgt], r = Math.max(3, Math.round(t * 0.2));
-    for (let dx = -r; dx <= r; dx++) { const hh = Math.round(Math.sqrt(r * r - dx * dx) * 0.8); for (let k = 0; k <= hh; k++) T.px(cx + dx, cy - k, k === hh ? IC.y0 : IC.y1); }
-    T.px(cx, cy - Math.round(r * 0.5), IC.p1); T.px(cx, cy - Math.round(r * 0.5) - 1, IC.p0);
-    // little gold feet
-    for (const s of [0.1, 0.9]) { const [fx, fy] = at(s, 0); T.px(fx, fy + 1, IC.y1); }
+    // bulbs round the arch, chasing round it while it plays
+    const bars = [IC.p0, IC.y0, IC.g0, IC.b0, IC.l1];
+    for (let k = 0, u = ua + 0.3; u <= ub - 0.3; u += 1, k++) K.dot(u, v1, arch(u) + 1, o.quiet ? BRASS[3] : bars[(k + f) % bars.length]);
+    // carved columns either side of the door
+    for (const u of [u0 + 0.04 * U, u1 - 0.07 * U]) { K.faceV(v1, u, u + 0.03 * U, za, zt, RW[1], 0); for (let z = za; z < zt; z += 3) K.dot(u + 0.015 * U, v1, z, RW[0]); }
+    // the side: a carved panel, and the crank
+    K.faceU(u1, v0 + 0.08 * U, v1 - 0.08 * U, zp + 3, H - 6, RW[4], 0); K.faceU(u1, v0 + 0.1 * U, v1 - 0.1 * U, zp + 4, H - 7, RW[3], 0);
+    { const vc = (v0 + v1) / 2, zc = Math.round(H * 0.62), [sx, sy] = K.P(u1, vc, zc), [ex, ey] = K.P(u1 + 0.24 * U, vc, zc);
+      T.disc(sx, sy, 2.2, BRASS[2], 2.6); T.line(sx, sy, ex, ey, BRASS[1]); T.line(sx, sy + 1, ex, ey + 1, BRASS[3]);
+      T.line(ex, ey, ex, ey + Math.round(t * 0.22), BRASS[2]); T.ball(ex + 1, ey + Math.round(t * 0.22) + 1, 1.8, RW[0], RW[1], RW[3]); }
+    // the crest: a broken pediment in rosewood edged in brass, a rose crystal in the middle
+    { const c0 = u0 + 0.06 * U, c1 = u1 - 0.06 * U, ch = Math.round(t * 0.28), vf = v1 - 0.08 * U;
+      for (const [a, b, up] of [[c0, c0 + (c1 - c0) * 0.36, 1], [c1 - (c1 - c0) * 0.36, c1, -1]]) {
+        const z = u => H + Math.round(ch * (up > 0 ? (u - a) / (b - a) : (b - u) / (b - a)));
+        for (let u = a; u <= b; u += 0.5) { K.seg([u, vf, H], [u, vf, z(u)], RW[2]); K.dot(u, vf, z(u), BRASS[1]); K.dot(u, vf, z(u) - 1, RW[1]); }
+      }
+      const [gx, gy] = K.P((c0 + c1) / 2, vf, H);
+      T.ball(gx, gy - 2, 2.6, BRASS[0], BRASS[1], BRASS[3], 2);
+      bedCrystal(T, gx, gy - 3, Math.max(5, t * 0.3), Math.max(2, t * 0.08), 0, [IC.white, IC.p0, IC.p1, IC.p1, IC.p2, IC.p3]); }
+    if (!o.quiet) { const [gx, gy] = K.P(uc, v1, dz); T.glow(gx, gy, t * 0.85, IC.y0, 0.28); }
+    decoGloss(T, ...K.P(u0 + 0.1 * U, v1, H - 2), 2);
   },
   shelf(t, T, ax, ay, o = {}) {
-    // a thick wooden plank on two brackets, along the wall; on it stand up to three geodes cut in half: a round stone shell
-    // shaded like a ball, and inside it rings of crystal, dark at the rim and bright in the middle, with a glint
+    // a thick oak plank with a moulded front edge on two scrolled brass brackets, along the wall, moss trailing off one end
+    // with a glowcap in it; on it stand up to three geodes cut in half: a round stone shell shaded like a ball, and inside it
+    // rings of crystal, dark at the rim and bright in the middle, with a glint
     const len = t * 0.68, dep = t * 0.24, th = Math.max(3, Math.round(t * 0.1));
     const at = (du, dv, up = 0) => [ax + 2 * du - 2 * dv, ay + du + dv - up];
-    for (const k of [0.18, 0.82]) { const [bx, by] = at(len * k, dep * 0.4, -1); for (let j = 0; j < t * 0.22; j++) { T.px(bx, by + j, IC.w3); if (j < t * 0.22 - 2) T.px(bx + 1, by + j, IC.w2); } T.line(bx + 1, by + Math.round(t * 0.2), bx + Math.round(dep * 1.6), by, IC.w3); }
-    T.box(...at(0, 0, 0), len, dep, th, IC.w0, IC.w1, IC.w2);
+    for (const k of [0.18, 0.82]) {
+      // an L of brass against the wall, a scroll curling in its corner
+      const [bx, by] = at(len * k, dep * 0.15, -1), d = Math.round(t * 0.24), w = Math.round(dep * 1.6);
+      for (let j = 0; j < d; j++) { T.px(bx, by + j, BRASS[2]); T.px(bx + 1, by + j, BRASS[3]); }
+      for (let j = 0; j <= w; j++) T.px(bx + j, by - j * 0.5, BRASS[1]);
+      for (let a = 0; a < 7; a++) T.px(bx + 2 + Math.round(Math.cos(a * 0.9) * 2), by + 4 - Math.round(Math.sin(a * 0.9) * 2), a < 4 ? BRASS[1] : BRASS[2]);
+    }
+    T.box(...at(0, 0, 0), len, dep, th, IC.w1, IC.w1, IC.w2);
+    for (let k = 0; k <= len * 2; k++) { const [x, y] = at(k / 2, dep, th - 1); T.px(x, y, IC.w0); const [x2, y2] = at(k / 2, dep, 0); T.px(x2, y2 + 1, IC.w3); }
+    { const [mx, my] = at(len * 0.97, dep * 0.5, th); decoMoss(T, mx, my, t * 0.09, t * 0.06); for (let k = 0; k < 4; k++) T.px(mx + 3 + (k & 1), my + 2 + k + th, BED_MOSS[k > 2 ? 3 : 2]); }
     const gems = o.gems && o.gems.length ? o.gems : [[IC.l0, IC.l2, IC.l4], [IC.b0, IC.b1, IC.b3], [IC.p0, IC.p1, IC.p3]];
     gems.slice(0, 3).forEach(([c0, c1, c2], i) => {
       // a half geode standing on its round back, its cut face turned toward the room: you see the stone shell bulging
@@ -1300,35 +1399,61 @@ const ISO_ART = {
     }
   },
   chest(t, T, ax, ay) {
-    const a = t * 0.42, b = t * 0.32, hgt = Math.round(t * 0.42), x = ax, y = ay + 2;
-    const B = T.box(x, y, a, b, hgt, IC.w1, IC.w2, IC.w3);
-    // the lid, a little proud, with a pink band and a gold latch on the front
-    T.box(x, y - hgt + 1, a, b, 3, IC.p1, IC.p2, IC.p3, false);
-    const mx = (B.Bv[0] + B.Buv[0]) / 2, my = (B.Bv[1] + B.Buv[1]) / 2 - hgt + 3;
-    T.px(mx, my, IC.y0); T.px(mx, my + 1, IC.y1); T.px(mx - 1, my + 1, IC.w1);
+    // a toy chest like a little steamer trunk: oak boards, a domed lid painted rose, brass straps running up the front and
+    // over the dome, brass corners, a hasp with a keyhole, a painted gold star; a striped ball rolled up against its end
+    const U = t / 2, K = isoKit(T, ax, ay), u0 = 0.06 * U, u1 = 0.94 * U, v0 = 0.22 * U, v1 = 0.86 * U, zb = Math.round(t * 0.46), Rz = Math.round(t * 0.2);
+    const vm = (v0 + v1) / 2, hv = (v1 - v0) / 2, sw = 0.09 * U, straps = [u0 + 0.16 * (u1 - u0), u1 - 0.16 * (u1 - u0) - sw];
+    K.box(u0 + 0.03 * U, v0 + 0.03 * U, 0, u1 - u0 - 0.06 * U, v1 - v0 - 0.06 * U, 2, IC.w3, IC.w3, IC.ink2, false);
+    K.box(u0, v0, 2, u1 - u0, v1 - v0, zb - 2, IC.w1, IC.w2, IC.w3);
+    // a dark rim where the lid sits
+    K.faceV(v1, u0, u1, zb - 2, zb, IC.w3, 1); K.faceU(u1, v0, v1, zb - 2, zb, IC.ink2, 2);
+    // the dome, slice by slice: its front face rounding over from shade into light
+    for (let z = 0; z <= Rz; z++) {
+      const k = Math.sqrt(Math.max(0, 1 - (z / Rz) ** 2)), f = z / Rz, R = BED_ROSE;
+      const front = R[1 + bedBand(f * 1.4 - 0.5, [0.5, 0.05, -0.35], z, z)], side = R[Math.min(4, 2 + bedBand(f - 0.4, [0.2], z, z))];
+      K.box(u0, vm - hv * k, zb + z, u1 - u0, 2 * hv * k, 1, R[0], front, side, false);
+      for (const su of straps) K.box(su, vm - hv * k - 0.02 * U, zb + z, sw, 2 * hv * k + 0.04 * U, 1, BRASS[1], z < Rz * 0.5 ? BRASS[2] : BRASS[1], BRASS[3], false);
+    }
+    // the straps down the front, with rivets, and brass corners
+    for (const su of straps) { K.faceV(v1 + 0.02 * U, su, su + sw, 2, zb, BRASS[2], 0); K.faceV(v1 + 0.02 * U, su, su + sw * 0.4, 2, zb, BRASS[1], 0); for (const z of [4, zb - 3]) K.dot(su + sw * 0.5, v1 + 0.02 * U, z, BRASS[0]); }
+    for (const z of [2, zb - 1]) { K.seg([u1 - 0.12 * U, v1, z], [u1, v1, z], BRASS[1]); K.seg([u1, v1, z], [u1, v1 - 0.12 * U, z], BRASS[3]); K.seg([u0, v1, z], [u0 + 0.12 * U, v1, z], BRASS[1]); }
+    // the hasp and its keyhole, and a gold star painted between the straps
+    { const um = (u0 + u1) / 2; K.quad([[um - 0.07 * U, v1 + 0.03 * U, zb + 2], [um + 0.07 * U, v1 + 0.03 * U, zb + 2], [um + 0.07 * U, v1 + 0.03 * U, zb - 5], [um - 0.07 * U, v1 + 0.03 * U, zb - 5]], BRASS[1], 0);
+      K.dot(um, v1 + 0.03 * U, zb - 2, IC.ink); K.dot(um, v1 + 0.03 * U, zb - 3, IC.ink); K.dot(um - 0.5, v1 + 0.03 * U, zb + 1, BRASS[0]);
+      for (const [du, dz, c] of [[0, 0, IC.y0], [-0.5, 0, IC.y1], [0.5, 0, IC.y1], [0, 1, IC.y0], [0, -1, IC.y1], [-1, -1, IC.y1], [1, -1, IC.y1]]) K.dot(um + du, v1, Math.round(zb * 0.42) + dz, c); }
+    // the ball, rolled up against the near end
+    { const [bx, by] = K.P(u1 + 0.02 * U, v1 - 0.1 * U, 0), r = t * 0.15;
+      T.disc(bx, by - r, r, (xx, yy) => { const dx = (xx + 0.5 - bx) / r, dy = (yy + 0.5 - by + r) / r, lit = -dx * 0.6 - dy * 0.75, s = Math.floor((dx * 0.8 + dy * 0.5 + 2) * 2.2) % 2; return (s ? [IC.white, IC.s0, IC.s1] : [IC.r1, IC.r2, IC.r3])[bedBand(lit, [0.35, -0.35], xx, yy)]; }, r);
+      T.px(bx - r * 0.45, by - r * 1.5, IC.white); }
   },
   plant(t, T, ax, ay) {
-    // a plump succulent in a clay pot: a rosette of thick, rounded leaves in three rings, each leaf shaded like a little
-    // ball with a blush-pink tip; the outer ring lies low and wide, the inner ones sit higher and lighter, a bud in the middle
-    const cx = ax, cy = ay + t / 2, ph = Math.round(t * 0.28);
-    T.cyl(cx, cy, t * 0.24, ph, IC.r2, IC.r1, IC.r3);
-    T.disc(cx, cy - ph, t * 0.26, IC.r1); T.disc(cx, cy - ph, t * 0.21, IC.w3);
-    const top = cy - ph - 1;
-    // one pointed, fleshy leaf from the middle outward: lit on one side of the midrib, shaded on the other, tip curling up
+    // a crystal plant: a fat glazed pot with a rolled lip, moss over the soil, a rosette of fleshy leaves curling up, and out
+    // of its heart a cluster of aqua crystal points growing like new shoots, glowing a little, one bud of light among them
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), ph = Math.round(t * 0.46), pr = t * 0.28;
+    const G = [IC.l1, IC.l2, IC.l3, IC.l4, IC.ink2];
+    isoLathe(T, x, y, 0, ph - 3, z => pr * (0.78 + 0.22 * Math.sin(Math.min(1, z / ph * 1.6) * Math.PI / 2)), G, { lid: false, band: (k, xx, yy, z) => z === Math.round(ph * 0.3) ? Math.min(4, k + 1) : k });
+    isoLathe(T, x, y, ph - 3, ph, () => pr + 1.2, [IC.l0, IC.l1, IC.l1, IC.l2, IC.l3], { lid: false });
+    T.disc(x, y - ph, pr, IC.ink2); T.disc(x, y - ph + 0.5, pr - 1, IC.w3);
+    decoGloss(T, x - pr * 0.6, y - ph * 0.55, 1);
+    // the rosette: fleshy pointed leaves, lit on one side of the midrib, curling up at the tip
+    const top = y - ph - 1;
     const leaf = (an, len, wid, lift, curl, light, dark) => {
       const dx = Math.cos(an), dy = Math.sin(an) * 0.5, px = -Math.sin(an), py = Math.cos(an) * 0.5;
-      const bx = cx, by = top - lift, tx = bx + dx * len, ty = by + dy * len - curl;
-      const mx = bx + dx * len * 0.5, my = by + dy * len * 0.5 - curl * 0.3;
-      T.poly([[bx, by], [mx + px * wid, my + py * wid], [tx, ty], [mx - px * wid, my - py * wid]], (x, y) => ((x - bx) * (ty - by) - (y - by) * (tx - bx)) * (Math.cos(an) > 0 ? 1 : -1) > 0 ? dark : light);
-      T.px(tx, ty, IC.p1);
+      const bx = x, by = top - lift, tx = bx + dx * len, ty = by + dy * len - curl, mx = bx + dx * len * 0.55, my = by + dy * len * 0.55 - curl * 0.3;
+      T.poly([[bx, by], [mx + px * wid, my + py * wid], [tx, ty], [mx - px * wid, my - py * wid]], (xx, yy) => ((xx - bx) * (ty - by) - (yy - by) * (tx - bx)) * (dx > 0 ? 1 : -1) > 0 ? dark : light);
+      T.px(tx, ty, BED_MOSS[0]);
     };
-    const ring = (n, len, wid, lift, curl, light, dark, turn) => {
-      for (const an of Array.from({ length: n }, (_, k) => k / n * TAU + turn).sort((p, q) => Math.sin(p) - Math.sin(q))) leaf(an, len, wid, lift, curl, light, dark);
-    };
-    ring(8, t * 0.48, t * 0.16, 0, t * 0.06, IC.g1, IC.g2, 0.2);
-    ring(7, t * 0.34, t * 0.14, t * 0.07, t * 0.12, IC.g0, IC.g1, 0.65);
-    ring(5, t * 0.2, t * 0.1, t * 0.13, t * 0.16, IC.b0, IC.g0, 1.2);
-    T.ball(cx, top - t * 0.16, Math.max(1.5, t * 0.05), IC.white, IC.b0, IC.g0);
+    const ring = (n, len, wid, lift, curl, light, dark, turn) => { for (const an of Array.from({ length: n }, (_, k) => k / n * TAU + turn).sort((p, q) => Math.sin(p) - Math.sin(q))) if (Math.sin(an) < 0.2) leaf(an, len, wid, lift, curl, light, dark); };
+    ring(8, t * 0.5, t * 0.15, 0, t * 0.08, BED_MOSS[2], BED_MOSS[3], 0.2);
+    ring(6, t * 0.36, t * 0.13, t * 0.06, t * 0.14, BED_MOSS[1], BED_MOSS[2], 0.7);
+    // the crystal shoots, tallest at the back, glowing softly
+    T.glow(x, top - t * 0.45, t * 0.75, DECO_AQUA[4], 0.3);
+    for (const [dx, h, w, lean] of [[-0.12, 0.62, 0.075, -0.12], [0.1, 0.82, 0.085, 0.08], [0.24, 0.46, 0.06, 0.18], [-0.26, 0.4, 0.055, -0.2], [0.0, 0.56, 0.07, 0.02]]) bedCrystal(T, x + dx * t, top - t * 0.04, t * h, Math.max(1.5, t * w), lean * t, DECO_AQUA);
+    // and the front leaves, over the shoots' feet
+    const front = (n, len, wid, lift, curl, light, dark, turn) => { for (const an of Array.from({ length: n }, (_, k) => k / n * TAU + turn).sort((p, q) => Math.sin(p) - Math.sin(q))) if (Math.sin(an) >= 0.2) leaf(an, len, wid, lift, curl, light, dark); };
+    front(8, t * 0.5, t * 0.15, 0, t * 0.08, BED_MOSS[1], BED_MOSS[2], 0.2);
+    front(6, t * 0.36, t * 0.13, t * 0.06, t * 0.14, BED_MOSS[0], BED_MOSS[1], 0.7);
+    T.ball(x + t * 0.04, top - t * 0.3, Math.max(1.5, t * 0.07), IC.white, DECO_AQUA[1], DECO_AQUA[3]);
   },
   // ---- the grotto's hall, before the tunnel
   tunnel(t, T, ax, ay) {
@@ -2182,62 +2307,188 @@ const ISO_ART = {
     }
   },
   bench(t, T, ax, ay) {
-    // a wooden garden bench: four legs, a seat of planks, a back
-    const cx = ax, cy = ay + t / 2, a = t * 0.42, b = t * 0.16, lift = Math.round(t * 0.3), x = cx - a + b, y = cy - (a + b) / 2;
-    for (const [lx, ly] of [[x, y], [x + 2 * a, y + a], [x - 2 * b, y + b], [x + 2 * a - 2 * b, y + a + b]]) for (let k = 0; k < lift; k++) T.px(lx, ly - k, IC.w3);
-    T.box(x, y - lift, a, b, 2, IC.w0, IC.w1, IC.w2);
-    T.box(x, y - lift - 2, a, 1, Math.round(t * 0.32), IC.w1, IC.w1, IC.w2);
+    // a garden bench: ends of bent root-wood (a back post, a front leg, an armrest curling over at the front), a seat of oak
+    // slats with gaps between, three slats for the back; a cushion of moss on one end and a glowcap at the far foot
+    const U = t / 2, K = isoKit(T, ax, ay), R = BED_ROOT, W = [IC.w1, IC.w2, IC.w3];
+    const u0 = 0.04 * U, u1 = 0.96 * U, ew = 0.09 * U, vb = 0.16 * U, vf = 0.86 * U, zs = Math.round(t * 0.42), zr = zs + Math.round(t * 0.24), zt = Math.round(t * 1.06);
+    const end = u => {
+      K.box(u, vb, 0, ew, 0.09 * U, zt, R[1], R[2], R[3]);
+      K.box(u, vf - 0.09 * U, 0, ew, 0.09 * U, zr, R[1], R[2], R[3]);
+      K.box(u, vb + 0.06 * U, zs - 3, ew, vf - vb - 0.1 * U, 2, R[1], R[2], R[3], false);
+      K.box(u, vb + 0.06 * U, zr, ew, vf - vb - 0.02 * U, 2, R[0], R[1], R[3], false);
+      const [sx, sy] = K.P(u + ew / 2, vf + 0.02 * U, zr - 1); T.disc(sx, sy, 1.8, R[2], 1.8); T.px(sx - 1, sy - 1, R[0]); T.px(sx, sy, R[3]);
+      K.dot(u + ew / 2, vb + 0.045 * U, zt + 1, R[0]);
+    };
+    end(u0);
+    bedGlowcap(T, ...K.P(u0 + 0.16 * U, vb + 0.06 * U, 0), Math.round(t * 0.3), t * 0.13);
+    // the back: three slats between the posts
+    for (let k = 0; k < 3; k++) { const z = zs + 4 + k * Math.round((zt - zs - 6) / 3); K.box(u0 + ew, vb + 0.02 * U, z, u1 - u0 - 2 * ew, 0.06 * U, Math.max(2, Math.round(t * 0.1)), ...W); }
+    // the seat: slats running the long way, a gap between each
+    const n = 4, sd = (vf - vb - 0.04 * U) / n;
+    for (let k = 0; k < n; k++) K.box(u0 + ew * 0.5, vb + 0.04 * U + k * sd, zs - 2, u1 - u0 - ew, sd * 0.8, 2, ...W);
+    decoMoss(T, ...K.P(u0 + 0.24 * U, vb + 0.4 * U, zs), t * 0.18, t * 0.08);
+    end(u1 - ew);
   },
   lamppost(t, T, ax, ay) {
-    // an iron post with a little lantern at the top, glowing
-    const cx = ax, cy = ay + t / 2, top = cy - t * 1.7;
-    T.glow(cx, top + 3, t * 1.1, IC.y0, 0.4);
-    T.disc(cx, cy, t * 0.16, IC.s3);
-    for (let y = Math.round(top + 6); y < cy; y++) { T.px(cx - 1, y, IC.s2); T.px(cx, y, IC.s3); }
-    T.box(cx, top, 3, 3, 7, IC.s2, IC.y0, IC.y1);
-    T.poly([[cx - 6, top - 7], [cx, top - 11], [cx + 6, top - 7], [cx, top - 4]], IC.s3);
+    // a cast-iron lantern post, twice a keeper's height: a stepped foot, a fluted post with collars, a ladder bar with balls on
+    // its ends, scrolls curling under a four-paned lantern with a crystal burning inside, a hipped cap and a finial; moss
+    // and glowcaps round its foot
+    const U = t / 2, K = isoKit(T, ax, ay), c = 0.5 * U, [x, y] = K.P(c, c, 0), I = DECO_IRON, H = Math.round(t * 2.9);
+    const hl = Math.round(t * 0.46), zl = H - hl - Math.round(t * 0.28);
+    T.glow(x, y - zl - hl / 2, t * 1.3, IC.y0, 0.38);
+    isoLathe(T, x, y, 0, 3, () => t * 0.36, I);
+    isoLathe(T, x, y, 4, 7, () => t * 0.26, I);
+    isoLathe(T, x, y, 8, Math.round(t * 0.36), z => t * (0.17 - (z - 8) / t * 0.22), I);
+    for (let z = Math.round(t * 0.32); z < zl - 3; z++) { T.px(x - 2, y - z, I[1]); T.px(x - 1, y - z, I[1]); T.px(x, y - z, (z % 4) ? I[2] : I[3]); T.px(x + 1, y - z, I[3]); }
+    for (const zc of [Math.round(t * 0.36), Math.round(zl * 0.55), zl - 4]) isoLathe(T, x, y, zc, zc + 1, () => 2.6, I);
+    // the ladder bar
+    { const zb = zl - Math.round(t * 0.3); T.line(x - 6, y - zb, x + 6, y - zb, I[2]); T.line(x - 6, y - zb + 1, x + 6, y - zb + 1, I[4]); T.ball(x - 7, y - zb, 1.4, I[0], I[1], I[3]); T.ball(x + 7, y - zb, 1.4, I[1], I[2], I[3]); }
+    // scrolls under the lantern
+    for (const s of [-1, 1]) for (let k = 0; k < 6; k++) { const a = k / 5 * Math.PI; T.px(x + s * (2 + Math.sin(a) * 3), y - zl + 2 - (1 - Math.cos(a)) * 2, s < 0 ? I[1] : I[3]); }
+    // the lantern: glass panes lit warm from within, the crystal flame, the iron frame over it
+    const a0 = c - 0.17 * U, a1 = c + 0.17 * U;
+    K.box(a0 - 0.04 * U, a0 - 0.04 * U, zl - 2, a1 - a0 + 0.08 * U, a1 - a0 + 0.08 * U, 2, I[1], I[2], I[3], false);
+    K.box(a0, a0, zl, a1 - a0, a1 - a0, hl, IC.y0, IC.y0, IC.y1, false);
+    { const [fx, fy] = K.P(c, c, zl + 2); bedCrystal(T, fx, fy - 1, hl - 4, 2.4, 0); }
+    for (const [u, v] of [[a0, a1], [a1, a1], [a1, a0]]) K.seg([u, v, zl], [u, v, zl + hl], I[3]);
+    for (const z of [zl, zl + hl]) { K.seg([a0, a1, z], [a1, a1, z], I[3]); K.seg([a1, a1, z], [a1, a0, z], I[4]); }
+    // the cap: four sloping faces to a point, a finial and a ring on top
+    { const b0 = a0 - 0.05 * U, b1 = a1 + 0.05 * U, zc = zl + hl, apex = [c, c, zc + Math.round(t * 0.2)];
+      K.quad([[b0, b1, zc], [b1, b1, zc], apex], I[1], 0); K.quad([[b1, b0, zc], [b1, b1, zc], apex], I[3], 0);
+      K.seg([b0, b1, zc], [b1, b1, zc], I[0]); K.seg([b1, b1, zc], apex, I[2]);
+      const [px, py] = K.P(...apex); T.ball(px, py - 2, 1.6, I[0], I[1], I[3]); T.px(px, py - 4, I[2]); T.px(px, py - 5, I[1]); }
+    decoMoss(T, x - t * 0.18, y - 2, t * 0.16, t * 0.09);
+    bedGlowcap(T, x + t * 0.24, y + 1, Math.round(t * 0.2), t * 0.09);
   },
   birdbath(t, T, ax, ay) {
-    // a stone bowl on a pedestal, full of water that catches the light
-    const cx = ax, cy = ay + t / 2, h = Math.round(t * 0.45), r = t * 0.42;
-    T.cyl(cx, cy, t * 0.1, h, IC.s1, IC.s1, IC.s3);
-    T.cyl(cx, cy - h, r, 2, IC.s0, IC.s1, IC.s2);
-    T.disc(cx, cy - h - 2, r * 0.8, (x, y) => pxHash(x, y) > 0.85 ? IC.b0 : IC.b1);
-    T.px(cx - r * 0.3, cy - h - 3, IC.white);
+    // a carved stone birdbath: a square-shouldered foot, a baluster with a ring round its waist, a wide shallow bowl with a
+    // rolled lip; the water dark in the middle and bright at the rim with the moon in it, moss creeping up the foot, a
+    // feather afloat and a little crystal growing from the lip
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), S = [IC.s0, IC.s1, IC.s2, IC.s3, IC.s4];
+    const zb = Math.round(t * 0.66), H = Math.round(t * 0.92), R = t * 0.62;
+    isoLathe(T, x, y, 0, 3, z => t * (0.32 - z * 0.012), S);
+    isoLathe(T, x, y, 4, zb, z => { const f = (z - 4) / (zb - 4); return t * (0.11 + 0.06 * Math.exp(-(((f - 0.2) / 0.16) ** 2)) + 0.05 * f * f) + (Math.abs(f - 0.62) < 0.06 ? 1.2 : 0); }, S, { lid: false });
+    isoLathe(T, x, y, zb, H, z => { const f = (z - zb) / (H - zb); return t * 0.16 + (R - t * 0.16) * Math.sqrt(f); }, S, { lid: false });
+    // the lip, then the water inside it
+    T.disc(x, y - H, R, (xx, yy) => (xx < x - R * 0.2 ? IC.s0 : IC.s1));
+    T.disc(x, y - H + 0.5, R - 2, (xx, yy) => { const d = Math.hypot(xx + 0.5 - x, (yy + 0.5 - y + H) * 2) / (R - 2); return d > 0.82 ? DECO_AQUA[3] : d > 0.5 ? DECO_AQUA[4] : DECO_AQUA[5]; });
+    T.px(x - R * 0.3, y - H - 1, IC.y0); T.px(x - R * 0.3 + 1, y - H - 1, IC.y0); T.px(x - R * 0.3, y - H, IC.y1);
+    for (let k = 0; k < 16; k++) if (k % 3) { const a = k / 16 * TAU; T.px(x + R * 0.1 + Math.cos(a) * R * 0.38, y - H + Math.sin(a) * R * 0.19, DECO_AQUA[2]); }
+    // a feather floating, a crystal on the back of the lip
+    for (let k = 0; k < 5; k++) { T.px(x + R * 0.25 + k, y - H + 2 - k * 0.4, k < 4 ? IC.p0 : IC.white); T.px(x + R * 0.25 + k, y - H + 3 - k * 0.4, k ? IC.p1 : IC.s0); }
+    bedCrystal(T, x + R * 0.55, y - H - R * 0.2, Math.max(5, t * 0.28), Math.max(1.5, t * 0.07), t * 0.06);
+    decoMoss(T, x - t * 0.2, y - 2, t * 0.15);
+    decoMoss(T, x - R * 0.7, y - H + 1, t * 0.1, t * 0.08);
   },
   drum(t, T, ax, ay) {
-    // a little red drum with a white skin, and two sticks resting on it
-    const cx = ax, cy = ay + t / 2, h = Math.round(t * 0.38), r = t * 0.36;
-    T.cyl(cx, cy, r, h, IC.white, IC.r1, IC.r2);
-    for (let k = 0; k < 6; k++) { const x = cx - r + k * r / 2.5; T.line(x, cy - h + 1, x + 2, cy - 1, IC.y1); }
-    T.line(cx - r * 0.5, cy - h - 3, cx + r * 0.4, cy - h + 1, IC.w2); T.line(cx - r * 0.2, cy - h - 4, cx + r * 0.6, cy - h, IC.w2);
+    // a little drum: a shell lacquered red with a shine, oak hoops top and bottom studded with brass, rope laced between them
+    // in a zigzag with leather pulls, a skin of pale hide with a darker beating spot, two sticks with felt tips on top
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), h = Math.round(t * 0.56), r = t * 0.5, hp = Math.max(3, Math.round(t * 0.11));
+    const W = [IC.w0, IC.w1, IC.w1, IC.w2, IC.w3];
+    isoLathe(T, x, y, 0, hp, () => r + 0.8, W, { lid: false });
+    isoLathe(T, x, y, hp + 1, h - hp - 1, () => r, DECO_LACQUER, { lid: false });
+    isoLathe(T, x, y, h - hp, h, () => r + 0.8, W, { lid: false });
+    // the rope zigzag round the front and the pulls on it
+    const ring = (z, a) => [x + Math.cos(a) * r, y - z + Math.sin(a) * r / 2];
+    for (let k = 0; k < 5; k++) {
+      const a0 = (k / 5) * Math.PI + 0.12, a1 = ((k + 0.5) / 5) * Math.PI + 0.12, [p0x, p0y] = ring(h - hp - 1, a0), [p1x, p1y] = ring(hp + 1, a1), [p2x, p2y] = ring(h - hp - 1, a1 + Math.PI / 10);
+      const lit = Math.cos(a1) > 0.3 ? BED_FLEECE[2] : BED_FLEECE[0];
+      T.line(p0x, p0y, p1x, p1y, lit); T.line(p1x, p1y, p2x, p2y, lit); T.line(p0x + 1, p0y, p1x + 1, p1y, BED_FLEECE[3]);
+      const [mx, my] = ring(hp + 3, a1); T.px(mx - 1, my - 1, BED_ROOT[1]); T.px(mx, my - 1, BED_ROOT[2]); T.px(mx - 1, my, BED_ROOT[2]); T.px(mx, my, BED_ROOT[3]);
+    }
+    for (let k = 0; k < 10; k++) { const a = k / 10 * Math.PI + 0.15; for (const z of [Math.round(hp / 2), h - Math.round(hp / 2)]) { const [bx, by] = ring(z, a); T.px(bx, by, Math.cos(a) > 0.2 ? BRASS[2] : BRASS[0]); } }
+    decoGloss(T, x - r * 0.62, y - h * 0.62, 1);
+    // the skin
+    T.disc(x, y - h, r - 0.4, (xx, yy) => { const d = Math.hypot(xx + 0.5 - x, (yy + 0.5 - y + h) * 2) / r; return d > 0.85 ? BED_FLEECE[2] : d < 0.28 ? BED_FLEECE[3] : xx < x - r * 0.3 ? BED_FLEECE[0] : BED_FLEECE[1]; });
+    // two sticks resting across it
+    for (const [x0, y0, x1, y1] of [[x - r * 0.8, y - h - 3, x + r * 0.5, y - h + 2], [x - r * 0.3, y - h - 5, x + r * 0.9, y - h - 1]]) { T.line(x0, y0, x1, y1, IC.w1); T.line(x0, y0 + 1, x1, y1 + 1, IC.w3); T.ball(x0, y0, 1.6, IC.p0, IC.p1, IC.p2); }
   },
   blocks(t, T, ax, ay) {
-    // three toy blocks stacked crooked, each a colour, each with a mark
-    const cx = ax, cy = ay + t / 2, s = t * 0.2;
-    const block = (x, y, z, col) => { const B = T.box(x, y - z, s, s, Math.round(s * 1.6), col[0], col[1], col[2]); T.px(B.top[0], B.top[1] + s, IC.white); };
-    block(cx - s * 1.2, cy - s, 0, [IC.p0, IC.p1, IC.p2]);
-    block(cx + s * 0.9, cy - s * 0.6, 0, [IC.b0, IC.b1, IC.b2]);
-    block(cx - s * 0.2, cy - s * 1.3, Math.round(s * 1.6), [IC.y0, IC.y1, IC.w1]);
+    // wooden alphabet blocks: plain maple edges round a painted panel on every face, each panel with a raised picture (a star,
+    // a moon, a heart, a gem, a glowling); three on the floor and one stacked a little crooked, and a spinning top beside them
+    const U = t / 2, K = isoKit(T, ax, ay), s = 0.36 * U, hs = Math.round(s * 1.9);
+    const PICS = {
+      star: ["..x..", ".xxx.", "xxxxx", ".x.x."], moon: [".xx..", "x....", "x....", ".xx.."], heart: ["x.x", "xxx", ".x."],
+      gem: [".xxx.", "xxxxx", ".xxx.", "..x.."], glow: [".xxx.", "x.x.x", "xxxxx", ".xxx."],
+    };
+    const face = (pic, at, w, col, ink) => { const rows = PICS[pic], ph = rows.length, pw = rows[0].length;
+      for (let j = 0; j < ph; j++) for (let i = 0; i < pw; i++) if (rows[j][i] === "x") at(i - (pw - 1) / 2, (ph - 1) / 2 - j, ink); };
+    const block = (u, v, z, [c0, c1, c2], picV, picU) => {
+      K.box(u, v, z, s, s, hs, IC.w0, IC.w1, IC.w2);
+      const m = 0.06 * U, um = u + s / 2, vm = v + s / 2, zm = z + hs / 2;
+      K.faceV(v + s, u + m, u + s - m, z + 2, z + hs - 2, c1, 0); K.faceU(u + s, v + m, v + s - m, z + 2, z + hs - 2, c2, 0);
+      K.flat(u + m, v + m, u + s - m, v + s - m, z + hs, c0, 0);
+      face(picV, (i, j, col) => K.dot(um + i * 0.5, v + s, zm + j, col), 0, c1, IC.white);
+      face(picU, (i, j, col) => K.dot(u + s, vm + i * 0.5, zm + j, col), 0, c2, c0);
+    };
+    const P1 = [IC.p0, IC.p1, IC.p2], B1 = [IC.b0, IC.b1, IC.b2], Y1 = [IC.y0, IC.y1, IC.w1], G1 = [IC.g0, IC.g1, IC.g2];
+    block(0.12 * U, 0.06 * U, 0, B1, "moon", "star");
+    block(0.16 * U, 0.1 * U, hs, G1, "glow", "heart");
+    block(0.04 * U, 0.52 * U, 0, P1, "heart", "gem");
+    block(0.54 * U, 0.38 * U, 0, Y1, "star", "glow");
+    // the spinning top, standing mid-spin, in stripes
+    { const [px, py] = K.P(0.82 * U, 0.86 * U, 0), r = t * 0.17;
+      for (let k = 0; k <= Math.round(r * 1.5); k++) { const w = k < r * 0.8 ? k * 1.2 : r * 1.5 - (k - r * 0.8) * 1.6; if (w <= 0) continue; T.line(px - w, py - k, px + w, py - k, (Math.floor(k / 2) % 2) ? IC.r1 : IC.y0); T.px(px - w, py - k, IC.white); T.px(px + w, py - k, (Math.floor(k / 2) % 2) ? IC.r3 : IC.w1); }
+      T.line(px, py - r * 1.5, px, py - r * 1.5 - 3, IC.w2); T.px(px, py - r * 1.5 - 4, IC.w1); }
   },
   telescope(t, T, ax, ay) {
-    // a brass telescope on a wooden tripod, pointing up at the sky
-    const cx = ax, cy = ay + t / 2, top = cy - t * 0.8;
-    for (const dx of [-t * 0.35, 0, t * 0.3]) T.line(cx + dx, cy + (dx ? 0 : 2), cx, top, IC.w2);
-    T.poly([[cx - t * 0.45, top + 4], [cx - t * 0.4, top + 7], [cx + t * 0.45, top - t * 0.35], [cx + t * 0.38, top - t * 0.42]], IC.b2);
-    T.poly([[cx - t * 0.45, top + 4], [cx - t * 0.43, top + 5], [cx + t * 0.42, top - t * 0.4], [cx + t * 0.38, top - t * 0.42]], IC.b1);
-    T.ball(cx + t * 0.43, top - t * 0.39, 2, IC.y0, IC.y1, IC.w2);
+    // a brass telescope on a wooden tripod, tipped up at the sky: three legs splayed with a little brass tray between them
+    // (a crystal on it), a yoke on top, a tube in drawn sections that widens to a dew shield, a finder scope along its back,
+    // an amethyst lens and a dark eyepiece at the near end
+    const U = t / 2, K = isoKit(T, ax, ay), c = 0.5 * U, zh = Math.round(t * 1.0), [hx, hy] = K.P(c, c, zh);
+    const legs = [[0.9, 0.15], [0.12, 0.82], [0.92, 0.9]].map(([u, v]) => K.P(u * U, v * U, 0));
+    const leg = ([fx, fy]) => { T.line(hx, hy, fx, fy, IC.w1); T.line(hx + 1, hy, fx + 1, fy, IC.w3); T.px(fx, fy, BRASS[2]); T.px(fx + 1, fy, BRASS[3]); };
+    leg(legs[0]);
+    // the tray halfway down, with a crystal on it
+    { const m = legs.map(([fx, fy]) => [hx + (fx - hx) * 0.5, hy + (fy - hy) * 0.5]); T.poly(m, BRASS[2]); T.line(m[1][0], m[1][1], m[2][0], m[2][1], BRASS[1]); bedCrystal(T, (m[0][0] + m[1][0] + m[2][0]) / 3, (m[0][1] + m[1][1] + m[2][1]) / 3, 5, 1.5, 0); }
+    // the tube: rings of brass stepped along its axis from the far end (the dew shield) to the eyepiece
+    const dir = [0.9, -0.44], L0 = t * 0.62, L1 = t * 0.88, prof = s => s < 0.08 ? 0.05 : s < 0.22 ? 0.075 : s < 0.78 ? 0.1 + (s - 0.22) * 0.04 : 0.135;
+    const at = s => [hx + dir[0] * ((L0 + L1) * s - L0), hy - 3 + dir[1] * ((L0 + L1) * s - L0)];
+    const ring = (s, col) => { const [cx, cy] = at(s), r = prof(s) * t; for (let q = -Math.ceil(r); q <= Math.ceil(r); q++) T.px(cx - dir[1] * q, cy + dir[0] * q, col); };
+    for (let s = 1; s >= 0; s -= 0.008) {
+      const [cx, cy] = at(s), r = prof(s) * t;
+      for (let q = -Math.ceil(r); q <= Math.ceil(r); q++) {
+        if (Math.abs(q) > r + 0.3) continue;
+        const f = q / r, col = f < -0.55 ? BRASS[0] : f < 0.05 ? BRASS[1] : f < 0.6 ? BRASS[2] : BRASS[3];
+        T.px(cx - dir[1] * q, cy + dir[0] * q, col);
+      }
+    }
+    for (const s of [0.08, 0.22, 0.5, 0.78]) ring(s, BRASS[3]);
+    // the lens at the far end, the eyepiece at the near
+    { const [ox, oy] = at(1), r = prof(1) * t; T.disc(ox + 1, oy, Math.max(1.5, r * 0.45), IC.l3, r); T.disc(ox + 1, oy, Math.max(1, r * 0.3), IC.l1, r * 0.7); T.px(ox + 1, oy - r * 0.4, IC.white); }
+    { const [ex, ey] = at(0); T.px(ex - 1, ey, IC.ink); T.px(ex - 1, ey + 1, IC.ink2); }
+    // the finder along its back
+    { const [a0x, a0y] = at(0.45), [a1x, a1y] = at(0.72), o = prof(0.6) * t + 2; T.line(a0x + dir[1] * o, a0y - dir[0] * o, a1x + dir[1] * o, a1y - dir[0] * o, BRASS[1]); T.px(a1x + dir[1] * o + 1, a1y - dir[0] * o, IC.l2); }
+    // the yoke, and the near legs over everything
+    T.ball(hx, hy - 1, 2.4, BRASS[0], BRASS[2], BRASS[3]);
+    leg(legs[1]); leg(legs[2]);
   },
   table(t, T, ax, ay) {
-    const cx = ax, cy = ay + t / 2, lift = Math.round(t * 0.42), rx = t * 0.4;
-    T.disc(cx, cy, rx * 0.45, IC.w3);
-    for (let k = 1; k < lift; k++) { T.px(cx - 1, cy - k, IC.w2); T.px(cx, cy - k, IC.w3); }
-    T.cyl(cx, cy - lift, rx, 2, IC.w1, IC.w2, IC.w3);
-    // a teapot and a cup
-    const ty = cy - lift - 3;
-    T.ball(cx - 1, ty - 1, 3.2, IC.p0, IC.p1, IC.p2, 2.6);
-    T.px(cx + 3, ty - 2, IC.p1); T.px(cx + 4, ty - 3, IC.p1); T.px(cx - 1, ty - 4, IC.p2);
-    T.px(cx - 6, ty + 1, IC.s0); T.px(cx - 5, ty + 1, IC.s0); T.px(cx - 6, ty + 2, IC.s1);
+    // a round tea table of root-wood: three roots curling out for feet, a turned pedestal with a bulb, a thick top with a
+    // lace doily; on it a fat teal teapot (lid, knob, spout, handle, a glossy shine and a curl of steam), two cups of
+    // moonleaf tea on saucers and a moon cookie. Its top comes up to a glowling's chin
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), H = Math.round(t * 0.86), rx = t * 0.8;
+    for (const [dx, dy] of [[-0.46, 0.04], [0.44, 0.02], [0.02, 0.26]]) for (let k = 0; k < 2; k++) { T.line(x + k, y - Math.round(t * 0.16), x + dx * t * 0.7 + k, y + dy * t - 1, BED_ROOT[k ? 3 : 1]); T.line(x + dx * t * 0.7 + k, y + dy * t - 1, x + dx * t + k, y + dy * t, BED_ROOT[k ? 3 : 2]); }
+    const W = [IC.w0, IC.w1, IC.w1, IC.w2, IC.w3];
+    isoLathe(T, x, y, 1, H - 4, z => { const f = z / H; return t * (0.06 + 0.07 * Math.exp(-(((f - 0.22) / 0.12) ** 2)) + 0.04 * Math.exp(-(((f - 0.82) / 0.08) ** 2))); }, W, { lid: false });
+    isoLathe(T, x, y, H - 3, H, () => rx, W, { lid: (xx, yy) => { const d = Math.hypot(xx + 0.5 - x, (yy + 0.5 - y + H) * 2) / rx; return d > 0.92 ? IC.w0 : Math.round(d * 7) % 2 ? IC.w1 : IC.w2; } });
+    // the doily, its scalloped edge in white
+    T.disc(x - 1, y - H, rx * 0.52, (xx, yy) => ((xx * 2 + yy * 3) % 7 ? IC.s0 : IC.s1));
+    for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; T.px(x - 1 + Math.cos(a) * rx * 0.56, y - H + Math.sin(a) * rx * 0.28, k % 2 ? IC.white : IC.s1); }
+    // cups on saucers: a white rim, the tea inside, a handle
+    const cup = (u, v) => { const [cx, cy] = K.P(u, v, H); T.disc(cx, cy, t * 0.15, IC.s1); T.disc(cx, cy - 0.5, t * 0.13, IC.s0);
+      isoLathe(T, cx, cy, 1, Math.round(t * 0.12), z => t * (0.07 + z / t * 0.25), [IC.white, IC.s0, IC.s0, IC.s1, IC.s2], { lid: (xx) => xx < cx - t * 0.07 || xx > cx + t * 0.07 ? IC.s0 : IC.w2 });
+      T.px(cx + t * 0.1 + 1, cy - 2, IC.s1); T.px(cx + t * 0.1 + 2, cy - 3, IC.s1); T.px(cx + t * 0.1 + 1, cy - 4, IC.s1); };
+    cup(0.12 * U, 0.42 * U);
+    { const [cx, cy] = K.P(0.8 * U, 0.2 * U, H); T.disc(cx, cy - 1, t * 0.09, IC.y1); T.disc(cx - 0.5, cy - 1.5, t * 0.07, IC.y0); T.px(cx + 1, cy - 2, IC.w1); }
+    // the teapot: a round glazed body, a domed lid with a knob, a long spout, a loop of a handle
+    { const [px, py] = K.P(0.42 * U, 0.18 * U, H), r = t * 0.22, by = py - r * 0.95, top = by - r * 0.9;
+      for (let k = 0; k < 6; k++) { T.px(px + r * 0.7 + k, by + 1 - k * 0.9, BED_FELT[k > 4 ? 1 : 2]); T.px(px + r * 0.7 + k, by + 2 - k * 0.9, BED_FELT[3]); }
+      for (let k = -3; k <= 3; k++) T.px(px - r - 1 - Math.round(Math.sqrt(9 - k * k) * 0.6), by + k, BED_FELT[k < 0 ? 2 : 3]);
+      bedPlush(T, px, by, r, r * 0.95, BED_FELT);
+      T.disc(px, top + 1, r * 0.55, BED_FELT[3], r * 0.22); bedPlush(T, px, top - 0.5, r * 0.5, r * 0.3, BED_FELT, { gloss: false }); T.ball(px, top - r * 0.3 - 1, 1.5, BED_FELT[0], BED_FELT[1], BED_FELT[3]);
+      for (let k = 0; k < 4; k++) T.px(px + r * 0.7 + 7 + Math.round(Math.sin(k * 1.4)), by - 5 - k * 2, k % 2 ? IC.s0 : IC.white); }
+    cup(0.58 * U, 0.66 * U);
   },
   mushrooms(t, T, ax, ay, o) {
     // a cluster of luminous blue mushrooms on a mossy mound (after the reference photo): tall thin stems glowing from inside,
@@ -2671,10 +2922,9 @@ function drawSwingIso(p) {
     const x0 = cx + d * bar[0], y0 = top + d * bar[1] + PX, x1 = sx + Math.sign(d * bar[0]) * r * 0.7, y1 = sy - r * 0.1, n = Math.max(1, Math.round(Math.hypot(x1 - x0, y1 - y0) / PX));
     for (let k = 0; k <= n; k++) ctx.fillRect(Math.round(lerp(x0, x1, k / n) / PX) * PX, Math.round(lerp(y0, y1, k / n) / PX) * PX, PX, PX);
   }
-  ctx.fillStyle = "#fff8d6";
-  ctx.beginPath(); ctx.arc(sx, sy, r, Math.PI * 0.05, Math.PI * 0.95); ctx.arc(sx, sy - r * 0.35, r * 0.9, Math.PI * 0.92, Math.PI * 0.08, true); ctx.closePath(); ctx.fill();
-  ctx.fillStyle = "#eec26a";
-  ctx.beginPath(); ctx.arc(sx, sy, r, Math.PI * 0.3, Math.PI * 0.95); ctx.arc(sx, sy - r * 0.2, r * 0.92, Math.PI * 0.9, Math.PI * 0.35, true); ctx.closePath(); ctx.fill();
+  // the moon seat, baked once in pixels and carried along the swing
+  const R = Math.round(r / PX), m = cachedSprite(isoPieces, "moonseat", `${R}|${PX}`, () => ({ c: isoArt(R * 2 + 6, R + 8, T => moonSeat(T, R + 3, 3, R)) }));
+  drawBaked({ c: m.c, x: Math.round(sx / PX - R - 3) * PX, y: Math.round(sy / PX - 3) * PX });
 }
 
 // ---------- rearranging the room ----------
@@ -3131,8 +3381,9 @@ function decorThumb(d) {
   const draw = ISO_ART[d.id];
   if (!draw) return `<span class="em">${d.emoji}</span>`;
   if (!decorThumbs[d.id]) {
-    const f = ISO_PLACES[d.id] || { fw: 1, fd: 1 }, t = 16, pad = 6, w = (f.fw + f.fd) * t + pad * 2, h = (f.fw + f.fd) * t / 2 + t * 2 + pad;
-    const c = isoArt(w, h, T => draw(t, T, f.fd * t + pad, t * 2 + pad / 2, {}));
+    // (room above the footprint for the tall ones: the lamp, the lantern post, the bookcase)
+    const f = ISO_PLACES[d.id] || { fw: 1, fd: 1 }, t = 16, pad = 6, w = (f.fw + f.fd) * t + pad * 2, h = (f.fw + f.fd) * t / 2 + t * 3.2 + pad;
+    const c = isoArt(w, h, T => draw(t, T, f.fd * t + pad, t * 3.2 + pad / 2, {}));
     // trimmed to the drawing, so small pieces fill their square too
     const dd = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
     let x0 = c.width, y0 = c.height, x1 = 0, y1 = 0;
