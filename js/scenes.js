@@ -73,7 +73,7 @@ function fitTopbar() {
 // ---------- settings: music and sound volumes, less motion, bigger text ----------
 
 // less motion starts on if the device asks for it
-const opts = () => ({ music: 1, sfx: 1, calm: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, big: false, ...(save.opts || {}) });
+const opts = () => ({ music: 1, sfx: 1, calm: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, big: false, look: 1, ...(save.opts || {}) });
 function applyOpts() {
   const o = opts();
   sfx.setVolumes(o.music, o.sfx);
@@ -90,6 +90,8 @@ function openOpts() {
     <p class="me-hint">${tr("Music is the backdrops' songs and the grotto's hum; sounds are everything else: taps, chirps, voices.")}</p>
     <button class="opt-toggle${o.calm ? " on" : ""}" data-toggle="calm"><span>${tr("Less motion")}<small>${tr("no shaking or bouncing, gentler effects")}</small></span><b>${o.calm ? tr("on") : tr("off")}</b></button>
     <button class="opt-toggle${o.big ? " on" : ""}" data-toggle="big"><span>${tr("Bigger text")}<small>${tr("for the cards, dialogs and hints")}</small></span><b>${o.big ? tr("on") : tr("off")}</b></button>`;
+  $("optsList").innerHTML += `<div class="opt"><span>${ic("sparkle")}${tr("How glowlings shine")}</span></div><div class="seg look-seg">${[["Classic", 0], ["Glow", 1], ["Spirit", 2]].map(([n, v]) => `<button data-look="${v}" class="${o.look === v ? "on" : ""}">${tr(n)}</button>`).join("")}</div>`;
+  $$("#optsList [data-look]").forEach(b => b.addEventListener("click", () => { setOpt("look", Number(b.dataset.look)); sfx.chirp(1); openOpts(); }));
   $$("#optsList [data-opt]").forEach(r => r.addEventListener("input", () => {
     const v = Number(r.value); $(r.dataset.opt === "music" ? "vMusic" : "vSfx").textContent = pct(v);
     sfx.setVolumes(r.dataset.opt === "music" ? v : opts().music, r.dataset.opt === "sfx" ? v : opts().sfx);

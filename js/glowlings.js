@@ -507,9 +507,54 @@ function drawCreature(c, x, y, s, sp, o = {}) {
 const spriteBuf = { c: document.createElement("canvas"), o: document.createElement("canvas") };
 spriteBuf.g = spriteBuf.c.getContext("2d", { willReadFrequently: true });
 spriteBuf.og = spriteBuf.o.getContext("2d");
+/** A glowling's own neon: its body colour pushed to full saturation and lifted, as a "#rrggbb" and as [r, g, b]. */
+const neonCache = {};
+function neonOf(sp) {
+  if (neonCache[sp.id]) return neonCache[sp.id];
+  const [r, g, b] = pxHex(palOf(sp)[0]).map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, d = mx - mn;
+  let h = 0; if (d) h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  const hue = (h * 60 + 360) % 360, S = 1, L = 0.68, C = (1 - Math.abs(2 * L - 1)) * S, X = C * (1 - Math.abs((hue / 60) % 2 - 1)), m = L - C / 2;
+  const [rr, gg, bb] = hue < 60 ? [C, X, 0] : hue < 120 ? [X, C, 0] : hue < 180 ? [0, C, X] : hue < 240 ? [0, X, C] : hue < 300 ? [X, 0, C] : [C, 0, X];
+  const rgb = [rr, gg, bb].map(v => Math.round((v + m) * 255));
+  return neonCache[sp.id] = { rgb, css: (a) => `rgba(${rgb[0]},${rgb[1]},${rgb[2]},${a})` };
+}
+/**
+ * The ethereal look, made from a baked sprite: its silhouette edge lit in its neon, a two-pixel halo of light around it,
+ * and (in the "spirit" look) the body fading toward its feet, as if it were made of light more than of anything else.
+ */
+function neonize(f, sp, look) {
+  const key = "n" + look;
+  if (f[key]) return f[key];
+  const src = f.c, w = src.width, h = src.height, c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"); g.drawImage(src, 0, 0);
+  const im = g.getImageData(0, 0, w, h), d = im.data, solid = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 40 ? 1 : 0;
+  let y0 = h, y1 = 0; for (let i = 0; i < w * h; i++) if (solid[i]) { const y = (i / w) | 0; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+  const [nr, ng, nb] = neonOf(sp).rgb, near = (x, y, r) => { for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < w && Y < h && solid[Y * w + X] && Math.abs(dx) + Math.abs(dy) <= r) return true; } return false; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const i = y * w + x, o = i * 4;
+    if (solid[i]) {
+      const edge = !(x > 0 && solid[i - 1]) || !(x < w - 1 && solid[i + 1]) || !(y > 0 && solid[i - w]) || !(y < h - 1 && solid[i + w]);
+      if (edge) { d[o] = nr + (255 - nr) * 0.15; d[o + 1] = ng + (255 - ng) * 0.15; d[o + 2] = nb + (255 - nb) * 0.15; }
+      else { d[o] = d[o] + (nr - d[o]) * 0.12; d[o + 1] = d[o + 1] + (ng - d[o + 1]) * 0.12; d[o + 2] = d[o + 2] + (nb - d[o + 2]) * 0.12; }
+      if (look === 2) { const k = clamp((y - (y0 + (y1 - y0) * 0.55)) / ((y1 - y0) * 0.45), 0, 1); d[o + 3] = d[o + 3] * (1 - 0.55 * k); }
+      continue;
+    }
+    if (near(x, y, 1)) { d[o] = nr; d[o + 1] = ng; d[o + 2] = nb; d[o + 3] = look === 2 ? 140 : 120; }
+    else if (near(x, y, 2) && PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.5) { d[o] = nr; d[o + 1] = ng; d[o + 2] = nb; d[o + 3] = 55; }
+  }
+  g.putImageData(im, 0, 0);
+  return f[key] = { c, x: f.x, y: f.y };
+}
 function drawSprite(x, y, s, sp, o = {}) {
-  const grow = [0.82, 1, 1.12, 1.22][stageOf(o.level || 1)];
-  if (o.glow !== false) {
+  const grow = [0.82, 1, 1.12, 1.22][stageOf(o.level || 1)], look = o.look ?? (typeof opts === "function" ? opts().look : 0);
+  if (o.glow !== false && look) {
+    // a pool of the glowling's own light, breathing slowly, laid on with "lighter" so it glows rather than paints
+    const gr = s * grow * (look === 2 ? 1.35 : 1.15), pulse = 0.85 + 0.15 * Math.sin((o.t ?? game.time) * 0.0025 + sp.id.length), n = neonOf(sp), k = (o.glowK ?? 1) * pulse;
+    const g = ctx.createRadialGradient(x, y, s * 0.15, x, y, gr);
+    g.addColorStop(0, n.css(0.42 * k)); g.addColorStop(0.5, n.css(0.18 * k)); g.addColorStop(1, n.css(0));
+    ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, gr, 0, TAU); ctx.fill(); ctx.restore();
+  } else if (o.glow !== false) {
     // a lighter pool of light behind it: the dark outline needs something brighter to sit on
     const gr = s * grow * 1.05, g = ctx.createRadialGradient(x, y, s * 0.3, x, y, gr);
     g.addColorStop(0, `rgba(210,191,255,${0.55 * (o.glowK ?? 1)})`);
@@ -526,7 +571,7 @@ function drawSprite(x, y, s, sp, o = {}) {
     f = bakeSprite(0, 0, s * grow, () => drawCreature(ctx, 0, 0, s, sp, { ...o, t, glow: false }), { lut: SPRITE_LUT, soft: false });
     spriteFrames.set(key, f);
   }
-  drawBaked(f, x, y);
+  drawBaked(look && !o.sil ? neonize(f, sp, look) : f, x, y);
 }
 const spriteFrames = new Map();
 

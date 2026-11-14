@@ -1168,3 +1168,4 @@ body.compact .place-who img { width: 36px; height: 36px; }
 #libGrid .folk-face { width: 52px; height: 52px; image-rendering: pixelated; flex: none; background: var(--px-deep); box-shadow: var(--px-frame); object-fit: contain; }
 #libGrid .aw.folk:not(.got) .folk-face { opacity: .45; }
 .folk-where { display: block; font-style: normal; color: var(--px-gold); }
+.look-seg { margin: 4px 0 10px; }
