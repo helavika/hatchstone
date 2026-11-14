@@ -324,7 +324,9 @@ function updateActors(dt) {
       }
     }
     // the way around the furniture (this also moves a goal that's inside a piece to the free spot beside it)
-    const walking = N.iso && !["nap", "dance", "eat", "sleep", "visit"].includes(a.state) && !(a.id === save.active && game.nest.petting);
+    // (the last stretch to bed goes straight to the sleeping spot: a way around the bed would stop beside it, never in it)
+    const tucking = a.state === "toBed" && Math.hypot(a.tx - a.x, a.ty - a.y) < N.base * 0.9;
+    const walking = N.iso && !tucking && !["nap", "dance", "eat", "sleep", "visit"].includes(a.state) && !(a.id === save.active && game.nest.petting);
     const wp = walking ? nextWaypoint(a, dt) : null;
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
     if (a.state === "toBed" && d <= 8) { a.state = "sleep"; a.hop = 1; } // close enough: lie down (the room's edge may keep the exact spot just out of reach)
@@ -2279,7 +2281,8 @@ const BED_ART = {
   hammock(t, T, ax, ay, o = {}) {
     // a glowcap hammock: two great glowcaps growing from mossy mounds, and slung between their stems a deep striped sling
     // of felt and woven moss on root-wood spreaders, a fleece cushion inside. In the room its near side (o.part "post") is
-    // drawn again over whoever sleeps in it, so they lie down inside the sling
+    // drawn again over whoever sleeps in it, so they lie down inside the sling. It hangs a size up from the other beds
+    t *= 1.12;
     const lipOnly = o.part === "post", cx = ax, cy = ay + t, x0 = cx - t * 1.62, x1 = cx + t * 1.62, top = cy - t * 1.02;
     const e0 = x0 + t * 0.38, e1 = x1 - t * 0.38, S = x => clamp((x + 0.5 - e0) / (e1 - e0), 0, 1), sn = x => Math.sin(Math.PI * S(x));
     const yc = x => top + t * 0.55 * sn(x), yb = x => yc(x) - t * (0.2 + 0.36 * sn(x)), yf = x => yc(x) - t * (0.08 + 0.2 * sn(x)), yu = x => yc(x) + t * (0.1 + 0.2 * sn(x));
@@ -2758,7 +2761,7 @@ function isoOnBed(x, y) {
   return U > p.i + 0.15 && U < p.i + p.fw - 0.05 && V > p.j + 0.05 && V < p.j + p.fd - 0.15;
 }
 /** How high whoever lies on the bed is: on the gazebo's deck, down in the hollow, in the sling, on the mattress. */
-const BED_TOP = { gazebo: 0.14, nest: 0.28, basket: 0.24, hammock: 0.42, canopy: 0.3 };
+const BED_TOP = { gazebo: 0.14, nest: 0.28, basket: 0.24, hammock: 0.47, canopy: 0.3 };
 const isoBedTop = () => N.isoW / ISO_G * (BED_TOP[bedStyle()] ?? 0.22);
 /** The gazebo's four posts, as floor points in tiles: nobody walks through them. */
 function gazeboPosts() {
