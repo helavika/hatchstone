@@ -52,6 +52,7 @@ function update(dt) {
   }
   if (game.scene === "catch") updateCatch(dt);
   if (game.scene === "echo") updateEcho(dt);
+  if (game.scene === "walk") updateWalk(dt);
 
   const drag = Math.exp(-1.5 * dt);
   for (const p of game.pieces) {
@@ -475,8 +476,9 @@ function frame(now) {
   updateClock();
   fx.clearRect(0, 0, W, H);
   if (talkNow) updateSpot();
-  drawBackground();
-  if (game.scene !== "menu") drawBats(dt);
+  // (a walk paints its own land, layer by layer: see walk.js)
+  if (game.scene !== "walk") drawBackground();
+  if (game.scene !== "menu" && game.scene !== "walk") drawBats(dt);
   if (game.scene === "crack" && game.egg) {
     ctx.save();
     if (game.shake > 0.3 && !opts().calm) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
@@ -493,6 +495,8 @@ function frame(now) {
     drawCatch();
   } else if (game.scene === "echo") {
     drawEcho();
+  } else if (game.scene === "walk") {
+    drawWalk();
   } else {
     drawIdle();
   }
@@ -674,6 +678,8 @@ function tgBackTarget() {
   const m = $$(".overlay.modal:not(.hidden)").pop();
   if (m) return m.querySelector('[id$="Close"]') || m.querySelector("#keepCracking");
   if (!$("catchDone").classList.contains("hidden")) return $("catchBack");
+  if (!$("walkDone").classList.contains("hidden")) return $("walkHome");
+  if (game.scene === "walk") return $("walkQuit");
   if (game.scene === "crack") return $("quit");
   return null;
 }

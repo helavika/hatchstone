@@ -29,6 +29,7 @@ const PLACES = {
   lab: { bpm: 56, pad: "sine", cut: 1800, glass: true, tune: "kalimba", notes: 0.14, bubbles: 0.45, chime: 0.03, wet: 0.4 },
   camp: { bpm: 50, pad: "sine", cut: 800, tune: "flute", notes: 0.24, wet: 0.22, bed: "fire" },
   grotto: { bpm: 42, pad: "triangle", cut: 420, tune: "kalimba", notes: 0.24, dark: true, chime: 0.04, wet: 0.7, deep: true, bed: "hum", drip: 0.05 },
+  walk: { bpm: 60, pad: "sine", cut: 1500, tune: "harp", notes: 0.44, birds: 0.12, chime: 0.03, wet: 0.22 },
   map: { bpm: 44, pad: "sine", cut: 950, tune: "harp", notes: 0.2, bell: 0.15, wet: 0.5, wide: true },
   crack: { bpm: 46, pad: "sine", cut: 560, padGain: 0.55, notes: 0, chime: 0.06, wet: 0.45 },
 };
@@ -36,6 +37,7 @@ const PLACES = {
 function musicPlace() {
   if (game.scene === "crack") return "crack";
   if (game.scene === "map" || game.scene === "lib") return "map";
+  if (game.scene === "walk") return "walk";
   const kind = save.rooms && save.rooms[save.room] && save.rooms[save.room].kind;
   return { yard: "garden", garden: "garden", forge: "forge", lab: "lab", camp: "camp", grotto: "grotto" }[kind] || "nest";
 }

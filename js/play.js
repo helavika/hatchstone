@@ -1199,9 +1199,9 @@ function openGames() {
   const cr = activeCreature();
   if (!cr) return;
   $("gamesSub").textContent = tr("What shall we play with {0}?", cr.name);
-  $("gamesList").innerHTML = [["catch", "✨", tr("Sparkle catch"), tr("drag to catch sparkles, dodge pebbles")], ["echo", "🎵", tr("Echo song"), tr("listen to the tune, then sing it back")]]
+  $("gamesList").innerHTML = [["catch", "✨", tr("Sparkle catch"), tr("drag to catch sparkles, dodge pebbles")], ["echo", "🎵", tr("Echo song"), tr("listen to the tune, then sing it back")], ["walk", "🌿", tr("A walk outside"), tr("a little path to stroll, with things to find")]]
     .map(([id, em, name, how]) => `<button class="snack" data-game="${id}"><span class="em">${em}</span><span><b>${name}</b><small>${how}</small></span>${id === "echo" && save.echoBest ? `<span class="cost">♪ ${save.echoBest}</span>` : ""}</button>`).join("");
-  $$("#gamesList .snack").forEach(b => b.addEventListener("click", () => { show("games", false); (b.dataset.game === "echo" ? startEcho : startCatch)(); }));
+  $$("#gamesList .snack").forEach(b => b.addEventListener("click", () => { show("games", false); ({ echo: startEcho, walk: openWalk }[b.dataset.game] || startCatch)(); }));
   show("games", true);
 }
 

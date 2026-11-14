@@ -14,6 +14,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = now; }
   if (game.scene === "catch" && game.catch) game.catch.tx = x;
   if (game.scene === "echo") { echoTap(x, y); return; }
+  if (game.scene === "walk") { pointer = null; walkTap(x, y); return; }
   if (game.scene === "nest" && !remote) { const ps = passageAt(x, y); if (ps) { pointer = null; goPassage(ps); return; } }
   if (game.scene === "nest" && cloudAt(x, y)) { pointer.cloud = true; return; }
   if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
