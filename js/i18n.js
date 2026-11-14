@@ -1342,7 +1342,6 @@ const UK = {
   "Rare award": "Рідкісна нагорода",
   "Epic award": "Епічна нагорода",
   "Legendary award": "Легендарна нагорода",
-  "{0} awards earned ✦ see them in the Book": "Нагород отримано: {0} ✦ дивись у Книзі",
   "see them in the Book": "дивись у Книзі",
   "award earned|awards earned": [
   "нагороду отримано",

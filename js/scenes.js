@@ -345,7 +345,7 @@ function checkAwards(quiet) {
   if (!got.length) return;
   save.awards = earned;
   persist(); updateTopbar();
-  if (first || quiet) { toast(tr("{0} awards earned ✦ see them in the Book", got.length)); return; }
+  if (first || quiet) { toast(`${got.length} ${pl(got.length, "award earned", "awards earned")} ✦ ${tr("see them in the Book")}`); return; }
   queueAwards(...got);
 }
 /** A trophy slides down from the top, like a console achievement (in its turn: see nextBanner). */
