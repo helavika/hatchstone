@@ -7,6 +7,7 @@
   --gold: #ffe9a8;
   --top: max(14px, env(safe-area-inset-top), var(--tg-top, 0px));
   --bottom: max(12px, env(safe-area-inset-bottom), var(--tg-bottom, 0px));
+  --lane: calc(var(--top) + 54px); /* the one slot under the top bar where banners (toasts, awards) take their turns */
 }
 * { box-sizing: border-box; }
 /* until the page is ready (translated, fonts in, the first frame drawn) only the dark background shows, then it fades in:
@@ -85,7 +86,7 @@ body.scene-catch #hint, body.scene-echo #hint { bottom: auto; top: calc(var(--to
 @media (orientation: landscape) and (max-height: 500px) { #rotate { display: grid; } }
 
 #toast {
-  position: fixed; left: 50%; top: calc(var(--top) + 54px); transform: translate(-50%, -8px); opacity: 0;
+  position: fixed; left: 50%; top: var(--lane); transform: translate(-50%, -8px); opacity: 0;
   padding: 10px 18px; border-radius: 999px; font-weight: 700; font-size: 14px; text-align: center; pointer-events: none;
   transition: opacity .4s, transform .4s; width: max-content; max-width: calc(100vw - 32px); z-index: 5;
 }
@@ -233,7 +234,7 @@ body.scene-nest #nestShare { pointer-events: auto; }
 #switcher button.on { background: rgba(255, 255, 255, .32); }
 #switcher img { width: 100%; height: 100%; object-fit: contain; }
 #nestEmpty { position: fixed; left: 16px; right: 16px; top: 30%; display: flex; justify-content: center; z-index: 2; }
-#nestEmpty[hidden] { display: none; }
+#nestEmpty[hidden], #talk:not([hidden]) ~ #nestEmpty { display: none; } /* and not while Mossa is still speaking */
 #nestEmpty .card { width: min(340px, 100%); text-align: center; }
 #firstEgg, #foundNest { display: inline-flex; align-items: center; gap: 8px; }
 .found-go { display: flex; flex-direction: column; align-items: center; gap: 10px; margin-top: 4px; }
@@ -823,8 +824,8 @@ i.mood.zz { font-style: normal; font-size: 13px; color: #b8e6f5; }
 #homeList { overflow: auto; min-height: 0; }
 
 /* awards: a trophy drops in from the top, and the book keeps them by rarity */
-#award { position: fixed; z-index: 40; left: 50%; top: calc(var(--top) + 8px); display: flex; align-items: center; gap: 12px; min-width: min(300px, calc(100vw - 24px)); padding: 10px 16px 10px 12px;
-  transform: translate(-50%, calc(-100% - var(--top) - 40px)); visibility: hidden; transition: transform .4s cubic-bezier(.2, .9, .3, 1.2), visibility 0s .4s; pointer-events: auto; cursor: pointer; text-align: left; background: var(--px-raise) !important;
+#award { position: fixed; z-index: 40; left: 50%; top: var(--lane); display: flex; align-items: center; gap: 12px; min-width: min(300px, calc(100vw - 24px)); padding: 10px 16px 10px 12px;
+  transform: translate(-50%, calc(-100% - var(--lane) - 32px)); visibility: hidden; transition: transform .4s cubic-bezier(.2, .9, .3, 1.2), visibility 0s .4s; pointer-events: auto; cursor: pointer; text-align: left; background: var(--px-raise) !important;
   box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep) !important; }
 #award.on { transform: translate(-50%, 0); visibility: visible; transition: transform .4s cubic-bezier(.2, .9, .3, 1.2); }
 #award .ic { width: 40px; height: 40px; flex: none; }
@@ -951,7 +952,10 @@ body:not(.scene-nest) #homePill { display: none; }
 #nestTop #xpBar { order: 3; width: 54px; height: 6px; margin: 0; }
 #nestTop #nestShare { order: 4; padding: 0 2px; }
 #nestTop #nestShare .ic { width: 20px; height: 20px; }
-body.scene-nest #hint, body.compact.scene-nest #hint { top: calc(var(--top) + 92px) !important; }
+/* in the nest the banners' slot sits lower, under the name and the level: the hint lives in it too, and steps aside for a banner */
+body.scene-nest { --lane: calc(var(--top) + 92px); }
+body.scene-nest #hint, body.compact.scene-nest #hint { top: var(--lane) !important; }
+body.banner.scene-nest #hint, body.banner.scene-catch #hint, body.banner.scene-echo #hint { opacity: 0; }
 body.compact #nestTop #nestName { font-size: 22px; }
 body.compact #nestTop { top: calc(var(--top) + 46px) !important; }
 .view-seg { display: flex; margin: 4px 0 8px; }

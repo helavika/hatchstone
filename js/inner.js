@@ -103,8 +103,7 @@ function coreLit() {
   const c = save.core, lit = coreFacet(c.n);
   while (c.told < lit) {
     c.told++;
-    awardQueue.push({ core: c.told });
-    showAward();
+    queueAwards({ core: c.told });
     coreSay("core" + c.told);
   }
 }

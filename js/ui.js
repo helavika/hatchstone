@@ -613,11 +613,10 @@ $("meName").addEventListener("input", () => { $("meSave").hidden = !$("meSave").
 $("meSave").addEventListener("click", () => { const first = !!$("meSave").dataset.first; saveMe(); sfx.tick(); if (first) $("meClose").click(); else { $("meSave").hidden = true; toast(tr("Saved ✓")); } });
 $("meName").addEventListener("change", saveMe);
 $$("#meForm [data-form]").forEach(b => b.addEventListener("click", () => { me().form = b.dataset.form; persist(); sfx.tick(); $$("#meForm [data-form]").forEach(x => x.classList.toggle("on", x === b)); }));
-$("award").addEventListener("click", () => { if ($("award").classList.contains("legendary") && awardShowing) openMe(); });
+$("award").addEventListener("click", () => { if ($("award").classList.contains("legendary") && bannerNow) openMe(); });
 // a sheet opening or closing while a banner shows: the banner moves out of the sheet's title (or back to its place)
 new MutationObserver(() => {
-  if ($("toast").classList.contains("on")) placeBanner($("toast"));
-  if (awardShowing) placeBanner($("award"));
+  if (bannerNow) placeBanner(bannerEl(bannerNow));
 }).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
 $("homeClose").addEventListener("click", () => show("homeSheet", false));
 $("homePill").addEventListener("click", openHome);
