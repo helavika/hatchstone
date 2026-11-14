@@ -216,7 +216,7 @@ function openShop() {
       return `<button class="tile${owned ? " owned" : ""}${owned && owned.on ? " placed" : ""}${d.legend ? " legend" : ""}${locked || (!owned && save.shards < d.cost) ? " dim" : ""}${st.pick === d.id ? " on" : ""}" data-pick="${d.id}">${decorThumb(d)}<b>${d.name}</b><small>${tag}</small></button>`;
     };
     body = (!market ? `<div class="room-head"><span><b>${roomName(save.room)}</b>${iso ? `<small>${tr("Room space")} ${used}/${ISO_CAP}</small>` : ""}</span>${iso ? `<i class="room-space" style="--k:${Math.min(1, used / ISO_CAP)}"></i><button class="act" id="arrangeOpen">✥ ${tr("Rearrange")}</button>` : ""}</div>` : "")
-      + (!items.length ? `<p class="me-hint">${market ? tr("You own everything here ✦") : tr("Nothing here yet: furniture you buy at the shop waits in the chest.")}</p>${market ? "" : `<button class="act" id="toMarket">${ic("stall")}${tr("To the shop")}</button>`}` : "")
+      + (!items.length ? market ? `<p class="me-hint">${tr("You own everything here ✦")}</p>` : shopEmpty("Nothing here yet: furniture you buy at the shop waits in the chest.", "Nothing here yet: furniture comes from the shop, which opens after level {0}.", "decor") : "")
       + DECOR_CATS.map(([cat, name]) => { const here = items.filter(d => (DECOR_CAT[d.id] || "pretty") === cat); return here.length ? `<h3 class="forge-h">${tr(name)}</h3><div class="tiles">${here.map(tile).join("")}</div>` : ""; }).join("");
   }
   $("shopList").innerHTML = tabs + `<div class="shop-body">${body}</div>`;
@@ -234,7 +234,7 @@ function openShop() {
   $$("#shopList [data-bed]").forEach(b => b.addEventListener("click", () => { save.rooms[save.room].bed = b.dataset.bed; persist(); sfx.tick(); toast(tr("A new bed: {0} ✦", tr(BEDS.find(x => x.id === b.dataset.bed).name))); openShop(); }));
   $$("#shopList [data-build]").forEach(b => b.addEventListener("click", () => buildRoom(b.dataset.build)));
   $("nestUp")?.addEventListener("click", buyNestUp);
-  $("toMarket")?.addEventListener("click", openMarket);
+  $$("#shopList [data-way]").forEach(b => b.addEventListener("click", () => { const [to, tab] = b.dataset.way.split(":"); show("shop", false); CHEST_WAYS[to].go(tab); }));
   $("giftFromChest")?.addEventListener("click", () => openGift());
   $$("#shopList [data-gift]").forEach(b => b.addEventListener("click", () => openGift(b.dataset.gift)));
   $$("#shopList [data-food]").forEach(b => b.addEventListener("click", () => buyFood(b.dataset.food, Number(b.dataset.n || 1))));
@@ -289,7 +289,23 @@ function toRoomKind(kind) {
 // ---------- the shop sells; the chest keeps what's yours ----------
 
 function openChest() { const st = shopOf(); if (st.mode !== "chest") { st.mode = "chest"; st.tab = "decor"; st.pick = null; } openShop(); }
-function openMarket() { const st = shopOf(); if (st.mode !== "market") { st.mode = "market"; st.tab = "food"; st.pick = null; } if (game.scene !== "nest") setScene("nest"); openShop(); }
+function openMarket(tab) { const st = shopOf(); if (st.mode !== "market" || tab) { st.mode = "market"; st.tab = tab || "food"; st.pick = null; } if (game.scene !== "nest") setScene("nest"); openShop(); }
+/** The ways out of an empty shelf, each to where such things come from; `ok` says whether that place is open yet. */
+const CHEST_WAYS = {
+  shop: { icon: "stall", name: () => tr("To the shop"), ok: () => placeOk("shop"), go: tab => { arriveAt("shop"); openMarket(tab); } },
+  walk: { icon: "walk", name: () => tr("A walk outside"), ok: () => walkWho().length > 0, go: () => openWalk() },
+  tasks: { icon: "tasks", name: () => tr("Today's tasks"), ok: () => true, go: () => openTasks() },
+  egg: { icon: "egg", name: () => tr(save.creatures.length ? "Crack the next egg" : "Crack your first egg"), ok: () => true, go: () => startLevel(nextLevel()) },
+};
+/** The button for one of those ways ("shop:seeds" opens the shop at its seeds); nothing while the place is still closed. */
+function chestWay(way) {
+  const w = CHEST_WAYS[way.split(":")[0]];
+  return w.ok() ? `<button class="act" data-way="${way}">${ic(w.icon)}${w.name()}</button>` : "";
+}
+/** An empty shelf: the chest standing open, a line on where such things come from, and the button that goes there. */
+const chestEmpty = (line, way) => `<div class="chest-empty"><img src="${pxIcon("chestOpen")}" alt=""><p>${line}</p>${chestWay(way)}</div>`;
+// what the shop sells, while the shop is still closed: the way to it is through the grotto
+const shopEmpty = (line, early, tab) => placeOk("shop") ? chestEmpty(tr(line), "shop:" + tab) : chestEmpty(tr(early, 1), "egg");
 function buyFood(id, n = 1) {
   const s = SNACKS[id];
   if (!s || s.garden || save.shards < s.cost * n) return;
@@ -322,19 +338,24 @@ function chestPantry() {
   const seeds = Object.entries(garden().seeds).filter(([id, n]) => n > 0 && SEEDS[id]);
   const bars = Object.entries(save.bars || {}).filter(([id, n]) => n > 0 && BARS[id]);
   const chip = (img, name, n, gift) => gift ? `<button class="tile owned" data-gift="${gift}" title="${tr("Send as a gift")}">${img}<b>${name}</b><small>×${n}</small></button>` : `<div class="tile owned">${img}<b>${name}</b><small>×${n}</small></div>`;
-  const empty = t => `<p class="me-hint">${t}</p>`;
-  return `<button class="act gift-entry" id="giftFromChest">${ic("gift")}${tr("Send a gift")}</button><p class="me-hint">${tr("Tap food or seeds to wrap them for a friend 🎁")}</p>`
-    + `<h3 class="forge-h">${tr("Food")}</h3>` + (pantry.length ? `<div class="tiles">${pantry.map(([id, n]) => chip(`<span class="em">${SNACKS[id].emoji}</span>`, SNACKS[id].name, n, "snack:" + id)).join("")}</div>${empty(tr("Feed it from the snack button in the nest."))}` : empty(tr("The basket is empty. Buy food at the shop, or grow it in the garden.")))
-    + `<h3 class="forge-h">${tr("Seeds")}</h3>` + (seeds.length ? `<div class="tiles">${seeds.map(([id, n]) => chip(`<img class="em" src="${plantImage(id, 3)}" alt="">`, seedName(id), n, "seed:" + id)).join("")}</div>` : empty(tr("No seeds. The shop has them, and expeditions bring some back.")))
+  const treasures = bars.length || save.sunlit || (save.charms || []).length;
+  const empty = (t, way) => `<p class="me-hint shelf-empty"><span>${t}</span>${way ? chestWay(way) : ""}</p>`;
+  const gift = `<button class="act gift-entry" id="giftFromChest">${ic("gift")}${tr("Send a gift")}</button>`;
+  // not a thing on any shelf: one open chest instead of four bare shelves
+  if (!pantry.length && !seeds.length && !treasures && !KEEPSAKES.some(k => save.walks.found[k.id]))
+    return gift + shopEmpty("The pantry is bare: food and seeds come from the shop.", "The pantry is bare: food and seeds come from the shop, which opens after level {0}.", "food");
+  return gift + `<p class="me-hint">${tr("Tap food or seeds to wrap them for a friend 🎁")}</p>`
+    + `<h3 class="forge-h">${tr("Food")}</h3>` + (pantry.length ? `<div class="tiles">${pantry.map(([id, n]) => chip(`<span class="em">${SNACKS[id].emoji}</span>`, SNACKS[id].name, n, "snack:" + id)).join("")}</div>${empty(tr("Feed it from the snack button in the nest."))}` : empty(tr("The basket is empty. Buy food at the shop, or grow it in the garden."), "shop:food"))
+    + `<h3 class="forge-h">${tr("Seeds")}</h3>` + (seeds.length ? `<div class="tiles">${seeds.map(([id, n]) => chip(`<img class="em" src="${plantImage(id, 3)}" alt="">`, seedName(id), n, "seed:" + id)).join("")}</div>` : empty(tr("No seeds. The shop has them, and expeditions bring some back."), "shop:seeds"))
     + chestKeepsakes()
-    + `<h3 class="forge-h">${tr("Treasures")}</h3>` + (bars.length || save.sunlit || (save.charms || []).length ? `<div class="tiles">${bars.map(([id, n]) => chip(`<img class="em px-thumb" src="${pxIcon(BARS[id].icon || "bar" + id[0].toUpperCase() + id.slice(1))}" alt="">`, barName(id), n)).join("")}${save.sunlit ? chip(`<span class="em">☀️</span>`, tr("Sunpetal"), save.sunlit) : ""}${giftCharmTiles()}</div>` : empty(tr("Nothing yet: bars for the lantern and sunpetals end up here.")));
+    + `<h3 class="forge-h">${tr("Treasures")}</h3>` + (treasures ? `<div class="tiles">${bars.map(([id, n]) => chip(`<img class="em px-thumb" src="${pxIcon(BARS[id].icon || "bar" + id[0].toUpperCase() + id.slice(1))}" alt="">`, barName(id), n)).join("")}${save.sunlit ? chip(`<span class="em">☀️</span>`, tr("Sunpetal"), save.sunlit) : ""}${giftCharmTiles()}</div>` : empty(tr("Nothing yet: bars for the lantern come from daily tasks and moon eggs, sunpetals from the garden."), "tasks"));
 }
 /** The chest's keepsakes: every kind of feather and flower found on walks, how many, and how many kinds there are to find. */
 function chestKeepsakes() {
   const f = save.walks.found, jar = jarOf(save.walks), have = KEEPSAKES.filter(k => f[k.id]);
   return `<h3 class="forge-h">${tr("Keepsakes")} <small>${tr("{0} of {1} kinds found", have.length, KEEPSAKES.length)}</small></h3>`
     + (have.length ? `<div class="tiles">${have.map(k => `<div class="tile owned"><img class="em px-thumb" src="${pxIcon("ks_" + k.id)}" alt=""><b>${tr(k.name)}</b><small>×${jar[k.id] || 0}</small></div>`).join("")}</div><p class="me-hint">${tr("Every feather and flower from your walks goes into the keepsake jar: set it out in a room, or make something to wear from them under Wear.")}</p>`
-      : `<p class="me-hint">${tr("Feathers and flowers from your walks will be kept here.")}</p>`);
+      : `<p class="me-hint shelf-empty"><span>${tr("Feathers and flowers from your walks will be kept here.")}</span>${chestWay("walk")}</p>`);
 }
 
 // ---------- the garden: plant seeds in the garden bed, water them, and pick what grows (in real time) ----------
@@ -720,7 +741,7 @@ function musicNotes(dt) {
 /** Accessories in the Decor sheet: each shown on the glowling you've picked; buy once, then any glowling can wear it. */
 function accessoryList() {
   const cr = activeCreature();
-  if (!cr) return "";
+  if (!cr) return chestEmpty(tr("Nobody to dress up yet: glowlings hatch from the eggs in the grotto."), "egg");
   const owned = save.wardrobe || {};
   return `<p class="sub">${tr("Accessories for {0}: buy once, then any glowling can wear it. Tap to put on or take off.", cr.name)}</p><div class="tiles">` + ACCESSORIES.map(a => {
     const has = owned[a.id], on = cr.acc === a.id;
