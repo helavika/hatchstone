@@ -789,13 +789,13 @@ function nudgeBackup() {
 
 /** Everyone you can meet: who they are, where they live, and when you'll have met them. */
 const FOLK = [
-  { name: "Mossa", face: () => pxIcon("mossa"), where: "the grotto", met: () => save.creatures.length > 0, hint: "crack your first geode",
+  { name: "Mossa", face: () => pxPortrait("mossa"), where: "the grotto", met: () => save.creatures.length > 0, hint: "crack your first geode",
     about: "The old stone who keeps the grotto. Once the Heartlight's keeper, still keeping watch, and telling its story a little at a time." },
-  { name: "Wick", face: () => pxIcon("wick"), where: "the garden, every third day", met: () => talkSeen("s2"), hint: "reach level 7",
+  { name: "Wick", face: () => pxPortrait("wick"), where: "the garden, every third day", met: () => talkSeen("s2"), hint: "reach level 7",
     about: "A lantern moth who trades in glimmers and gossip, and always seems to know more than he says." },
-  { name: "Dorma", face: () => pxIcon("dorma"), where: "the grotto's library", met: () => talkSeen("s4"), hint: "reach level 13",
+  { name: "Dorma", face: () => pxPortrait("dorma"), where: "the grotto's library", met: () => talkSeen("s4"), hint: "reach level 13",
     about: "Keeps the grotto's sleepy library. Finds the lost pages of the Heartlight's story, usually under the pillow." },
-  { name: "the Gloom", face: () => pxIcon("gloom"), where: "the dark past the forge", met: () => talkSeen("g1"), hint: "something waits at level 6",
+  { name: "the Gloom", face: () => pxPortrait("gloom"), where: "the dark past the forge", met: () => talkSeen("g1"), hint: "something waits at level 6",
     about: "Something old in the dark that seals glowlings away in stone. Nobody knows what it wants." },
   { name: "Tansy", face: () => keeperFace("tansy"), where: "the shop", met: () => !!save.heroTalk?.shop, hint: "visit the shop",
     about: "A hedgehog merchant. Sells sensible things, dreams of selling one very good hat, and curls into a ball if poked too much." },

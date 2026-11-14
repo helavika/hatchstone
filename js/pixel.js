@@ -245,6 +245,20 @@ function pxIcon(name) {
 }
 const ic = (name, cls = "") => `<i class="ic${cls ? " " + cls : ""}" style="background-image:url(${pxIcon(name)})" aria-hidden="true"></i>`;
 
+// ---------- portraits: the faces of those who speak but keep no hut, at the size of the keepers' portraits ----------
+/** name → { pal: { letter: colour }, rows: 26 strings of 26 letters, "." clear }. Each is set beside its speaker (see crack.js). */
+const PX_PORTRAITS = {};
+/** A portrait as a data URL, each art pixel doubled like keeperFace's; the small icon of that name stands in until one is drawn. */
+function pxPortrait(name) {
+  const p = PX_PORTRAITS[name], key = "portrait:" + name;
+  if (!p) return pxIcon(name);
+  if (pxIconCache[key]) return pxIconCache[key];
+  const c = document.createElement("canvas"); c.width = c.height = p.rows.length * 2;
+  const g = c.getContext("2d");
+  p.rows.forEach((row, y) => [...row].forEach((ch, x) => { if (p.pal[ch]) { g.fillStyle = p.pal[ch]; g.fillRect(x * 2, y * 2, 2, 2); } }));
+  return pxIconCache[key] = c.toDataURL();
+}
+
 // one small cave banner per chapter, in that chapter's crystal
 const CHAPTER_ART = [
   { seed: 3, wall: ["#07051a", "#120c33", "#21174f", "#33256f", "#463592"], crystal: ["#2a1d63", "#5b3fb0", "#9a7ce6", "#c9b8ff", "#f2ecff"], glow: "#b48cff" },

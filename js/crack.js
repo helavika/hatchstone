@@ -866,7 +866,7 @@ function showFound() {
 
 // ---------- dialogs: Mossa, the old stone who keeps the grotto, talks you through the big moments ----------
 
-const MOSSA = { name: "Mossa", face: () => pxIcon("mossa"), voice: { f: 190, wave: "triangle", spread: 0.22, glide: 0.92, gain: 0.07, len: 0.07 } };
+const MOSSA = { name: "Mossa", face: () => pxPortrait("mossa"), voice: { f: 190, wave: "triangle", spread: 0.22, glide: 0.92, gain: 0.07, len: 0.07 } };
 const glowVoice = cr => ({ name: cr.name, face: () => creatureImage(specOf(cr), { art: 32, level: cr.level, shiny: cr.shiny }),
   voice: { f: 640 * (specOf(cr).voice || 1), wave: "square", spread: 0.4, glide: 1.3, gain: 0.03, len: 0.05 } });
 const firstPet = () => save.creatures[0];
@@ -911,7 +911,7 @@ const TALKS = {
 
 // ---------- the Gloom: a cold dark from the deep that seals the sparks in dead stone; at the end of each cave, one to rescue ----------
 
-const GLOOM = { name: "the Gloom", icon: "gloom", face: () => pxIcon("gloom"), voice: { f: 95, wave: "sawtooth", spread: 0.12, glide: 0.8, gain: 0.05, len: 0.1 } };
+const GLOOM = { name: "the Gloom", icon: "gloom", face: () => pxPortrait("gloom"), voice: { f: 95, wave: "sawtooth", spread: 0.12, glide: 0.8, gain: 0.05, len: 0.1 } };
 const GLOOM_STONE = Object.assign(["#3a2a52", "#1a1028", "#6b4fa8"], { gloom: true });
 /** Before the sealed geode at the end of cave k (1..4), the Gloom has its say; after it opens, your friends have theirs. */
 const GLOOM_TALKS = {
@@ -946,8 +946,8 @@ function drawGloom() {
 
 // ---------- the story: why the glowlings sleep in stone, told a little at a time as you go deeper ----------
 
-const WICK = { name: "Wick", face: () => pxIcon("wick"), voice: { f: 420, wave: "sawtooth", spread: 0.3, glide: 1.1, gain: 0.025, len: 0.05 } };
-const DORMA = { name: "Dorma", face: () => pxIcon("dorma"), voice: { f: 260, wave: "sine", spread: 0.15, glide: 0.85, gain: 0.08, len: 0.09 } };
+const WICK = { name: "Wick", face: () => pxPortrait("wick"), voice: { f: 420, wave: "sawtooth", spread: 0.3, glide: 1.1, gain: 0.025, len: 0.05 } };
+const DORMA = { name: "Dorma", face: () => pxPortrait("dorma"), voice: { f: 260, wave: "sine", spread: 0.15, glide: 0.85, gain: 0.08, len: 0.09 } };
 /** Each part opens with a level of the grotto and plays once; the book keeps them all to read again. */
 const STORY = [
   { id: "s1", at: 3, title: "The Heartlight", who: MOSSA, lines: () => [
