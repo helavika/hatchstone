@@ -696,10 +696,86 @@ function renderMap() {
       const n = ci * 6 + i + 1, st = save.stars[n] || 0, open = unlocked(n);
       html += `<button class="lvl${n === next ? " next" : ""}" style="left:${x}%;top:${y}%" data-n="${n}" ${open ? "" : "disabled"}>${n}<span>${open ? (st ? "★".repeat(st) : "") : "🔒"}</span></button>`;
     });
-    html += "</div></figure>";
+    html += `</div>${nicheRow(ci)}</figure>`;
   });
   const allDone = unlocked(LEVELS + 1);
   html += `<button class="wander" data-n="0" ${allDone ? "" : "disabled"}>${tr("🌌 Wander: endless geodes from the deepest caves")}${allDone ? "" : tr(" (clear level 24)")}</button>`;
   $("mapList").innerHTML = html;
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
+  $$("#mapList [data-niche]").forEach(b => b.addEventListener("click", () => tapNiche(...b.dataset.niche.split(",").map(Number))));
+}
+
+// ---------- star niches: two in the wall of every cave, sealed until its stars open them, a heart geode in each ----------
+
+/** A cave's two niches open at this many of its eighteen stars. */
+const NICHE_STARS = [12, 18];
+/** Stars earned on the six levels of cave k. */
+const caveStars = k => [1, 2, 3, 4, 5, 6].reduce((sum, j) => sum + (save.stars[k * 6 + j] || 0), 0);
+/** A niche is sealed until its cave has the stars, open while its heart geode waits inside, and empty once that has been cracked. */
+const nicheState = (k, i) => save.caches && save.caches[k] && save.caches[k][i] ? "empty" : caveStars(k) >= NICHE_STARS[i] ? "open" : "sealed";
+
+/**
+ * The crystal in the heart geode of cave k's niche i: one of the cave's own that the Book lacks, the commonest of them in
+ * the first niche and the rarest in the second. With the cave's own all found it is the rarest the Book lacks anywhere,
+ * and with the Book full, one of the cave's rare ones (the one you have fewest of; the second niche looks for a legendary first).
+ * Nothing is rolled and nothing is kept: the same Book gives the same crystal, so walking out and coming back changes nothing.
+ */
+function heartCrystal(k, i) {
+  const rank = c => ["common", "rare", "legendary"].indexOf(c.rarity), rarest = (a, b) => rank(b) - rank(a), lacks = c => !save.geodes[c.id];
+  const home = CRYSTALS.filter(c => c.cave === k);
+  const own = home.filter(lacks).sort(i ? rarest : (a, b) => rank(a) - rank(b));
+  if (own.length) return own[0];
+  const far = CRYSTALS.filter(lacks).sort(rarest);
+  if (far.length) return far[0];
+  const count = c => save.geodes[c.id].count || 0;
+  return home.filter(c => c.rarity !== "common").sort((a, b) => (i ? rarest(a, b) : 0) || count(a) - count(b))[0] || home[0];
+}
+
+/** The two niches under a cave's picture: sealed with the cave's stars counted on it, open with its heart geode showing, or opened and empty. */
+function nicheRow(k) {
+  const have = caveStars(k);
+  return `<div class="niches">${NICHE_STARS.map((need, i) => {
+    const st = nicheState(k, i), count = `★ ${Math.min(have, need)} / ${need}`;
+    const [inside, big, small] = st === "open" ? [`<img src="${caveShell(heartCrystal(k, i).cave)}" alt=""><i></i><i></i>`, tr("heart geode"), tr("tap to open")]
+      : st === "sealed" ? ["★", count, tr("star niche")] : ["", `★ ${need}`, tr("opened")];
+    const says = st === "open" ? tr("Star niche, open: a heart geode is inside") : st === "sealed" ? tr("Star niche, sealed: {0} of {1} stars", Math.min(have, need), need) : tr("Star niche, opened and empty");
+    return `<button class="niche ${st}" data-niche="${k},${i}" aria-label="${says}"><span class="hole" aria-hidden="true">${inside}</span><span class="says"><b>${big}</b><small>${small}</small></span></button>`;
+  }).join("")}</div>`;
+}
+
+/** A tap on a niche: an open one hands over its heart geode, a sealed or an empty one says in a line what it is. */
+function tapNiche(k, i) {
+  const st = nicheState(k, i);
+  if (st === "open") return startHeart(k, i);
+  sfx.tick();
+  toast(st === "sealed" ? tr("{0} stars in this cave open the niche: a heart geode waits inside", NICHE_STARS[i]) : tr("This niche is empty: its heart geode is already opened"));
+}
+
+/**
+ * Into an open niche. Its heart geode is a gift from the cave: no lantern oil, no stars to earn and no seal of the Gloom,
+ * in stone as hard as the cave's last level. It stands outside the ladder of levels, the way the moon egg does.
+ */
+function startHeart(k, i) {
+  if (nicheState(k, i) !== "open") return;
+  // (walking off to a geode of your own ends a shared room, as the Crack button does)
+  if (coopSession) coopEnd("navigation", true);
+  sfx.tick();
+  game.chips = []; game.sparks = [];
+  setScene("crack");
+  const crystal = heartCrystal(k, i), fresh = !save.geodes[crystal.id];
+  newEgg({ ...levelConf(k * 6 + 6), n: "heart", wander: true, heart: { cave: k, i }, chosen: crystal }, true);
+  // in the stone of its crystal's home, the one that showed in the niche
+  game.egg.stone = CAVE_STONES[crystal.cave]; refitEgg(game.egg);
+  $("lvlPill").textContent = "♥";
+  setHint(fresh ? tr("the cave's heart geode: a crystal new to your Book is inside") : tr("the cave's heart geode: something rare is inside"));
+}
+
+/** Called when a heart geode opens: only now is its niche empty. The card leads back to the map, as the moon egg's does. */
+function heartFound(conf) {
+  const { cave, i } = conf.heart;
+  const taken = save.caches || (save.caches = {});
+  (taken[cave] || (taken[cave] = [false, false]))[i] = true;
+  persist();
+  $("nextLvl").textContent = tr("Back to the grotto");
+  $("foundMap").hidden = true;
 }

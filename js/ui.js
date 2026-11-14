@@ -442,7 +442,7 @@ $("nextLvl").addEventListener("click", () => {
   const conf = game.egg.conf;
   if (conf.coop && !coopSession) { game.egg = null; return setScene("map"); }
   if (conf.coop) { if (coopIsHost()) coopStartRound(); return; }
-  if (conf.moon) return setScene("map");
+  if (conf.moon || conf.heart) return setScene("map");
   startLevel(conf.wander || conf.n >= LEVELS ? 0 : conf.n + 1);
 });
 $("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
@@ -533,7 +533,7 @@ const FAQ_SECTIONS = [
 ];
 const FAQ = [
   ["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and look after it at home. Cracking earns shards and stars. The deeper you go, the more of the valley opens up around the grotto: a shop, a garden, a forge, an explorers' camp and a lab, each with someone who looks after it."],
-  ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."],
+  ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars. Stars also open the star niches on the map: 12 stars in a cave open its first niche and 18 the second, each with a heart geode that holds a crystal your Book doesn't have yet (or a rare one, once it has them all)."],
   ["What is the lantern?", "Every trip into the Grotto takes a drop of lantern oil. The lantern holds 5 drops (6 once your core is steadier), and one comes back every 20 minutes. Bars fill it right away: a firefly square gives 1 drop, a nut bar 3, and a star bar fills it to the brim. Moon eggs, playing together and levels you already have ★★★ on don't use oil."],
   ["Where do I get bars?", "From daily tasks (finish them all for a nut bar), when a glowling reaches a new level, from moon eggs (every third night kept brings a star bar), from a new best in Echo song, from expeditions, and now and then from the rubble of a geode. Wick sells them too, and the workbench at the Forge makes them from spare geodes. Tap the lantern at the top to use one."],
   ["What are daily tasks?", "A few small things to do each day: tap the tasks counter at the top. Each one gives 10 shards, and finishing them all gives 15 more and a nut bar."],
