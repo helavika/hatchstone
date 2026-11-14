@@ -923,6 +923,38 @@ const TALKS = {
 
 // ---------- the Gloom: a cold dark from the deep that seals the sparks in dead stone; at the end of each cave, one to rescue ----------
 
+// a wheel of four blade-wings round an eclipse, an eye in each gap; only one of them is open
+PX_PORTRAITS.gloom = {
+  pal: { D: "#2e1d4f", E: "#b8323b", K: "#160c26", L: "#d2bfff", P: "#8a6cc9", V: "#523a85", W: "#ffffff", e: "#e0634f", k: "#0b0614", l: "#ad91e6", p: "#6b4fa8", v: "#3d2866", w: "#efe6ff" },
+  rows: [
+    "..........................",
+    "........LL..LL..ll........",
+    "......LLVK.weEw.Kvll......",
+    ".....LPVvK..ll..KDvpl.....",
+    "....LPVvK........KDvpP....",
+    "...LPVvK..........KDvpP...",
+    "..LPVvvK..........KDDvpP..",
+    "..LVvKK....wWwL....KKDvp..",
+    ".LVvK....wWkkkkLl....KDvV.",
+    ".lKK....Wkkkkkkkkl....KKv.",
+    "........wkkkkkkkkP........",
+    ".......wkkkkkkkkkkP.......",
+    ".l..l..Lkkkkkkkkkkp..l..l.",
+    "..ll...Lkkkkkkkkkkp...ll..",
+    ".......Lkkkkkkkkkkp.......",
+    "........Lkkkkkkkkp........",
+    ".PVV....LkkkkkkkkV....pvK.",
+    ".PDvV....lLkkkkpV....pvDK.",
+    "..pDvVV....llPp....ppvDK..",
+    "..pDDvvV..........pvvDDK..",
+    "...pDDvV..........pvDDK...",
+    "....KDDvV........VvDDK....",
+    ".....KDDvV.l..l.VvDDK.....",
+    "......KKDv..ll..VDKK......",
+    "........KK......KK........",
+    "..........................",
+  ],
+};
 const GLOOM = { name: "the Gloom", icon: "gloom", face: () => pxPortrait("gloom"), voice: { f: 95, wave: "sawtooth", spread: 0.12, glide: 0.8, gain: 0.05, len: 0.1 } };
 const GLOOM_STONE = Object.assign(["#3a2a52", "#1a1028", "#6b4fa8"], { gloom: true });
 /** Before the sealed geode at the end of cave k (1..4), the Gloom has its say; after it opens, your friends have theirs. */
@@ -941,19 +973,95 @@ const GLOOM_TALKS = {
     [MOSSA, tr("Thank you, {0}. You're a true keeper now.", myName())]],
 };
 Object.assign(TALKS, GLOOM_TALKS);
-/** The cold creeping in round a sealed geode: dark at the edges that breathes, and two red eyes watching from it. */
+/** How many steps the Gloom's wheel takes through a quarter turn (after that it looks the same again). */
+const GLOOM_TURNS = 6;
+/**
+ * The Gloom's own shape for the scene, baked once per size (crisp pixels, never scaled): its wheel of four blade-wings at
+ * every step of a quarter turn, the eclipse in the hub from dim to bright, and an eye asleep and an eye awake. `R` is the
+ * wheel's radius in art pixels. Every colour is one of PIXEL_PALETTE's, so the scene's dither leaves the shape alone.
+ */
+function bakeGloomWheel(R) {
+  const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+  const paint = (w, h, col) => {
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const g = c.getContext("2d"), im = g.createImageData(w, h), px = im.data;
+    for (let p = 0; p < w * h; p++) if (col[p]) { const i = p * 4; px[i] = col[p][0]; px[i + 1] = col[p][1]; px[i + 2] = col[p][2]; px[i + 3] = 255; }
+    g.putImageData(im, 0, 0);
+    return c;
+  };
+  const INK = hex("#0b0614"), EDGE = hex("#160c26"), D1 = hex("#22143a"), D2 = hex("#2e1d4f"), V1 = hex("#3d2866"), V2 = hex("#523a85"), V3 = hex("#6b4fa8");
+  // a blade is a lens: inside the wheel's rim, and inside a far larger circle whose arc makes its inner edge
+  const S = 2 * R + 2, mid = S / 2, half = 36 * Math.PI / 180, thick = Math.max(3, R * 0.26), line = Math.max(1, R / 30);
+  const tx = R * Math.sin(half), ty = -R * Math.cos(half), bulge = thick - (R + ty), far = (tx * tx + ty * ty - (ty + bulge) ** 2) / (2 * bulge), r3 = far + ty + bulge;
+  const wheels = [];
+  for (let f = 0; f < GLOOM_TURNS; f++) {
+    const col = new Array(S * S).fill(null);
+    for (let k = 0; k < 4; k++) {
+      const ax = Math.PI / 4 + (f / GLOOM_TURNS + k) * Math.PI / 2, ca = Math.cos(ax), sa = Math.sin(ax);
+      for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) {
+        const dx = x + 0.5 - mid, dy = y + 0.5 - mid, r = Math.hypot(dx, dy);
+        if (r > R || r < R - thick - 1) continue;
+        const q = Math.hypot(dx * ca + dy * sa, dy * ca - dx * sa + far);
+        if (q > r3) continue;
+        // lit: +1 where the blade faces the light (up and left); each blade has a ridge, a rim outside and an edge inside
+        const lit = -(dx + dy) / (r * Math.SQRT2), out = R - r, inn = r3 - q;
+        col[y * S + x] = out < line ? (lit > 0.55 ? V3 : lit > 0.1 ? V2 : lit > -0.35 ? V1 : EDGE)
+          : inn < line ? (lit > -0.1 ? EDGE : V1)
+          : out < inn ? (lit > 0.3 ? V1 : lit > -0.3 ? D2 : D1) : (lit > 0.3 ? D2 : lit > -0.3 ? D1 : D2);
+      }
+    }
+    wheels.push(paint(S, S, col));
+  }
+  // the eclipse: a black disc and a thin cold corona, brightest toward the light; three strengths for its breathing
+  const rd = R * 0.4, ring = Math.max(1.25, R * 0.055), hs = 2 * Math.ceil(rd + ring + 2), CORONA = ["#3d2866", "#523a85", "#6b4fa8", "#8a6cc9", "#ad91e6", "#d2bfff", "#efe6ff"].map(hex);
+  const hubs = [0, 1, 2].map(lv => {
+    const col = new Array(hs * hs).fill(null);
+    for (let y = 0; y < hs; y++) for (let x = 0; x < hs; x++) {
+      const dx = x + 0.5 - hs / 2, dy = y + 0.5 - hs / 2, r = Math.hypot(dx, dy), lit = -(dx + dy) / (r * Math.SQRT2 || 1);
+      if (r <= rd) col[y * hs + x] = INK;
+      else if (r <= rd + ring) col[y * hs + x] = CORONA[clamp(Math.round(2 + lit * 2) + lv - (r > rd + ring * 0.6 ? 1 : 0), 0, 6)];
+      else if (lv === 2 && r <= rd + ring + 1 && lit > 0.25) col[y * hs + x] = D2;
+    }
+    return paint(hs, hs, col);
+  });
+  const EYE = { P: V3, l: hex("#ad91e6"), w: hex("#efe6ff"), e: hex("#e0634f"), E: hex("#b8323b") };
+  const eye = rows => paint(rows[0].length, rows.length, [...rows.join("")].map(ch => EYE[ch] || null));
+  // the eyes are drawn by hand, in two sizes
+  return R < 44 ? { R, wheels, hubs, shut: eye(["P.....P", ".PPPPP."]), open: eye([".lllll.", "lweEewl", ".PPPPP."]) }
+    : { R, wheels, hubs, shut: eye(["P.........P", ".PP.....PP.", "...PPPPP..."]), open: eye(["...lllll...", ".llwwewwll.", "lwwweEewwwl", ".PPwwewwPP.", "...PPPPP..."]) };
+}
+const gloomWheel = { R: 0 };
+
+/**
+ * The cold creeping in round a sealed geode: dark at the edges that breathes, and the Gloom itself hanging in it, up and
+ * to the left, clear of the geode and the buttons: its wheel turns a notch at a time, its corona breathes with the dark,
+ * and its eyes open one by one, then all shut.
+ */
 function drawGloom() {
   const e = game.egg;
   if (!e || !e.conf.gloom || e.state === "opening" || e.state === "done") return;
   const k = 0.75 + 0.25 * Math.sin(game.time * 0.0017), g = ctx.createRadialGradient(L.ecx, L.ecy, L.ew * 0.55, L.ecx, L.ecy, Math.max(W, H) * 0.75);
   g.addColorStop(0, "rgba(10,4,20,0)"); g.addColorStop(1, `rgba(10,4,20,${0.85 * k})`);
   ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-  // the eyes blink now and then
-  if ((game.time / 3200) % 1 > 0.06) {
-    const ex = W * 0.16, ey = H * 0.22, s = Math.max(3, Math.round(W / 110));
-    ctx.fillStyle = `rgba(224,99,79,${0.55 + 0.35 * k})`;
-    ctx.fillRect(Math.round(ex), Math.round(ey), s * 2, s); ctx.fillRect(Math.round(ex + s * 4), Math.round(ey), s * 2, s);
+  const P = PX * Math.max(1, Math.round(2 / PX));
+  let r = clamp(Math.min(W, H) * 0.15, 54, 120);
+  const x0 = Math.max(W * 0.16, r + 6), y0 = Math.max(H * 0.22, r + 60);
+  // on a short or narrow screen it shrinks rather than lean over the geode
+  while (r > 24 && ((x0 - L.ecx) / (L.ew / 2 + r)) ** 2 + ((y0 - L.ecy) / (L.eh / 2 + r)) ** 2 < 1) r *= 0.9;
+  const R = Math.round(r / P), A = gloomWheel;
+  if (A.R !== R) Object.assign(A, bakeGloomWheel(R));
+  const turn = Math.floor(game.time / 1600), wake = (game.time / 3000) % 7, cx = Math.round(x0 / P) * P, cy = Math.round(y0 / P) * P;
+  const smooth = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  const put = (c, ax, ay) => ctx.drawImage(c, cx + Math.round(ax - c.width / 2) * P, cy + Math.round(ay - c.height / 2) * P, c.width * P, c.height * P);
+  put(A.wheels[turn % GLOOM_TURNS], 0, 0);
+  put(A.hubs[k > 0.9 ? 2 : k > 0.65 ? 1 : 0], 0, 0);
+  // an eye rides in each gap between the blades: one more wakes every three seconds, then they all shut together
+  for (let i = 0; i < 4; i++) {
+    const a = (turn / GLOOM_TURNS + i) * Math.PI / 2;
+    put(wake > i + 1 && wake < 6.85 ? A.open : A.shut, Math.sin(a) * R * 0.86, -Math.cos(a) * R * 0.86);
   }
+  ctx.imageSmoothingEnabled = smooth;
 }
 
 // ---------- the story: why the glowlings sleep in stone, told a little at a time as you go deeper ----------
