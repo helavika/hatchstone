@@ -218,6 +218,7 @@ const PX_ICON_MAPS = {
   stall: ["............", ".rWrWrWrWrW.", ".rWrWrWrWrW.", "..RRRRRRRR..", "..b......b..", "..b.gG.e.b..", "..b.gg.E.b..", ".BBBBBBBBBB.", ".boooooooob.", ".boooooooob.", ".BBBBBBBBBB.", "............"],
   flask: ["............", "....SSSS....", ".....ss.....", ".....ss.....", ".....ss.....", "....sttS....", "...stTttS...", "..stTtWttS..", "..sttTtttS..", "..sTttttTS..", "...SSSSSS...", "............"],
   compass: ["............", "....ssss....", "..ssSSSSss..", ".sSw.e..wSs.", ".sS..e...Ss.", ".sS.eWe..Ss.", ".sS..t...Ss.", ".sSw.t..wSs.", "..ssSSSSss..", "....ssss....", "............", "............"],
+  gift: ["............", "..gg....gg..", ".gGGg..gGGg.", "..gGGggGGg..", ".RRRRggRRRR.", ".RrrrgGrrrR.", ".RrrrgGrrrR.", ".RrWrgGrrrR.", ".RrrrgGrrrR.", ".RrrrgGrrrR.", ".RRRRggRRRR.", "............"],
   broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
 };
 // the trophy in each award's metal: bronze, silver, amethyst and gold

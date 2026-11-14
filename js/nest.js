@@ -199,6 +199,8 @@ function openShop() {
   $$("#shopList [data-build]").forEach(b => b.addEventListener("click", () => buildRoom(b.dataset.build)));
   $("nestUp")?.addEventListener("click", buyNestUp);
   $("toMarket")?.addEventListener("click", openMarket);
+  $("giftFromChest")?.addEventListener("click", () => openGift());
+  $$("#shopList [data-gift]").forEach(b => b.addEventListener("click", () => openGift(b.dataset.gift)));
   $$("#shopList [data-food]").forEach(b => b.addEventListener("click", () => buyFood(b.dataset.food, Number(b.dataset.n || 1))));
   $$("#shopList [data-seedbuy]").forEach(b => b.addEventListener("click", () => buySeed(b.dataset.seedbuy, openShop)));
   show("shop", true);
@@ -283,11 +285,12 @@ function chestPantry() {
   const pantry = Object.entries(save.pantry || {}).filter(([id, n]) => n > 0 && SNACKS[id]);
   const seeds = Object.entries(garden().seeds).filter(([id, n]) => n > 0 && SEEDS[id]);
   const bars = Object.entries(save.bars || {}).filter(([id, n]) => n > 0 && BARS[id]);
-  const chip = (img, name, n) => `<div class="tile owned">${img}<b>${name}</b><small>×${n}</small></div>`;
+  const chip = (img, name, n, gift) => gift ? `<button class="tile owned" data-gift="${gift}" title="${tr("Send as a gift")}">${img}<b>${name}</b><small>×${n}</small></button>` : `<div class="tile owned">${img}<b>${name}</b><small>×${n}</small></div>`;
   const empty = t => `<p class="me-hint">${t}</p>`;
-  return `<h3 class="forge-h">${tr("Food")}</h3>` + (pantry.length ? `<div class="tiles">${pantry.map(([id, n]) => chip(`<span class="em">${SNACKS[id].emoji}</span>`, SNACKS[id].name, n)).join("")}</div>${empty(tr("Feed it from the snack button in the nest."))}` : empty(tr("The basket is empty. Buy food at the shop, or grow it in the garden.")))
-    + `<h3 class="forge-h">${tr("Seeds")}</h3>` + (seeds.length ? `<div class="tiles">${seeds.map(([id, n]) => chip(`<img class="em" src="${plantImage(id, 3)}" alt="">`, seedName(id), n)).join("")}</div>` : empty(tr("No seeds. The shop has them, and expeditions bring some back.")))
-    + `<h3 class="forge-h">${tr("Treasures")}</h3>` + (bars.length || save.sunlit ? `<div class="tiles">${bars.map(([id, n]) => chip(`<img class="em px-thumb" src="${pxIcon(BARS[id].icon || "bar" + id[0].toUpperCase() + id.slice(1))}" alt="">`, barName(id), n)).join("")}${save.sunlit ? chip(`<span class="em">☀️</span>`, tr("Sunpetal"), save.sunlit) : ""}</div>` : empty(tr("Nothing yet: bars for the lantern and sunpetals end up here.")));
+  return `<button class="act gift-entry" id="giftFromChest">${ic("gift")}${tr("Send a gift")}</button><p class="me-hint">${tr("Tap food or seeds to wrap them for a friend 🎁")}</p>`
+    + `<h3 class="forge-h">${tr("Food")}</h3>` + (pantry.length ? `<div class="tiles">${pantry.map(([id, n]) => chip(`<span class="em">${SNACKS[id].emoji}</span>`, SNACKS[id].name, n, "snack:" + id)).join("")}</div>${empty(tr("Feed it from the snack button in the nest."))}` : empty(tr("The basket is empty. Buy food at the shop, or grow it in the garden.")))
+    + `<h3 class="forge-h">${tr("Seeds")}</h3>` + (seeds.length ? `<div class="tiles">${seeds.map(([id, n]) => chip(`<img class="em" src="${plantImage(id, 3)}" alt="">`, seedName(id), n, "seed:" + id)).join("")}</div>` : empty(tr("No seeds. The shop has them, and expeditions bring some back.")))
+    + `<h3 class="forge-h">${tr("Treasures")}</h3>` + (bars.length || save.sunlit || (save.charms || []).length ? `<div class="tiles">${bars.map(([id, n]) => chip(`<img class="em px-thumb" src="${pxIcon(BARS[id].icon || "bar" + id[0].toUpperCase() + id.slice(1))}" alt="">`, barName(id), n)).join("")}${save.sunlit ? chip(`<span class="em">☀️</span>`, tr("Sunpetal"), save.sunlit) : ""}${giftCharmTiles()}</div>` : empty(tr("Nothing yet: bars for the lantern and sunpetals end up here.")));
 }
 
 // ---------- the garden: plant seeds in the garden bed, water them, and pick what grows (in real time) ----------

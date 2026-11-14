@@ -61,6 +61,7 @@
     <div id="menuSheet" class="glass" hidden>
       <button class="act" id="mapCoop"><i class="ic" data-ic="duo"></i>Play together</button>
       <button class="act" id="copyLive" hidden><i class="ic" data-ic="nest"></i>Copy my nest from live</button>
+      <button class="act" id="giftBtn"><i class="ic" data-ic="gift"></i>Send a gift</button>
       <button class="act" id="meBtn"><i class="ic" data-ic="star"></i>Keeper</button>
       <button class="act" id="optsBtn"><i class="ic" data-ic="gear"></i>Settings</button>
       <button class="act" id="fbBtn"><i class="ic" data-ic="scroll"></i>Feedback</button>
@@ -447,6 +448,42 @@
   </div>
 </div>
 
+<div id="gift" class="overlay modal screen hidden">
+  <div class="card glass dark wide">
+    <h2>Send a gift</h2>
+    <div id="giftForm">
+      <p class="sub">Wrap up something of yours for a friend. It travels inside a link, straight to their own nest.</p>
+      <div class="scroll">
+        <div id="giftItems"></div>
+        <div id="giftOut"></div>
+      </div>
+      <div id="giftPicked" class="shop-pick"></div>
+      <div id="giftCount" class="row center" hidden><button class="act" id="giftLess" aria-label="Fewer">−</button><b id="giftN">×1</b><button class="act" id="giftMore" aria-label="More">+</button></div>
+      <textarea id="giftNote" rows="2" maxlength="140" placeholder="A few words for your friend (optional)"></textarea>
+      <p class="gift-meta"><span id="giftFrom"></span><span id="giftLeft"></span></p>
+      <button class="cta" id="giftWrap" disabled><i class="ic" data-ic="gift"></i>Wrap it up</button>
+    </div>
+    <div id="giftDone" hidden>
+      <img class="gift-big" id="giftBig" alt="">
+      <p class="sub" id="giftDoneText"></p>
+      <input id="giftLink" readonly aria-label="Gift link">
+      <div class="row center"><button class="act" id="giftShare">📤 Send</button><button class="act" id="giftCopy">📋 Copy link</button></div>
+      <p class="me-hint">Only the gift, your note and your name travel in the link, and only to whoever you send it to. Each link opens once.</p>
+      <button class="act" id="giftAgain">Wrap another</button>
+    </div>
+    <button class="ghost" id="giftClose">close</button>
+  </div>
+</div>
+<div id="giftParcel" class="overlay modal hidden" role="dialog" aria-modal="true" aria-labelledby="parcelTitle">
+  <div class="card glass dark">
+    <figure class="plate parcel"><img id="parcelImg" alt=""><span id="parcelEmoji" hidden></span></figure>
+    <h2 id="parcelTitle"></h2>
+    <p class="gift-note" id="parcelNote" hidden></p>
+    <p class="sub" id="parcelSub"></p>
+    <button class="cta" id="parcelGo">Open it</button>
+  </div>
+</div>
+
 <div id="coopDialog" class="overlay modal hidden" role="dialog" aria-modal="true" aria-labelledby="coopTitle">
   <div class="card glass dark wide">
     <h2 id="coopTitle">Play together</h2>
@@ -522,6 +559,7 @@
 <script src="js/keepers.js"></script>
 <script src="js/play.js"></script>
 <script src="js/coop.js"></script>
+<script src="js/gifts.js"></script>
 <script src="js/ui.js"></script>
 <script src="js/main.js"></script>
 </body>
