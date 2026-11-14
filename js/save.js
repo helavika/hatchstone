@@ -28,6 +28,21 @@ function loadSave() {
   return migrate(freshSave());
 }
 
+/**
+ * The moon egg in the save: the day it was last opened and the nights kept, a count that only ever rises. An older save
+ * kept a streak that began again after a day away: its nights start from the most that save can prove, so nobody steps back.
+ */
+function moonSaveOf(m, d) {
+  const num = v => Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
+  const had = !!m && typeof m === "object" && !Array.isArray(m), aw = (d && d.awards) || {};
+  // a glowling that remembers hatching from a moon egg is a night, too (the words adopt() leaves in its memory)
+  const hatched = ((d && d.creatures) || []).filter(c => c && Array.isArray(c.mem) && c.mem.some(e => e && e.k === "Hatched from a moon egg 🌙")).length;
+  // the streak as it stands, the longest one, an award for 7 or 3 nights or for the first, and one for a moon egg opened at all
+  const nights = Math.max(had ? 1 : 0, had ? num(m.nights) : 0, had ? num(m.streak) : 0, num(d && d.counts && d.counts.moonBest), aw.streak7 ? 7 : aw.streak3 ? 3 : aw.moon1 ? 1 : 0, hatched);
+  // (streak: the same number under its old name, for an older game that may still read this save: see finishMoon)
+  return nights ? { last: had && typeof m.last === "string" ? m.last : "", nights, streak: nights } : null;
+}
+
 /** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
 function migrate(d) {
   d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {}; d.forge = d.forge || {};
@@ -54,6 +69,9 @@ function migrate(d) {
   d.sparks = sparkSaveOf(d.sparks);
   // the keeper's core (see inner.js): an older nest starts part-way, from what it's already been through
   d.core = coreSaveOf(d.core, d);
+  // the moon egg: nights kept, where there was a streak (after the core, which starts an older nest from that streak)
+  const moon = moonSaveOf(d.moon, d);
+  if (moon) d.moon = moon; else delete d.moon;
   // walks outside (see walk.js): how far the paths are open, the best hauls, the keepsakes
   d.walks = walkSaveOf(d.walks);
   // a nest that already brought keepsakes home gets the jar they go into, waiting in the chest
