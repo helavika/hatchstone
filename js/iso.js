@@ -771,6 +771,7 @@ const ISO_PLACES = {
   drum: { fw: 1, fd: 1, at: [[3, 4], [4, 3], [2, 5]] },
   blocks: { fw: 1, fd: 1, at: [[1, 2], [2, 1], [4, 5]] },
   telescope: { fw: 1, fd: 1, at: [[0, 1], [1, 0], [5, 1]] },
+  keepjar: { fw: 1, fd: 1, at: [[2, 5], [5, 3], [0, 4]] },
 };
 /** The arches between home rooms (see roomDoors): where along its wall each stands (0 at the back corner, 1 at the front) and its half width. */
 const DOOR_AT = 0.8, DOOR_W = 0.085;
@@ -1226,6 +1227,77 @@ const ISO_ART = {
       T.px(fx - fr * 0.35, cy - fry * 0.4, IC.white); T.px(fx - fr * 0.35 + 1, cy - fry * 0.4, IC.white);
       if (o.spark !== undefined && Math.abs(o.spark - i) < 0.5) { T.px(cx, cy - r - 2, IC.white); T.px(cx - 1, cy - r - 1, IC.y0); T.px(cx + 1, cy - r - 1, IC.y0); T.px(cx, cy - r, IC.y0); }
     });
+  },
+  keepjar(t, T, ax, ay, o = {}) {
+    // a squat glass jar with twine round its neck, holding what you've brought home from walks: feathers at the back,
+    // tall and leaning out, flowers in front, each drawn as the one it is; once it's full, pressed petals rise inside.
+    // (the Chest's picture, drawn with nothing to go on, shows a little posy)
+    const v = o.stems ? o : { stems: ["jay", "down", "heather", "daisy", "rose"], petals: 1 };
+    const cx = ax, cy = ay + t / 2, rx = Math.max(4, Math.round(t * 0.34)), hj = Math.max(5, Math.round(t * 0.36)), top = cy - hj;
+    const glass = [IC.ink2, pxHex("#2e1d4f"), pxHex("#3d2866")], n = v.stems.length;
+    // where each stem stands in the mouth and which way it leans: spread in a fan, the same every time
+    // (feathers and flowers each fan out across the whole mouth: the feathers behind, the flowers in front of them)
+    const stems = v.stems.map((id, i) => {
+      const same = v.stems.filter(x => KS[x].kind === KS[id].kind), m = same.length, at = v.stems.slice(0, i).filter(x => KS[x].kind === KS[id].kind).length;
+      const k = m > 1 ? (at / (m - 1) - 0.5) * (KS[id].kind === "feather" ? 1 : 0.8) : (KS[id].kind === "feather" ? -0.12 : 0.15), j = pxHash(i * 7 + 3, n) - 0.5;
+      return { id, ks: KS[id], bx: cx + Math.round(k * (rx - 1) * 1.7), a: k * 1.6 + j * 0.3, len: (KS[id].kind === "feather" ? 0.72 : 0.42) * t * (0.85 + 0.3 * pxHash(i, 11)) };
+    });
+    // the glass: dark, so what's in it shows through, dimmer than out in the air
+    T.cyl(cx, cy, rx, hj, glass[2], glass[1], glass[0]);
+    stems.forEach((st, i) => { if (i % 2 === 0) for (let y = cy - 2; y > top; y--) T.px(st.bx + Math.round((cy - y) / hj * Math.sin(st.a) * 1.5), y, st.ks.kind === "feather" ? IC.l4 : IC.g3); });
+    // the pressed petals at the bottom, in the colours of the flowers you found
+    const pal = stems.filter(st => st.ks.kind === "flower").map(st => pxHex(st.ks.c[1]));
+    for (let r = 0; r < v.petals * Math.max(1, Math.round(hj / 6)); r++) for (let x = cx - rx + 1; x <= cx + rx - 1; x++) if (pxHash(x, r + 5) > 0.25) T.px(x, cy - 1 - r + Math.round(Math.abs(x - cx) / rx), pal.length ? pal[Math.floor(pxHash(x * 3, r) * pal.length)] : IC.p1);
+    // glints on the glass, the rim of the mouth and the twine
+    for (let y = cy - 2; y > top + 2; y--) { T.px(cx - rx + 1, y, y % 3 ? IC.b1 : IC.b0); if (y < cy - 3 && y > top + 4) T.px(cx - rx + 2, y, IC.b2); }
+    T.disc(cx, top, rx, IC.b1); T.disc(cx, top, rx - 1, IC.ink2);
+    for (let x = cx - rx; x <= cx + rx; x++) T.px(x, top + 2 + Math.round(Math.abs(x - cx) / rx * 0.6), x % 2 ? IC.w1 : IC.w0);
+    // and what's in it, out in the air: feathers first (they stand at the back), then the flowers
+    for (const st of stems) {
+      const c = st.ks.c.map(pxHex), x0 = st.bx, y0 = top - 1;
+      // (each one bends outward a little toward its tip, the way a bunch in a jar falls open)
+      const bend = (s, L) => { const a = st.a * (1 + 0.35 * s / L); return [Math.sin(a), -Math.cos(a)]; };
+      let [dx, dy] = bend(0, 1);
+      if (st.ks.kind === "feather") {
+        // a quill with a vane on each side, widest past the middle: lit on the left, shaded on the right; the jay's has bars,
+        // the down is short and fluffy, the raven's catches a violet sheen along its spine
+        const soft = st.id === "down", L = soft ? st.len * 0.6 : st.len, W = Math.max(1.6, t * (soft ? 0.15 : 0.12));
+        let x = x0, y = y0;
+        for (let s = 0; s <= L; s += 0.5) {
+          [dx, dy] = bend(s, L); x += dx * 0.5; y += dy * 0.5;
+          // (bare quill at the bottom, the vane widest a little past it, then narrowing to a point)
+          const f = s / L, g = (f - 0.15) / 0.85, wv = g <= 0 ? 0 : W * Math.pow(Math.sin(Math.PI * (g < 0.35 ? g / 0.35 * 0.5 : 0.5 + (g - 0.35) / 0.65 * 0.5)), 0.7);
+          for (let q = -Math.ceil(wv); q <= Math.ceil(wv); q++) {
+            if (Math.abs(q) > wv + (soft ? pxHash(Math.round(s * 2), q + 9) * 0.8 : 0)) continue;
+            const px = x - dy * q, py = y + dx * q * 0.6;
+            let col = q === 0 ? c[3] : Math.abs(q) >= Math.ceil(wv) ? c[0] : q < 0 ? c[2] : c[1];
+            if (st.id === "jay" && q !== 0 && Math.floor(s) % 3 === 0 && f > 0.3) col = IC.ink;
+            if (st.id === "raven" && q === -1) col = c[3];
+            T.px(px, py, col);
+          }
+          if (wv === 0) T.px(x, y, IC.s0);
+        }
+        continue;
+      }
+      // a flower on its stem: the daisy white with a gold eye, the rose pink and round, the harebell nodding, the heather in tiny bells up the stem
+      const L = st.len;
+      let hx = x0, hy = y0;
+      for (let s = 0; s < L; s += 0.5) { [dx, dy] = bend(s, L); hx += dx * 0.5; hy += dy * 0.5; T.px(hx, hy, s < L * 0.5 ? IC.g2 : IC.g1); }
+      if (st.id === "heather") {
+        for (let s = L * 0.35, k = 0; s <= L; s += 1.5, k++) { const side = k % 2 ? 1 : -1, f = s / L; T.px(x0 + (hx - x0) * f + side, y0 + (hy - y0) * f, f > 0.8 ? c[3] : k % 3 ? c[2] : c[1]); }
+        T.px(hx, hy - 1, c[3]);
+      } else if (st.id === "harebell") {
+        // nodding: the bell hangs off the tip, opening downward
+        const bx = Math.round(hx + (dx >= 0 ? 1 : -1)), by = Math.round(hy);
+        T.px(bx - 1, by + 1, c[2]); T.px(bx, by + 1, c[1]); T.px(bx + 1, by + 1, c[1]);
+        T.px(bx - 1, by + 2, c[2]); T.px(bx, by + 2, c[2]); T.px(bx + 1, by + 2, c[0]); T.px(bx, by, c[3]);
+        T.px(bx - 1, by + 3, c[3]); T.px(bx + 1, by + 3, c[3]);
+      } else {
+        const r = Math.max(1.6, t * (st.id === "rose" ? 0.12 : 0.11));
+        if (st.id === "daisy") { for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-2, 0], [2, 0]]) T.px(hx + ox * r * 0.8, hy + oy * r * 0.6, ox < 0 || oy < 0 ? c[2] : c[1]); T.px(hx, hy, c[3]); }
+        else { T.ball(hx, hy, r, c[2], c[1], c[0], r * 0.85); T.px(hx, hy, c[3]); }
+      }
+    }
   },
   chest(t, T, ax, ay) {
     const a = t * 0.42, b = t * 0.32, hgt = Math.round(t * 0.42), x = ax, y = ay + 2;

@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, walkSaveOf, walkMood, walkPlan } = require('../js/walk.js');
+const { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView } = require('../js/walk.js');
 
 // a fixed run of "random" numbers
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
@@ -31,13 +31,14 @@ test('a walk finds three to five things, the must-haves always among them', () =
 });
 
 test('an old save gets walks; a broken one is mended, never thrown away', () => {
-  assert.deepEqual(walkSaveOf(undefined), { open: 1, n: 0, best: {}, keep: {}, last: 0 });
-  assert.deepEqual(walkSaveOf('nonsense'), { open: 1, n: 0, best: {}, keep: {}, last: 0 });
+  assert.deepEqual(walkSaveOf(undefined), { open: 1, n: 0, best: {}, keep: {}, found: {}, last: 0 });
+  assert.deepEqual(walkSaveOf('nonsense'), { open: 1, n: 0, best: {}, keep: {}, found: {}, last: 0 });
   const w = walkSaveOf({ open: 9, n: 3.7, best: { meadow: 3, stream: -1, nowhere: 4 }, keep: { feather: 2, flower: 'x', rock: 5 }, last: 123 });
   assert.equal(w.open, WALKS.length);
   assert.equal(w.n, 3);
   assert.deepEqual(w.best, { meadow: 3 });
   assert.deepEqual(w.keep, { feather: 2 });
+  assert.equal(Object.values(w.found).reduce((a, b) => a + b, 0), 2, 'the two feathers are in the jar');
   assert.equal(w.last, 123);
   assert.deepEqual(walkSaveOf(w), w);
   assert.equal(walkSaveOf({ open: 0 }).open, 1);
@@ -53,4 +54,42 @@ test('a walk gives joy and takes a little energy, more of both the further it go
 
 test('never more than one spark on a walk', () => {
   for (let p = 0; p < WALKS.length; p++) assert.ok(walkPlan(p, () => 0.01).filter(f => f.kind === 'spark').length <= 1);
+});
+
+test('every feather and flower is one of a few keepsakes, the rare ones rarer', () => {
+  for (const kind of ['feather', 'flower']) {
+    const all = KEEPSAKES.filter(k => k.kind === kind);
+    assert.ok(all.length >= 3, kind);
+    assert.ok(all.some(k => k.w < Math.max(...all.map(q => q.w))), 'a rare one');
+    for (const k of all) assert.equal(k.c.length, 4, k.id);
+    for (const r of [0, 0.2, 0.49, 0.5, 0.8, 0.999]) assert.equal(KEEPSAKES.find(k => k.id === keepsakePick(kind, {}, () => r)).kind, kind);
+    // with everything common found, the rare one can still turn up
+    const most = Object.fromEntries(all.filter(k => k.w > 1).map(k => [k.id, 1]));
+    assert.ok([...Array(50)].some((_, i) => !most[keepsakePick(kind, most, seq(0.9, i / 50))]));
+  }
+});
+
+test('an old save\'s feathers and flowers are shared out into kinds; new counts are kept as they are', () => {
+  const w = walkSaveOf({ keep: { feather: 5, flower: 1 } });
+  const sum = kind => KEEPSAKES.filter(k => k.kind === kind).reduce((n, k) => n + (w.found[k.id] || 0), 0);
+  assert.equal(sum('feather'), 5);
+  assert.equal(sum('flower'), 1);
+  assert.deepEqual(walkSaveOf(w), w, 'mended once, it stays the same');
+  const v = walkSaveOf({ keep: { feather: 1 }, found: { jay: 2, rose: 1, nothing: 4 } });
+  assert.deepEqual(v.found, { jay: 2, rose: 1 });
+  assert.deepEqual(v.keep, { feather: 2, flower: 1 }, 'the counts never fall below the jar');
+});
+
+test('the jar shows each kind found, grows with more, and never overflows', () => {
+  assert.deepEqual(keepjarView({}), { stems: [], petals: 0 });
+  assert.deepEqual(keepjarView({ daisy: 1 }).stems, ['daisy']);
+  const a = keepjarView({ jay: 1, daisy: 2 }), b = keepjarView({ jay: 3, daisy: 3, rose: 1 });
+  assert.ok(b.stems.length > a.stems.length);
+  assert.ok(b.stems.includes('rose'));
+  // feathers stand at the back
+  assert.ok(b.stems.indexOf('jay') < b.stems.indexOf('daisy'));
+  const full = keepjarView(Object.fromEntries(KEEPSAKES.map(k => [k.id, 20])));
+  assert.equal(full.stems.length, 8);
+  assert.equal(full.petals, 4);
+  assert.ok(keepjarView(Object.fromEntries(KEEPSAKES.map(k => [k.id, 3]))).petals < full.petals, 'petals rise as you find more');
 });

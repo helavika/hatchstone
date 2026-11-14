@@ -224,6 +224,8 @@ DECOR.push(
   { id: "blocks", name: "Toy blocks", emoji: "🧱", cost: 35, lovers: ["hop", "curious"], verb: "stacks the blocks", emote: "!", iso: true, rooms: ["play", "nest"] },
   { id: "telescope", name: "Telescope", emoji: "🔭", cost: 90, lovers: ["curious", "flutter"], verb: "looks at the stars", emote: "✦", iso: true, rooms: ["study", "yard"] },
   { id: "painting", name: "Moon painting", emoji: "🖼️", cost: 55, lovers: ["curious", "dance"], verb: "admires the painting", emote: "✦", iso: true, wall: true },
+  // not sold anywhere: the first feather or flower from a walk brings it, and it fills with what you find (see KEEPSAKES)
+  { id: "keepjar", name: "Keepsake jar", emoji: "🏺", cost: 0, lovers: ["curious", "flutter"], verb: "looks at the feathers and flowers", emote: "♥", iso: true, found: true, how: "bring a feather or a flower home from a walk" },
 );
 if (LANG === "uk") for (const d of DECOR) if (d.iso) { d.name = tr(d.name); d.verb = tr(d.verb); if (d.how) d.how = tr(d.how); }
 /** The music box is legendary: it's for those who have met a legendary glowling. */

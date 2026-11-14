@@ -241,7 +241,7 @@ const AWARDS = [
   { id: "firstFriend", tier: "common", name: "Hello, little one", how: "Meet your first glowling", test: () => [Object.keys(save.seen).length, 1] },
   { id: "fed10", tier: "common", name: "Snack time", how: "Give 10 snacks", test: () => [cnt("fed"), 10] },
   { id: "pet25", tier: "common", name: "Gentle hands", how: "Pet your glowlings 25 times", test: () => [cnt("petted"), 25] },
-  { id: "decor", tier: "common", name: "Home sweet home", how: "Buy a decoration for the nest", test: () => [Object.keys(save.decor).filter(id => id !== "rug").length, 1] },
+  { id: "decor", tier: "common", name: "Home sweet home", how: "Buy a decoration for the nest", test: () => [Object.keys(save.decor).filter(id => id !== "rug" && !DECO[id]?.found).length, 1] },
   { id: "moon1", tier: "common", name: "Moonstruck", how: "Open a moon egg", test: () => [save.moon ? 1 : 0, 1] },
   { id: "play5", tier: "common", name: "Playmate", how: "Play 5 mini-games", test: () => [cnt("played"), 5] },
   { id: "greenThumb", tier: "common", name: "Green thumb", how: "Pick your first harvest", test: () => [cnt("harvested"), 1] },

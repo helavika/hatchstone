@@ -7,7 +7,7 @@
 /** Where each piece was drawn last, for tapping it (see spriteHit). */
 const pieceHits = {};
 /** What a piece's picture depends on right now (the lamp being off, the pond's ripple frame...). */
-const pieceExtra = p => p.id === "altar" ? { done: !!moonDone() } : p.id === "shrine" ? { event: eventNow()?.id || "", colors: eventNow()?.egg || [] } : p.id === "campfire" ? { frame: Math.floor(game.time / 160) % 4 } : p.id === "furnace" ? { frame: Math.floor(game.time / 220) % 3 } : p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : {};
+const pieceExtra = p => p.id === "altar" ? { done: !!moonDone() } : p.id === "shrine" ? { event: eventNow()?.id || "", colors: eventNow()?.egg || [] } : p.id === "campfire" ? { frame: Math.floor(game.time / 160) % 4 } : p.id === "furnace" ? { frame: Math.floor(game.time / 220) % 3 } : p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : p.id === "keepjar" ? keepjarView(save.walks.found) : {};
 
 const decorFx = {};
 let swingPush = 0;
@@ -140,6 +140,14 @@ function playDecor(hit) {
     case "shelf":
       [0, 1, 2].forEach(i => setTimeout(() => sfx.star(i), i * 220));
       break;
+    case "keepjar": {
+      // a soft glassy chime, and a few petals and bits of down drift up in the colours of what's inside
+      const w = save.walks, cols = KEEPSAKES.filter(k => w.found[k.id]).map(k => k.c[2]);
+      if (sfx.ready()) { sfx.tone(t, 1568, 0.03, 0.5, "sine", null, true); sfx.tone(t + 0.07, 2093, 0.02, 0.4, "sine", null, true); }
+      for (let i = 0; i < 8; i++) game.sparks.push({ x: x + rand(-8, 8), y: y - b * rand(0.5, 0.9), vx: rand(-25, 25), vy: rand(-45, -20), t: 0, life: rand(0.9, 1.5), s: rand(2, 3), color: pick(cols.length ? cols : ["#efe6ff"]) });
+      toast(tr("In the jar: feathers ×{0}, flowers ×{1}", w.keep.feather || 0, w.keep.flower || 0));
+      break;
+    }
   }
   if (hit.id === "lights" && Math.random() > 0.3) return;
   // the glowlings who love it come running (two at most)

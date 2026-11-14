@@ -24,15 +24,63 @@ const WALK_FINDS = {
   spark: { name: "A hidden spark", gives: "a spark of inspiration" },
 };
 const WALK_KEEP = ["feather", "flower"];
+/**
+ * The keepsakes themselves: each feather or flower turns out to be one of a few you can tell apart, and goes into the
+ * keepsake jar at home just as it is (see ISO_ART.keepjar). w: how often it turns up (the raven and the wild rose are rare);
+ * c: its colours, dark to light, for the jar.
+ */
+const KEEPSAKES = [
+  { id: "jay", kind: "feather", name: "A jay feather", w: 3, c: ["#1d5276", "#3383a8", "#69b7d6", "#ffffff"] },
+  { id: "down", kind: "feather", name: "An owl's down", w: 3, c: ["#8a8494", "#e4dfe8", "#fff0b5", "#ffffff"] },
+  { id: "robin", kind: "feather", name: "A robin's feather", w: 3, c: ["#7d1e2c", "#b8323b", "#e0634f", "#eec26a"] },
+  { id: "raven", kind: "feather", name: "A raven feather", w: 1, c: ["#0b0614", "#22143a", "#3d2866", "#8a6cc9"] },
+  { id: "heather", kind: "flower", name: "A heather sprig", w: 3, c: ["#6b4fa8", "#8a6cc9", "#ad91e6", "#d2bfff"] },
+  { id: "daisy", kind: "flower", name: "A moon daisy", w: 3, c: ["#b9b3c0", "#efe6ff", "#ffffff", "#eec26a"] },
+  { id: "harebell", kind: "flower", name: "A harebell", w: 3, c: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5"] },
+  { id: "rose", kind: "flower", name: "A wild rose", w: 1, c: ["#8f3460", "#e88bb1", "#ffc4da", "#fff0b5"] },
+];
+const KS = Object.fromEntries(KEEPSAKES.map(k => [k.id, k]));
 
 /** The save's walks, made whole: how far the paths are open, how many walks, the best haul on each path, the keepsakes. */
 function walkSaveOf(w) {
   w = w && typeof w === "object" ? w : {};
   const int = (v, lo, hi) => Number.isFinite(v) ? Math.max(lo, Math.min(hi, Math.floor(v))) : lo;
-  const best = {}, keep = {};
+  const best = {}, keep = {}, found = {};
   for (const p of WALKS) if (w.best && Number.isFinite(w.best[p.id]) && w.best[p.id] > 0) best[p.id] = int(w.best[p.id], 0, 9);
   for (const k of WALK_KEEP) if (w.keep && w.keep[k] > 0) keep[k] = int(w.keep[k], 0, 9999);
-  return { open: int(w.open, 1, WALKS.length), n: int(w.n, 0, 1e6), best, keep, last: Number.isFinite(w.last) ? w.last : 0 };
+  for (const k of KEEPSAKES) if (w.found && w.found[k.id] > 0) found[k.id] = int(w.found[k.id], 0, 9999);
+  // older saves only counted feathers and flowers: what they found is shared out among the kinds (the common ones first),
+  // so their jar fills too; and the count of each is never less than the keepsakes of that kind
+  for (const kind of WALK_KEEP) {
+    const all = KEEPSAKES.filter(k => k.kind === kind).sort((a, b) => b.w - a.w), have = all.reduce((n, k) => n + (found[k.id] || 0), 0);
+    for (let i = 0; i < (keep[kind] || 0) - have; i++) found[all[i % all.length].id] = (found[all[i % all.length].id] || 0) + 1;
+    if (have > (keep[kind] || 0)) keep[kind] = have;
+  }
+  return { open: int(w.open, 1, WALKS.length), n: int(w.n, 0, 1e6), best, keep, found, last: Number.isFinite(w.last) ? w.last : 0 };
+}
+/** Which keepsake a feather or a flower turns out to be: half the time one of the common ones you haven't got yet, the rare ones rarely. */
+function keepsakePick(kind, found = {}, rnd = Math.random) {
+  const all = KEEPSAKES.filter(k => k.kind === kind), fresh = all.filter(k => !found[k.id] && k.w > 1);
+  const pool = fresh.length && rnd() < 0.5 ? fresh : all;
+  let r = rnd() * pool.reduce((n, k) => n + k.w, 0);
+  for (const k of pool) if ((r -= k.w) < 0) return k.id;
+  return pool[pool.length - 1].id;
+}
+/**
+ * What the keepsake jar holds: a stem for each keepsake you've found at least once, then more of the ones you have most,
+ * up to eight (feathers first: they stand at the back); and, once it's full, a layer of pressed petals that keeps rising (0 to 4).
+ */
+function keepjarView(found = {}, max = 8) {
+  const have = KEEPSAKES.filter(k => found[k.id] > 0), left = Object.fromEntries(have.map(k => [k.id, found[k.id] - 1]));
+  const stems = have.map(k => k.id);
+  while (stems.length < max) {
+    const more = have.filter(k => left[k.id] > 0).sort((a, b) => left[b.id] - left[a.id])[0];
+    if (!more) break;
+    stems.push(more.id); left[more.id]--;
+  }
+  const all = have.reduce((n, k) => n + found[k.id], 0);
+  stems.sort((a, b) => (KS[a].kind === "feather" ? 0 : 1) - (KS[b].kind === "feather" ? 0 : 1));
+  return { stems, petals: Math.max(0, Math.min(4, Math.floor((all - max) / 6))) };
 }
 
 /** How it ends: joy up by the finds, energy down by how far you went; never below a little, never over the top. */
@@ -72,7 +120,7 @@ const WALK_SHAPE = [
   { stream: [0.19, 0.24], hill: [0.42, 0.53], ledge: [0.64, 0.86] },
 ];
 
-if (typeof module === "object" && module.exports) module.exports = { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, walkSaveOf, walkMood, walkPlan };
+if (typeof module === "object" && module.exports) module.exports = { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView };
 
 // ---------- the words and the little pictures (the browser only: the tests load the rules above on their own) ----------
 
@@ -86,6 +134,18 @@ if (typeof window === "object") {
     flower: ["....rr......", "...rRRr.rr..", "..rr..rrRRr.", "..rRrGGrRr..", "...rGWGrr...", "..rrrGGrRr..", "..rRRr.rRRr.", "...rr.m.rr..", "......m.....", "...Mm.m.....", "....mmm.....", "......m....."],
   });
   PX_ICON_MAPS.wspark = PX_ICON_MAPS.sparkle;
+  // each keepsake's own little picture: the feather in its colours (the jay's barred, the raven's with a violet sheen), the down, the flowers
+  const quill = PX_ICON_MAPS.feather, recolor = (map, sub) => map.map((r, y) => r.replace(/[Lwl]/g, ch => sub(ch, y)));
+  Object.assign(PX_ICON_MAPS, {
+    ks_jay: recolor(quill, (ch, y) => ch === "L" ? "T" : ch === "w" ? "W" : y % 3 === 1 ? "k" : "t"),
+    ks_robin: recolor(quill, ch => ch === "L" ? "E" : ch === "w" ? "g" : "e"),
+    ks_raven: recolor(quill, ch => ch === "L" ? "d" : ch === "w" ? "l" : "p"),
+    ks_down: ["............", "....wWWw....", "...wWsWWw...", "..wWWsWGWw..", "..WsWWWsWw..", "..wWGsWWWw..", "...wWWsWw...", "....wWWw....", ".....sS.....", "......S.....", "......S.....", "............"],
+    ks_heather: ["......L.....", ".....lLl....", "......m.....", "....lLmLl...", ".....lml....", "...lLlmlLl..", "....lpmpl...", "......m.....", ".....mm.....", "......m.....", "......m.....", "............"],
+    ks_daisy: ["............", "...W.WW.W...", "...WWWWWW...", ".WWWWggWWWW.", "..WWgGGgWW..", ".WWWWggWWWW.", "...WWWWWW...", "...W.mm.W...", "......m.....", "...Mm.m.....", "....mmm.....", "......m....."],
+    ks_harebell: ["............", "...mmmm.....", "..m....m....", "..m.....m...", "..m....tTt..", "..m...tTTTt.", "..m...ttTTt.", "..m..ttTTTtt", "..m...W..W..", "..m.........", ".Mm.........", "..m........."],
+    ks_rose: ["............", "...rrrr.....", "..rrRRrr....", ".rrRggRrr...", ".rRgGGgRr...", ".rrRggRrr...", "..rrRRrr.M..", "...rrrr.MM..", "....m..m....", ".....mm.....", ".....m......", ".....m......"],
+  });
   Object.assign(UK, {
     "A walk": "Прогулянка",
     "A walk outside": "Прогулянка",
@@ -109,6 +169,15 @@ if (typeof window === "object") {
     "after: {0}": "після: {0}",
     "new": "нова",
     "Keepsakes from walks: {0}": "Пам'ятні дрібнички з прогулянок: {0}",
+    "A jay feather": "Пір'їнка сойки", "An owl's down": "Совиний пушок", "A robin's feather": "Пір'їнка вільшанки", "A raven feather": "Пір'їна крука",
+    "A heather sprig": "Вересова гілочка", "A moon daisy": "Місячна ромашка", "A harebell": "Дзвоник", "A wild rose": "Квітка шипшини",
+    "Keepsakes": "Пам'ятні дрібнички",
+    "{0} of {1} kinds found": "знайдено {0} з {1} видів",
+    "Every feather and flower from your walks goes into the keepsake jar, and stays there: set it out in a room from the Chest.": "Кожна пір'їнка й квіточка з прогулянок лягає в банку з дрібничками й лишається там: постав її в кімнаті зі Скриньки.",
+    "Feathers and flowers from your walks will be kept here.": "Тут зберігатимуться пір'їнки й квіточки з прогулянок.",
+    "Every feather and flower from your walks goes into it, and none is ever used up.": "Сюди лягає кожна пір'їнка й квіточка з прогулянок, і жодна не витрачається.",
+    "A keepsake jar for what you find: it's waiting in your Chest ✦": "Банка для знахідок: вона чекає у Скриньці ✦",
+    "In the jar: feathers ×{0}, flowers ×{1}": "У банці: пір'їнки ×{0}, квіточки ×{1}",
     "Everyone's asleep or too tired for a walk. Maybe after a nap 🌙": "Усі сплять або втомилися. Може, після дрімоти 🌙",
     "Not during a shared egg": "Не під час спільного яйця",
     "Tap where to go": "Торкнися, куди йти",
@@ -184,8 +253,8 @@ function renderWalkSheet() {
     return `<button class="snack${open ? "" : " locked"}" data-path="${i}" ${open && walkPick.length ? "" : "disabled"}><span class="em">${ic(open ? ["walk", "berry", "feather", "flower"][i] : "lock")}</span><span><b>${tr(p.name)}</b><small>${open ? tr(p.note) : tr("after: {0}", tr(WALKS[i - 1].name))}</small></span>${open ? `<span class="cost">${best ? `${best}/${p.finds}` : tr("new")}</span>` : ""}</button>`;
   }).join("");
   $$("#walkPaths [data-path]").forEach(b => b.addEventListener("click", () => startWalk(Number(b.dataset.path))));
-  const keep = WALK_KEEP.filter(k => w.keep[k]).map(k => `${ic(k)}×${w.keep[k]}`).join(" ");
-  $("walkKeep").innerHTML = keep ? tr("Keepsakes from walks: {0}", keep) : "";
+  const keep = KEEPSAKES.filter(k => w.found[k.id]).map(k => `<span title="${tr(k.name)}">${ic("ks_" + k.id)}×${w.found[k.id]}</span>`).join(" ");
+  $("walkKeep").innerHTML = keep ? tr("Keepsakes from walks: {0}", keep) + "<br>" + tr("Every feather and flower from your walks goes into the keepsake jar, and stays there: set it out in a room from the Chest.") : "";
   $("walkKeep").hidden = !keep;
   if (!home.some(walkFit)) $("walkSheetSub").textContent = tr("Everyone's asleep or too tired for a walk. Maybe after a nap 🌙");
 }
@@ -856,9 +925,9 @@ function walkLit(x, y) {
   return k;
 }
 function walkCollect(f, p) {
-  const g = game.walk, cr = walkCr(p.id), [label, em] = walkGive(f.kind, cr);
+  const g = game.walk, cr = walkCr(p.id), [label, em, ks] = walkGive(f.kind, cr);
   f.state = "got"; f.t = 0;
-  g.got.push({ kind: f.kind, label });
+  g.got.push({ kind: f.kind, label, ks });
   p.hop = 1; p.happy = 2; p.emote = { text: "♥", t: 0, life: 1.2 };
   const X = (f.x - g.cam) * PX, Y = (walkGround(g.geo, f.x) - 14) * PX;
   floatText(em ? `${em} ${label}` : label, X, Y, f.kind === "spark" ? "#fff0b5" : "#e6e0ff");
@@ -872,7 +941,15 @@ function walkGive(kind, cr) {
   if (kind === "berry") { save.pantry = { ...save.pantry, berry: ((save.pantry || {}).berry || 0) + 1 }; label = tr(SNACKS.berry.name); em = SNACKS.berry.emoji; }
   if (kind === "seed") { const id = pick(["glowberry", "glowberry", "moonmint", "moonmint", "cookiecorn"]), gd = garden(); gd.seeds[id] = (gd.seeds[id] || 0) + 1; label = tr("{0} seed", seedName(id)); em = "🌱"; }
   if (kind === "pebble") { const n = 4 + Math.floor(Math.random() * 3); save.shards += n; label = `✦ +${n}`; updateTopbar(); }
-  if (WALK_KEEP.includes(kind)) save.walks.keep[kind] = (save.walks.keep[kind] || 0) + 1;
+  let ks = null;
+  if (WALK_KEEP.includes(kind)) {
+    // which feather, which flower: it goes into the keepsake jar (the first one brings the jar itself, waiting in the chest)
+    const w = save.walks;
+    ks = keepsakePick(kind, w.found);
+    w.keep[kind] = (w.keep[kind] || 0) + 1; w.found[ks] = (w.found[ks] || 0) + 1;
+    label = tr(KS[ks].name);
+    if (!save.decor.keepjar) { save.decor.keepjar = { on: false, at: Date.now() }; if (game.walk) game.walk.jar = true; }
+  }
   if (kind === "spark") {
     const pool = SPARKS.filter(s => s.kind !== "sight" && !save.sparks.got[s.id]);
     if (pool.length) {
@@ -884,7 +961,7 @@ function walkGive(kind, cr) {
     } else { save.shards += 10; label = "✦ +10"; em = "✨"; updateTopbar(); }
   }
   persist();
-  return [label, em];
+  return [label, em, ks];
 }
 
 /** A tap: on the thorn, a rustling bush, something to pick up, or just somewhere to walk to. */
@@ -954,8 +1031,9 @@ function finishWalk() {
   $("walkTitle").textContent = tr(g.reached ? "A lovely walk" : "A short walk");
   $("walkPics").innerHTML = crs.map(c => `<img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc, mood: "happy" })}" alt="">`).join("");
   $("walkSub").textContent = tr("{0}, along {1}.", crs.map(c => c.name).join(" & "), tr(p.name)) + " " + tr(g.reached ? "A little tired, a lot happier." : "Home a little early, and that's fine.");
-  $("walkGot").innerHTML = (g.got.length ? g.got.map(f => `<span class="walk-find">${ic(f.kind === "spark" ? "wspark" : f.kind)}<span>${f.label}</span></span>`).join("") : `<p class="sub">${tr("Nothing found this time: just fresh air.")}</p>`)
-    + (g.freed ? `<p class="me-hint">${ic("sparkle")} ${tr("Freed a little light from the Gloom-thorn")}</p>` : "");
+  $("walkGot").innerHTML = (g.got.length ? g.got.map(f => `<span class="walk-find">${ic(f.ks ? "ks_" + f.ks : f.kind === "spark" ? "wspark" : f.kind)}<span>${f.label}</span></span>`).join("") : `<p class="sub">${tr("Nothing found this time: just fresh air.")}</p>`)
+    + (g.freed ? `<p class="me-hint">${ic("sparkle")} ${tr("Freed a little light from the Gloom-thorn")}</p>` : "")
+    + (g.jar ? `<p class="me-hint">${ic("ks_daisy")} ${tr("A keepsake jar for what you find: it's waiting in your Chest ✦")}</p>` : "");
   $("wdJoy").textContent = "+" + mood.joy; $("wdJoyL").textContent = tr("joy");
   $("wdFinds").textContent = `${n}/${g.plan.length}`; $("wdFindsL").textContent = tr("finds");
   $("wdTired").textContent = "−" + mood.energy; $("wdTiredL").textContent = tr("energy");

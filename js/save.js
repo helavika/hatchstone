@@ -56,6 +56,8 @@ function migrate(d) {
   d.core = coreSaveOf(d.core, d);
   // walks outside (see walk.js): how far the paths are open, the best hauls, the keepsakes
   d.walks = walkSaveOf(d.walks);
+  // a nest that already brought keepsakes home gets the jar they go into, waiting in the chest
+  if (Object.keys(d.walks.found).length && !d.decor.keepjar) d.decor.keepjar = { on: false, at: Date.now() };
   // wardstones (see wards.js): the ones in hand and the ones set on the map
   d.wards = wardSaveOf(d.wards);
   d.v = SAVE_VERSION;
@@ -328,7 +330,7 @@ const ROOM_SLOTS = {
   spring: [0.98, 0.06], cushion: [0.5, 0], bed: [0.97, 0.94],
   rug: [0.5, 0.56],
   // the pieces drawn for the isometric room stand here when the room is seen straight on
-  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98], bench: [0.6, 0.04], lamppost: [0.08, 0.02], birdbath: [0.62, 0.98], drum: [0.24, 0.96], blocks: [0.84, 0.97], telescope: [0.9, 0.05],
+  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98], bench: [0.6, 0.04], lamppost: [0.08, 0.02], birdbath: [0.62, 0.98], drum: [0.24, 0.96], blocks: [0.84, 0.97], telescope: [0.9, 0.05], keepjar: [0.06, 0.28],
 };
 // a wide, shallow room (a computer screen) spreads the front pieces inward instead, so they don't stand in front of the middle ones
 const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 0.96], bed: [0.85, 0.9] };
