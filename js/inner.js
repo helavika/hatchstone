@@ -8,9 +8,9 @@
 
 // ---------- the rules: how much each thing grows it, and the facets ----------
 
-const CORE_GAIN = { back: 3, retry: 2, rescued: 4, lamplit: 2, ritual: 1 };
+const CORE_GAIN = { back: 3, retry: 2, rescued: 4, lamplit: 2, ritual: 1, ward: 2 };
 // at most once a day each (a freed seal is rare enough on its own: there are only four)
-const CORE_DAILY = ["back", "retry", "lamplit", "ritual"];
+const CORE_DAILY = ["back", "retry", "lamplit", "ritual", "ward"];
 const CORE_PAUSE = 24 * 3600e3;       // a pause that counts: a day or more
 const CORE_REST = 12 * 3600e3;        // how long the resting glow lasts
 const CORE_SEED_MAX = 30;             // an older nest starts part-way, never at the last facet
@@ -237,7 +237,7 @@ function coreHtml() {
     + `<p><b>${tr(CORE_STAGES[lit])}</b>${rest ? `<small class="core-rest">${tr("Rested. The core glows soft and warm.")}</small>` : ""}</p></div>`
     + (lit ? `<ul class="core-facets">${CORE_FACETS.slice(0, lit).map(f => `<li><i aria-hidden="true">◆</i><span><b>${tr(f.name)}</b><small>${tr(f.what)}</small></span></li>`).join("")}</ul>` : "")
     + (lit < CORE_FACETS.length ? `<p class="me-hint">${tr(lit ? "Another facet waits in the dark, filling slowly." : "Its first facet is filling, slowly, from the bottom up.")}</p>` : "")
-    + `<div class="me-more" data-more="core" hidden><p>${tr("Your core grows when you come back after time away, when you go back to the stone after one that didn't open, when you stand up for the little ones (a seal freed, shadows pushed back), and with one small ritual a day: the moon egg, or tending the garden.")}</p>`
+    + `<div class="me-more" data-more="core" hidden><p>${tr("Your core grows when you come back after time away, when you go back to the stone after one that didn't open, when you stand up for the little ones (a seal freed, shadows pushed back), when you set a wardstone at the edge of the fog, and with one small ritual a day: the moon egg, or tending the garden.")}</p>`
     + `<p>${tr("It grows a little at a time and never shrinks. Being away costs nothing.")}</p>`
     + `<p>${tr("Sleep, a harvest or the music box don't grow it, but the core glows softly after a rest. Rest is part of the fight.")}</p></div>`;
 }

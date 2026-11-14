@@ -22,18 +22,14 @@ const WM_RIVER = [[208, 52], [204, 80], [216, 108], [210, 132], [196, 152], [202
 /** The roads: the main one from the nest up to the grotto is wider; the others are lanes. */
 const WM_ROADS = [["forge", "gloom", 0.9, 10], ["lab", "frost", 0.9, -16], ["nest", "grotto", 2.2, 14], ["nest", "lab", 1.8, -14], ["lab", "shop", 1.6, 12], ["grotto", "forge", 1.4, -12], ["forge", "garden", 1.3, 10], ["garden", "shop", 1.3, -8], ["shop", "trail", 1.4, -12], ["lab", "garden", 1.1, 18]];
 /** Lands past the valley, not open yet: the Gloom's dark country in the west, snowfields in the east, an island, the aurora.
- *  Each has a veil and a few ward spots along its road, at the veil's edge: set a wardstone on every one and the veil lifts.
- *  The Gloom's land is the last and the hardest: it only gives way once the others stand guarded. */
+ *  Each has a veil, and ward spots along its road at the veil's edge (see wards.js): every stone set thins the veil a step,
+ *  and once all of a land's spots stand guarded the veil lifts and the land shows, named like its sights (sparks.js). */
 const WM_MYSTERY = [
-  { id: "gloom", at: [44, 132], hint: "Mossa won't say what sleeps in the dark past the forge. Only that it's waiting.", name: "The Gloomreach", veil: "dark", thin: "The dark steps back",
-    wards: [[98, 150], [85, 133], [70, 127]], ok: () => unlocked(19) && ["frost", "isle", "summit"].every(wardDone), how: () => unlocked(19) ? tr("ward the other lands first") : tr("reach chapter IV") },
-  { id: "frost", at: [360, 150], hint: "Snow, and something glittering under it. A door of ice?", name: "The Snowfields", veil: "fog", thin: "The fog thins",
-    wards: [[321, 147], [336, 141]], ok: () => true },
-  { id: "isle", at: [334, 322], hint: "A light blinks far out at sea, every night, as if someone keeps it.", name: "The Lighthouse", veil: "haze", thin: "The sea mist thins",
-    wards: [[298, 295]], ok: () => true },
-  { id: "summit", at: [300, 34], hint: "Above the peaks the sky dances in green and pink. Somebody lives up there.", name: "Aurora Summit", veil: "cloud", thin: "The clouds part",
-    wards: [[288, 66], [330, 66]], ok: () => unlocked(19), how: () => tr("reach chapter IV") },
-];
+  { id: "gloom", at: [44, 132], hint: "Mossa won't say what sleeps in the dark past the forge. Only that it's waiting.", name: "The Gloomreach", veil: "dark", thin: "The dark steps back" },
+  { id: "frost", at: [360, 150], hint: "Snow, and something glittering under it. A door of ice?", name: "The snowfields", veil: "fog", thin: "The fog thins" },
+  { id: "isle", at: [334, 322], hint: "A light blinks far out at sea, every night, as if someone keeps it.", name: "The isle", veil: "haze", thin: "The sea mist thins" },
+  { id: "summit", at: [300, 34], hint: "Above the peaks the sky dances in green and pink. Somebody lives up there.", name: "The summit", veil: "cloud", thin: "The clouds part" },
+].map(w => ({ ...w, wards: WARD_LAND[w.id].spots }));
 const wmAt = id => (WORLD.find(w => w.id === id) || WM_MYSTERY.find(w => w.id === id)).at;
 /** How far into the west (the Gloom's land) or the east (the snowfields) a point is, 0 to 1, with a ragged edge. */
 const wmWest = (x, y) => pxSmooth(0, 1, (100 - x) / 34 + (pxFbm(x / 15 + 2, y / 15) - 0.5) * 0.9);
@@ -329,7 +325,7 @@ function wmVeilDraw(g, id, alpha, now) {
 
 // ---------- the living map: water that sparkles, smoke from the chimneys, fireflies, clouds drifting over ----------
 
-const wm = { raf: 0, t0: 0, smoke: [], flies: [], cv: null, K: 3, fade: {}, rise: {} };
+const wm = { raf: 0, t0: 0, smoke: [], flies: [], cv: null, K: 3, fade: {}, rise: {}, lifting: null };
 const WM_CHIMNEYS = { forge: [8, -26], nest: [9, -27], trail: [-2, -2] };
 function worldFrame(now) {
   const base = worldBase(), cv = wm.cv, g = cv.getContext("2d"), C = WM_COL, t = now / 1000;
@@ -380,61 +376,83 @@ function worldFrame(now) {
 // ---------- wardstones: Ember forges them, you set them at the edge of the fog, and the lands past the valley come out of it ----------
 // save.wards: { have: crystal ids of the stones in hand (each lights its rune in that crystal's colour), set: { "frost.0": crystal id } }.
 
-const wards = () => save.wards || (save.wards = { have: [], set: {} });
+const wards = () => save.wards || (save.wards = wardSaveOf());
 const wardLand = id => WM_MYSTERY.find(w => w.id === id);
 /** Wardstones come with chapter III, when the valley first has to hold its ground (and Ember's forge is open). */
 const wardsOpen = () => unlocked(13) && placeOk("forge");
-const wardOk = id => wardsOpen() && wardLand(id).ok();
-const wardsSet = id => wardLand(id).wards.filter((_, i) => wards().set[id + "." + i]).length;
-const wardDone = id => wardsSet(id) >= wardLand(id).wards.length;
+/** The fourth cave is open: the Gloom's land can be warded once the other three are (see wards.js). */
+const wardLate = () => unlocked(19);
+const wardOk = id => wardsOpen() && wardOpenIn(wards(), id, wardLate());
+const wardsSet = id => wardsUp(wards(), id);
+const wardDone = id => wardFull(wards(), id);
 /** How much of a land's veil is left: 1 untouched, 0 lifted. */
-const wardKeep = id => 1 - wardsSet(id) / wardLand(id).wards.length;
+const wardKeep = id => wardLeft(wards(), id);
+/** What a land still waits for before its spots open. */
+const wardHow = id => tr(WARD_LAND[id].late && !wardLate() ? "reach chapter IV" : id === "gloom" ? "ward the other lands first" : "ward the snowfields and the isle first");
 const wardCol = cid => (CRYSTAL[cid] || CRYSTAL.quartz).c.map(pxHex);
 /** A fresh stone from the workbench, made from a spare of this crystal. */
 function forgeWard(cid) { wards().have.push(CRYSTAL[cid] ? cid : "quartz"); }
-/** Set the oldest stone in hand on a spot. Returns its crystal, or null if the spot is taken, closed, or the hand is empty. */
-function setWard(id, i) {
-  const w = wardLand(id), key = id + "." + i, ws = wards();
-  if (!w || !w.wards[i] || !wardOk(id) || ws.set[key] || !ws.have.length) return null;
-  const cid = ws.have.shift();
-  ws.set[key] = cid;
-  return cid;
-}
 
-/** A wardstone: a little standing stone with a rune down its face, lit `lit` of the way (0 to 1) in its crystal's colour. */
+/** A wardstone: a little standing stone of grey granite with a rune down its face, lit `lit` of the way (0 to 1) in its crystal's colour. */
+const WARD_GRANITE = ["#3a3440", "#5d5666", "#8a8494", "#b9b3c0", "#e4dfe8"].map(pxHex);
+// the stone's shape, from the ground up (k = 1 is the foot): its columns from a to b, a wide foot and a rounded, leaning top
+const WARD_SHAPE = [[-2, 2], [-2, 2], [-1, 1], [-1, 1], [-1, 1], [-1, 1], [-1, 1], [-1, 1], [-1, 0]];
 function wardStone(g, x, y, col, lit = 1, sink = 0) {
-  const p = (a, b, c) => { if (b > y - 1) return; g.fillStyle = `rgb(${c})`; g.fillRect(a, b, 1, 1); };
-  g.fillStyle = "rgba(5,0,20,.5)"; g.fillRect(x - 2, y, 5, 1);
-  // a dark outline, so it reads against snow, rock and the dark alike
-  for (let k = 1; k <= 9; k++) for (let a = -2; a <= 2; a++) if (Math.abs(a) <= (k < 8 ? 2 : k < 9 ? 1 : 0)) p(x + a, y - k + sink, WM_COL.ink);
-  for (let k = 1; k <= 7; k++) { const b = y - k + sink; p(x - 1, b, k < 7 ? WM_COL.n0 : WM_COL.r5); p(x, b, WM_COL.r5); p(x + 1, b, k < 7 ? WM_COL.r3 : WM_COL.r4); }
-  p(x, y - 8 + sink, WM_COL.r5);
-  // the rune: a line down the middle with a tick to each side, lit from the bottom up
-  const rune = [[0, -2], [0, -3], [-1, -4], [0, -4], [1, -5], [0, -5], [0, -6]];
-  rune.forEach(([a, b], k) => { if (k < lit * rune.length) p(x + a, y + b + sink, k < lit * rune.length - 1 ? col[0] : col[1]); });
+  const p = (a, b, c) => { if (b > y - 1) return; g.fillStyle = `rgb(${c})`; g.fillRect(a, b, 1, 1); }, G = WARD_GRANITE;
+  const inside = (a, k) => k >= 1 && k <= WARD_SHAPE.length && a >= WARD_SHAPE[k - 1][0] && a <= WARD_SHAPE[k - 1][1];
+  g.fillStyle = "rgba(5,0,20,.5)"; g.fillRect(x - 3, y, 7, 1);
+  // a dark outline round it, so it reads against snow, grass and the dark alike
+  for (let k = 1; k <= WARD_SHAPE.length + 1; k++) for (let a = -3; a <= 3; a++)
+    if (!inside(a, k) && (inside(a - 1, k) || inside(a + 1, k) || inside(a, k - 1) || inside(a, k + 1))) p(x + a, y - k + sink, WM_COL.ink);
+  // granite lit from the north-west: pale on the left, dark on the right, a bright cap
+  WARD_SHAPE.forEach(([l, r], j) => { for (let a = l; a <= r; a++) p(x + a, y - j - 1 + sink, j === WARD_SHAPE.length - 1 ? G[a < 0 ? 4 : 3] : G[a < 0 ? 3 : a > 0 ? 1 : 2]); });
+  // moss at its foot
+  p(x - 2, y - 1 + sink, WM_COL.g4); p(x + 1, y - 1 + sink, WM_COL.g5); p(x + 2, y - 1 + sink, WM_COL.g3);
+  // the rune: a line down the middle with a tick to each side, carved dark, then lit from the bottom up
+  const rune = [[0, -2], [0, -3], [-1, -4], [0, -4], [1, -5], [0, -5], [0, -6], [0, -7]];
+  rune.forEach(([a, b], k) => { const on = k < lit * rune.length; p(x + a, y + b + sink, on ? (k < lit * rune.length - 1 ? col[0] : col[1]) : G[0]); });
 }
-/** The stones and their spots on the map, drawn over the veils: empty sockets, stones rising, glow rings that stay. */
+/** The stones and their spots on the map, drawn over the veils: old sockets, stones rising, glow rings that stay. */
 function wardsFrame(g, now) {
   if (!wardsOpen()) return;
   const t = now / 1000, ws = wards();
   for (const w of WM_MYSTERY) {
-    if (!w.ok()) continue;
+    if (!wardOk(w.id)) continue;
     w.wards.forEach(([x, y], i) => {
       const key = w.id + "." + i, cid = ws.set[key];
       if (!cid) {
-        // an old socket in the ground, and while you've a stone in hand, a soft call to set it
-        g.fillStyle = "#26193c"; g.fillRect(x - 2, y - 1, 5, 2); g.fillStyle = "#4e3f7d"; g.fillRect(x - 1, y - 1, 3, 1);
-        if (ws.have.length) { const r = 4 + ((t * 2 + i) % 1) * 4; g.globalAlpha = 0.7 * (1 - (r - 4) / 4); wmRing(g, x, y, r, [255, 240, 181]); g.globalAlpha = 1; }
+        // an old socket in the ground: a ring of worn pebbles round a dark hollow where a stone once stood
+        g.fillStyle = "rgba(5,0,20,.55)"; g.fillRect(x - 3, y - 1, 7, 2);
+        g.fillStyle = "#0b0614"; g.fillRect(x - 1, y - 1, 3, 1);
+        for (const [a, b, c] of [[-3, -1, "#6b5a9a"], [3, -1, "#4e3f7d"], [-2, 0, "#4e3f7d"], [2, 0, "#3b2f63"], [-2, -2, "#8a78b8"], [0, -2, "#6b5a9a"], [2, -2, "#4e3f7d"]]) { g.fillStyle = c; g.fillRect(x + a, y + b, 1, 1); }
+        if (ws.have.length) {
+          // while there's a stone in hand: a soft ring that keeps spreading, and a little gold mark bobbing over the spot
+          const r = 3 + ((t * 0.9 + i * 0.37) % 1) * 6; g.globalAlpha = 0.85 * (1 - (r - 3) / 6); wmRing(g, x, y, r, [255, 240, 181]); g.globalAlpha = 1;
+          const by = y - 6 - (Math.sin(t * 3 + i) > 0 ? 1 : 0), tw = Math.sin(t * 5 + i * 2) > 0.3;
+          g.fillStyle = "#c98f3a"; g.fillRect(x, by - 2, 1, 5); g.fillRect(x - 2, by, 5, 1);
+          g.fillStyle = "#eec26a"; g.fillRect(x, by - 1, 1, 3); g.fillRect(x - 1, by, 3, 1);
+          g.fillStyle = tw ? "#ffffff" : "#fff0b5"; g.fillRect(x, by, 1, 1);
+        }
         return;
       }
       const col = wardCol(cid), age = (now - (wm.rise[key] || 0)) / 1000;
-      // just set: it rises out of the ground (0–0.7s), its rune lights (0.7–1.3s), and a ring of light spreads (1–2.2s)
+      // just set: it rises out of the ground (0–0.7s), its rune lights (0.7–1.3s), a ring of light spreads (1–2.2s), and a wave of light runs into the veil
       const rise = clamp(age / 0.7, 0, 1), lit = clamp((age - 0.7) / 0.6, 0, 1), ring = clamp((age - 1) / 1.2, 0, 1);
-      g.globalAlpha = 0.28 + 0.12 * Math.sin(t * 1.6 + i) + (ring < 1 ? (1 - ring) * 0.6 : 0);
-      wmRing(g, x, y, 3 + 5 * (1 - (1 - ring) ** 2), col[1]);
+      // a pool of light on the ground inside its ring (dithered, so it stays pixel-crisp)
+      const pool = lit * (0.5 + 0.1 * Math.sin(t * 1.6 + i));
+      g.fillStyle = "#eec26a"; g.globalAlpha = 0.55;
+      for (let b = -3; b <= 2; b++) for (let a = -7; a <= 7; a++) { const f = (a / 7.5) ** 2 + ((b + 0.5) / 3.4) ** 2; if (f < 1 && PX_BAYER[((y + b) & 3) * 4 + ((x + a) & 3)] < pool * (1 - f)) g.fillRect(x + a, y + b, 1, 1); }
+      g.globalAlpha = Math.min(1, 0.6 + 0.2 * Math.sin(t * 1.6 + i) + (ring < 1 ? (1 - ring) * 0.4 : 0));
+      // the ring of warm light that stays, with a thread of the crystal's own colour inside it
+      wmRing(g, x, y, 3 + 5 * (1 - (1 - ring) ** 2), [238, 194, 106]);
+      g.globalAlpha *= 0.7; wmRing(g, x, y, 2 + 4 * (1 - (1 - ring) ** 2), col[0]);
+      if (ring > 0 && ring < 1) { g.globalAlpha = (1 - ring) * 0.9; wmRing(g, x, y, 6 + ring * 22, [255, 240, 181]); }
       g.globalAlpha = 1;
       wardStone(g, x, y, col, lit, Math.round(9 * (1 - rise) ** 2));
-      if (age < 0.7) for (let k = 0; k < 4; k++) { g.fillStyle = "#8a6238"; g.fillRect(x - 3 + k * 2 + Math.round(Math.sin(age * 20 + k) * 1.5), y - 1 - Math.round(pxHash(k, Math.floor(age * 10)) * 3), 1, 1); }
+      // earth thrown up as it rises
+      if (age < 0.7) for (let k = 0; k < 5; k++) { g.fillStyle = k % 2 ? "#8a6238" : "#6b4a2a"; g.fillRect(x - 4 + k * 2 + Math.round(Math.sin(age * 20 + k) * 1.5), y - 1 - Math.round(pxHash(k, Math.floor(age * 10)) * 4), 1, 1); }
+      // a flash as the rune catches
+      if (lit > 0 && lit < 1) { g.globalAlpha = 1 - lit; g.fillStyle = "#ffffff"; g.fillRect(x - 1, y - 9, 3, 1); g.fillRect(x, y - 10, 1, 3); g.globalAlpha = 1; }
       // a spark climbs off the rune now and then
       const ph = (t * 0.5 + pxHash(i, w.id.length)) % 1;
       if (lit >= 1 && ph < 0.5) { g.globalAlpha = 1 - ph * 2; g.fillStyle = `rgb(${col[1]})`; g.fillRect(x + Math.round(Math.sin(ph * 9 + i) * 2), y - 8 - Math.round(ph * 14), 1, 1); g.globalAlpha = 1; }
@@ -451,50 +469,66 @@ const wardIconCache = {};
 /** A wardstone for buttons and the hand counter. */
 function wardIcon(cid = "amethyst") {
   if (wardIconCache[cid]) return wardIconCache[cid];
-  const c = document.createElement("canvas"); c.width = 9; c.height = 11;
+  const c = document.createElement("canvas"); c.width = 9; c.height = 12;
   const g = c.getContext("2d"), col = wardCol(cid);
-  g.globalAlpha = 0.5; wmRing(g, 4, 10, 3.6, col[1]); g.globalAlpha = 1;
-  wardStone(g, 4, 10, col);
+  g.globalAlpha = 0.5; wmRing(g, 4, 11, 3.6, [238, 194, 106]); g.globalAlpha = 1;
+  wardStone(g, 4, 11, col);
   return wardIconCache[cid] = c.toDataURL();
 }
 
+/** A land shows once all its stones stand (and the last one has risen: wm.lifting is the land whose veil is lifting now). */
+const wardFound = id => wardDone(id) && wm.lifting !== id;
+/** How many of a land's sights glowlings have brought home (see sparks.js), for its label once it's found; null if it has none. */
+function wardSights(id) {
+  const all = landSights(id);
+  return all.length ? [all.filter(x => save.sparks.got[x.id]).length, all.length] : null;
+}
 /** The banner under a land: ??? while it's hidden, how many stones stand while you ward it, its name once it's found. */
 function wardBanner(w) {
-  if (wardsOpen() && wardDone(w.id)) return `<b>${tr(w.name)}</b><small>${tr("the road is still being cleared")}</small>`;
-  const n = wardsOpen() && w.ok() ? wardsSet(w.id) : -1;
-  return `<b>???</b>${n >= 0 ? `<small>${tr("wardstones {0} of {1}", n, w.wards.length)}</small>` : ""}`;
+  if (wardFound(w.id)) {
+    const s = wardSights(w.id);
+    return `<b>${tr(w.name)}</b><small>${tr("the road is still being cleared")}</small>` + (s ? `<small class="wsights">${tr("✦ sights {0} of {1}", s[0], s[1])}</small>` : "");
+  }
+  if (!wardsOpen()) return "<b>???</b>";
+  return `<b>???</b><small>${wardOk(w.id) ? tr("wardstones {0} of {1}", wardsSet(w.id), w.wards.length) : wardHow(w.id)}</small>`;
 }
+/** How many stones are in hand, at the top of the map. */
 function wardHand() {
   const el = $("wardHand"), ws = wards();
   if (!el) return;
-  el.hidden = !wardsOpen();
+  el.hidden = !wardsOpen() || (!ws.have.length && WM_MYSTERY.every(w => wardDone(w.id)));
   el.innerHTML = `<img src="${wardIcon(ws.have[0])}" alt=""><b>${ws.have.length}</b><small>${pl(ws.have.length, "wardstone", "wardstones")}</small>`;
   el.classList.toggle("full", ws.have.length > 0);
 }
 function tapWard(key) {
   const [id, i] = key.split("."), w = wardLand(id), ws = wards();
   if (!w || !wardOk(id)) return;
-  if (ws.set[key]) { sfx.tick(); toast(tr("A wardstone of {0} stands here. The light holds.", CRYSTAL[ws.set[key]]?.name || "")); return; }
+  if (ws.set[key]) { sfx.tick(); toast(tr("A wardstone of {0} stands here. The light holds.", tr(CRYSTAL[ws.set[key]]?.name || ""))); return; }
   if (!ws.have.length) { sfx.refuse(); toast(tr("No wardstone in hand. Ember forges them at the workbench ✦")); return; }
-  const from = wardKeep(id), cid = setWard(id, +i);
+  const from = wardKeep(id), cid = wardPlace(ws, id, +i, wardLate());
   if (!cid) return;
   const now = performance.now();
   wm.rise[key] = now; wm.fade[id] = { from, t0: now + 900 };
   sfx.thud(); setTimeout(() => sfx.shimmer(), 700); buzz([10, 40, 20]);
   bump("warded");
   persist();
+  if (coreAdd("ward")) setTimeout(() => worldOpen() && toast(tr("You stood guard. Your core grew a little ✦")), 3400);
+  if (wardDone(id)) wm.lifting = id;
   wmWardButtons(); wardHand();
   if (wardDone(id)) setTimeout(() => {
+    wm.lifting = null;
     if (!worldOpen()) return;
     sfx.levelUp();
     toast(tr("The veil lifts: {0} ✦", tr(w.name)));
     const b = document.querySelector(`#worldMap [data-mystery="${id}"]`);
-    if (b) { b.classList.add("found", "fresh"); b.querySelector(".wbanner").innerHTML = wardBanner(w); }
+    if (b) b.classList.add("fresh");
+    // the next land's spots may have opened with this one
+    wmWardButtons();
     setTimeout(() => talk("wardFound_" + id), 900);
   }, 2400);
   else setTimeout(() => worldOpen() && toast(tr("{0} · {1} of {2} ✦", tr(w.thin), wardsSet(id), w.wards.length)), 1300);
 }
-/** The ward spots, as buttons over the canvas (rebuilt when one is set). */
+/** The ward spots, as buttons over the canvas, and the lands' banners (rebuilt when a stone is set). */
 function wmWardButtons() {
   $$("#worldMap [data-ward]").forEach(b => b.remove());
   for (const w of WM_MYSTERY) if (wardOk(w.id)) w.wards.forEach((_, i) => {
@@ -504,19 +538,29 @@ function wmWardButtons() {
     b.addEventListener("click", e => { e.stopPropagation(); tapWard(key); });
     $("worldMap").appendChild(b);
   });
-  for (const b of $$("#worldMap [data-mystery]")) { const w = wardLand(b.dataset.mystery); b.querySelector(".wbanner").innerHTML = wardBanner(w); b.classList.toggle("found", wardsOpen() && wardDone(w.id)); }
-  if (wm.K) wmPlaceWards();
+  // (a land whose veil has lifted is found only once its stone has risen: the banner changes with the toast, not before)
+  for (const b of $$("#worldMap [data-mystery]")) { const w = wardLand(b.dataset.mystery); b.querySelector(".wbanner").innerHTML = wardBanner(w); b.classList.toggle("found", wardFound(w.id)); }
+  if (wm.K) { wmPlaceWards(); wmClampBanners(); }
+}
+/** The lands at the map's edges keep their banners inside it (the snowfields' and the Gloom's would hang off the side). */
+function wmClampBanners() {
+  const m = $("worldMap").getBoundingClientRect();
+  for (const el of $$("#worldMap [data-mystery] .wbanner")) {
+    el.style.translate = "";
+    const r = el.getBoundingClientRect();
+    el.style.translate = Math.round(Math.max(0, m.left + 4 - r.left) - Math.max(0, r.right - m.right + 4)) + "px 0";
+  }
 }
 function wmPlaceWards() {
   for (const b of $$("#worldMap [data-ward]")) { const [id, i] = b.dataset.ward.split("."), [x, y] = wardLand(id).wards[i]; b.style.left = x * wm.K + "px"; b.style.top = (y - 3) * wm.K + "px"; }
 }
-/** A tap on a land past the valley: its hint while hidden, how the warding goes, and once it's found, its name. */
+/** A tap on a land past the valley: its hint while hidden, how the warding goes, and once it's found, its name and its sights. */
 function tapMystery(id) {
-  const w = wardLand(id);
+  const w = wardLand(id), s = wardSights(id);
   sfx.tick();
-  if (wardsOpen() && wardDone(id)) { toast(tr("{0}: the road is still being cleared. Pip will lead the way when it's ready.", tr(w.name))); return; }
+  if (wardFound(id)) { toast(tr("{0}: the road is still being cleared. Pip will lead the way when it's ready.", tr(w.name)) + (s ? " · " + tr("{0}: {1} of {2} sights home", tr(w.name), s[0], s[1]) : "")); return; }
   if (!wardsOpen()) { toast(tr(w.hint)); return; }
-  toast(tr(w.hint) + " · " + (w.ok() ? tr("Set a wardstone on each spot at the edge of the veil.") : w.how()));
+  toast(tr(w.hint) + " · " + (wardOk(id) ? tr("Set a wardstone on each spot at the edge of the veil.") : wardHow(id)));
 }
 
 /** Where you are right now, as a place on the map. */
@@ -539,7 +583,7 @@ function layoutWorld(zoom, keep) {
   map.style.width = WM_W * K + "px"; map.style.height = WM_H * K + "px";
   map.classList.toggle("far", wm.zoom === 0); map.style.setProperty("--k", K);
   for (const b of $$("#worldMap [data-place], #worldMap [data-mystery]")) { const [x, y] = wmAt(b.dataset.place || b.dataset.mystery); b.style.left = x * K + "px"; b.style.top = (y - 32) * K + "px"; b.firstElementChild.style.width = 40 * K + "px"; b.firstElementChild.style.height = 36 * K + "px"; }
-  wmPlaceWards();
+  wmPlaceWards(); wmClampBanners();
   $("worldIn").disabled = wm.zoom >= WM_ZOOMS.length - 1; $("worldOut").disabled = wm.zoom <= 0;
   if (keep) { sc.scrollLeft = map.offsetLeft + cx * K - sc.clientWidth / 2; sc.scrollTop = map.offsetTop + cy * K - sc.clientHeight / 2; }
 }
@@ -590,12 +634,14 @@ Object.assign(TALKS, {
     [EMBER, "Set it where the fog is thickest. Where a wardstone stands, the dark steps back, and stays back."]],
   wardSpots: () => [[PIP, "See the old sockets in the ground, at the edge of the fog? Wardstones stood there once.", () => wardSpotRect()],
     [PIP, "Ember can forge new ones at the workbench. I'm scared of what's past the fog. But I'd still like to see it."]],
-  wardFound_frost: () => [[PIP, "Snowfields, and that ice door! I'm drawing it on my map. The road's still being cleared, but we'll get there."]],
-  wardFound_isle: () => [[PIP, "Someone has kept that lighthouse lit every single night. Steady as anything. I'd like to meet them one day."]],
-  wardFound_summit: () => [[PIP, "Up there the sky never quite goes dark. The path is steep and still being cleared, but one day we'll stand under it."]],
-  wardFound_gloom: () => [[PIP, "The dark held for so long. But the stones are standing, and so are we.", "#worldMap [data-mystery=\"gloom\"]"],
+  wardFound_frost: () => [[PIP, "Snowfields, and that ice door! I'm drawing it on my map. The road's still being cleared, but we'll get there.", wardSpotOf("frost")]],
+  wardFound_isle: () => [[PIP, "Someone has kept that lighthouse lit every single night. Steady as anything. I'd like to meet them one day.", wardSpotOf("isle")]],
+  wardFound_summit: () => [[PIP, "Up there the sky never quite goes dark. The path is steep and still being cleared, but one day we'll stand under it.", wardSpotOf("summit")]],
+  wardFound_gloom: () => [[PIP, "The dark held for so long. But the stones are standing, and so are we.", wardSpotOf("gloom")],
     [PIP, "I'm still scared of the dark. I'll go anyway, with my map, once the road is clear. Will you come too?"]],
 });
+/** A land's banner on the map, for Pip to point at as it comes out of the veil. */
+const wardSpotOf = id => `#worldMap [data-mystery="${id}"] .wbanner`;
 /** Where the first open ward spot is on screen (for Pip to point at). */
 function wardSpotRect() {
   const b = document.querySelector("#worldMap .wward:not(.set)");

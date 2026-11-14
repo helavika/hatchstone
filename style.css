@@ -576,6 +576,8 @@ input, select, textarea, #backup textarea, #coopDialog input, #coopDialog select
 #switcher button img { image-rendering: pixelated; }
 .forge.craft .cost { flex-direction: column; align-items: flex-end; font-size: 13px; text-align: right; }
 .forge.craft .cost em { font-style: normal; color: var(--soft); font-size: 12px; }
+.forge.craft .cost .plus { display: inline-flex; align-items: center; gap: 2px; }
+.forge.craft .cost .plus .ic { width: 16px; height: 16px; }
 .forge-h { margin: 12px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
 .forge .skin-img { width: 40px; height: 40px; image-rendering: pixelated; flex: 0 0 40px; }
 .decor.legend:not([disabled]) b { color: var(--px-gold); }
@@ -1202,6 +1204,10 @@ body.compact .place-who img { width: 36px; height: 36px; }
 /* wardstones: spots at the edge of each veil (the stones themselves are drawn on the map), and the ones in hand */
 .wplace.mystery.found .wbanner { background: rgba(22, 12, 38, .86); color: var(--px-gold); }
 .wplace.mystery.found .wbanner b { letter-spacing: 0; }
+.wplace.mystery.found .wbanner small { color: var(--soft); }
+.wplace.mystery .wbanner small.wsights { color: var(--px-gold); }
+#worldMap.far .wplace.mystery .wbanner small { display: block; font-size: 10px; }
+#worldMap.far .wplace.mystery.found .wbanner small { display: none; }
 .wward { position: absolute; transform: translate(-50%, -50%); width: calc(var(--k) * 12px); height: calc(var(--k) * 12px); min-width: 30px; min-height: 30px; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%; z-index: 1; }
 .wward:focus-visible { outline: 2px solid var(--px-gold); }
 #wardHand { position: fixed; top: calc(var(--top) + 66px); left: 12px; z-index: 3; display: flex; align-items: center; gap: 4px; padding: 4px 10px 4px 6px; border: 0; font: inherit; color: var(--soft); background: rgba(22, 12, 38, .9); box-shadow: var(--px-frame); cursor: pointer; }

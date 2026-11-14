@@ -8,7 +8,7 @@
 const SAVE_KEY = STAGING ? "hatchstone.staging.save" : LIVE_SAVE_KEY, BAK_KEY = SAVE_KEY + ".bak";
 const SAVE_VERSION = 1;
 const DUST_MAX = 3; // dust bunnies on the nest floor at most (see gatherDust)
-const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }, { kind: "yard", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 }, dust: [], dustT: 0, wards: { have: [], set: {} } });
+const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }, { kind: "yard", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 }, dust: [], dustT: 0 });
 const validSave = d => d && typeof d === "object" && Array.isArray(d.creatures) && typeof d.stars === "object";
 
 let startedEmpty = true; // no nest in storage when this page opened
@@ -56,9 +56,8 @@ function migrate(d) {
   d.core = coreSaveOf(d.core, d);
   // walks outside (see walk.js): how far the paths are open, the best hauls, the keepsakes
   d.walks = walkSaveOf(d.walks);
-  // wardstones: the ones in hand (by the crystal each was forged from) and the ones set on the map (by land and spot)
-  const w = d.wards && typeof d.wards === "object" ? d.wards : {}, set = w.set && typeof w.set === "object" && !Array.isArray(w.set) ? w.set : {};
-  d.wards = { have: (Array.isArray(w.have) ? w.have : []).filter(id => typeof id === "string").slice(0, 99), set: Object.fromEntries(Object.entries(set).filter(([k, v]) => /^[a-z]+\.\d$/.test(k) && typeof v === "string")) };
+  // wardstones (see wards.js): the ones in hand and the ones set on the map
+  d.wards = wardSaveOf(d.wards);
   d.v = SAVE_VERSION;
   return d;
 }
