@@ -117,7 +117,8 @@ function freeFloorPoint() {
 /** Keep a glowling on the floor and out of the furniture (the one riding the swing or asleep on the bed is placed by hand). */
 function keepInRoom(a, dt) {
   if (N.iso) {
-    const m = isoMargin(0.42), x0 = a.x, y0 = a.y; let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+    // (lying on the bed, a sleeper may lie closer to the wall than anyone walks: the bed fills its corner)
+    const m = a.onBed && (a.state === "sleep" || a.state === "toBed") ? bedMargin() : isoMargin(0.42), x0 = a.x, y0 = a.y; let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
     if (a.state !== "visit" || (a.decor !== "swing" && a.decor !== "mushrooms")) pushOutOfPieces(a);
     [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
     // a little slide happens at once; a big one (stepping off the swing or the caps, a piece put down on it) is a quick eased shuffle, not a jump
@@ -2890,25 +2891,80 @@ function gazeboPosts() {
   return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([su, sv]) => [cu + su * GAZEBO_A, cv + sv * GAZEBO_A]);
 }
 
-/** Each sleeper's own place on the bed: a 2×2 spread on the big isometric bed, side by side on the straight-on one. */
+/**
+ * Where everyone sleeps on each bed, by how many are in it: [a, b] from the middle of the bed, in tiles across the screen (a)
+ * and toward the front (b). Side by side in a row, the one in the middle a little forward, so every face shows; never more
+ * than the bed's soft top really holds (the extras curl up on the floor beside it, see bedPlaces). The gazebo keeps its
+ * sleepers at the front of its deck, faces out from under the roof and either side of the front post; the hammock keeps
+ * them in its sling.
+ */
+const BED_SLOTS = {
+  nest: [[[0, 0.1]], [[-0.62, 0], [0.62, 0.1]], [[-1.15, -0.1], [0, 0.25], [1.15, -0.05]]],
+  basket: [[[0, 0.1]], [[-0.62, 0], [0.62, 0.1]], [[-1.15, -0.1], [0, 0.25], [1.15, -0.05]]],
+  canopy: [[[0, 0.15]], [[-0.62, 0.05], [0.62, 0.15]], [[-1.15, -0.05], [0, 0.3], [1.15, 0]]],
+  gazebo: [[[-0.55, 1.05]], [[-0.62, 1.05], [0.62, 1.05]]],
+  hammock: [[[0, 0]], [[-0.85, 0], [0.85, 0.05]], [[-1.15, -0.05], [0, 0.1], [1.15, -0.05]]],
+};
+/** How close to the walls a sleeper may lie on the bed (closer than anyone walks: the bed fills its corner). */
+const bedMargin = () => isoMargin(0.2);
+let bedPlacesCache = null;
+/**
+ * Everyone asleep in the room you're in and where each lies, id → [x, y]: up to the bed's places on its soft top
+ * (see BED_SLOTS), and the rest curled up on the floor right in front of it, a cozy cluster on the rug or the stones,
+ * spaced so nobody's face is hidden behind another. Counted in this room only (every room has its own bed).
+ */
+function bedPlaces(r = save.room) {
+  const sleepers = save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q);
+  const p = N.iso && isoLayout().placed.bed, style = bedStyle();
+  const key = [r, style, sleepers.join(","), p ? isoLayout().key : "front", N.isoW, N.base, N.bedX, N.bedY].join("|");
+  if (bedPlacesCache && bedPlacesCache.key === key) return bedPlacesCache.at;
+  const at = new Map();
+  if (!p) {
+    // seen straight on: side by side along the bed
+    sleepers.forEach((id, k) => at.set(id, [N.bedX + (k - (sleepers.length - 1) / 2) * N.base * 0.42, N.bedY + (k % 2) * N.base * 0.1]));
+    bedPlacesCache = { key, at };
+    return at;
+  }
+  const G = ISO_G, cu = p.i + p.fw / 2, cv = p.j + p.fd / 2, size = N.base * depth(0), top = isoBedTop();
+  const mB = bedMargin() * G, mF = isoMargin(0.42) * G, posts = gazeboPosts();
+  // on the floor nobody lies over another's face: a little apart from each other, well clear of the faces on the bed
+  const taken = [], inBed = [];
+  const roomy = (x, y) => taken.every(([tx, ty]) => ((x - tx) / (size * 0.76)) ** 2 + ((y - ty) / (size * 1.0)) ** 2 >= 1)
+    && inBed.every(([tx, ty]) => ((x - tx) / (size * 0.85)) ** 2 + ((y - ty) / (size * 1.15)) ** 2 >= 1);
+  const offPosts = (U, V) => posts.every(([pu, pv]) => Math.hypot(U - pu, V - pv) > BODY_R * 0.8 + 0.1);
+  // on the bed: the places for this many (or as many as it holds), each kept where keepInRoom lets a sleeper lie
+  const slots = BED_SLOTS[style] || BED_SLOTS.nest, onBed = [];
+  for (const [a0, b] of slots[Math.min(sleepers.length, slots.length) - 1] || []) {
+    const a = p.flip ? -a0 : a0, U = clamp(cu + (a + b) / 2, mB, G - mB), V = clamp(cv + (b - a) / 2, mB, G - mB), [x, y] = isoAt(U / G, V / G);
+    // (a place the room's walls squeeze onto another's is dropped: one more for the floor)
+    if (!isoOnBed(x, y) || !offPosts(U, V) || onBed.some(([ox, oy]) => Math.hypot(x - ox, y - oy) < size * 0.5)) continue;
+    inBed.push([x, y - top]); onBed.push([x, y]);
+  }
+  // beside it: free floor next to the bed (not behind it, where it would hide them, nor in a doorway), nearest first
+  const floor = [], doors = doorTiles();
+  for (let U = mF; U <= G - mF + 1e-6; U += 0.25) for (let V = mF; V <= G - mF + 1e-6; V += 0.25) {
+    const du = Math.max(p.i - U, 0, U - p.i - p.fw), dv = Math.max(p.j - V, 0, V - p.j - p.fd), out = Math.hypot(du, dv);
+    if (out < BODY_R + 0.12 || out > 2.6 || (U + V < cu + cv + 0.6 && Math.abs(U - cu - V + cv) < (p.fw + p.fd) / 2 + 0.7) || !offPosts(U, V)) continue;
+    if (doors.has(`${Math.floor(U)},${Math.floor(V)}`)) continue;
+    if (!cellFree(Math.floor(U * 2), Math.floor(V * 2)) || !walkClear(U, V, U, V)) continue;
+    const [x, y] = isoAt(U / G, V / G);
+    if (isoOnBed(x, y)) continue;
+    floor.push({ x, y, d: out + Math.abs((U - cu) - (V - cv)) * 0.12 });
+  }
+  floor.sort((m, n) => m.d - n.d);
+  sleepers.forEach((id, k) => {
+    if (k < onBed.length) { at.set(id, onBed[k]); return; }
+    const f = floor.find(f => roomy(f.x, f.y)) || floor[0];
+    if (!f) { at.set(id, onBed[k % Math.max(1, onBed.length)] || isoAt(cu / G, cv / G)); return; }
+    taken.push([f.x, f.y]); at.set(id, [f.x, f.y]);
+  });
+  bedPlacesCache = { key, at };
+  return at;
+}
+/** This sleeper's own place: on the bed when there's room, curled up on the floor beside it when there isn't. */
 function bedSpot(id) {
-  // (counted in this glowling's own room: every room has its own bed, and sleepers elsewhere don't take places in it)
   const me = save.creatures.find(c => c.id === id), r = me ? roomOf(me) : save.room;
-  const sleepers = save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q), k = Math.max(0, sleepers.indexOf(id)), n = sleepers.length;
-  const p = N.iso && isoLayout().placed.bed;
-  if (p && bedStyle() === "hammock") {
-    // side by side in the sling, spread along the wall it stands by (straight across it would push one into the wall,
-    // where nobody can stand): one end of the sling a little higher on screen than the other, both still inside it
-    const a = clamp((k % 3 - (Math.min(n, 3) - 1) / 2) * 0.6, -0.65, 0.65) + Math.floor(k / 3) * 0.25, m = isoMargin(0.45);
-    const [du, dv] = p.flip ? [0, a] : [a, 0];
-    return isoAt(clamp((p.i + p.fw / 2 + du) / ISO_G, m, 1 - m), clamp((p.j + p.fd / 2 + dv) / ISO_G, m, 1 - m));
-  }
-  if (p) {
-    // a 2×2 spread kept inside the bed (and away from the walls, where glowlings can't stand)
-    const ci = k % 2, ri = Math.floor(k / 2) % 2, extra = Math.floor(k / 4) * 0.12, m = isoMargin(0.45);
-    return isoAt(clamp((p.i + p.fw * (0.3 + 0.42 * ci + extra)) / ISO_G, m, 1 - m), clamp((p.j + p.fd * (0.32 + 0.4 * ri + extra)) / ISO_G, m, 1 - m));
-  }
-  return [N.bedX + (k - (n - 1) / 2) * N.base * 0.42, N.bedY + (k % 2) * N.base * 0.1];
+  return bedPlaces(r).get(id) || [N.bedX, N.bedY];
 }
 
 /** A piece's own pixel picture for the Decor list (the same drawing as in the room), or its emoji if it hangs on a wall. */
