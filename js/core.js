@@ -163,6 +163,24 @@ const sfx = {
     o.start(t); o.stop(t + decay + 0.05);
   },
 
+  /** A breath of noise that swells and dies away, its colour sliding from freq to endFreq: air, water, paper. */
+  wash(t, dur, freq, endFreq, q, gain, type = "bandpass") {
+    const ac = this.ac;
+    const src = ac.createBufferSource();
+    src.buffer = this.noise;
+    const f = ac.createBiquadFilter();
+    f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(freq, t);
+    f.frequency.exponentialRampToValueAtTime(endFreq, t + dur);
+    const g = ac.createGain();
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.linearRampToValueAtTime(this.vol(gain), t + dur * 0.35);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    src.connect(f).connect(g).connect(this.master);
+    src.start(t, rand(0, 1.2));
+    src.stop(t + dur + 0.02);
+  },
+
   /** One syllable of a speaking voice: a short blip, a little higher or lower each time, like the voices in old RPGs. */
   voice(v) {
     if (!this.ready()) return;
@@ -393,5 +411,97 @@ const sfx = {
   tick() {
     if (!this.ready()) return;
     this.tone(this.ac.currentTime, 1500, 0.03, 0.05, "sine");
+  },
+
+  /** A coin on the counter: a small bright clink, and a lighter one as it settles. */
+  coin() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime, f = rand(2250, 2450);
+    this.tone(t, f, 0.017, 0.11, "sine");
+    this.tone(t, f * 1.51, 0.008, 0.08, "sine");
+    this.grain(t, 0.008, 6000, 2, 0.012);
+    this.tone(t + 0.075, f * 1.19, 0.012, 0.1, "sine");
+    this.tone(t + 0.075, f * 1.8, 0.005, 0.07, "sine");
+  },
+
+  /** Furniture set down on the floor: a soft wooden knock, and the boards answering under it. */
+  setDown() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.tone(t, rand(480, 560), 0.017, 0.07, "triangle", 300);
+    this.tone(t, 200, 0.008, 0.12, "sine", 140);
+    this.grain(t, 0.02, 1800, 1, 0.025, "lowpass");
+  },
+
+  /** A page of the Book turning: paper brushing past, then lying flat. */
+  page() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.wash(t, 0.22, 1200, 3400, 0.8, 0.04);
+    for (let i = 0; i < 4; i++) this.grain(t + rand(0.02, 0.12), rand(0.008, 0.02), rand(2500, 5000), 2, rand(0.008, 0.02));
+    this.grain(t + 0.15, 0.05, 420, 0.8, 0.03, "lowpass");
+  },
+
+  /** Water from the can: a soft stream, and a few drops plinking after it. */
+  pour() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.wash(t, 0.32, 800, 1700, 1, 0.045);
+    for (let i = 0; i < 5; i++) { const f = rand(650, 1100); this.tone(t + 0.04 + i * 0.045 + rand(0, 0.02), f, rand(0.008, 0.014), 0.07, "sine", f * 1.6); }
+  },
+
+  /** Off to another room: a soft rush of air going by. */
+  whoosh() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.wash(t, 0.24, 600, 2000, 0.7, 0.033);
+    this.wash(t + 0.1, 0.3, 2000, 800, 0.7, 0.033);
+  },
+
+  /** Stepping into a place, as the whoosh dies away: each one answers with a short sound of its own. */
+  arrive(kind) {
+    if (!this.ready()) return;
+    (this.cues[kind] || this.cues.any).call(this, this.ac.currentTime + 0.2);
+  },
+  cues: {
+    // the forge: the bellows breathe once and the coals flare
+    forge(t) {
+      this.wash(t, 0.45, 420, 1100, 0.6, 0.05);
+      for (let i = 0; i < 3; i++) this.grain(t + rand(0.18, 0.34), rand(0.008, 0.02), rand(2200, 4500), 3, rand(0.01, 0.025));
+    },
+    // the garden: leaves stirring
+    yard(t) {
+      this.wash(t, 0.4, 2200, 3400, 0.6, 0.025);
+      for (let i = 0; i < 7; i++) this.grain(t + i * 0.04 + rand(0, 0.02), rand(0.02, 0.05), rand(2200, 4800), 1.5, rand(0.02, 0.04));
+    },
+    // the lab: two glasses touching, and a bubble coming up
+    lab(t) {
+      this.tone(t, 2093, 0.012, 0.3, "sine");
+      this.tone(t, 5780, 0.003, 0.1, "sine");
+      this.tone(t + 0.11, 2637, 0.009, 0.3, "sine");
+      this.tone(t + 0.11, 7280, 0.002, 0.08, "sine");
+      this.tone(t + 0.24, 520, 0.012, 0.07, "sine", 940);
+    },
+    // the shop: the door, and the little bell over it
+    shop(t) {
+      this.tone(t, 260, 0.022, 0.06, "triangle", 180);
+      this.tone(t + 0.05, 1318.5, 0.013, 0.32, "sine");
+      this.tone(t + 0.16, 1568, 0.01, 0.26, "sine");
+    },
+    // the camp: a log shifts and the fire spits a few sparks
+    camp(t) {
+      this.tone(t + 0.06, rand(210, 260), 0.02, 0.06, "triangle", 150);
+      for (let i = 0; i < 6; i++) this.grain(t + rand(0, 0.36), rand(0.01, 0.03), rand(1500, 4500), rand(2, 5), rand(0.035, 0.07));
+    },
+    // the grotto: one drop into still water, and the cave saying it back
+    grotto(t) {
+      this.tone(t, 880, 0.018, 0.12, "sine", 1500);
+      this.tone(t + 0.23, 880, 0.006, 0.12, "sine", 1500);
+    },
+    // anywhere else: a soft footfall and a warm note
+    any(t) {
+      this.grain(t, 0.05, 600, 1, 0.05, "lowpass");
+      this.tone(t + 0.03, 440, 0.017, 0.3, "sine");
+    },
   },
 };

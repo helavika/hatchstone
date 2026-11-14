@@ -3144,7 +3144,7 @@ function pieceFits(id, i, j, flip) {
 const wallFree = (id, wall, s) => !wallInDoor(wall, s) && Object.keys(WALL_ITEMS).every(o => o === id || !hasDecor(o) || wallSlot(o).wall !== wall || Math.abs(wallSlot(o).s - s) >= 1.6);
 function setLayout(id, m) {
   save.layout = { ...save.layout, [id]: m };
-  isoLayoutCache = null; persist(); sfx.tick();
+  isoLayoutCache = null; persist(); sfx.setDown();
 }
 const placePiece = (id, i, j, flip) => setLayout(id, { i, j, flip: !!flip });
 function arrangeDown(x, y) {
