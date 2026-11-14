@@ -198,7 +198,7 @@ const me = () => (save.me = save.me || { name: "", form: "n", xp: 0, pts: 0, ski
 const myName = () => me().name || tr("friend");
 /** Pick the right ending for you in Ukrainian: gform("знайшла", "знайшов", "знайшли"). English has one form. */
 const gform = (f, m, n) => LANG !== "uk" ? f : me().form === "f" ? f : me().form === "m" ? m : n;
-const KEEPER_TITLES = [[1, "Pebble finder"], [3, "Stone tapper"], [5, "Keeper's apprentice"], [8, "Gloom chaser"], [12, "Keeper of sparks"], [16, "Heartlight keeper"], [20, "Legend of the grotto"]];
+const KEEPER_TITLES = [[1, "Pebble finder"], [3, "Stone tapper"], [5, "Keeper's apprentice"], [8, "Lamp carrier"], [12, "Keeper of sparks"], [16, "Heartlight keeper"], [20, "Legend of the grotto"]];
 const SKILLS = [
   { id: "str", name: "Strength", icon: "hammer", what: l => tr("taps hit {0}% harder", l * 5) },
   { id: "care", name: "Care", icon: "heart", what: l => tr("glowlings grow {0}% faster", l * 10) },
@@ -323,7 +323,7 @@ const AWARDS = [
   { id: "stars72", tier: "legendary", name: "Flawless", how: "Earn all 72 stars", test: () => [totalStars(), LEVELS * 3] },
   { id: "level20", tier: "legendary", name: "Brightest of all", how: "Raise a glowling to level 20", test: () => [stat.level(), MAX_LEVEL] },
   { id: "story", tier: "legendary", name: "The whole story", how: "Hear every part of Mossa's story", test: () => [STORY.filter(p => talkSeen(p.id)).length, STORY.length] },
-  { id: "rescueAll", tier: "legendary", name: "Gloombreaker", how: "Free all four sparks from the Gloom", test: () => [cnt("rescued"), 4] },
+  { id: "rescueAll", tier: "legendary", name: "Seal breaker", how: "Free all four sparks from the Gloom", test: () => [cnt("rescued"), 4] },
   { id: "nights30", tier: "legendary", name: "Friend of the moon", how: "Open the moon egg on any 30 nights", test: () => [stat.nights(), 30] },
   { id: "everyone", tier: "legendary", name: "Every last one", how: "Meet every kind of glowling", test: () => [stat.species(), SPECIES.length] }
 ];

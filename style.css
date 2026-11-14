@@ -666,6 +666,9 @@ body.scene-nest #hint { top: calc(var(--top) + 132px); }
 #crackTab:active { transform: translateY(-11px); }
 body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; }
 .subtitle { margin: -8px 0 12px; font-size: 20px; color: var(--px-gold); letter-spacing: 2px; }
+/* the line under it is said more quietly, and steps aside on the shortest screens so the buttons keep their place */
+.tagline { margin: -8px 0 12px; font-size: 15px; color: var(--soft); }
+@media (max-height: 630px) { .tagline { display: none; } }
 /* dialog: an old RPG text box with a face, typed out letter by letter */
 #testBadge { position: fixed; left: 50%; top: calc(var(--top) + 2px); transform: translateX(-50%); z-index: 9; padding: 1px 10px; font-size: 14px; letter-spacing: 2px; color: #fff; background: #b8323b; box-shadow: 0 0 0 2px #160c26; pointer-events: none; }
 #talk { position: fixed; inset: 0; z-index: 9; background: rgba(8, 5, 26, .35); cursor: pointer; touch-action: none; }

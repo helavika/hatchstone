@@ -356,7 +356,7 @@ const FORGE = [
   { id: "heft", name: "Granite Fist", icon: "hammer", cost: [25, 50, 90, 140, 200], what: l => tr("taps hit {0}% harder", l * 15) },
   { id: "eye", name: "Quarry Eye", icon: "eye", cost: [40, 90, 160], what: l => ["", tr("a faint glow shows the weak spot on hard stone"), tr("the weak spot glows brighter"), tr("the weak spot glows even in the deepest caves")][l] },
   { id: "echo", name: "Thunder Echo", icon: "bell", cost: [60, 120, 200], what: l => tr("{0}% of taps ring twice, for 60% more", l * 10) },
-  { id: "magpie", name: "Looter's Sack", icon: "pouch", cost: [30, 70, 120, 180], what: l => tr("+{0} {1} from every weak-spot hit", l, pl(l, "shard", "shards")) },
+  { id: "magpie", name: "Finder's Sack", icon: "pouch", cost: [30, 70, 120, 180], what: l => tr("+{0} {1} from every weak-spot hit", l, pl(l, "shard", "shards")) },
 ];
 const forgeLvl = id => (save.forge && save.forge[id]) || 0;
 /** Hammer looks: each shows when you tap the stone (the tool swings, bigger with Granite fist upgrades) and changes the sparks. */
@@ -400,6 +400,8 @@ const TASKS = {
   share: { text: "Send a postcard of a glowling", icon: "postcard", ok: hasPets, go: toNest(null, "nestShare") },
 };
 const TASK_SHARDS = 10, TASK_BONUS = 15;
+/** What the day's three are called: little tasks in the first cave, a keeper's round of the grotto from chapter II on. */
+const tasksName = little => tr(unlocked(7) ? "Today's round" : little ? "Today's little tasks" : "Today's tasks");
 
 /** In Ukrainian, the crystals, lore, snacks, decor, caves, backdrops and tasks get their translated words (glowling names stay as they are). */
 (function localizeData() {
@@ -452,6 +454,7 @@ function taskDone(id) {
 function renderTaskPill() {
   const t = todayTasks(), n = t.ids.filter(i => t.done[i]).length;
   $("taskCount").innerHTML = `${ic("tasks")}${n}/${t.ids.length}`;
+  $("taskPill").title = tasksName(true);
   // (new tasks can wait out the first minute home after a day or more: see homeQuiet)
   $("taskPill").classList.toggle("fresh", n === 0 && !t.seen && !homeQuiet());
 }
@@ -460,6 +463,7 @@ function openTasks() {
   sfx.tick();
   const t = todayTasks();
   t.seen = true;
+  $("tasksTitle").textContent = tasksName();
   $("tasksSub").textContent = tr("Each one gives {0} shards, and all three another {1}. New ones tomorrow.", TASK_SHARDS, TASK_BONUS);
   $("taskList").innerHTML = t.ids.map(id => {
     const k = TASKS[id], done = t.done[id];

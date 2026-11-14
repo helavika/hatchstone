@@ -294,7 +294,7 @@ function openMarket(tab) { const st = shopOf(); if (st.mode !== "market" || tab)
 const CHEST_WAYS = {
   shop: { icon: "stall", name: () => tr("To the shop"), ok: () => placeOk("shop"), go: tab => { arriveAt("shop"); openMarket(tab); } },
   walk: { icon: "walk", name: () => tr("A walk outside"), ok: () => walkWho().length > 0, go: () => openWalk() },
-  tasks: { icon: "tasks", name: () => tr("Today's tasks"), ok: () => true, go: () => openTasks() },
+  tasks: { icon: "tasks", name: () => tasksName(), ok: () => true, go: () => openTasks() },
   egg: { icon: "egg", name: () => tr(save.creatures.length ? "Crack the next egg" : "Crack your first egg"), ok: () => true, go: () => startLevel(nextLevel() || 1) },
 };
 /** The button for one of those ways ("shop:seeds" opens the shop at its seeds); nothing while the place is still closed. */
