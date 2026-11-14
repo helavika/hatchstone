@@ -1152,43 +1152,80 @@ const ISO_ART = {
   },
   // ---- the grotto's hall, before the tunnel
   tunnel(t, T, ax, ay) {
-    // a rough arch into the dark with crystals round its mouth and rails running in
-    const a = t - 2, b = t * 0.5, h = Math.round(t * 1.5), x = ax, y = ay + 1;
-    const rock = (c0, c1, c2) => (px, py) => { const n = pxHash(px >> 1, py >> 1); return n > 0.86 ? c2 : n > 0.55 ? c1 : c0; };
-    const q = T.box(x, y, a, b, h, rock(IC.s2, IC.l4, IC.s3), rock(IC.s3, IC.s2, IC.s4), rock(IC.s4, IC.s3, IC.ink2));
-    // a ragged crest along the top, so it reads as a cliff rather than a block
-    for (let k = 0; k < 7; k++) { const f = (k + 0.5) / 7, bx = q.top[0] + (q.Bu[0] - x) * f, by = q.top[1] + (q.Bu[1] - y) * f, hh = t * (0.15 + pxHash(k, 9) * 0.3), w = t * 0.16;
-      T.poly([[bx - w, by + 1], [bx + w * 0.3, by - hh], [bx + w, by + 2]], k % 2 ? IC.s2 : IC.l4); }
-    const mx = (q.Bv[0] + q.Buv[0]) / 2 + a * 0.5, my = (q.Bv[1] + q.Buv[1]) / 2 + a * 0.25, w = t * 0.45;
-    T.poly([[mx - w, my - w / 2], [mx + w, my + w / 2], [mx + w, my + w / 2 - h * 0.55], [mx + w * 0.3, my - h * 0.8], [mx - w * 0.5, my - w / 2 - h * 0.62]], IC.ink);
-    T.glow(mx, my - h * 0.3, t * 0.9, IC.l3, 0.3);
-    for (const [dx, hh, c] of [[-w - 3, 7, IC.l1], [w + 2, 6, IC.l2], [-w + 1, 4, IC.l0], [w - 2, 9, IC.l1]]) for (let k = 0; k < hh; k++) { T.px(mx + dx, my + dx / 2 - 1 - k, c); if (k < hh - 2) T.px(mx + dx + 1, my + dx / 2 - 1 - k, IC.l3); }
-    for (const off of [-w * 0.45, w * 0.45]) for (let k = 0; k < t * 0.9; k++) T.px(mx + off + k * 0.2 - k * 0.9, my + off / 2 + k * 0.55, IC.s1);
-    for (let k = 0; k < 5; k++) T.line(mx - w * 0.6 - k * t * 0.15, my - w * 0.3 + k * t * 0.1, mx + w * 0.6 - k * t * 0.15, my + w * 0.3 + k * t * 0.1, IC.w2);
+    // the way down: a mine adit driven into an outcrop of rock, its mouth framed in heavy timbers (two posts, a cap, braces in
+    // the corners), the dark going back and back, rails on sleepers running out of it with a cart of crystals at the mouth,
+    // a lantern on the cap, crystals growing at both sides
+    const U = t / 2, K = isoKit(T, ax, ay), ROCK = ["#7a6a9a", "#55477a", "#3a2e5a", "#241a3c", "#150e26"].map(pxHex);
+    const vm = 0.42 * U, pu0 = 0.62 * U, pu1 = 1.38 * U, ph = Math.round(t * 1.45);
+    // the outcrop: boulders heaped against the wall, shaded from the top left, darkest in their cracks
+    const boulder = (u, v, z, r, k) => { const [x, y] = K.P(u, v, z); T.ball(x, y + 0.8, r + 1, ROCK[4], ROCK[4], ROCK[4], r * 0.7 + 1); T.ball(x, y, r, ROCK[k ? 1 : 0], ROCK[2], ROCK[3], r * 0.7); T.line(x - r * 0.5, y - r * 0.5, x - r * 0.1, y - r * 0.6, ROCK[0]); T.line(x + r * 0.2, y - r * 0.1, x + r * 0.5, y + r * 0.3, ROCK[4]); };
+    const rocks = [];
+    for (let k = 0; k < 22; k++) { const f = pxHash(k, 5), side = f < 0.5 ? 0.1 + f * 0.9 : 1.45 + (f - 0.5) * 1.0, top = pxHash(k, 6) > 0.55;
+      rocks.push(top ? [0.35 * U + pxHash(k, 7) * 1.3 * U, 0.12 * U + pxHash(k, 8) * 0.2 * U, ph - 2 + pxHash(k, 9) * t * 0.5, U * (0.32 + 0.2 * pxHash(k, 10)) * 2, k % 3] : [side * U, 0.1 * U + pxHash(k, 8) * 0.28 * U, pxHash(k, 9) * ph * 0.9, U * (0.3 + 0.22 * pxHash(k, 10)) * 2, k % 3]); }
+    rocks.sort((p, q) => p[1] + p[0] * 0.2 - q[1] - q[0] * 0.2 || p[2] - q[2]).forEach(r => boulder(...r));
+    // the mouth: dark going back, a little light on its floor
+    K.faceV(vm, pu0, pu1, 0, ph, ROCK[4], 0);
+    K.faceV(vm - 0.2 * U, pu0 + 0.14 * U, pu1 - 0.14 * U, 0, ph * 0.75, IC.ink, 0);
+    K.flat(pu0, vm - 0.3 * U, pu1, vm, 0, IC.ink2, 0);
+    // rails on sleepers, from inside out over the floor
+    for (let k = 0; k < 6; k++) { const v = vm - 0.25 * U + k * 0.22 * U; K.box(pu0 + 0.08 * U, v, 0, pu1 - pu0 - 0.16 * U, 0.08 * U, 1, IC.w2, IC.w2, IC.w3, false); }
+    for (const u of [pu0 + 0.2 * U, pu1 - 0.2 * U]) { K.seg([u, vm - 0.3 * U, 1], [u, vm + 1.1 * U, 1], IC.m2); K.seg([u - 0.5, vm - 0.3 * U, 2], [u - 0.5, vm + 1.1 * U, 2], IC.m0); }
+    // the frame: posts, a cap across them, braces in the top corners
+    for (const u of [pu0 - 0.12 * U, pu1]) K.box(u, vm - 0.05 * U, 0, 0.12 * U, 0.14 * U, ph, IC.w1, IC.w2, IC.w3);
+    K.box(pu0 - 0.2 * U, vm - 0.06 * U, ph, pu1 - pu0 + 0.4 * U, 0.16 * U, 4, IC.w1, IC.w2, IC.w3);
+    K.seg([pu0, vm + 0.09 * U, ph - 8], [pu0 + 0.16 * U, vm + 0.09 * U, ph], IC.w2); K.seg([pu1, vm + 0.09 * U, ph - 8], [pu1 - 0.16 * U, vm + 0.09 * U, ph], IC.w3);
+    // the lantern on its nail
+    { const [x, y] = K.P((pu0 + pu1) / 2, vm + 0.1 * U, ph - 2); T.glow(x, y + 6, t * 1.1, IC.y0, 0.45); T.line(x, y, x, y + 2, IC.m3); T.poly([[x - 2, y + 3], [x + 2, y + 3], [x + 2, y + 8], [x - 2, y + 8]], IC.y1); T.px(x - 1, y + 4, IC.y0); T.px(x - 1, y + 5, IC.white); T.line(x - 3, y + 3, x + 3, y + 3, IC.m3); T.line(x - 2, y + 9, x + 2, y + 9, IC.m3); }
+    // the cart at the mouth, full of crystals
+    { const cu = (pu0 + pu1) / 2 - 0.3 * U, cv = vm + 0.35 * U, cz = 3;
+      for (const [u, v] of [[cu + 0.1 * U, cv + 0.05 * U], [cu + 0.5 * U, cv + 0.05 * U], [cu + 0.1 * U, cv + 0.4 * U], [cu + 0.5 * U, cv + 0.4 * U]]) { const [x, y] = K.P(u, v, 2); T.disc(x, y, 2.2, IC.m3, 1.6); T.px(x - 1, y - 1, IC.m1); }
+      K.box(cu, cv, cz, 0.6 * U, 0.45 * U, Math.round(t * 0.4), IC.ink2, IC.m2, IC.m3);
+      K.faceV(cv + 0.45 * U, cu, cu + 0.6 * U, cz + Math.round(t * 0.4) - 1, cz + Math.round(t * 0.4), IC.m0, 0);
+      for (let k = 0; k < 7; k++) { const [x, y] = K.P(cu + (0.1 + (k % 4) * 0.14) * U, cv + (0.12 + Math.floor(k / 4) * 0.2) * U, cz + Math.round(t * 0.4)); const hh = 3 + (k * 7) % 5; T.poly([[x - 2, y], [x, y - hh], [x + 2, y]], k % 2 ? IC.l1 : IC.l2); T.line(x - 1, y - 1, x, y - hh + 1, IC.l0); } }
+    // crystals at both sides of the mouth: prisms, a lit facet and a shaded one, a pale tip
+    for (const [u, v, n] of [[pu0 - 0.32 * U, vm + 0.15 * U, 4], [pu1 + 0.3 * U, vm + 0.2 * U, 3]]) for (let k = 0; k < n; k++) {
+      const [x, y] = K.P(u + (k - n / 2) * 0.1 * U, v + (k % 2) * 0.08 * U, 0), hh = t * (0.35 + 0.35 * pxHash(k, u)), w = 2 + (k % 2), lean = (k - n / 2) * 1.2;
+      T.poly([[x - w, y], [x + lean, y - hh], [x, y + 1]], IC.l1); T.poly([[x, y + 1], [x + lean, y - hh], [x + w, y]], IC.l3); T.line(x + lean, y - hh, x + lean * 0.5, y - hh * 0.5, IC.l0); T.px(x + lean, y - hh, IC.white);
+    }
   },
   altar(t, T, ax, ay, o) {
-    // a stone pedestal; today's moon egg rests on it until you've opened it
-    const cx = ax, cy = ay + t / 2;
-    T.cyl(cx, cy, t * 0.3, Math.round(t * 0.16), IC.s1, IC.s2, IC.s3);
-    T.cyl(cx, cy - t * 0.16, t * 0.18, Math.round(t * 0.4), IC.s0, IC.s1, IC.s2);
-    const top = cy - t * 0.56;
-    T.cyl(cx, top, t * 0.26, 2, IC.s0, IC.s1, IC.s2);
-    if (!o.done) { T.glow(cx, top - t * 0.3, t * 0.9, IC.b0, 0.45); T.ball(cx, top - t * 0.28, t * 0.2, IC.white, IC.b0, IC.l2, t * 0.26); T.px(cx - 1, top - t * 0.4, IC.white); }
-    else { T.ball(cx - 2, top - 2, t * 0.12, IC.s0, IC.s1, IC.s2, t * 0.08); T.ball(cx + 3, top - 1, t * 0.1, IC.s0, IC.s1, IC.s2, t * 0.07); }
+    // a carved stone pedestal: a stepped plinth, a fluted shaft with a crescent cut in it, a capital, a shallow bowl on top;
+    // today's moon egg rests in the bowl, glowing, until you've opened it
+    const U = t / 2, K = isoKit(T, ax, ay), c = 0.5 * U, [x, y] = K.P(c, c, 0);
+    K.box(c - 0.38 * U, c - 0.38 * U, 0, 0.76 * U, 0.76 * U, 4, IC.s1, IC.s2, IC.s3);
+    K.box(c - 0.3 * U, c - 0.3 * U, 4, 0.6 * U, 0.6 * U, 3, IC.s0, IC.s1, IC.s2);
+    const sz = Math.round(t * 0.8);
+    K.box(c - 0.18 * U, c - 0.18 * U, 7, 0.36 * U, 0.36 * U, sz, IC.s0, IC.s1, IC.s2);
+    for (const f of [0.25, 0.5, 0.75]) { K.seg([c - 0.18 * U + 0.36 * U * f, c + 0.18 * U, 9], [c - 0.18 * U + 0.36 * U * f, c + 0.18 * U, 5 + sz], IC.s2); K.seg([c + 0.18 * U, c - 0.18 * U + 0.36 * U * f, 9], [c + 0.18 * U, c - 0.18 * U + 0.36 * U * f, 5 + sz], IC.s3); }
+    { const [mx, my] = K.P(c, c + 0.18 * U, 7 + sz * 0.55); for (let k = 0; k < 9; k++) { const an = -Math.PI / 2 + k / 8 * Math.PI; T.px(mx + Math.cos(an) * 2.5 - 1, my + Math.sin(an) * 3, IC.s3); } }
+    K.box(c - 0.3 * U, c - 0.3 * U, 7 + sz, 0.6 * U, 0.6 * U, 3, IC.s0, IC.s1, IC.s2);
+    const top = 10 + sz, [tx, ty] = K.P(c, c, top);
+    T.disc(tx, ty - 1, U * 0.24 * 2.83, IC.s1); T.disc(tx, ty - 1.5, U * 0.18 * 2.83, IC.s3);
+    if (!o.done) { T.glow(tx, ty - t * 0.35, t * 0.95, IC.b0, 0.45); T.ball(tx, ty - t * 0.32, t * 0.22, IC.white, IC.b0, IC.l2, t * 0.28); T.px(tx - 2, ty - t * 0.48, IC.white); T.px(tx - 2, ty - t * 0.44, IC.white); for (let k = 0; k < 4; k++) T.px(tx + 1 + k % 2, ty - t * 0.38 + k * 2, IC.l1); }
+    else { T.ball(tx - 2, ty - 2, t * 0.12, IC.s0, IC.s1, IC.s2, t * 0.08); T.ball(tx + 3, ty - 1, t * 0.1, IC.s0, IC.s1, IC.s2, t * 0.07); }
   },
   wallmap(t, T, ax, ay) {
-    // the map of the levels, pinned high on the wall: a parchment with a red trail of dots down through four caves
-    const x = ax + 1, y = ay + t * 0.5, lift = Math.round(t * 1.35), w = t * 0.95, h = Math.round(t * 1.05);
-    const p0 = [x, y - lift], p1 = [x - 2 * w, y - lift + w], p2 = [p1[0], p1[1] - h], p3 = [p0[0], p0[1] - h];
-    T.poly([p3, p2, p1, p0], (px, py) => pxHash(px, py) > 0.88 ? IC.w0 : pxPick([IC.w0, IC.y0], 0.5, px, py));
-    const at = (u, v) => [p3[0] + (p2[0] - p3[0]) * u, p3[1] + (p2[1] - p3[1]) * u + h * v];
-    // four caves in bands of their crystal colours, and the trail zig-zagging down through them
-    for (const [v, c] of [[0, IC.l1], [0.25, IC.b0], [0.5, IC.g0], [0.75, IC.l3]]) for (let k = 0; k <= 20; k++) for (let r = 0; r < h * 0.25 - 1; r++) { const [px, py] = at(k / 20, v + r / h + 0.02); if (pxHash(px, py) > 0.55) T.px(px, py, c); }
-    let prev = at(0.25, 0.08);
-    for (let k = 1; k <= 8; k++) { const cur = at(k % 2 ? 0.75 : 0.25, 0.08 + k * 0.105); T.line(prev[0], prev[1], cur[0], cur[1], IC.r2); T.px(cur[0], cur[1] - 1, IC.r1); prev = cur; }
-    const [sx, sy] = at(0.5, 0.12); T.px(sx, sy - 1, IC.r2); T.px(sx + 1, sy - 1, IC.r2); T.px(sx, sy, IC.r2);
-    for (const q of [p3, p2]) { T.px(q[0], q[1] + 1, IC.s1); T.px(q[0], q[1] + 2, IC.s2); }
-    T.line(p0[0], p0[1], p1[0], p1[1], IC.w2); T.line(p3[0], p3[1], p2[0], p2[1], IC.w1);
+    // the map of the levels pinned high on the wall: aged parchment darker at its edges with a curling corner, four caverns
+    // inked in their crystals' colours, a red trail of stops winding down through them, a compass rose, iron nails
+    const U = t / 2, K = isoKit(T, ax, ay), u = 0.05 * U, v0 = 0.12 * U, v1 = 1.88 * U, z0 = Math.round(t * 1.35), z1 = Math.round(t * 2.5);
+    const at = (fv, fz) => K.P(u, v0 + (v1 - v0) * fv, z1 - (z1 - z0) * fz);
+    const [x0, y0] = K.P(0, 0, 0), local = (px, py) => { const v = (x0 + 2 * u - px) / 2, z = y0 + u + v - py; return [(v - v0) / (v1 - v0), (z1 - z) / (z1 - z0)]; };
+    const PARCH = ["#f4e6be", "#e2cc98", "#c8a86c", "#9a7a46"].map(pxHex);
+    K.faceU(u, v0, v1, z0, z1, (px, py) => {
+      const [fv, fz] = local(px + 0.5, py + 0.5), e = Math.min(fv, 1 - fv, fz * 0.6, (1 - fz) * 0.6);
+      let k = e < 0.025 ? 3 : e < 0.06 ? 2 : pxFbm(px * 0.2, py * 0.2) > 0.62 ? 1 : 0;
+      // the caverns: four inked shapes, one under the other, in their crystals' colours
+      const bands = [[0.18, 0.25, IC.l1], [0.68, 0.38, IC.b0], [0.3, 0.58, IC.g0], [0.7, 0.8, IC.l2]];
+      for (const [cv, cz, col] of bands) { const d = Math.hypot((fv - cv) / 0.2, (fz - cz) / 0.1) + 0.25 * pxNoise(fv * 9, fz * 9); if (d < 0.92) return pxHash(px, py) > 0.6 ? col : PARCH[k]; if (d < 1.05) return PARCH[3]; }
+      return PARCH[k];
+    }, 0);
+    const stops = [[0.12, 0.12], [0.3, 0.3], [0.55, 0.28], [0.78, 0.42], [0.55, 0.55], [0.3, 0.6], [0.45, 0.78], [0.75, 0.86]];
+    for (let k = 0; k + 1 < stops.length; k++) { const p = at(...stops[k]), q = at(...stops[k + 1]), n = Math.ceil(Math.hypot(q[0] - p[0], q[1] - p[1]) / 2); for (let j = 0; j <= n; j++) if (j % 2 === 0) T.px(p[0] + (q[0] - p[0]) * j / n, p[1] + (q[1] - p[1]) * j / n, IC.r2); }
+    stops.forEach(([fv, fz], k) => { const [sx, sy] = at(fv, fz); T.px(sx, sy, k === stops.length - 1 ? IC.r1 : IC.r3); T.px(sx + 1, sy, IC.r2); T.px(sx, sy - 1, IC.r2); });
+    { const [rx, ry] = at(0.88, 0.14); for (let k = -2; k <= 2; k++) { T.px(rx + k, ry - k * 0.5, IC.w3); T.px(rx + k * 0.5, ry + k, IC.w3); } T.px(rx, ry - 3, IC.r2); }
+    // a corner curling forward, with its shadow; nails at the other corners
+    { const [cx2, cy2] = at(1, 1); T.poly([[cx2, cy2], [cx2 + 6, cy2 - 3], [cx2 + 1, cy2 - 6]], PARCH[1]); T.line(cx2 + 6, cy2 - 3, cx2 + 1, cy2 - 6, PARCH[3]); }
+    for (const [fv, fz] of [[0.02, 0.04], [0.98, 0.04], [0.02, 0.96]]) { const [nx, ny] = at(fv, fz); T.px(nx, ny, IC.m3); T.px(nx - 1, ny - 1, IC.m1); }
   },
   shrine(t, T, ax, ay, o) {
     // a festival's shrine, only while one is on: First Frost is a pillar of ice; others take their egg's colours
