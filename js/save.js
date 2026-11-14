@@ -36,9 +36,9 @@ function moonSaveOf(m, d) {
   const num = v => Number.isFinite(v) && v > 0 ? Math.floor(v) : 0;
   const had = !!m && typeof m === "object" && !Array.isArray(m), aw = (d && d.awards) || {};
   // a glowling that remembers hatching from a moon egg is a night, too (the words adopt() leaves in its memory)
-  const hatched = ((d && d.creatures) || []).filter(c => c && Array.isArray(c.mem) && c.mem.some(e => e && e.k === "Hatched from a moon egg 🌙")).length;
+  const moonBorn = ((d && d.creatures) || []).filter(c => c && Array.isArray(c.mem) && c.mem.some(e => e && e.k === "Hatched from a moon egg 🌙")).length;
   // the streak as it stands, the longest one, an award for 7 or 3 nights or for the first, and one for a moon egg opened at all
-  const nights = Math.max(had ? 1 : 0, had ? num(m.nights) : 0, had ? num(m.streak) : 0, num(d && d.counts && d.counts.moonBest), aw.streak7 ? 7 : aw.streak3 ? 3 : aw.moon1 ? 1 : 0, hatched);
+  const nights = Math.max(had ? 1 : 0, had ? num(m.nights) : 0, had ? num(m.streak) : 0, num(d && d.counts && d.counts.moonBest), aw.streak7 ? 7 : aw.streak3 ? 3 : aw.moon1 ? 1 : 0, moonBorn);
   // (streak: the same number under its old name, for an older game that may still read this save: see finishMoon)
   return nights ? { last: had && typeof m.last === "string" ? m.last : "", nights, streak: nights } : null;
 }
