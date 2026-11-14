@@ -1103,6 +1103,8 @@ const UK = {
   "Music is the soundtrack: each place has its own, in its backdrop's key; sounds are everything else: taps, chirps, voices.": "Музика — це саундтрек: у кожного місця свій, у тональності його тла; звуки — усе інше: удари, щебет, голоси.",
   "Music volume": "Гучність музики",
   "a slow, quiet soundtrack, its own in every place": "повільна тиха музика, своя в кожному місці",
+  "Vibration": "Вібрація",
+  "a light buzz under your finger, where the phone can": "легкий відгук на дотик, якщо телефон це вміє",
   "Less motion": "Менше руху",
   "no shaking or bouncing, gentler effects": "без трусіння й підстрибування, м'якші ефекти",
   "Bigger text": "Більший текст",

@@ -612,7 +612,7 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   const prog = clamp(e.damage / e.hp, 0, 1);
   e.wob = 0.02 + prog * 0.04 + (res.crit ? 0.03 : 0); e.wobT = 0; e.squash = 1;
   game.shake = Math.min(14, game.shake + (res.crit ? 7 : 3) + prog * 3) * Math.max(0.5, L.k);
-  if (res.crit) game.freeze = 0.06;
+  if (res.crit && !opts().calm) game.freeze = 0.06;
   pop(res.crit ? tr("CRIT {0}", res.dmg.toFixed(1)) : res.dmg.toFixed(1), x, y - 14 * L.k, res.crit ? "#ffe9a8" : "#ffffff", res.crit ? 1.5 : 1);
   if (e.combo >= 3) pop(`×${e.combo}`, x + 34 * L.k, y - 40 * L.k, "#8fd8ef", 0.9);
   if (echo) {
