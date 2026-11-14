@@ -701,6 +701,36 @@ const ISO_PLACES = {
   blocks: { fw: 1, fd: 1, at: [[1, 2], [2, 1], [4, 5]] },
   telescope: { fw: 1, fd: 1, at: [[0, 1], [1, 0], [5, 1]] },
 };
+/** The arches between home rooms (see roomDoors): where along its wall each stands (0 at the back corner, 1 at the front) and its half width. */
+const DOOR_AT = 0.8, DOOR_W = 0.085;
+/** The floor kept clear at a room's passages: the tiles under each arch and the row in front, so nothing stands in a doorway or hides it. */
+function doorTiles(room = save.room) {
+  const out = new Set(), s0 = Math.floor((DOOR_AT - DOOR_W) * ISO_G), s1 = Math.ceil((DOOR_AT + DOOR_W) * ISO_G) - 1;
+  for (const d of roomDoors(room)) for (let s = s0; s <= s1; s++) for (let k = 0; k < 2; k++) out.add(d.wall === "R" ? `${s},${k}` : `${k},${s}`);
+  return out;
+}
+/** Would a piece on these tiles stand in a doorway? */
+function inDoorway(i, j, fw, fd, tiles = doorTiles()) {
+  for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) if (tiles.has(`${i + a},${j + b}`)) return true;
+  return false;
+}
+/** Would a wall piece in this slot hang over an arch? (they're about a tile and a half wide) */
+const wallInDoor = (wall, s, room = save.room) => Math.abs(s + 0.5 - DOOR_AT * ISO_G) < 0.75 + DOOR_W * ISO_G && roomDoors(room).some(d => d.wall === wall);
+/** Just inside an arch, on the floor: where you come in. */
+const doorStep = wall => { const m = isoMargin(0.42) + 0.02; return wall === "R" ? isoAt(DOOR_AT, m) : isoAt(m, DOOR_AT); };
+/** Older saves may have pieces standing in what's now a doorway (or one opened up behind them when a room was carved): they go back to their own spots. */
+function clearDoorways() {
+  let moved = false;
+  save.rooms.forEach((r, k) => {
+    const lay = k === save.room ? save.layout : r.layout, tiles = doorTiles(k);
+    if (!lay) return;
+    for (const [id, m] of Object.entries(lay)) {
+      const f = ISO_FIXED[id] || ISO_PLACES[id];
+      if (m.wall ? wallInDoor(m.wall, m.s, k) : f && Number.isFinite(m.i) && inDoorway(m.i, m.j, ...Object.values(pieceDims(id, m.flip)), tiles)) { delete lay[id]; moved = true; }
+    }
+  });
+  if (moved) { isoLayoutCache = null; persist(); }
+}
 /** Pieces on the walls: which wall (L is the left one, along j; R the right one, along i) and the slot along it, in tiles. */
 const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.64 } };
 const wallSlot = id => { const m = save.layout && save.layout[id]; return m && m.wall ? m : WALL_ITEMS[id]; };
@@ -715,6 +745,7 @@ function autoFlip(id, i, j, flip) {
   if (i === 0 && j !== 0) return true;
   return flip;
 }
+// (a fixed piece whose spot is taken, by a doorway say, stands at the nearest free one: the bed moves along the wall)
 const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1, at: [0, 4] }, garden: { fw: 2, fd: 1, at: [1, 4] },
   // the places on the map come furnished, and that furniture stays put
   shelves: { fw: 2, fd: 1, at: [1, 0] }, shelves2: { fw: 1, fd: 2, at: [0, 2] }, counter: { fw: 2, fd: 1, at: [2, 3] }, crates: { fw: 1, fd: 1, at: [5, 4] }, sacks: { fw: 1, fd: 1, at: [4, 0] }, barrel: { fw: 1, fd: 1, at: [0, 5] },
@@ -734,11 +765,16 @@ const pieceDims = (id, flip) => { const f = ISO_FIXED[id] || ISO_PLACES[id]; ret
 let isoLayoutCache = null;
 function isoLayout() {
   const out = Object.keys(ISO_PLACES).filter(hasDecor), mine = save.layout || {};
-  const key = save.room + "|" + out.join(",") + JSON.stringify(mine);
+  const key = save.room + "|" + roomDoors().map(d => d.wall).join("") + "|" + out.join(",") + JSON.stringify(mine);
   if (isoLayoutCache && isoLayoutCache.key === key) return isoLayoutCache;
   const busy = new Set(), placed = {};
   const take = (i, j, fw, fd) => { for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) busy.add(`${i + a},${j + b}`); };
   const free = (i, j, fw, fd) => { if (i < 0 || j < 0) return false; for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) if (i + a >= ISO_G || j + b >= ISO_G || busy.has(`${i + a},${j + b}`)) return false; return true; };
+  // every tile, nearest a piece's own spot first (ties go to the back of the room)
+  const near = ([i0, j0]) => Array.from({ length: ISO_G * ISO_G }, (_, k) => [k % ISO_G, Math.floor(k / ISO_G)]).sort((p, q) => Math.hypot(p[0] - i0, p[1] - j0) - Math.hypot(q[0] - i0, q[1] - j0));
+  // the doorways stay open: nothing stands in front of a passage, not even a spot you chose before the passage was there
+  const doors = doorTiles();
+  doors.forEach(t => busy.add(t));
   const fixed = Object.fromEntries((ROOM_FIXED[save.rooms[save.room]?.kind] || ["bed"]).map(id => [id, ISO_FIXED[id]]));
   const all = [...Object.keys(fixed), ...out];
   for (const id of all) {
@@ -747,7 +783,7 @@ function isoLayout() {
     if (free(m.i, m.j, d.fw, d.fd)) { take(m.i, m.j, d.fw, d.fd); placed[id] = { id, i: m.i, j: m.j, ...d, flip: !!m.flip }; }
   }
   for (const [id, f] of Object.entries(fixed)) if (!placed[id]) {
-    const spot = [f.at, ...Array.from({ length: ISO_G * ISO_G }, (_, k) => [k % ISO_G, Math.floor(k / ISO_G)])].find(([i, j]) => free(i, j, f.fw, f.fd));
+    const spot = [f.at, ...near(f.at)].find(([i, j]) => free(i, j, f.fw, f.fd));
     if (spot) { take(spot[0], spot[1], f.fw, f.fd); placed[id] = { id, i: spot[0], j: spot[1], fw: f.fw, fd: f.fd, flip: false }; }
   }
   // the rug's middle stays open for pieces placed on their own: glowlings dance there
@@ -755,14 +791,15 @@ function isoLayout() {
   center.forEach(t => busy.add(t));
   for (const id of out) {
     if (placed[id]) continue;
-    // its favorite tiles, or else any free one (so nothing that's out ever goes missing)
-    const f = ISO_PLACES[id], spot = f.at.find(([i, j]) => free(i, j, f.fw, f.fd)) || Array.from({ length: ISO_G * ISO_G }, (_, k) => [k % ISO_G, Math.floor(k / ISO_G)]).find(([i, j]) => free(i, j, f.fw, f.fd));
+    // its favorite tiles, or else the free one nearest them (so nothing that's out ever goes missing)
+    const f = ISO_PLACES[id], spot = f.at.find(([i, j]) => free(i, j, f.fw, f.fd)) || near(f.at[0]).find(([i, j]) => free(i, j, f.fw, f.fd));
     if (!spot) continue;
     take(spot[0], spot[1], f.fw, f.fd);
     placed[id] = { id, i: spot[0], j: spot[1], fw: f.fw, fd: f.fd, flip: autoFlip(id, spot[0], spot[1], false) };
   }
   center.forEach(t => busy.delete(t));
-  return (isoLayoutCache = { key, placed, busy });
+  doors.forEach(t => busy.delete(t));
+  return (isoLayoutCache = { key, placed, busy, doors });
 }
 /** How many furniture tiles are in use, out of the room's space. */
 const isoSpaceUsed = () => Object.keys(ISO_PLACES).filter(hasDecor).reduce((n, id) => n + ISO_PLACES[id].fw * ISO_PLACES[id].fd, 0);
@@ -2275,7 +2312,7 @@ function pieceAt(x, y) {
 /** Would this piece fit with its corner on tile (i, j), turned or not, ignoring where it is now? */
 function pieceFits(id, i, j, flip) {
   const d = pieceDims(id, flip);
-  if (i < 0 || j < 0 || i + d.fw > ISO_G || j + d.fd > ISO_G) return false;
+  if (i < 0 || j < 0 || i + d.fw > ISO_G || j + d.fd > ISO_G || inDoorway(i, j, d.fw, d.fd, isoLayout().doors)) return false;
   for (const p of Object.values(isoLayout().placed)) {
     if (p.id === id) continue;
     if (i < p.i + p.fw && p.i < i + d.fw && j < p.j + p.fd && p.j < j + d.fd) return false;
@@ -2283,7 +2320,7 @@ function pieceFits(id, i, j, flip) {
   return true;
 }
 /** Is this wall slot clear of the other wall piece? */
-const wallFree = (id, wall, s) => Object.keys(WALL_ITEMS).every(o => o === id || !hasDecor(o) || wallSlot(o).wall !== wall || Math.abs(wallSlot(o).s - s) >= 1.6);
+const wallFree = (id, wall, s) => !wallInDoor(wall, s) && Object.keys(WALL_ITEMS).every(o => o === id || !hasDecor(o) || wallSlot(o).wall !== wall || Math.abs(wallSlot(o).s - s) >= 1.6);
 function setLayout(id, m) {
   save.layout = { ...save.layout, [id]: m };
   isoLayoutCache = null; persist(); sfx.tick();
@@ -2302,7 +2339,7 @@ function arrangeMove(x, y) {
   if (kind === "wall") {
     // whichever wall the finger is nearer: the left half of the room is the left wall
     const wall = x < N.cx ? "L" : "R", s = clamp(Math.round(Math.abs(x - N.cx) / N.isoW * ISO_G - 0.5), 0, ISO_G - 1);
-    arrange.drag = { id, wall, s, ok: wallFree(id, wall, s) };
+    arrange.drag = { id, wall, s, ok: wallFree(id, wall, s), door: wallInDoor(wall, s) };
   } else if (kind === "rug") {
     const m = 0.26, [u, v] = isoFrom(x - arrange.grab[0], y - arrange.grab[1]);
     arrange.drag = { id, u: clamp(u, m, 1 - m), v: clamp(v, m, 1 - m), ok: true };
@@ -2310,7 +2347,8 @@ function arrangeMove(x, y) {
     const p = isoLayout().placed[id];
     if (!p) return;
     const [u, v] = isoFrom(x, y), i = Math.round(u * ISO_G - arrange.grab[0]), j = Math.round(v * ISO_G - arrange.grab[1]), flip = autoFlip(id, i, j, p.flip);
-    arrange.drag = { id, i, j, flip, ok: pieceFits(id, i, j, flip) };
+    const dd = pieceDims(id, flip);
+    arrange.drag = { id, i, j, flip, ok: pieceFits(id, i, j, flip), door: inDoorway(i, j, dd.fw, dd.fd, isoLayout().doors) };
   }
 }
 function arrangeUp() {
@@ -2319,7 +2357,7 @@ function arrangeUp() {
     if (d.wall) setLayout(d.id, { wall: d.wall, s: d.s });
     else if (d.id === "rug") setLayout("rug", { u: d.u, v: d.v });
     else { const p = isoLayout().placed[d.id]; if (p && (d.i !== p.i || d.j !== p.j || d.flip !== p.flip)) placePiece(d.id, d.i, d.j, d.flip); }
-  } else if (d) toast(tr("That spot is taken"));
+  } else if (d) toast(tr(d.door ? "Keep the doorway clear" : "That spot is taken"));
   arrange.drag = null; arrangeUi();
 }
 /** Turn the chosen piece: a floor piece faces the other wall (where it is if it fits, or the nearest free spot); a wall piece goes to the other wall. */
@@ -2355,6 +2393,9 @@ function drawArrangeGrid() {
   // a wall slot: a band up the wall
   const band = (wall, s, col) => { const a = wall === "R" ? corner(s, 0) : corner(0, s), b = wall === "R" ? corner(s + 1, 0) : corner(0, s + 1), up = N.isoWall * 0.9; fill([a, b, [b[0], b[1] - up], [a[0], a[1] - up]], col); };
   const ring = (x, y, col) => { const [rx, ry] = rugSize(); ctx.strokeStyle = col; ctx.lineWidth = PX * 1.5; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.stroke(); };
+  // the doorways, darkened: nothing can stand there (and the arches' shapes, as they're not drawn while you arrange)
+  for (const t of isoLayout().doors) { const [i, j] = t.split(",").map(Number); foot(i, j, 1, 1, "rgba(11,6,20,.42)"); }
+  for (const w of roomDoors()) fill(passageShape(w.wall), "rgba(11,6,20,.6)");
   const id = arrange.sel, kind = id && arrangeKind(id), d = arrange.drag, gold = "rgba(238,194,106,.35)", ok = "rgba(87,173,106,.5)", no = "rgba(224,99,79,.5)";
   if (kind === "floor") {
     const p = isoLayout().placed[id];
