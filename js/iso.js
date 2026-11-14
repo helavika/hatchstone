@@ -515,16 +515,9 @@ function drawRoom() {
   }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
   if (N.iso) return drawRoomIso();
-  // a round woven rug in solid rings, in the middle of the floor
+  // a round woven rug in the middle of the floor (or the starry one), in pixels
   const [rcx, rcy] = roomSpot("rug"), [rrx, rry] = rugSize();
-  const starry = hasDecor("rug");
-  drawBaked(cachedSprite(roomSprites, "rug", `${rcx}|${rcy}|${rrx}|${rry}|${PX}|${starry ? Math.floor(game.time / 250) : ""}`, () => bakeSprite(rcx, rcy, rrx, () => {
-    ["#5c1f3f", "#8f3460", "#c25586", "#8f3460", "#5c1f3f"].forEach((col, i) => {
-      ctx.fillStyle = col;
-      ctx.beginPath(); ctx.ellipse(rcx, rcy, rrx * (1 - i * 0.19), rry * (1 - i * 0.19), 0, 0, TAU); ctx.fill();
-    });
-    if (starry) drawStarryRug(rcx, rcy, rrx, rry);
-  }, { up: rry / rrx + 0.08, down: rry / rrx + 0.08, side: 1.06 })));
+  drawBaked(frontRug(rcx, rcy, rrx, rry, hasDecor("rug")));
   // furniture from the back of the room to the front, so nearer things overlap farther ones
   const items = [{ y: N.bedY, draw: () => drawCushion(N.bedX, N.bedY + N.base * 0.1 * depthK(N.bedY), N.base * 0.72 * depthK(N.bedY)) },
     ...(incHere() ? [{ y: incSpot()[1], draw: drawIncubator }] : [])];
@@ -538,12 +531,11 @@ function drawRoom() {
   }
   for (const d of DECOR) if (hasDecor(d.id) && d.id !== "rug" && DRAW_DECOR[d.id]) {
     const [x, y] = decorSpot(d.id);
-    // the swing and the lights are thin lines on the wall; the rest are baked
+    // the swing and the lights move every frame, so they're put together from their parts as they're drawn; the rest are kept
     if (d.id === "swing" || d.id === "lights") { items.push({ y: d.id === "lights" ? -1 : N.back, draw: () => DRAW_DECOR[d.id](x, y) }); continue; }
     const k = d.id === "shelf" ? N.dk : depthK(y);
-    // decorations animate gently, so a new frame five times a second is plenty
-    items.push({ y: d.id === "shelf" ? -1 : y, draw: () => { decorK = k; drawBaked(cachedSprite(roomSprites, d.id, `${x}|${y}|${N.base}|${k}|${PX}|${save.decor[d.id].off}|${Math.floor(game.time / 200)}`,
-      () => bakeSprite(x, y - N.base * 0.6 * k, N.base * k, () => DRAW_DECOR[d.id](x, y), { up: 2.4, down: 1.1, side: 1.8 }))); decorK = 1; } });
+    // (each paints itself in art pixels and keeps its frames: see frontArt)
+    items.push({ y: d.id === "shelf" ? -1 : y, draw: () => { decorK = k; DRAW_DECOR[d.id](x, y); decorK = 1; } });
   }
   return items;
 }
@@ -1060,6 +1052,23 @@ function isoGoods(K, T, kind, u, v, z, U, k = 0) {
   else if (kind === "cheese") { for (let j = 0; j < 2; j++) { K.cyl(u, v, z + j * Math.round(U * 0.28), 0.15 * U, Math.round(U * 0.24), IC.y0, IC.y1, IC.w1); K.ring(u, v, z + j * Math.round(U * 0.28), 0.15 * U, IC.w2); } }
   else if (kind === "cloth") { const c = [[IC.p1, IC.p2, IC.p3], [IC.b1, IC.b2, IC.b3], [IC.g1, IC.g2, IC.g3]]; for (let j = 0; j < 3; j++) { const cc = c[(j + k) % 3]; K.box(u - 0.14 * U, v - 0.14 * U, z + j * 3, 0.28 * U, 0.26 * U, 3, cc[0], cc[1], cc[2]); } }
 }
+/** A half geode standing on its round back, its cut face turned toward the room: you see the stone shell bulging behind on
+ *  the right, a white agate rim, crystals catching the light, and the dark hollow in the middle; (cx, cy) is its middle. */
+function halfGeode(T, cx, cy, r, ry, [c0, c1, c2], spark) {
+  T.disc(cx + 1, cy + ry * 0.9, r * 0.8, IC.w3, r * 0.25);                           // its shadow on the plank
+  T.ball(cx + r * 0.18, cy, r, IC.s1, IC.s2, IC.s3, ry);                            // the stone shell
+  const fx = cx - r * 0.12, fr = r * 0.8, fry = ry * 0.86;
+  T.disc(fx, cy, fr, (px, py) => {
+    const d = Math.hypot((px - fx) / fr, (py - cy) / fry);
+    if (d > 0.84) return IC.s0;                                                        // agate rim
+    if (d > 0.62) return (px + py) % 3 ? c1 : c0;                                       // crystal points
+    if (d > 0.36) return py < cy ? c0 : c1;                                             // tips, lit from above
+    return pxHash(px, py) > 0.8 ? c0 : c2;                                              // the hollow, with a few sparkles
+  }, fry);
+  // a glint, and a sparkle when tapped
+  T.px(fx - fr * 0.35, cy - fry * 0.4, IC.white); T.px(fx - fr * 0.35 + 1, cy - fry * 0.4, IC.white);
+  if (spark) { T.px(cx, cy - r - 2, IC.white); T.px(cx - 1, cy - r - 1, IC.y0); T.px(cx + 1, cy - r - 1, IC.y0); T.px(cx, cy - r, IC.y0); }
+}
 const ISO_ART = {
   lamp(t, T, ax, ay, o) {
     // a standard lamp of root-wood, taller than a keeper's shoulder: three roots gripping a mossy stone for its foot, a stem
@@ -1139,26 +1148,27 @@ const ISO_ART = {
   spring(t, T, ax, ay, o) {
     // a little moon pond: a ring of rounded stones, water dark in the deep middle and light at the shallow rim,
     // lily pads with a pink flower, reeds at the back and the moon shining on the water
-    const cx = ax, cy = ay + t / 2, rx = t * 0.78, ry = rx / 2, f = o.frame || 0;
+    // (o.flat: how flat the pond lies, seen from the front of the room instead of from the corner)
+    const cx = ax, cy = ay + t / 2, rx = t * 0.78, fl = o.flat || 0.5, ry = rx * fl, f = o.frame || 0;
     const stones = Math.max(9, Math.round(rx / 1.6));
     for (let k = 0; k < stones; k++) {
       const an = k / stones * TAU, sx = cx + Math.cos(an) * (rx - 0.5), sy = cy + Math.sin(an) * (ry - 0.25), r = Math.max(1.6, rx * 0.13) + pxHash(k, 9) * Math.max(1, rx * 0.06);
       T.ball(sx, sy - 1, r + 0.5, IC.s1, IC.s2, IC.s3, r * 0.8);
     }
-    T.disc(cx, cy, rx - 1.5, (x, y) => { const d = Math.hypot((x - cx) / (rx - 1.5), (y - cy) / (ry - 0.75)); return d > 0.78 ? IC.b1 : d > 0.45 ? IC.b2 : IC.b3; });
+    T.disc(cx, cy, rx - 1.5, (x, y) => { const d = Math.hypot((x - cx) / (rx - 1.5), (y - cy) / (ry - 0.75)); return d > 0.78 ? IC.b1 : d > 0.45 ? IC.b2 : IC.b3; }, ry - 0.75);
     // reeds at the back edge
     for (const [dx, hgt] of [[-0.45, 0.8], [-0.35, 1.05], [-0.25, 0.7]]) { const rxp = cx + dx * rx * 2, ryp = cy - ry * 0.75; for (let k = 0; k < hgt * t * 0.6; k++) T.px(rxp + (k > hgt * t * 0.4 ? 1 : 0), ryp - k, k > hgt * t * 0.5 ? IC.w2 : IC.g2); }
     // lily pads with a notch, and one pink flower
     for (const [dx, dy, r] of [[0.2, 0.1, 0.22], [-0.15, 0.22, 0.16], [0.35, -0.15, 0.14]]) {
       const px0 = cx + dx * rx * 2, py0 = cy + dy * ry * 2, pr = r * rx * 1.4;
-      T.disc(px0, py0, pr, (x, y) => (x > px0 && Math.abs(y - py0) < 0.8) ? IC.b2 : x < px0 - pr * 0.3 ? IC.g0 : IC.g1);
+      T.disc(px0, py0, pr, (x, y) => (x > px0 && Math.abs(y - py0) < 0.8) ? IC.b2 : x < px0 - pr * 0.3 ? IC.g0 : IC.g1, pr * fl);
     }
     const fx = cx + 0.2 * rx * 2, fy = cy + 0.1 * ry * 2 - 1;
     T.px(fx, fy - 1, IC.p0); T.px(fx - 1, fy, IC.p1); T.px(fx + 1, fy, IC.p1); T.px(fx, fy, IC.y1);
     // the moon's reflection, and a ripple that moves
     T.px(cx - rx * 0.3, cy - 1, IC.y0); T.px(cx - rx * 0.3 + 1, cy - 1, IC.y0); T.px(cx - rx * 0.3, cy, IC.y1);
     const rk = (f % 6) / 6, rr = rx * (0.25 + rk * 0.5);
-    for (let k = 0; k < 16; k++) { const an = k / 16 * TAU; if (k % 2) T.px(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr / 2, IC.b0); }
+    for (let k = 0; k < 16; k++) { const an = k / 16 * TAU; if (k % 2) T.px(cx + Math.cos(an) * rr, cy + Math.sin(an) * rr * fl, IC.b0); }
   },
   armchair(t, T, ax, ay) {
     // a wingback armchair the keepers upholstered in moss-green velvet: a carved root-wood frame on cabriole legs, a camel
@@ -1294,22 +1304,8 @@ const ISO_ART = {
     { const [mx, my] = at(len * 0.97, dep * 0.5, th); decoMoss(T, mx, my, t * 0.09, t * 0.06); for (let k = 0; k < 4; k++) T.px(mx + 3 + (k & 1), my + 2 + k + th, BED_MOSS[k > 2 ? 3 : 2]); }
     const gems = o.gems && o.gems.length ? o.gems : [[IC.l0, IC.l2, IC.l4], [IC.b0, IC.b1, IC.b3], [IC.p0, IC.p1, IC.p3]];
     gems.slice(0, 3).forEach(([c0, c1, c2], i) => {
-      // a half geode standing on its round back, its cut face turned toward the room: you see the stone shell bulging
-      // behind on the right, a white agate rim, crystals catching the light, and the dark hollow in the middle
       const r = Math.max(4, t * (i === 1 ? 0.24 : 0.19)), ry = r * 1.12, [cx, cy] = at(len * (0.2 + i * 0.3), dep * 0.5, th + ry * 0.92);
-      T.disc(cx + 1, cy + ry * 0.9, r * 0.8, IC.w3, r * 0.25);                           // its shadow on the plank
-      T.ball(cx + r * 0.18, cy, r, IC.s1, IC.s2, IC.s3, ry);                            // the stone shell
-      const fx = cx - r * 0.12, fr = r * 0.8, fry = ry * 0.86;
-      T.disc(fx, cy, fr, (px, py) => {
-        const d = Math.hypot((px - fx) / fr, (py - cy) / fry);
-        if (d > 0.84) return IC.s0;                                                        // agate rim
-        if (d > 0.62) return (px + py) % 3 ? c1 : c0;                                       // crystal points
-        if (d > 0.36) return py < cy ? c0 : c1;                                             // tips, lit from above
-        return pxHash(px, py) > 0.8 ? c0 : c2;                                              // the hollow, with a few sparkles
-      }, fry);
-      // a glint, and a sparkle when tapped
-      T.px(fx - fr * 0.35, cy - fry * 0.4, IC.white); T.px(fx - fr * 0.35 + 1, cy - fry * 0.4, IC.white);
-      if (o.spark !== undefined && Math.abs(o.spark - i) < 0.5) { T.px(cx, cy - r - 2, IC.white); T.px(cx - 1, cy - r - 1, IC.y0); T.px(cx + 1, cy - r - 1, IC.y0); T.px(cx, cy - r, IC.y0); }
+      halfGeode(T, cx, cy, r, ry, [c0, c1, c2], o.spark !== undefined && Math.abs(o.spark - i) < 0.5);
     });
   },
   keepjar(t, T, ax, ay, o = {}) {
@@ -4447,130 +4443,223 @@ function swingSeat() {
   return [x + Math.sin(a) * len, top + Math.cos(a) * len, a, top];
 }
 
-function drawStarryRug(x, y, rx, ry) {
-  ctx.save();
-  // deep night blue with a gold border and stars that blink in whole steps (on, bright, off)
-  ctx.fillStyle = "#1d5276";
-  ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill();
-  ctx.fillStyle = "#0f2f4a";
-  ctx.beginPath(); ctx.ellipse(x, y, rx * 0.86, ry * 0.82, 0, 0, TAU); ctx.fill();
-  ctx.strokeStyle = "#eec26a"; ctx.lineWidth = PX * 1.1;
-  ctx.beginPath(); ctx.ellipse(x, y, rx * 0.93, ry * 0.9, 0, 0, TAU); ctx.stroke();
-  for (let i = 0; i < 12; i++) {
-    const a = i * 2.4, d = 0.22 + (i % 5) * 0.13, tw = Math.sin(game.time * 0.0015 + i);
-    if (tw < -0.6) continue;
-    ctx.fillStyle = tw > 0.5 ? "#fff0b5" : "#eec26a";
-    sparklePath(ctx, x + Math.cos(a) * rx * d, y + Math.sin(a) * ry * d, PX * (1.6 + (i % 3) * 0.5)); ctx.fill();
+// ---------- the straight-on room's decorations, in pixels like the isometric room's ----------
+/** Frames of each front-view piece, kept by what they show, so a gentle loop (a flicker, a ripple, twinkling) is painted once. */
+const frontFrames = {};
+/**
+ * A front-view piece painted in art pixels (see isoArt) and kept: its art point (ax, ay) lands on (x, y), on the pixel grid.
+ * base is what the piece looks like (when it changes, its frames are painted again), frame which moment of its loop this is.
+ * sq squashes it about that point for a moment ([wide, tall]: a bounce when tapped), in whole art pixels still.
+ */
+function frontArt(slot, x, y, w, h, ax, ay, base, frame, paint, { sq = null, ...opts } = {}) {
+  const key = `${Math.round(x)},${Math.round(y)}|${w}x${h}|${PX}|${base}`;
+  let fr = frontFrames[slot];
+  if (!fr || fr.key !== key) fr = frontFrames[slot] = { key, f: new Map() };
+  const id = `${frame}|${sq ? sq.join(",") : ""}`;
+  let f = fr.f.get(id);
+  if (!f) {
+    let c = isoArt(w, h, paint, opts);
+    if (sq) {
+      const m = document.createElement("canvas"); m.width = c.width; m.height = c.height;
+      const g = m.getContext("2d"); g.imageSmoothingEnabled = false;
+      g.translate(ax, ay); g.scale(sq[0], sq[1]); g.translate(-ax, -ay); g.drawImage(c, 0, 0); c = m;
+    }
+    f = { c, x: Math.round(x / PX - ax) * PX, y: Math.round(y / PX - ay) * PX };
+    if (fr.f.size > 40) fr.f.clear();
+    fr.f.set(id, f);
   }
-  ctx.restore();
+  return f;
+}
+/** A soft shadow on the floor in whole art pixels: rows of translucent dark, stepped like a pixel ellipse. */
+function pxShadow(x, y, rx, ry, a = 0.3) {
+  const cx = Math.round(x / PX), cy = Math.round(y / PX), R = rx / PX, Ry = Math.max(1, ry / PX);
+  ctx.fillStyle = `rgba(10,4,24,${a})`;
+  for (let j = -Math.ceil(Ry); j < Math.ceil(Ry); j++) {
+    const hw = Math.round(R * Math.sqrt(Math.max(0, 1 - ((j + 0.5) / Ry) ** 2)));
+    if (hw > 0) ctx.fillRect((cx - hw) * PX, (cy + j) * PX, hw * 2 * PX, PX);
+  }
+}
+/** A ring of dots lying on the floor round (x, y), from angle a0 to a1, one art pixel each with a pixel's gap between. */
+function pxRing(x, y, rx, ry, a0, a1, col) {
+  const n = Math.max(8, Math.round((a1 - a0) * (rx + ry) / PX / 2.6));
+  ctx.fillStyle = col;
+  let last = "";
+  for (let k = 0; k <= n; k++) {
+    const an = a0 + (a1 - a0) * k / n, px = Math.round((x + Math.cos(an) * rx) / PX), py = Math.round((y + Math.sin(an) * ry) / PX), at = px + "," + py;
+    if (at !== last) ctx.fillRect(px * PX, py * PX, PX, PX);
+    last = at;
+  }
+}
+/** A four-pointed twinkle in art pixels: a dot, a cross, or a long cross with a white heart. */
+function pxTwinkle(T, x, y, size, col, hi) {
+  x = Math.round(x); y = Math.round(y);
+  T.px(x, y, size > 1 ? IC.white : hi);
+  for (let k = 1; k <= size; k++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) T.px(x + dx * k, y + dy * k, k === 1 ? hi : col);
+}
+
+/** The rug on the floor of the straight-on room: woven rings in the rose cloth of the isometric rug, or (bought) the starry
+ *  one, deep night blue with a gold border and stars that blink in whole steps (on, bright, off). */
+function frontRug(x, y, rx, ry, starry) {
+  const R = rx / PX, Ry = ry / PX, w = Math.ceil(R * 2) + 6, h = Math.ceil(Ry * 2) + 6, cx = w / 2, cy = h / 2;
+  // each star's state now: 0 off, 1 on, 2 bright
+  const stars = starry ? Array.from({ length: 12 }, (_, i) => { const tw = Math.sin(game.time * 0.0015 + i); return tw < -0.6 ? 0 : tw > 0.5 ? 2 : 1; }) : [];
+  return frontArt("rug", x, y, w, h, cx, cy, `${R.toFixed(1)}|${Ry.toFixed(1)}|${starry}`, stars.join(""), T => {
+    const ring = (px, py) => Math.hypot((px + 0.5 - cx) / R, (py + 0.5 - cy) / Ry);
+    if (starry) {
+      const night = pxHex("#0f2f4a");
+      T.disc(cx, cy, R, (px, py) => { const d = ring(px, py); return d > 0.9 ? (d > 0.96 ? IC.b3 : IC.b2) : d > 0.86 ? IC.b3 : pxHash(px, py) > 0.985 ? IC.b2 : night; }, Ry);
+      // a gold cord round the border, stitched in short runs
+      const n = Math.round((R + Ry) * 3.2);
+      for (let k = 0; k < n; k++) { if (k % 5 === 4) continue; const an = k / n * TAU; T.px(cx + Math.cos(an) * R * 0.93, cy + Math.sin(an) * Ry * 0.93, an > Math.PI ? IC.y0 : IC.y1); }
+      stars.forEach((st, i) => {
+        if (!st) return;
+        const an = i * 2.4, d = 0.22 + (i % 5) * 0.13, size = Math.max(0, Math.min(Math.round(R / 14), 2) - (i % 3 === 0 ? 1 : 0)) + (st === 2 ? 1 : 0) - 1;
+        pxTwinkle(T, cx + Math.cos(an) * R * d, cy + Math.sin(an) * Ry * d, Math.max(0, size), IC.y1, st === 2 ? IC.y0 : IC.y1);
+      });
+      // and a little crescent moon sewn near the edge
+      const mx = cx - R * 0.55, my = cy - Ry * 0.35, mr = Math.max(2, R * 0.07);
+      T.disc(mx, my, mr, (px, py) => Math.hypot(px + 0.5 - mx - mr * 0.5, (py + 0.5 - my + mr * 0.2) / 0.62) < mr * 0.9 ? night : IC.y0, mr * 0.62);
+    } else {
+      // braided rings, the cord twisting along each one, darker at the rim and lightest in the middle band
+      const bands = [IC.p3, IC.p2, IC.p1, IC.p2, IC.p3, IC.p2];
+      T.disc(cx, cy, R, (px, py) => {
+        const d = ring(px, py), b = Math.min(bands.length - 1, Math.floor((1 - d) / 0.17)), seam = ((1 - d) / 0.17) % 1;
+        const c = bands[b], twist = ((Math.round(px / 2) + py * 2) % 4 === 0);
+        if (seam < 0.12 && b > 0) return IC.p3;
+        return twist ? (c === IC.p1 ? IC.p2 : IC.p3) : c;
+      }, Ry);
+      T.disc(cx, cy, R * 0.1, IC.p1, Ry * 0.1);
+    }
+  }, { light: false });
 }
 
 const DRAW_DECOR = {
   lamp(x, y) {
-    const b = N.base * decorK, top = y - b * 1.25, pulse = 0.85 + 0.15 * Math.sin(game.time * 0.002), off = save.decor.lamp.off;
-    if (!off) {
-      const glow = ctx.createRadialGradient(x, top, 2, x, top, b * 1.6);
-      glow.addColorStop(0, `rgba(255,233,168,${0.35 * pulse})`); glow.addColorStop(1, "rgba(255,233,168,0)");
-      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, top, b * 1.6, 0, TAU); ctx.fill();
-    }
-    ctx.globalAlpha = off ? 0.55 : 1;
-    ctx.strokeStyle = "#8a7bc8"; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, top + b * 0.15); ctx.stroke();
-    ctx.fillStyle = "#5b4aa8"; ctx.beginPath(); ctx.ellipse(x, y, b * 0.2, b * 0.06, 0, 0, TAU); ctx.fill();
-    // the crystal shade
-    ctx.fillStyle = "#fff3c4";
-    ctx.beginPath(); ctx.moveTo(x, top - b * 0.28); ctx.lineTo(x + b * 0.16, top - b * 0.05); ctx.lineTo(x + b * 0.1, top + b * 0.15); ctx.lineTo(x - b * 0.1, top + b * 0.15); ctx.lineTo(x - b * 0.16, top - b * 0.05); ctx.closePath(); ctx.fill();
-    ctx.fillStyle = "rgba(255,200,120,.5)";
-    ctx.beginPath(); ctx.moveTo(x, top - b * 0.28); ctx.lineTo(x + b * 0.16, top - b * 0.05); ctx.lineTo(x + b * 0.1, top + b * 0.15); ctx.lineTo(x, top); ctx.closePath(); ctx.fill();
-    ctx.globalAlpha = 1;
+    // the isometric room's standard lamp (it looks the same from any side), its light flickering softly
+    const t = Math.max(8, Math.round(N.base * decorK * 0.7 / PX)), off = !!save.decor.lamp.off;
+    const fl = off ? 0 : Math.round((Math.sin(game.time * 0.002) * 0.5 + 0.5) * 4);
+    const w = Math.ceil(t * 3.4) + 6, h = Math.ceil(t * 3.8) + 6, ax = Math.round(w / 2), ay = h - Math.ceil(t * 0.6) - Math.round(t / 2), zs = Math.round(t * 2.2) - Math.round(t * 0.62);
+    pxShadow(x + PX, y + PX, t * 0.5 * PX, t * 0.16 * PX);
+    drawBaked(frontArt("lamp", x, y, w, h, ax, ay + t / 2, `${t}|${off}`, fl, T => {
+      if (!off) T.glow(ax, ay + t / 2 - zs, t * (1.3 + fl * 0.06), IC.y0, 0.05 + fl * 0.025);
+      ISO_ART.lamp(t, T, ax, ay, { off });
+    }));
   },
   mushrooms(x, y) {
-    const b = N.base * decorK;
-    const k = fxAge("mushrooms"), boing = k < 0.7 ? Math.sin(k * Math.PI * 6) * (1 - k / 0.7) : 0;
-    [[-0.3, 0.55, "#8ff0d8"], [0.15, 0.8, "#c9b8ff"], [0.42, 0.45, "#ff9ecb"]].forEach(([dx, h, col], i) => {
-      const mx = x + dx * b, cap = b * (0.18 + h * 0.18) * (1 + boing * 0.12), top = y - b * h * (1 - boing * 0.15 * (i % 2 ? -1 : 1));
-      ctx.fillStyle = "#e9e1f5"; ctx.fillRect(mx - b * 0.05, top, b * 0.1, b * h);
-      const glow = ctx.createRadialGradient(mx, top, 1, mx, top, cap * 2.2);
-      glow.addColorStop(0, col + "66"); glow.addColorStop(1, col + "00");
-      ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(mx, top, cap * 2.2, 0, TAU); ctx.fill();
-      ctx.fillStyle = col; ctx.beginPath(); ctx.ellipse(mx, top, cap, cap * 0.62, 0, Math.PI, TAU); ctx.fill();
-      ctx.fillStyle = "rgba(255,255,255,.8)";
-      for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.arc(mx + (k - 1) * cap * 0.45, top - cap * (0.25 + (k % 2) * 0.15), cap * 0.09, 0, TAU); ctx.fill(); }
-    });
+    // the isometric room's glowing mushroom cluster, spores drifting up, bouncing when tapped
+    const t = Math.max(8, Math.round(N.base * decorK * 0.62 / PX)), w = Math.ceil(t * 3.2) + 8, h = Math.ceil(t * 2.8) + 8, ax = Math.round(w / 2), fy = Math.ceil(t * 2.35) + 4;
+    const k = fxAge("mushrooms"), boing = k < 0.7 ? Math.round(Math.sin(k * Math.PI * 6) * (1 - k / 0.7) * 5) / 5 : 0;
+    drawBaked(frontArt("mushrooms", x, y, w, h, ax, fy, t, Math.floor(game.time / 300) % 12, T => ISO_ART.mushrooms(t, T, ax, fy - t / 2, { frame: Math.floor(game.time / 300) % 12 }),
+      { sq: boing ? [1 + boing * 0.1, 1 - boing * 0.14] : null }));
   },
   cushion(x, y) {
-    const b = N.base * decorK, k = fxAge("cushion"), squish = k < 0.6 ? Math.sin(k * Math.PI * 4) * (1 - k / 0.6) : 0;
-    ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + b * 0.05, b * 0.62, b * 0.12, 0, 0, TAU); ctx.fill();
-    ctx.save(); ctx.translate(x, y); ctx.scale(1 + squish * 0.12, 1 - squish * 0.2); ctx.translate(-x, -y);
-    ctx.fillStyle = "#e6e0ff";
-    for (const [dx, dy, r] of [[-0.35, -0.08, 0.22], [0, -0.16, 0.28], [0.35, -0.08, 0.22], [-0.15, -0.02, 0.24], [0.18, -0.02, 0.24]]) {
-      ctx.beginPath(); ctx.arc(x + dx * b, y + dy * b, r * b, 0, TAU); ctx.fill();
-    }
-    ctx.fillStyle = "rgba(201,184,255,.5)";
-    ctx.beginPath(); ctx.ellipse(x, y + b * 0.02, b * 0.55, b * 0.1, 0, 0, TAU); ctx.fill();
-    ctx.restore();
+    // the cloud cushion, resting on the floor: the isometric room's cumulus (see paintCloud), squishing when tapped
+    const s = Math.max(8, Math.round(N.base * decorK * 0.6 / PX)), cw = s * 2 + 12, ch = s + 14, pad = Math.ceil(s * 0.2) + 2, w = cw + pad * 2, h = ch + pad * 2;
+    const fx = pad + cw / 2, fy = pad + ch / 2 + s * 0.33;
+    const k = fxAge("cushion"), squish = k < 0.6 ? Math.round(Math.sin(k * Math.PI * 4) * (1 - k / 0.6) * 5) / 5 : 0;
+    pxShadow(x, y + PX, s * 0.95 * PX, s * 0.2 * PX);
+    drawBaked(frontArt("cushion", x, y, w, h, fx, fy, s, 0, T => paintCloud({ ...T, px: (px, py, c) => T.px(px + pad, py + pad, c) }, s, cw, ch),
+      { outline: false, sq: squish ? [1 + squish * 0.12, 1 - squish * 0.2] : null }));
   },
   shelf(x, y) {
-    const b = N.base * decorK, sy = y - b * 0.95, w = b * 1.2;
-    if (N.iso) { ctx.translate(x, sy); ctx.transform(1, wallSlot("shelf").wall === "L" ? -0.5 : 0.5, 0, 1, 0, 0); ctx.translate(-x, -sy); }
-    ctx.fillStyle = "rgba(255,255,255,.25)"; ctx.fillRect(x - w / 2, sy, w, 5);
-    ctx.fillStyle = "rgba(255,255,255,.12)"; ctx.fillRect(x - w / 2 + 6, sy + 5, 4, 10); ctx.fillRect(x + w / 2 - 10, sy + 5, 4, 10);
-    // brackets under the plank
-    ctx.fillStyle = "rgba(255,255,255,.18)";
-    for (const dx of [-0.36, 0.36]) { ctx.beginPath(); ctx.moveTo(x + dx * w - 3, sy + 5); ctx.lineTo(x + dx * w + 3, sy + 5); ctx.lineTo(x + dx * w, sy + b * 0.22); ctx.fill(); }
-    const best = Object.entries(save.geodes).filter(([, g]) => g.img).sort((p, q) => (q[1].shine || 0) - (p[1].shine || 0)).slice(0, 3);
-    if (!best.length) for (let i = 0; i < 3; i++) {
-      const gx = x - w / 2 + w * (0.2 + i * 0.3), hh = b * (0.2 + (i % 2) * 0.12);
-      ctx.fillStyle = ["#c9b8ff", "#8fd8ef", "#ff9ecb"][i];
-      ctx.beginPath(); ctx.moveTo(gx - hh * 0.3, sy); ctx.lineTo(gx - hh * 0.2, sy - hh * 0.75); ctx.lineTo(gx, sy - hh); ctx.lineTo(gx + hh * 0.2, sy - hh * 0.75); ctx.lineTo(gx + hh * 0.3, sy); ctx.fill();
-    }
-    best.forEach(([id], i) => {
-      const im = geodeImg(id);
-      if (!im) return;
-      const h = b * 0.55, gw = h * im.width / im.height, gx = x - w / 2 + w * (0.18 + i * 0.32);
-      ctx.drawImage(im, gx - gw / 2, sy - h, gw, h);
-      // tapped: each geode sparkles in turn
-      const k = fxAge("shelf") - i * 0.22;
-      if (k > 0 && k < 0.6) { ctx.fillStyle = "#fff"; ctx.globalAlpha = Math.sin(k / 0.6 * Math.PI); sparklePath(ctx, gx + gw * 0.2, sy - h * 0.7, b * 0.16); ctx.fill(); ctx.globalAlpha = 1; }
-    });
+    // a thick oak plank with a moulded front edge on two scrolled brass brackets, seen from the front a little from above,
+    // moss trailing off one end with a glowcap in it, and your three shiniest geodes standing on it in their own colours
+    const tb = N.base * decorK / PX, L = Math.round(tb * 1.2), th = Math.max(3, Math.round(tb * 0.1)), dep = Math.max(2, Math.round(tb * 0.07));
+    const best = Object.entries(save.geodes).filter(([id]) => CRYSTAL[id]).sort((p, q) => (q[1].shine || 0) - (p[1].shine || 0)).slice(0, 3).map(([id]) => CRYSTAL[id].c.map(pxHex));
+    const gems = best.length ? best : [[IC.l0, IC.l2, IC.l4], [IC.b0, IC.b1, IC.b3], [IC.p0, IC.p1, IC.p3]];
+    const k = fxAge("shelf"), spark = k < 0.9 ? Math.floor(k / 0.3) : -1;
+    const padX = Math.ceil(tb * 0.25) + 4, up = Math.ceil(tb * 0.62) + 4, w = L + padX * 2, h = up + th + Math.ceil(tb * 0.34) + 6, x0 = padX, top = up;
+    drawBaked(frontArt("shelf", x, y - N.base * 0.95 * decorK, w, h, x0 + L / 2, top, `${L}|${JSON.stringify(gems)}`, spark, T => {
+      const R = BED_ROOT;
+      // the brackets: a brass bar down the wall under each end, curling into a scroll at the foot, a stay up to the plank
+      for (const f of [0.16, 0.84]) {
+        const bx = Math.round(x0 + L * f), d = Math.round(tb * 0.26);
+        for (let j = 0; j < d; j++) { T.px(bx - 1, top + th + j, BRASS[1]); T.px(bx, top + th + j, BRASS[2]); T.px(bx + 1, top + th + j, BRASS[3]); }
+        for (let a = 0; a < 9; a++) T.px(bx + Math.round(Math.cos(a * 0.75 + 1.6) * 2.2), top + th + d + Math.round(Math.sin(a * 0.75 + 1.6) * 2), a < 5 ? BRASS[1] : BRASS[3]);
+        T.px(bx - 1, top + th, BRASS[0]);
+      }
+      // the plank: its top (lit, the grain running along it), then the moulded front edge, darker under the lip
+      T.grain(1, () => {
+        for (let j = 0; j < dep; j++) for (let i = 0; i < L; i++) T.px(x0 + i, top - dep + j, j === 0 ? IC.w1 : IC.w1);
+        for (let j = 0; j < th; j++) for (let i = 0; i < L; i++) T.px(x0 + i, top + j, j === 0 ? IC.w0 : j === th - 1 ? IC.w3 : j === 1 ? IC.w1 : IC.w2);
+      });
+      // its ends, end grain showing
+      for (let j = -dep; j < th; j++) { T.px(x0, top + j, j < 0 ? IC.w1 : IC.w2); T.px(x0 + L - 1, top + j, IC.w3); }
+      // moss draped over the right end, strands hanging down, a glowcap in it
+      { const mx = x0 + L - 3, my = top - 1; decoMoss(T, mx, my, Math.max(2, tb * 0.1), Math.max(1.5, tb * 0.06)); for (let k2 = 0; k2 < 5; k2++) T.px(mx + 2 + (k2 & 1), top + th + k2, BED_MOSS[k2 > 2 ? 3 : 2]); }
+      // the geodes, standing along the plank
+      gems.slice(0, 3).forEach((g, i) => {
+        const r = Math.max(4, tb * (i === 1 ? 0.17 : 0.14)), ry = r * 1.12;
+        halfGeode(T, x0 + L * (0.2 + i * 0.3), top - dep * 0.5 - ry * 0.92, r, ry, g, spark === i);
+      });
+      // a pinch of moss and a root curl at the other end, so it sits in the nest
+      T.px(x0 + 2, top - dep - 1, BED_MOSS[1]); T.px(x0 + 3, top - dep - 1, BED_MOSS[2]); T.px(x0 + 1, top + th, R[3]);
+    }));
   },
   spring(x, y) {
-    const b = N.base * decorK, rx = b * 0.75, ry = b * 0.22;
-    const g = ctx.createRadialGradient(x, y, 2, x, y, rx);
-    g.addColorStop(0, "#9fe3e0"); g.addColorStop(1, "#3a6fa8");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.fill();
-    ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 1.5;
-    for (let i = 0; i < 3; i++) {
-      const k = ((game.time / 2200) + i / 3) % 1;
-      ctx.globalAlpha = 1 - k;
-      ctx.beginPath(); ctx.ellipse(x + rx * 0.1, y, rx * 0.2 + k * rx * 0.75, ry * 0.2 + k * ry * 0.75, 0, 0, TAU); ctx.stroke();
-    }
-    ctx.globalAlpha = 1;
-    ctx.strokeStyle = "rgba(255,255,255,.35)"; ctx.lineWidth = 3;
-    ctx.beginPath(); ctx.ellipse(x, y, rx, ry, 0, 0, TAU); ctx.stroke();
+    // the isometric room's moon pond, lying as flat as the floor does from the front, a ripple running out across it
+    const t = Math.max(8, Math.round(N.base * decorK * 0.96 / PX)), rx = t * 0.78, flat = 0.32, w = Math.ceil(rx * 2.5) + 8, h = Math.ceil(rx * flat * 2 + t * 0.75) + 12;
+    const ax = Math.round(w / 2), cy = h - Math.ceil(rx * flat) - 5;
+    drawBaked(frontArt("spring", x, y, w, h, ax, cy, t, Math.floor(game.time / 370) % 6, T => ISO_ART.spring(t, T, ax, cy - t / 2, { frame: Math.floor(game.time / 370) % 6, flat })));
   },
   swing() {
-    const [sx, sy, , top] = swingSeat(), b = N.base;
-    // ropes as runs of whole pixels
-    ctx.fillStyle = "#b9b3c0";
-    const px = decorSpot("swing")[0];
-    for (const d of [-1, 1]) { const x0 = px + d * b * 0.3, x1 = sx + d * b * 0.3, n = Math.max(1, Math.round((sy - top) / PX)); for (let k = 0; k <= n; k++) ctx.fillRect(Math.round(lerp(x0, x1, k / n) / PX) * PX, Math.round(lerp(top, sy, k / n) / PX) * PX, PX, PX); }
-    ctx.fillStyle = "#fff8d6";
-    ctx.beginPath(); ctx.arc(sx, sy, b * 0.4, Math.PI * 0.05, Math.PI * 0.95); ctx.arc(sx, sy - b * 0.14, b * 0.36, Math.PI * 0.92, Math.PI * 0.08, true); ctx.closePath(); ctx.fill();
+    // two ropes, plaited light and dark, from the hook to the moon seat (see moonSeat) swinging under it
+    const [sx, sy, , top] = swingSeat(), b = N.base, hx = decorSpot("swing")[0], R = Math.round(b * 0.4 / PX);
+    const rope = [pxHex("#e4dfe8"), pxHex("#8a8494")].map(c => `rgb(${c})`);
+    for (const d of [-1, 1]) {
+      const x0 = hx + d * b * 0.3, x1 = sx + d * b * 0.3, n = Math.max(1, Math.round((sy - top) / PX));
+      for (let k = 0; k <= n; k++) {
+        const px = Math.round(lerp(x0, x1, k / n) / PX) * PX, py = Math.round(lerp(top, sy, k / n) / PX) * PX;
+        ctx.fillStyle = "#22143a"; ctx.fillRect(px - PX, py, PX * 3, PX);
+        ctx.fillStyle = rope[k % 3 === 0 ? 1 : 0]; ctx.fillRect(px, py, PX, PX);
+      }
+    }
+    const m = cachedSprite(roomSprites, "frontMoonseat", `${R}|${PX}`, () => ({ c: isoArt(R * 2 + 6, R + 8, T => moonSeat(T, R + 3, 3, R)) }));
+    drawBaked({ c: m.c, x: Math.round(sx / PX - R - 3) * PX, y: Math.round(sy / PX - 3) * PX });
   },
   lights() {
-    const cols = ["#ffe9a8", "#ff9ecb", "#8fd8ef", "#b9e88a", "#c9b8ff"];
-    ctx.strokeStyle = "rgba(230,224,255,.45)"; ctx.lineWidth = 1.2;
-    ctx.beginPath();
-    for (let k = 0; k <= 40; k++) { const [px, py] = lightsLine(k / 40); k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
-    ctx.stroke();
+    if (N.iso) return lightsIso();
+    // a dark wire looped along the wall, pixel by pixel, and little glass bulbs in brass caps hanging off it, each in a halo
+    // of dithered light that swells and fades (brighter for a moment when tapped)
+    const n = Math.max(20, Math.round(N.hb * 2 / PX));
+    let last = "";
+    for (let k = 0; k <= n; k++) {
+      const [px, py] = lightsLine(k / n), gx = Math.round(px / PX), gy = Math.round(py / PX);
+      if (gx + "," + gy !== last) { ctx.fillStyle = "#0b0614"; ctx.fillRect(gx * PX, (gy + 1) * PX, PX, PX); ctx.fillStyle = "#5d5666"; ctx.fillRect(gx * PX, gy * PX, PX, PX); }
+      last = gx + "," + gy;
+    }
+    const ramps = [[IC.y0, IC.y1, IC.w1], [IC.p0, IC.p1, IC.p2], [IC.b0, IC.b1, IC.b2], [IC.g0, IC.g1, IC.g2], [IC.l0, IC.l2, IC.l3]];
     for (let i = 1; i < 14; i++) {
-      const [bx, by] = bulbPos(i);
-      const col = cols[i % cols.length], rung = fxAge("bulb" + i), lit = rung < 0.7 ? 1 - rung / 0.7 : 0;
-      const k = Math.min(1, 0.55 + 0.45 * Math.sin(game.time * 0.003 + i * 1.3) + lit), r = 14 + lit * 12;
-      const g = ctx.createRadialGradient(bx, by, 1, bx, by, r);
-      g.addColorStop(0, col); g.addColorStop(1, col + "00");
-      ctx.globalAlpha = k; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, r, 0, TAU); ctx.fill();
-      ctx.globalAlpha = 1; ctx.fillStyle = lit ? "#fff" : col; ctx.beginPath(); ctx.arc(bx, by, 3.5 + lit * 2, 0, TAU); ctx.fill();
+      const [bx, by] = bulbPos(i), c = i % ramps.length, rung = fxAge("bulb" + i), lit = rung < 0.7 ? 1 - rung / 0.7 : 0;
+      const glow = Math.round(Math.min(1, 0.55 + 0.45 * Math.sin(game.time * 0.003 + i * 1.3) + lit) * 4), big = lit > 0.3 ? 1 : 0;
+      const r = Math.round((14 + big * 10) / PX) + 2, gx = Math.round(bx / PX), gy = Math.round(by / PX);
+      const halo = cachedSprite(roomSprites, `frontHalo${c}`, `${glow}|${big}|${PX}`, () => ({ c: isoArt(r * 2 + 1, r * 2 + 1, T => T.glow(r, r, r, ramps[c][1], 0.12 + glow * 0.09), { outline: false, texture: false, light: false }) }));
+      drawBaked({ c: halo.c, x: (gx - r) * PX, y: (gy - r) * PX });
+      const bulb = cachedSprite(roomSprites, `frontBulb${c}`, `${big}|${PX}`, () => ({ c: isoArt(9, 10, T => {
+        // the brass cap on the wire, the glass under it lit from the top left, a white glint
+        T.px(3, 2, BRASS[1]); T.px(4, 2, BRASS[2]); T.px(5, 2, BRASS[3]);
+        T.ball(4, 5, 2.1, big ? IC.white : ramps[c][0], big ? ramps[c][0] : ramps[c][1], ramps[c][big ? 1 : 2], 2.4);
+        T.px(3, 4, IC.white);
+      }, { texture: false }) }));
+      drawBaked({ c: bulb.c, x: (gx - 4) * PX, y: (gy - 3) * PX });
     }
   },
 };
+
+/** The fairy lights strung round the isometric room's walls, each bulb in its own soft glow. */
+function lightsIso() {
+  const cols = ["#ffe9a8", "#ff9ecb", "#8fd8ef", "#b9e88a", "#c9b8ff"];
+  ctx.strokeStyle = "rgba(230,224,255,.45)"; ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (let k = 0; k <= 40; k++) { const [px, py] = lightsLine(k / 40); k ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+  ctx.stroke();
+  for (let i = 1; i < 14; i++) {
+    const [bx, by] = bulbPos(i);
+    const col = cols[i % cols.length], rung = fxAge("bulb" + i), lit = rung < 0.7 ? 1 - rung / 0.7 : 0;
+    const k = Math.min(1, 0.55 + 0.45 * Math.sin(game.time * 0.003 + i * 1.3) + lit), r = 14 + lit * 12;
+    const g = ctx.createRadialGradient(bx, by, 1, bx, by, r);
+    g.addColorStop(0, col); g.addColorStop(1, col + "00");
+    ctx.globalAlpha = k; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, r, 0, TAU); ctx.fill();
+    ctx.globalAlpha = 1; ctx.fillStyle = lit ? "#fff" : col; ctx.beginPath(); ctx.arc(bx, by, 3.5 + lit * 2, 0, TAU); ctx.fill();
+  }
+}

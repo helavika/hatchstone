@@ -1118,7 +1118,90 @@ function incubatorPod(x, y, b) {
   });
 }
 
+/** The incubator in the straight-on room, all in pixels: the pod (incubatorPod), a shadow and a ring of light on the floor
+ *  that fills while it incubates, a tiny moon going round the dome, the speckled egg rocking when it's ready, and the glass. */
+function drawIncubatorFront() {
+  const [x, y] = incSpot(), b = N.base * depthK(y), inc = save.incubator, n = game.nest, ready = inc && Date.now() >= inc.due;
+  pxShadow(x, y + 4, b * 0.55, b * 0.11, 0.3);
+  if (inc && !ready) {
+    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), fy = y - b * 0.02, from = Math.PI / 2;
+    pxRing(x, fy, b * 0.66, b * 0.2, 0, TAU, "rgba(255,255,255,.16)");
+    if (k > 0.005) pxRing(x, fy, b * 0.66, b * 0.2, from, from + TAU * k, "#ffb3d4");
+  }
+  // the tiny moon on its faint orbit: the far half (and the moon, when it's back there) goes behind the dome
+  const an = game.time * 0.0009, oy0 = y - b * 0.42, moonFront = Math.sin(an) > 0;
+  const moon = () => { const m = cachedSprite(roomSprites, "frontIncMoon", PX, () => ({ c: isoArt(7, 7, T => T.ball(3, 3, 1.7, IC.white, IC.y0, IC.y1)) })); drawBaked({ c: m.c, x: Math.round((x + Math.cos(an) * b * 0.62) / PX - 3) * PX, y: Math.round((oy0 + Math.sin(an) * b * 0.16) / PX - 3) * PX }); };
+  pxRing(x, oy0, b * 0.62, b * 0.16, Math.PI, TAU, "rgba(201,184,255,.35)");
+  if (!moonFront) moon();
+  drawBaked(incubatorPod(x, y, b));
+  propCue("incubator", incubatorPod(x, y, b));
+  if (inc) {
+    // the egg, speckled in both parents' colours and glowing warmer as it gets closer; when it's ready it rocks
+    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), wob = ready ? Math.sin(game.time * 0.02) * 0.08 + (n.hatchWob || 0) * Math.sin(game.time * 0.05) * 0.2 : 0;
+    const ew = Math.round(b * 0.42 / PX), eh = Math.round(ew * 1.28), tilt = clamp(Math.round(wob * 10), -2, 2), warm = Math.round(k * 4), taps = Math.min(2, n.hatchTaps || 0);
+    const gr = Math.ceil(ew * 1.1), w = ew + gr * 2 + 6, h = eh + gr * 2 + 4, ex = w / 2, ebot = h - gr - 2;
+    drawBaked(frontArt("incEgg", x, y - b * 0.05, w, h, ex, ebot, `${inc.mix.name}|${inc.mix.pal}|${ew}`, `${tilt}|${warm}|${taps}`, T => {
+      const pal = inc.mix.pal.map(pxHex), ey = ebot - eh / 2;
+      // the shape, leaning as it rocks: each row slides over by how high it is
+      const lean = py => tilt * (ebot - py) / eh;
+      const pts = eggPoly(ex, ey, ew, eh, 40);
+      for (let py = Math.floor(ey - eh / 2); py <= Math.ceil(ebot); py++) for (let px = Math.floor(ex - ew); px <= Math.ceil(ex + ew); px++) {
+        const sx = px + 0.5 - lean(py), sy = py + 0.5;
+        let inside = false;
+        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > sy) !== (yj > sy) && sx < (xj - xi) * (sy - yi) / (yj - yi) + xi) inside = !inside; }
+        if (!inside) continue;
+        const nx = (sx - ex) / (ew / 2), ny = (sy - ey) / (eh / 2), lit = -nx * 0.6 - ny * 0.75;
+        T.px(px, py, lit > 0.55 ? mixHex(pal[1], IC.white, 0.6) : lit > 0.05 ? pal[1] : lit > -0.5 ? mixHex(pal[1], pal[0], 0.55) : pal[0]);
+      }
+      // speckles
+      const R2 = seeded(inc.mix.name);
+      for (let i = 0; i < 9; i++) { const sy = Math.round(ey + (R2() - 0.5) * eh * 0.8), sx = Math.round(ex + (R2() - 0.5) * ew * 0.8 + lean(sy)), big = R2() > 0.6; for (const [dx, dy] of big ? [[0, 0], [1, 0], [0, 1]] : [[0, 0]]) if (T.has(sx + dx, sy + dy)) T.px(sx + dx, sy + dy, mixHex(pal[2], pal[0], 0.3)); }
+      // a glint
+      T.px(ex - ew * 0.22 + lean(ey - eh * 0.25), ey - eh * 0.25, IC.white);
+      // cracks from the taps
+      if (taps) for (let i = 0; i <= 6; i++) { const cx2 = ex - ew / 2 + i * ew / 6, cy2 = ey + (i % 2 ? -1 : 1); T.px(cx2 + lean(cy2), cy2, IC.ink2); }
+      if (taps > 1) { T.line(ex - 1 + lean(ey), ey - 1, ex + lean(ey - eh * 0.3), ey - eh * 0.3, IC.ink2); T.line(ex + ew * 0.2 + lean(ey), ey + 1, ex + ew * 0.12 + lean(ey + eh * 0.3), ey + eh * 0.3, IC.ink2); }
+      // its warm glow inside the glass, stronger as it gets closer
+      T.glow(ex, ey, ew * (0.8 + warm * 0.1), IC.y0, 0.06 + warm * 0.04);
+    }));
+  }
+  // the glass dome: a bright rim, the back of its foot showing faintly through, a long highlight down the left
+  const r = Math.round(b * 0.4 / PX), gh = Math.round((b * 0.49) / PX), gr = Math.max(1, Math.round(b * 0.112 / PX)), dw = r * 2 + 5, dh = r + gh + gr + 4;
+  const glass = cachedSprite(roomSprites, "frontIncGlass", `${r}|${gh}|${gr}|${PX}`, () => ({ c: isoArt(dw, dh, T => {
+    const cx = r + 2, cy = r + 1, rim = pxHex("#f4f0ff");
+    for (let k = 0; k <= 64; k++) { const a = Math.PI + k / 64 * Math.PI; T.px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, rim); }
+    for (let j = 0; j <= gh; j++) { T.px(cx - r, cy + j, rim); T.px(cx + r, cy + j, rim); }
+    for (let k = 0; k <= 48; k++) { const a = k / 48 * Math.PI; T.px(cx + Math.cos(a) * r, cy + gh + Math.sin(a) * gr, rim); if (k % 3 === 0) T.px(cx - Math.cos(a) * r, cy + gh - Math.sin(a) * gr, IC.l1); }
+    // the highlight: following the curve of the glass at the top left, then straight down its side
+    for (let k = 0; k <= 12; k++) { const a = Math.PI * (1.12 + k / 12 * 0.26); T.px(cx + Math.cos(a) * (r - 2.5), cy + Math.sin(a) * (r - 2.5), IC.white); }
+    for (let j = 0; j < Math.round(gh * 0.7); j++) T.px(cx - r + 2, cy + j, j % 4 === 3 ? IC.l0 : IC.white);
+    T.px(cx + r * 0.55, cy - r * 0.55, IC.white); T.px(cx + r * 0.62, cy - r * 0.45, IC.l0);
+  }, { outline: false, texture: false, light: false }) }));
+  ctx.globalAlpha = 0.6;
+  drawBaked({ c: glass.c, x: Math.round(x / PX - r - 2) * PX, y: Math.round((y - b * 0.55) / PX - r - 1) * PX });
+  ctx.globalAlpha = 1;
+  pxRing(x, oy0, b * 0.62, b * 0.16, 0, Math.PI, "rgba(201,184,255,.35)");
+  if (moonFront) moon();
+  if (ready) {
+    // ready to hatch: three twinkles going round it
+    for (let i = 0; i < 3; i++) {
+      const a = game.time * 0.002 + i * 2.1, big = Math.abs(Math.sin(game.time * 0.005 + i)) > 0.5 ? 1 : 0;
+      const s = cachedSprite(roomSprites, "frontIncSpark" + big, PX, () => ({ c: isoArt(9, 9, T => pxTwinkle(T, 4, 4, big + 1, IC.y1, IC.y0), { outline: false, texture: false, light: false }) }));
+      drawBaked({ c: s.c, x: Math.round((x + Math.cos(a) * b * 0.5) / PX - 4) * PX, y: Math.round((y - b * 0.55 + Math.sin(a) * b * 0.4) / PX - 4) * PX });
+    }
+  } else if (!inc) {
+    // empty: a little heart, waiting
+    const s = cachedSprite(roomSprites, "frontIncHeart", PX, () => ({ c: isoArt(9, 8, T => {
+      for (const [row, a, bb] of [[0, 1, 2], [0, 4, 5], [1, 0, 6], [2, 0, 6], [3, 1, 5], [4, 2, 4], [5, 3, 3]]) for (let q = a; q <= bb; q++) T.px(q + 1, row + 1, row < 2 && (q === 1 || q === 4) ? IC.white : row > 2 ? IC.p2 : IC.p1);
+    }, { texture: false, light: false }) }));
+    ctx.globalAlpha = 0.85;
+    drawBaked({ c: s.c, x: Math.round(x / PX - 4) * PX, y: Math.round((y - b * 0.45) / PX - 4) * PX });
+    ctx.globalAlpha = 1;
+  }
+}
+
 function drawIncubator() {
+  if (!N.iso) return drawIncubatorFront();
   const [x, y] = incSpot(), b = N.base * depthK(incSpot()[1]), inc = save.incubator, n = game.nest;
   const ready = inc && Date.now() >= inc.due;
   // a little space pod: a metal saucer with blinking lights, and a nebula full of stars inside the dome
