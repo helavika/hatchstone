@@ -258,6 +258,23 @@ body.scene-echo #echoHud { opacity: 1; }
 .hud-quit { position: absolute; left: 14px; top: var(--top); }
 body.scene-catch #catchHud .hud-quit, body.scene-echo #echoHud .hud-quit { pointer-events: auto; }
 body:not(.scene-catch) #catchHud .hud-quit, body:not(.scene-echo) #echoHud .hud-quit { visibility: hidden; }
+/* a walk outside (walk.js): the way home, the path's name and the bag up top; the sheet's companions; the finds on the card after */
+#walkHud { position: fixed; inset: 0 0 auto 0; display: flex; justify-content: center; gap: 8px; padding: var(--top) 14px 0; pointer-events: none; opacity: 0; transition: opacity .4s; z-index: 2; }
+body.scene-walk #walkHud:not(.done) { opacity: 1; }
+#walkQuit { position: absolute; left: 14px; top: var(--top); }
+body.scene-walk #walkHud:not(.done) #walkQuit { pointer-events: auto; }
+body:not(.scene-walk) #walkQuit { visibility: hidden; }
+#walkBag { display: flex; align-items: center; gap: 2px; }
+#walkBag .ic { width: 22px; height: 22px; margin-right: 2px; }
+body.scene-walk #hint { bottom: calc(var(--bottom) + 28px); }
+.walk-who button.on { box-shadow: 0 0 0 2px var(--px-gold, #eec26a); background: rgba(255, 233, 168, .12); }
+.walk-pics { display: flex; justify-content: center; gap: 4px; margin: 2px 0 4px; }
+.walk-pics img { width: 80px; height: 80px; image-rendering: pixelated; }
+.walk-got { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; margin: 10px 0 2px; }
+.walk-find { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px 3px 4px; background: rgba(255, 255, 255, .08); border-radius: 14px; font-size: 15px; }
+.walk-find .ic { width: 24px; height: 24px; }
+#walkNew { color: var(--px-gold, #eec26a); margin: 10px 0 0; }
+#walkDone .cta { margin-top: 14px; }
 
 /* glowpedia */
 .seg { display: inline-flex; gap: 4px; padding: 4px; border-radius: 999px; background: rgba(255, 255, 255, .08); margin: 6px auto 0; }

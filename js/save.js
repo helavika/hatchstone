@@ -54,6 +54,8 @@ function migrate(d) {
   d.sparks = sparkSaveOf(d.sparks);
   // the keeper's core (see inner.js): an older nest starts part-way, from what it's already been through
   d.core = coreSaveOf(d.core, d);
+  // walks outside (see walk.js): how far the paths are open, the best hauls, the keepsakes
+  d.walks = walkSaveOf(d.walks);
   d.v = SAVE_VERSION;
   return d;
 }
