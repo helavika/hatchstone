@@ -755,7 +755,7 @@ const PIP = { name: "Pip", face: () => keeperFace("pip"), voice: { f: 520, wave:
 const FENNEL = { name: "Fennel", face: () => keeperFace("fennel"), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
 const OLLO = { name: "Ollo", face: () => keeperFace("ollo"), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
 const HEROES = {
-  shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.5, 0.42], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
+  shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.7, 0.5], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
     hello: ["Welcome, welcome! Mind the sacks, they're full of seeds.", "Food, furniture, seeds: if it's on a shelf, it's for sale.", "Furniture goes into your chest. Food goes into your basket."],
     lines: ["Fresh cookies today. Well, fresh-ish.", "One day I'll sell a hat. Just one. A very good hat.", "Moonberries are flying off the shelf!", "Starfruit? Oh no, that only grows in a garden. Not here.", "A tidy nest is a happy nest, I always say.", "Wick sells odd things. I sell sensible things."] },
   forge: { who: EMBER, eyes: [[5, 3, 2, 2, "#e0634f"], [9, 3, 2, 2, "#e0634f"]], quirk: "sparks", icon: "ember", at: [0.76, 0.26], role: "works the forge", act: [["hammer", "Forge", () => openForge()]],
