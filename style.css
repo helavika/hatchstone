@@ -423,6 +423,7 @@ h3.chap small { display: block; font-size: 10px; letter-spacing: 2.5px; color: v
 #faqList summary::before { content: "▸ "; }
 #faqList details[open] summary::before { content: "▾ "; }
 #faqList p { margin: 8px 0 2px; font-size: 18px; line-height: 1.35; }
+#faqList .shop-tabs { grid-template-columns: repeat(4, 1fr); gap: 6px; }
 #faqList a { color: var(--px-gold); text-decoration: underline; text-underline-offset: 3px; }
 .lang-btn .ic { width: 28px; height: 28px; }
 .lvl:disabled span { letter-spacing: 0; filter: grayscale(1); }
