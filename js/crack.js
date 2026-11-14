@@ -946,6 +946,63 @@ function drawGloom() {
 
 // ---------- the story: why the glowlings sleep in stone, told a little at a time as you go deeper ----------
 
+// Dialog portraits of Wick and Dorma, hand-pixelled 26x26 (see pxPortrait in pixel.js); the garden still draws Wick from his small icon.
+PX_PORTRAITS.wick = { pal: { h: "#fff0b5", g: "#eec26a", o: "#c98f3a", b: "#946027", B: "#5e3a1c", d: "#3a2238", k: "#160c26", e: "#2e1c44", p: "#6b4fa8", W: "#ffffff", r: "#e88bb1", z: "#5d5666", S: "#8a8494", f: "#ffb54a", R: "#a8522b" }, rows: [
+  "..oooo.........ooo........",
+  ".oBBBBo.......oBBBb.......",
+  "oB.b.bBo......B.b.Bb......",
+  "oB.b.b.B.....oB.b..B......",
+  "B......oB....oB....b......",
+  "........b.bb.B...........B",
+  "B.......bbhgbBB........BBo",
+  "oB....bbhhhhhggBB....BBoob",
+  "ooBB.bhhhhhgggggoB.BBoobbb",
+  "boooBbhgoooggggood.BobBBbb",
+  "bBBbobgohggggggobbdBbBogBb",
+  "BghBobgBBBBBgggBBBkBbBooBb",
+  "BggBbBgeWWeegggWeekBbbBBbB",
+  "bBBbbBgeWeeegggeeekBRbbbbR",
+  "bRbbbBgeeeepggoeepkBBSzRRo",
+  "RBRRbBgbeepbhhgbebkBzbbzoB",
+  "BbBBBBBhrrgghhBofkBBzSSzB.",
+  "bbBBhhhBggoBBBofkgfzShhSz.",
+  "BbBhhhhgBoogoofkgofzhWWhz.",
+  "BBBhhghhgobbbbbogofzhWhgz.",
+  "dBBghhghhggooogggofzhhggz.",
+  ".d.BghhhhhggggggggfzSggSz.",
+  "...Bogghhhhggghggookzzzzk.",
+  "....BghgBhhggBggooB.kkkk..",
+  ".....BgBBBggBBBooBd.......",
+  "......BBBBooBBBBBd........",
+] };
+PX_PORTRAITS.dorma = { pal: { h: "#efe6ff", L: "#d2bfff", l: "#ad91e6", m: "#8a6bc8", p: "#6b4fa8", D: "#3d2866", k: "#160c26", S: "#b9aed0", W: "#ffffff", c: "#a5dcec", t: "#69b7d6", T: "#3383a8", U: "#1f5578", g: "#eec26a", o: "#c98f3a", r: "#e88bb1" }, rows: [
+  ".............TTTTTTTU.....",
+  "..........TTTccttttTTU....",
+  ".......TTTccttttttTTTUWW..",
+  "....TTTcctttttttttTTUWWWS.",
+  "...TcctttttttttttTTUkWWSS.",
+  "..TcttttttttttttTTTU..SS..",
+  "..TcccccccccccctttTU......",
+  ".TctttttttttttTTTTUUUk....",
+  ".TttTmmmpppppppppDUUUkk...",
+  ".pmlLLLLLLLLllmlllmmppk...",
+  ".pLlllSSSSSlllmmSSSmmmpk..",
+  "pLLlSShhhhhSllmShhhSmmpk..",
+  "pLlhhhLLLLhhhlmhhLLhhmpk..",
+  "pLlhhLLlllmhhlmhLllmhmpk..",
+  "pllhhllllmmhhgghllmmhmpk..",
+  "pllhhkDWkkkhhggokWkkhmpk..",
+  "pllhhhkkkkhhhgooSkkhhmpk..",
+  ".plrrhhhhhhhlloDShhhrmpk..",
+  ".plllhhhhhhllmmmhhSmmpDk..",
+  ".plllllllllmmmmmpppppDk...",
+  "..pllllllmmmmmppppppDk....",
+  "..pllmSSSSSSSSSSpppppDk...",
+  ".pLlmooooooooDoooooooopmDk",
+  "plllmghhhhhhhDhhhhhhSompDk",
+  "pllmmghSSSShhDhSSSShSompDk",
+  "plmmpghhhhhhSDShhhhhSoppDk",
+] };
 const WICK = { name: "Wick", face: () => pxPortrait("wick"), voice: { f: 420, wave: "sawtooth", spread: 0.3, glide: 1.1, gain: 0.025, len: 0.05 } };
 const DORMA = { name: "Dorma", face: () => pxPortrait("dorma"), voice: { f: 260, wave: "sine", spread: 0.15, glide: 0.85, gain: 0.08, len: 0.09 } };
 /** Each part opens with a level of the grotto and plays once; the book keeps them all to read again. */
