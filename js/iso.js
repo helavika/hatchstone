@@ -1210,65 +1210,153 @@ const ISO_ART = {
   },
   // ---- the garden
   greenhouse(t, T, ax, ay) {
-    // a little glasshouse: a white frame, panes catching the light, ferns and tomatoes inside, a peaked glass roof
-    const a = t * 0.95, b = t * 0.95, h = Math.round(t * 1.1), x = ax, y = ay + 2;
-    const q = T.box(x, y, a, b, h, IC.b0, (px, py) => (px + py) % 5 === 0 ? IC.white : pxHash(px, py) > 0.75 ? IC.g1 : IC.b1, (px, py) => (px + py) % 5 === 0 ? IC.b0 : pxHash(px, py) > 0.8 ? IC.g2 : IC.b2);
-    for (const [p0, p1] of [[q.Bv, q.Buv], [q.Buv, q.Bu]]) for (let k = 0; k <= 4; k++) { const f = k / 4, px = p0[0] + (p1[0] - p0[0]) * f, py = p0[1] + (p1[1] - p0[1]) * f; T.line(px, py, px, py - h, IC.white); }
-    T.line(q.Bv[0], q.Bv[1] - h * 0.5, q.Buv[0], q.Buv[1] - h * 0.5, IC.white); T.line(q.Buv[0], q.Buv[1] - h * 0.5, q.Bu[0], q.Bu[1] - h * 0.5, IC.white);
-    const top = [q.top, [q.Bu[0], q.Bu[1] - h], [q.Buv[0], q.Buv[1] - h], [q.Bv[0], q.Bv[1] - h]], ridge0 = [(top[0][0] + top[3][0]) / 2, (top[0][1] + top[3][1]) / 2 - t * 0.5], ridge1 = [(top[1][0] + top[2][0]) / 2, (top[1][1] + top[2][1]) / 2 - t * 0.5];
-    T.poly([top[3], top[2], ridge1, ridge0], (px, py) => (px - py) % 6 === 0 ? IC.white : IC.b0);
-    T.poly([top[2], top[1], ridge1], IC.b1);
-    T.line(ridge0[0], ridge0[1], ridge1[0], ridge1[1], IC.white);
-    for (let k = 0; k < 4; k++) T.px(q.Bv[0] + 4 + k * 5, q.Bv[1] + 2 + k * 2.5 - h * 0.3, k % 2 ? IC.r1 : IC.y1);
+    // a glasshouse on a low brick wall: white-painted glazing bars, panes you see through to tomatoes on canes and pots on a
+    // staging bench inside, the moon's light slanting across the glass, a pitched glass roof and a door in the gable
+    const U = t / 2, K = isoKit(T, ax, ay), u0 = 0.06 * U, u1 = 1.94 * U, v0 = 0.08 * U, v1 = 1.9 * U, vm = (v0 + v1) / 2;
+    const bz = Math.round(t * 0.32), ez = bz + Math.round(t * 1.0), rz = ez + Math.round(t * 0.6);
+    const brick = side => (px, py) => { const yy = side ? py + px * 0.5 : py - px * 0.5, row = Math.floor(yy / 3), along = px + (((row % 2) + 2) % 2) * 3;
+      return (((Math.floor(yy) % 3) + 3) % 3 === 0 || ((along % 6) + 6) % 6 === 0) ? IC.s2 : pxHash(Math.floor(along / 6), row) > 0.6 ? (side ? IC.r3 : IC.r2) : side ? IC.r3 : IC.r2; };
+    const bar = IC.white, bar2 = IC.s1, through = (px, py) => (px + py) % 2 ? IC.g2 : py % 2 ? IC.b2 : IC.g3;
+    // through the back glass: the garden behind, tinted
+    K.box(u0, v0, 0, u1 - u0, v1 - v0, bz, IC.w3, brick(0), brick(1));
+    K.faceV(v0, u0, u1, bz, ez, through, 0); K.quad([[u0, v0, bz], [u0, v1, bz], [u0, v1, ez], [u0, vm, rz], [u0, v0, ez]], through, 0);
+    for (let k = 0; k <= 5; k++) K.seg([u0 + (u1 - u0) * k / 5, v0, bz], [u0 + (u1 - u0) * k / 5, v0, ez], bar2);
+    for (let k = 0; k <= 4; k++) K.seg([u0, v0 + (v1 - v0) * k / 4, bz], [u0, v0 + (v1 - v0) * k / 4, k === 2 ? rz : ez], bar2);
+    K.quad([[u0, v0, ez], [u1, v0, ez], [u1, vm, rz], [u0, vm, rz]], (px, py) => (px + py) % 2 ? IC.b1 : IC.b2, 0);
+    for (let k = 0; k <= 5; k++) K.seg([u0 + (u1 - u0) * k / 5, v0, ez], [u0 + (u1 - u0) * k / 5, vm, rz], bar2);
+    // inside: a staging bench of pots along the back, tomatoes on canes down one side, soil between
+    K.flat(u0, v0, u1, v1, bz, (px, py) => pxHash(px, py) > 0.8 ? IC.w2 : IC.w3);
+    const TERRA = ["#f0a070", "#c86a3c", "#8e4626"].map(pxHex);
+    K.box(u0 + 0.1 * U, v0 + 0.05 * U, bz, u1 - u0 - 0.2 * U, 0.4 * U, Math.round(t * 0.4), IC.w1, IC.w2, IC.w3);
+    for (let k = 0; k < 5; k++) { const u = u0 + 0.28 * U + k * 0.33 * U, z = bz + Math.round(t * 0.4); K.cyl(u, v0 + 0.25 * U, z, 0.1 * U, 4, TERRA[2], TERRA[0], TERRA[1]); const [x, y] = K.P(u, v0 + 0.25 * U, z + 4); for (let j = 0; j < 6; j++) T.px(x - 2 + j % 3 + (j > 2 ? 1 : 0), y - 1 - Math.floor(j / 2), [IC.g0, IC.g1, IC.g2][j % 3]); }
+    for (let k = 0; k < 4; k++) {
+      const u = u0 + 0.22 * U, v = v0 + 0.7 * U + k * 0.3 * U;
+      K.seg([u, v, bz], [u, v, ez - 2], IC.w1);
+      for (let j = 0; j < 14; j++) { const z = bz + 3 + j * (ez - bz - 6) / 14, [x, y] = K.P(u, v, z); T.px(x + (j % 3) - 1, y, [IC.g1, IC.g2, IC.g0][j % 3]); T.px(x + (j % 2 ? 2 : -2), y + 1, IC.g2); if (j % 5 === 3) { T.px(x + 1, y + 2, IC.r1); T.px(x + 2, y + 2, IC.r2); T.px(x + 1, y + 1, IC.p0); } }
+    }
+    // the near glass: bars, a pale tint, the light slanting across
+    const glass = (px, py) => ((px - 2 * py) % 23 + 23) % 23 < 2 ? IC.b0 : ((px - 2 * py) % 23 + 23) % 23 === 2 ? IC.white : (px + py) % 6 === 0 && py % 3 === 0 ? IC.b0 : null;
+    K.faceV(v1, u0, u1, bz, ez, glass, 0);
+    K.quad([[u1, v0, bz], [u1, v1, bz], [u1, v1, ez], [u1, vm, rz], [u1, v0, ez]], (px, py) => glass(px, py) || ((px + py) % 3 === 0 ? IC.b1 : null), 0);
+    for (let k = 0; k <= 4; k++) K.seg([u0 + (u1 - u0) * k / 4, v1, bz], [u0 + (u1 - u0) * k / 4, v1, ez], bar);
+    K.seg([u0, v1, (bz + ez) / 2], [u1, v1, (bz + ez) / 2], bar);
+    // the door in the gable: a frame, a handle, a brick step
+    const dv0 = vm - 0.3 * U, dv1 = vm + 0.3 * U;
+    for (const v of [v0, dv0, dv1, v1]) K.seg([u1, v, bz], [u1, v, v === v0 || v === v1 ? ez : ez + 2], bar2);
+    K.seg([u1, dv0, ez + 2], [u1, dv1, ez + 2], bar2); K.seg([u1, v0, ez], [u1, vm, rz], bar2); K.seg([u1, vm, rz], [u1, v1, ez], bar2);
+    K.dot(u1, dv1 - 0.08 * U, (bz + ez) / 2, IC.y1); K.box(u1, dv0, 0, 0.18 * U, dv1 - dv0, 3, IC.s1, IC.s2, IC.s3, false);
+    // the roof's near slope: more bars, more light on the glass, a white ridge
+    K.quad([[u0, vm, rz], [u1, vm, rz], [u1, v1, ez], [u0, v1, ez]], (px, py) => glass(px, py) || ((px + py) % 4 === 1 && py % 2 ? IC.b1 : null), 0);
+    for (let k = 0; k <= 3; k++) K.seg([u0 + (u1 - u0) * k / 3, vm, rz], [u0 + (u1 - u0) * k / 3, v1, ez], bar);
+    K.seg([u0, v1, ez], [u1, v1, ez], bar); K.seg([u0, vm, rz], [u1, vm, rz], bar); K.seg([u1, v1, bz], [u1, v1, ez], bar);
+    K.box(u0 - 0.04 * U, vm - 0.04 * U, rz, u1 - u0 + 0.08 * U, 0.08 * U, 1, IC.white, IC.s0, IC.s1, false);
   },
   potting(t, T, ax, ay) {
-    // a potting bench along the wall: terracotta pots of seedlings, a trowel, a watering can
-    const a = t * 0.3, b = t - 2, h = Math.round(t * 0.6), x = ax, y = ay + 1;
-    T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
-    for (let k = 0; k < 4; k++) { const px = x - 2 * b * (k + 0.6) / 4.4 + a, py = y + b * (k + 0.6) / 4.4 + a / 2 - h; T.cyl(px, py, t * 0.09, Math.round(t * 0.16), IC.r1, IC.r1, IC.r2); T.px(px, py - t * 0.2, IC.g0); T.px(px - 1, py - t * 0.24, IC.g1); T.px(px + 1, py - t * 0.26, IC.g0); }
-    const cx = x - b * 0.4, cy = y + b + 2;
-    T.cyl(cx, cy, t * 0.12, Math.round(t * 0.2), IC.s1, IC.s2, IC.s3); T.line(cx + t * 0.12, cy - t * 0.12, cx + t * 0.3, cy - t * 0.25, IC.s2);
+    // a potting bench along the wall: legs and a slatted top, a backboard with a shelf; terracotta pots stacked and planted,
+    // a seed tray, a trowel; a sack of compost underneath and a galvanised watering can on the ground in front
+    const U = t / 2, K = isoKit(T, ax, ay), TERRA = ["#f0a070", "#c86a3c", "#8e4626", "#5e2c18"].map(pxHex);
+    const u0 = 0.05 * U, u1 = 0.7 * U, v0 = 0.08 * U, v1 = 1.92 * U, h = Math.round(t * 1.15), lg = 0.09 * U;
+    K.faceU(0.04 * U, v0, v1, h, h + Math.round(t * 0.75), IC.w2, 2);
+    K.box(0.04 * U, v0, h + Math.round(t * 0.5), 0.22 * U, v1 - v0, 2, IC.w1, IC.w2, IC.w3, false);
+    for (const v of [v0, v1 - lg]) K.box(u0, v, 0, lg, lg, h, IC.w1, IC.w2, IC.w3, false);
+    { const [x, y] = K.P(u0 + 0.35 * U, 0.9 * U, 0); isoSack(T, x, y, U * 0.38, U * 0.8, { open: [IC.w3, IC.ink2, IC.w3] }); }
+    for (const v of [v0, v1 - lg]) K.box(u1 - lg, v, 0, lg, lg, h - 2, IC.w1, IC.w2, IC.w3, false);
+    K.box(u0, v0, h - 2, u1 - u0, v1 - v0, 2, IC.w1, IC.w2, IC.w3);
+    const pot = (u, v, z, r, hz, plant) => {
+      K.cyl(u, v, z, r * 0.8, hz, TERRA[3], TERRA[0], TERRA[2]); K.cyl(u, v, z + hz - 2, r, 2, TERRA[1], TERRA[0], TERRA[1]); K.ring(u, v, z + hz, r * 0.8, TERRA[3]);
+      if (plant) { const [x, y] = K.P(u, v, z + hz); for (let j = 0; j < 9; j++) T.px(x - 3 + (j * 3) % 7, y - 1 - Math.floor(j / 3) - (j % 2), [IC.g0, IC.g1, IC.g2][j % 3]); }
+    };
+    // a stack of empty pots, three planted ones, a seed tray of seedlings, the trowel
+    for (let k = 0; k < 3; k++) pot(0.38 * U, 0.3 * U, h + k * 3, 0.15 * U, 5, false);
+    pot(0.36 * U, 0.75 * U, h, 0.14 * U, 6, true); pot(0.36 * U, 1.05 * U, h, 0.12 * U, 5, true);
+    K.box(0.18 * U, 1.3 * U, h, 0.36 * U, 0.42 * U, 3, IC.w3, IC.w1, IC.w2, false);
+    for (let k = 0; k < 8; k++) K.dot(0.24 * U + (k % 2) * 0.16 * U, 1.36 * U + Math.floor(k / 2) * 0.09 * U, h + 4, k % 3 ? IC.g0 : IC.g1);
+    K.seg([0.55 * U, 1.0 * U, h], [0.62 * U, 1.3 * U, h], IC.m1); K.seg([0.62 * U, 1.3 * U, h], [0.66 * U, 1.45 * U, h], IC.w2);
+    // things on the shelf
+    for (const [v, k] of [[0.5, 1], [1.4, 0]]) pot(0.14 * U, v * U, h + Math.round(t * 0.5) + 2, 0.08 * U, 4, k);
+    // the watering can: a drum with a long spout and a handle over the top
+    { const u = 1.05 * U, v = 1.25 * U, [x, y] = K.P(u, v, 0); K.cyl(u, v, 0, 0.17 * U, Math.round(t * 0.4), IC.m1, IC.m1, IC.m2); K.ring(u, v, 3, 0.17 * U, IC.m3);
+      T.line(x - 4, y - 5, x - 12, y - 13, IC.m2); T.line(x - 4, y - 4, x - 12, y - 12, IC.m3); T.disc(x - 12, y - 13, 2, IC.m1, 1);
+      for (let k = 0; k <= 8; k++) { const an = Math.PI + k / 8 * Math.PI; T.px(x + 2 + Math.cos(an) * 5, y - t * 0.4 - 1 + Math.sin(an) * 5, k < 4 ? IC.m1 : IC.m2); } }
   },
   skep(t, T, ax, ay) {
-    // a straw bee skep on a little stand: coiled rows of straw, a dark doorway at its foot, a bee or two about
-    const cx = ax, cy = ay + t / 2, straw = [pxHex("#7a5a2c"), pxHex("#a8844a"), pxHex("#d2b273"), pxHex("#ead09a")];
-    T.box(cx - t * 0.02, cy - t * 0.3, t * 0.28, t * 0.28, Math.round(t * 0.28), IC.w1, IC.w2, IC.w3);
-    const base = cy - t * 0.42, r = t * 0.3, hgt = t * 0.62;
-    for (let k = 0; k < 7; k++) { const f = k / 7, rr = r * Math.sqrt(1 - f * f * 0.9), yy = base - hgt * f; T.disc(cx, yy, rr, (px) => px < cx - rr * 0.3 ? straw[3] : px > cx + rr * 0.4 ? straw[1] : straw[2], rr * 0.45); T.line(cx - rr, yy, cx + rr, yy, straw[0]); }
-    T.ball(cx, base - hgt, r * 0.25, straw[2], straw[1], straw[0], r * 0.18);
-    T.poly([[cx - 2, base + 1], [cx + 2, base + 2], [cx + 2, base - 2], [cx - 2, base - 3]], IC.ink2);
-    for (const [dx, dy] of [[-r * 1.2, -hgt * 0.6], [r * 1.1, -hgt * 0.9]]) { T.px(cx + dx, base + dy, IC.y1); T.px(cx + dx + 1, base + dy, IC.ink2); T.px(cx + dx, base + dy - 1, IC.white); }
+    // a straw bee skep on a wooden stand: coil on coil of bound straw narrowing to a rounded crown, each coil lit on top and
+    // shadowed under, a dark doorway at the foot with bees coming and going
+    const U = t / 2, K = isoKit(T, ax, ay), straw = ["#5a3e1e", "#8a6430", "#b8904e", "#dcbd7c", "#f2dca6"].map(pxHex), c = 0.5 * U, sz = Math.round(t * 0.55);
+    for (const [u, v] of [[c - 0.3 * U, c - 0.3 * U], [c + 0.25 * U, c - 0.3 * U], [c - 0.3 * U, c + 0.25 * U]]) K.box(u, v, 0, 2, 2, sz, IC.w1, IC.w2, IC.w3, false);
+    K.box(c + 0.25 * U, c + 0.25 * U, 0, 2, 2, sz, IC.w1, IC.w2, IC.w3, false);
+    K.box(c - 0.4 * U, c - 0.4 * U, sz, 0.8 * U, 0.8 * U, 3, IC.w1, IC.w2, IC.w3);
+    const [x, y] = K.P(c, c, sz + 3), r = U * 0.42 * 2.83 * 0.62, hgt = Math.round(t * 0.95), n = 8, ch = hgt / n;
+    for (let k = 0; k < n; k++) {
+      const f = k / n, rr = r * Math.sqrt(Math.max(0.05, 1 - (f * 0.95) ** 2.2)), yy = y - k * ch;
+      for (let j = 0; j < ch + 0.5; j++) T.disc(x, yy - j, rr, xx => { const q = (xx + 0.5 - x) / rr; const band = j < 1 ? 0 : j > ch - 1.5 ? 3 : 2; return straw[clamp(band + (q < -0.45 ? 1 : q > 0.45 ? -1 : 0), 0, 4)]; }, rr * 0.48);
+    }
+    T.ball(x, y - hgt, r * 0.28, straw[4], straw[3], straw[2], r * 0.2);
+    T.poly([[x - 3, y + 1], [x + 2, y + 2], [x + 2, y - 3], [x - 1, y - 4], [x - 3, y - 3]], IC.ink2);
+    for (const [dx, dy] of [[-r * 1.3, -hgt * 0.5], [r * 1.2, -hgt * 0.8], [-r * 0.6, -hgt * 1.15], [r * 0.4, 2]]) { T.px(x + dx, y + dy, IC.y1); T.px(x + dx + 1, y + dy, IC.ink); T.px(x + dx, y + dy - 1, IC.white); }
   },
   coldframe(t, T, ax, ay) {
-    // a cold frame: a low wooden box with a sloping glass lid propped open, seedlings in rows inside
-    const a = t - 2, b = t * 0.42, x = ax, y = ay + t * 0.05, h = Math.round(t * 0.32);
-    const q = T.box(x, y, a, b, h, IC.w1, IC.w2, IC.w3);
-    T.poly([q.top, [q.top[0] + 2 * a, q.top[1] + a], [q.top[0] + 2 * a - 2 * b, q.top[1] + a + b], [q.top[0] - 2 * b, q.top[1] + b]], IC.w3);
-    for (let r = 0; r < 2; r++) for (let k = 0; k < 7; k++) { const px = q.top[0] - 2 * b * (r * 0.5 + 0.25) + 2 * a * (k + 0.5) / 7, py = q.top[1] + b * (r * 0.5 + 0.25) + a * (k + 0.5) / 7; T.px(px, py - 1, IC.g0); T.px(px - 1, py - 2, IC.g1); T.px(px + 1, py - 2, IC.g0); }
-    // the lid, raised on a stick, panes catching the light
-    const lift = t * 0.45, l0 = [q.top[0], q.top[1] - lift], l1 = [q.top[0] + 2 * a, q.top[1] + a - lift];
-    T.poly([l0, l1, [l1[0] - 2 * b * 0.9, l1[1] + b * 0.9 + lift * 0.6], [l0[0] - 2 * b * 0.9, l0[1] + b * 0.9 + lift * 0.6]], (px, py) => (px - py * 2) % 7 === 0 ? IC.white : IC.b0);
-    T.line(l0[0], l0[1], l1[0], l1[1], IC.w1);
-    T.line(q.top[0] + a, q.top[1] + a / 2, q.top[0] + a, q.top[1] + a / 2 - lift, IC.w2);
+    // a cold frame: a plank box, high at the back and low at the front to catch the sun, rows of seedlings inside, its glass
+    // light hinged at the back and propped open on a stick
+    const U = t / 2, K = isoKit(T, ax, ay), u0 = 0.08 * U, u1 = 1.92 * U, v0 = 0.12 * U, v1 = 0.9 * U, hb = Math.round(t * 0.62), hf = Math.round(t * 0.32);
+    K.faceV(v0, u0, u1, 0, hb, IC.w3, 1);
+    K.flat(u0, v0, u1, v1, 2, (px, py) => pxHash(px, py) > 0.8 ? IC.w2 : IC.w3, 0);
+    for (let r = 0; r < 3; r++) for (let k = 0; k < 9; k++) { const [x, y] = K.P(u0 + (u1 - u0) * (k + 0.5) / 9, v0 + (v1 - v0) * (r + 0.6) / 3.4, 2); T.px(x, y - 1, IC.g2); T.px(x - 1, y - 2, IC.g0); T.px(x + 1, y - 2, IC.g1); T.px(x, y - 3, r === 1 ? IC.g0 : null); }
+    K.quad([[u0, v0, 0], [u0, v1, 0], [u0, v1, hf], [u0, v0, hb]], IC.w2, 1);
+    K.faceV(v1, u0, u1, 0, hf, IC.w2, 1); K.faceV(v1, u0, u1, hf - 1, hf, IC.w1, 5);
+    K.quad([[u1, v0, 0], [u1, v1, 0], [u1, v1, hf], [u1, v0, hb]], IC.w3, 2);
+    K.seg([u1, v1, hf], [u1, v0, hb], IC.w1);
+    // the lid: hinged along the back, swung up and over, panes catching the moon, held by a stick
+    const lz = hb + Math.round(t * 0.85), lv = v0 + 0.18 * U;
+    K.quad([[u0, v0, hb], [u1, v0, hb], [u1, lv, lz], [u0, lv, lz]], (px, py) => ((px - 2 * py) % 13 + 13) % 13 < 2 ? IC.white : (px + py) % 2 ? IC.b0 : IC.b1, 0);
+    for (const u of [u0, (u0 + u1) / 2, u1]) K.seg([u, v0, hb], [u, lv, lz], IC.w1);
+    K.seg([u0, lv, lz], [u1, lv, lz], IC.w2);
+    K.seg([(u0 + u1) * 0.3, v0 + 0.05 * U, hb], [(u0 + u1) * 0.3, lv - 0.02 * U, lz - 2], IC.w2);
   },
   sunflowers(t, T, ax, ay) {
-    // three tall sunflowers nodding at the moon
-    const cx = ax, cy = ay + t / 2;
-    for (const [dx, hh, k0] of [[-t * 0.24, 1.45, 0.85], [t * 0.18, 1.85, 1], [t * 0.0, 1.1, 0.75]]) {
-      const top = cy - t * hh, r = t * 0.17 * k0, x = cx + dx;
-      for (let y = cy; y > top; y--) { T.px(x, y, IC.g2); T.px(x + 1, y, IC.g3); }
-      for (const [ly, side] of [[0.35, -1], [0.55, 1]]) T.ball(x + side * r * 0.9, cy - t * hh * ly, r * 0.55, IC.g0, IC.g1, IC.g2, r * 0.3);
-      T.ball(x, top, r * 1.45, IC.y0, IC.y1, IC.w1, r * 1.2);
-      T.ball(x, top, r * 0.65, IC.w2, IC.w3, IC.w3, r * 0.55);
+    // three tall sunflowers: hairy stalks, big heart-shaped leaves with a midrib, heads of golden petals round a brown disc of
+    // seeds in spirals; the tallest nods toward the light
+    const U = t / 2, K = isoKit(T, ax, ay), c = 0.5 * U;
+    for (const [du, dv, hh, k0] of [[-0.15, -0.2, 2.5, 0.9], [0.25, -0.02, 2.9, 1], [-0.05, 0.28, 2.0, 0.8]]) {
+      const [x, y] = K.P(c + du * U, c + dv * U, 0), top = y - t * hh, r = t * 0.36 * k0;
+      for (let yy = y; yy > top + r * 0.4; yy--) { const sway = Math.round(Math.sin((y - yy) * 0.04) * 1.5); T.px(x + sway, yy, IC.g1); T.px(x + sway + 1, yy, IC.g3); if (pxHash(x, yy) > 0.8) T.px(x + sway - 1, yy, IC.g0); }
+      // leaves: hearts on short stems, lit above the midrib
+      for (const [f, side] of [[0.28, -1], [0.48, 1], [0.66, -1]]) {
+        const ly = y - (y - top) * f, lx = x + side * r * 0.95, lr = r * 0.62;
+        T.line(x, ly + 2, lx - side * lr * 0.5, ly, IC.g2);
+        for (let yy = -lr * 0.6; yy <= lr * 0.6; yy++) for (let xx = -lr; xx <= lr; xx++) { const q = Math.abs(xx / lr) + (yy / (lr * 0.6)) ** 2 * (xx * side > 0 ? 1 : 1.3); if (q > 1) continue; T.px(lx + xx, ly + yy, Math.abs(yy + xx * side * 0.15) < 0.6 ? IC.g2 : yy < 0 ? IC.g0 : IC.g1); }
+      }
+      // the head: petals, a darker ring of shorter ones, the disc with its seed spiral
+      const hx = x + Math.round(Math.sin((y - top) * 0.04) * 1.5) - 1, hy = top;
+      for (let k = 0; k < 18; k++) { const an = k / 18 * TAU, pl = r * (k % 2 ? 1 : 0.86); for (let j = 0; j < pl; j++) T.px(hx + Math.cos(an) * (r * 0.4 + j * 0.62), hy + Math.sin(an) * (r * 0.4 + j * 0.62) * 0.8, j > pl - 1.5 ? IC.y1 : an > Math.PI * 0.9 && an < Math.PI * 1.7 ? IC.y0 : IC.y1); }
+      T.disc(hx, hy, r * 0.48, (xx, yy) => { const d = Math.hypot(xx - hx, (yy - hy) * 1.25) / (r * 0.48), an = Math.atan2(yy - hy, xx - hx); return ((d * 7 + an * 1.6) % 2 + 2) % 2 < 0.8 ? IC.w2 : d > 0.8 ? IC.w3 : xx < hx && yy < hy ? IC.w2 : IC.ink2; }, r * 0.4);
     }
   },
   barrow(t, T, ax, ay) {
-    // a wheelbarrow full of soil, with a spade stuck in it
-    const cx = ax, cy = ay + t / 2;
-    T.disc(cx + t * 0.3, cy, t * 0.12, IC.s3);
-    T.box(cx - t * 0.25, cy - t * 0.4, t * 0.34, t * 0.22, Math.round(t * 0.26), IC.w3, IC.r2, IC.r3);
-    T.line(cx - t * 0.55, cy - t * 0.05, cx - t * 0.25, cy - t * 0.2, IC.w2);
-    T.line(cx + t * 0.05, cy - t * 0.62, cx + t * 0.12, cy - t * 0.12, IC.w2); T.box(cx + t * 0.04, cy - t * 0.72, 2, 1, 3, IC.s1, IC.s2, IC.s3);
+    // a wooden wheelbarrow: a tray of boards splaying outward, red paint worn at the edges, full of soil with a spade in it;
+    // a spoked wheel at the front, two legs and two long handles at the back
+    const U = t / 2, K = isoKit(T, ax, ay), v0 = 0.25 * U, v1 = 0.75 * U, zt = Math.round(t * 0.38), ht = Math.round(t * 0.38);
+    const red = [IC.r1, IC.r2, IC.r3];
+    // legs and handles at the back (low u)
+    for (const v of [v0 + 0.05 * U, v1 - 0.05 * U]) { K.seg([0.25 * U, v, 0], [0.32 * U, v, zt], IC.w3); K.seg([-0.15 * U, v, zt + 4], [0.95 * U, v, zt - 2], IC.w2); }
+    // the tray: a bottom smaller than its top
+    const b0 = [0.3 * U, v0 + 0.08 * U, 0.8 * U, v1 - 0.08 * U], b1 = [0.18 * U, v0 - 0.05 * U, 0.98 * U, v1 + 0.05 * U];
+    K.quad([[b0[0], b0[1], zt], [b0[2], b0[1], zt], [b1[2], b1[1], zt + ht], [b1[0], b1[1], zt + ht]], red[2], 1);
+    K.quad([[b0[0], b0[1], zt], [b0[0], b0[3], zt], [b1[0], b1[3], zt + ht], [b1[0], b1[1], zt + ht]], red[1], 2);
+    K.flat(b1[0], b1[1], b1[2], b1[3], zt + ht - 1, (px, py) => pxHash(px, py) > 0.75 ? IC.w2 : pxHash(px + 1, py) > 0.5 ? IC.w3 : IC.ink2, 0);
+    K.quad([[b0[0], b0[3], zt], [b0[2], b0[3], zt], [b1[2], b1[3], zt + ht], [b1[0], b1[3], zt + ht]], red[0], 1);
+    K.quad([[b0[2], b0[1], zt], [b0[2], b0[3], zt], [b1[2], b1[3], zt + ht], [b1[2], b1[1], zt + ht]], red[1], 2);
+    K.seg([b1[0], b1[3], zt + ht], [b1[2], b1[3], zt + ht], IC.p0); K.seg([b1[2], b1[1], zt + ht], [b1[2], b1[3], zt + ht], IC.r2);
+    for (let k = 0; k < 5; k++) K.dot(b1[0] + (b1[2] - b1[0]) * pxHash(k, 2), b1[3], zt + ht - 1 - (k % 3), IC.w3);
+    // the wheel: a tyre round spokes, standing upright under the nose
+    const wc = [1.08 * U, 0.5 * U, zt * 0.62], wr = zt * 0.62;
+    for (let k = 0; k < 6; k++) { const an = k / 6 * Math.PI; K.seg([wc[0] + Math.cos(an) * wr, wc[1], wc[2] + Math.sin(an) * wr], [wc[0] - Math.cos(an) * wr, wc[1], wc[2] - Math.sin(an) * wr], IC.w2); }
+    for (let k = 0; k < 40; k++) { const an = k / 40 * TAU; for (const d of [0, 1]) K.dot(wc[0] + Math.cos(an) * (wr - d), wc[1], wc[2] + Math.sin(an) * (wr - d), d ? (Math.sin(an) > 0 ? IC.s2 : IC.s3) : IC.s4); }
+    K.dot(wc[0], wc[1], wc[2], IC.m1);
+    // the spade
+    K.seg([0.62 * U, 0.48 * U, zt + ht], [0.5 * U, 0.42 * U, zt + ht + Math.round(t * 0.9)], IC.w2); K.seg([0.62 * U, 0.5 * U, zt + ht], [0.5 * U, 0.44 * U, zt + ht + Math.round(t * 0.9)], IC.w3);
+    K.box(0.47 * U, 0.38 * U, zt + ht + Math.round(t * 0.9), 0.04 * U, 0.12 * U, 1, IC.w1, IC.w2, IC.w3, false);
+    K.quad([[0.58 * U, 0.42 * U, zt + ht - 2], [0.68 * U, 0.42 * U, zt + ht - 2], [0.66 * U, 0.48 * U, zt + ht + 5], [0.6 * U, 0.48 * U, zt + ht + 5]], IC.m1, 0);
   },
   // ---- the shop
   shelves(t, T, ax, ay) {
