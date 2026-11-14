@@ -14,9 +14,48 @@ let toastTimer = 0;
 function toast(text) {
   $("toast").textContent = text;
   $("toast").classList.add("on");
+  placeBanner($("toast"));
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $("toast").classList.remove("on"), 2600);
 }
+
+/**
+ * The open sheet's title block on screen (whatever sits above its title and the title itself, and its ×): { top, bottom,
+ * sheet } (sheet: a card over the scene, not a full screen like the Book), or null with none open. The topmost one counts.
+ */
+function sheetTitle() {
+  let best = null, bz = -Infinity;
+  for (const o of document.querySelectorAll(".overlay:not(.hidden)")) {
+    const card = o.querySelector(":scope > .card"), z = Number(getComputedStyle(o).zIndex) || 0;
+    if (card && card.getClientRects().length && z >= bz) { best = [o, card]; bz = z; }
+  }
+  if (!best) return null;
+  const [o, card] = best, r = card.getBoundingClientRect();
+  let bottom = r.top + 12;
+  for (const el of card.children) {
+    if (el.matches(".x-close, [id$=Close]")) { const b = el.getBoundingClientRect(); if (b.top < r.top + 90) bottom = Math.max(bottom, b.bottom); continue; }
+    const b = el.getBoundingClientRect();
+    if (b.height) bottom = Math.max(bottom, b.bottom);
+    if (el.tagName === "H2") break;
+    if (b.top > r.top + innerHeight * 0.45) { bottom = r.top + 12; break; } // no title near the top: only the card's own top edge
+  }
+  return { top: r.top, bottom, sheet: o.classList.contains("modal") || !o.classList.contains("screen") };
+}
+/**
+ * A banner at the top (a toast, an award) never covers an open sheet's title or its ×: if they'd meet, it moves down to
+ * just under the title block, and a toast also keeps clear of an award showing above it. Kept on screen.
+ */
+function placeBanner(el) {
+  el.style.top = "";
+  const top = parseFloat(getComputedStyle(el).top) || 0, h = el.offsetHeight, s = sheetTitle(), aw = $("award");
+  let y = top;
+  if (s && y < s.bottom && y + h > s.top) y = s.bottom + 8;
+  // (the award's resting place, not where its slide-in has got to)
+  if (el !== aw && awardShowing && aw.classList.contains("on")) { const a = aw.offsetTop, b = a + aw.offsetHeight; if (y < b && y + h > a) y = b + 8; }
+  if (y !== top) el.style.top = Math.round(Math.min(y, innerHeight - h - 12)) + "px";
+}
+/** Does an open sheet's title sit where this banner would drop in? */
+const bannerClash = el => { el.style.top = ""; const s = sheetTitle(), top = parseFloat(getComputedStyle(el).top) || 0; return !!s && s.sheet && top < s.bottom && top + (el.offsetHeight || 64) > s.top; };
 
 function setScene(scene) {
   if (scene !== "nest" && arrange.on) stopArrange();
@@ -242,6 +281,7 @@ const AWARDS = [
 ];
 const awardQueue = [];
 let awardShowing = false;
+const AWARD_HOLD = 6000; // how long an award waits for an open sheet to close before it shows anyway
 /** Hand out what you've earned. The first time (or with quiet) they arrive together, with one word in the corner. */
 function checkAwards(quiet) {
   // like the dialogs, awards wait while (and after) you play together, so a shared egg never changes your own save behind its back
@@ -266,8 +306,17 @@ function checkAwards(quiet) {
   showAward();
 }
 /** A trophy slides down from the top, like a console achievement. */
+let awardHeld = 0;
 function showAward() {
   if (awardShowing || !awardQueue.length) return;
+  // a sheet open with its title just where the trophy would drop in: it waits for the sheet to close (a few seconds at
+  // most, then it drops in just under the sheet's title instead)
+  clearTimeout(showAward.wait);
+  if (bannerClash($("award"))) {
+    if (!awardHeld) awardHeld = Date.now();
+    if (Date.now() - awardHeld < AWARD_HOLD) { showAward.wait = setTimeout(showAward, 400); return; }
+  }
+  awardHeld = 0;
   const a = awardQueue.shift(), el = $("award");
   awardShowing = true;
   if (a.core) {
@@ -282,6 +331,8 @@ function showAward() {
     el.className = "glass on " + a.tier;
     el.innerHTML = `${ic("trophy_" + a.tier, "big")}<span><small>${tr(t.one)} · +${t.shards} ✦</small><b>${tr(a.name)}</b></span>`;
   }
+  placeBanner(el);
+  if ($("toast").classList.contains("on")) placeBanner($("toast"));
   sfx.levelUp(); buzz([10, 40, 10]);
   setTimeout(() => { el.classList.remove("on"); setTimeout(() => { awardShowing = false; showAward(); }, 450); }, 3400);
 }

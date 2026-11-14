@@ -613,6 +613,11 @@ $("meSave").addEventListener("click", () => { const first = !!$("meSave").datase
 $("meName").addEventListener("change", saveMe);
 $$("#meForm [data-form]").forEach(b => b.addEventListener("click", () => { me().form = b.dataset.form; persist(); sfx.tick(); $$("#meForm [data-form]").forEach(x => x.classList.toggle("on", x === b)); }));
 $("award").addEventListener("click", () => { if ($("award").classList.contains("legendary") && awardShowing) openMe(); });
+// a sheet opening or closing while a banner shows: the banner moves out of the sheet's title (or back to its place)
+new MutationObserver(() => {
+  if ($("toast").classList.contains("on")) placeBanner($("toast"));
+  if (awardShowing) placeBanner($("award"));
+}).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
 $("homeClose").addEventListener("click", () => show("homeSheet", false));
 $("homePill").addEventListener("click", openHome);
 $("residentsBtn").addEventListener("click", openHome);
