@@ -10,13 +10,60 @@ function setHint(text) {
   $("hint").classList.toggle("on", !!text);
 }
 
-let toastTimer = 0;
+// one lane for banners: toasts and awards wait in one line and show one at a time, in one slot under the top bar (the
+// hint, where it lives up there too, steps aside for them: see body.banner in style.css)
+let bannerQueue = [], bannerNow = null, bannerTimer = 0, awardHeld = 0;
+const AWARD_HOLD = 6000; // how long an award waits for an open sheet to close before it shows anyway
+const AWARD_LINE = 3;    // this many trophies waiting at once arrive as one banner instead
+const TOAST_LINE = 3;    // no more toasts than this wait their turn: the oldest gives up its place
+const bannerEl = b => $(b.text ? "toast" : "award");
 function toast(text) {
-  $("toast").textContent = text;
-  $("toast").classList.add("on");
-  placeBanner($("toast"));
-  clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => $("toast").classList.remove("on"), 2600);
+  // the same words again are said once: on screen now, they stay their full time again; already in line, that's enough
+  if (bannerNow && bannerNow.text === text && $("toast").classList.contains("on")) { clearTimeout(bannerTimer); bannerTimer = setTimeout(endBanner, 2600); return; }
+  if (bannerQueue.some(b => b.text === text)) return;
+  bannerQueue.push({ text });
+  const line = bannerQueue.filter(b => b.text);
+  if (line.length > TOAST_LINE) bannerQueue.splice(bannerQueue.indexOf(line[0]), 1);
+  nextBanner();
+}
+/** Awards join the line. Three or more trophies waiting at once (after a big level, say) become one banner, where the first of them stood. */
+function queueAwards(...list) {
+  bannerQueue.push(...list);
+  const line = bannerQueue.filter(b => b.tier || b.many), many = line.flatMap(b => b.many || [b]);
+  if (many.length >= AWARD_LINE) bannerQueue = bannerQueue.filter(b => b === line[0] || !line.includes(b)).map(b => b === line[0] ? { many } : b);
+  nextBanner();
+}
+/**
+ * An award bides its time: never in the middle of cracking (it comes with the found card), and not onto an open sheet's
+ * title (it waits for the sheet to close: a few seconds at most, then it drops in just under the sheet's title instead).
+ */
+function awardWaits() {
+  const found = !$("found").classList.contains("hidden");
+  if (game.scene === "crack" && !found) return true;
+  if (!found && bannerClash($("award"))) {
+    if (!awardHeld) awardHeld = Date.now();
+    if (Date.now() - awardHeld < AWARD_HOLD) return true;
+  }
+  awardHeld = 0;
+  return false;
+}
+/** The slot is free: whoever is first in line comes on (a toast goes past an award that is still waiting). */
+function nextBanner() {
+  if (bannerNow || !bannerQueue.length) return;
+  clearTimeout(bannerTimer);
+  const wait = bannerQueue.some(b => !b.text) && awardWaits(), i = bannerQueue.findIndex(b => b.text || !wait);
+  if (i < 0) { bannerTimer = setTimeout(nextBanner, 400); return; }
+  const b = bannerNow = bannerQueue.splice(i, 1)[0], el = bannerEl(b);
+  if (b.text) el.textContent = b.text; else paintAward(el, b);
+  el.classList.add("on");
+  document.body.classList.add("banner");
+  placeBanner(el);
+  bannerTimer = setTimeout(endBanner, b.text ? 2600 : 3400);
+}
+function endBanner() {
+  bannerEl(bannerNow).classList.remove("on");
+  // (the slot stays taken while it leaves; the hint comes back once nobody else is next)
+  bannerTimer = setTimeout(() => { bannerNow = null; nextBanner(); if (!bannerNow) document.body.classList.remove("banner"); }, 450);
 }
 
 /**
@@ -43,15 +90,13 @@ function sheetTitle() {
 }
 /**
  * A banner at the top (a toast, an award) never covers an open sheet's title or its ×: if they'd meet, it moves down to
- * just under the title block, and a toast also keeps clear of an award showing above it. Kept on screen.
+ * just under the title block. Kept on screen.
  */
 function placeBanner(el) {
   el.style.top = "";
-  const top = parseFloat(getComputedStyle(el).top) || 0, h = el.offsetHeight, s = sheetTitle(), aw = $("award");
+  const top = parseFloat(getComputedStyle(el).top) || 0, h = el.offsetHeight, s = sheetTitle();
   let y = top;
   if (s && y < s.bottom && y + h > s.top) y = s.bottom + 8;
-  // (the award's resting place, not where its slide-in has got to)
-  if (el !== aw && awardShowing && aw.classList.contains("on")) { const a = aw.offsetTop, b = a + aw.offsetHeight; if (y < b && y + h > a) y = b + 8; }
   if (y !== top) el.style.top = Math.round(Math.min(y, innerHeight - h - 12)) + "px";
 }
 /** Does an open sheet's title sit where this banner would drop in? */
@@ -176,8 +221,7 @@ function keeperXP(n) {
   const after = keeperLevel().l;
   if (after > before) {
     me().pts += after - before;
-    awardQueue.push({ keeper: true, level: after });
-    showAward();
+    queueAwards({ keeper: true, level: after });
   }
 }
 function openMe(first) {
@@ -280,9 +324,6 @@ const AWARDS = [
   { id: "rescueAll", tier: "legendary", name: "Gloombreaker", how: "Free all four sparks from the Gloom", test: () => [cnt("rescued"), 4] },
   { id: "everyone", tier: "legendary", name: "Every last one", how: "Meet every kind of glowling", test: () => [stat.species(), SPECIES.length] }
 ];
-const awardQueue = [];
-let awardShowing = false;
-const AWARD_HOLD = 6000; // how long an award waits for an open sheet to close before it shows anyway
 /** Hand out what you've earned. The first time (or with quiet) they arrive together, with one word in the corner. */
 function checkAwards(quiet) {
   // like the dialogs, awards wait while (and after) you play together, so a shared egg never changes your own save behind its back
@@ -303,23 +344,10 @@ function checkAwards(quiet) {
   save.awards = earned;
   persist(); updateTopbar();
   if (first || quiet) { toast(tr("{0} awards earned ✦ see them in the Book", got.length)); return; }
-  awardQueue.push(...got);
-  showAward();
+  queueAwards(...got);
 }
-/** A trophy slides down from the top, like a console achievement. */
-let awardHeld = 0;
-function showAward() {
-  if (awardShowing || !awardQueue.length) return;
-  // a sheet open with its title just where the trophy would drop in: it waits for the sheet to close (a few seconds at
-  // most, then it drops in just under the sheet's title instead)
-  clearTimeout(showAward.wait);
-  if (bannerClash($("award"))) {
-    if (!awardHeld) awardHeld = Date.now();
-    if (Date.now() - awardHeld < AWARD_HOLD) { showAward.wait = setTimeout(showAward, 400); return; }
-  }
-  awardHeld = 0;
-  const a = awardQueue.shift(), el = $("award");
-  awardShowing = true;
+/** A trophy slides down from the top, like a console achievement (in its turn: see nextBanner). */
+function paintAward(el, a) {
   if (a.core) {
     // a new facet of the core: its picture, and its name
     el.className = "glass on legendary core";
@@ -327,15 +355,17 @@ function showAward() {
   } else if (a.keeper) {
     el.className = "glass on legendary";
     el.innerHTML = `${ic("star", "big")}<span><small>${tr("Keeper level {0}", a.level)} · ${tr("+1 skill point")}</small><b>${keeperTitle(a.level)}</b></span>`;
+  } else if (a.many) {
+    // a line of trophies in one: the rarest one's cup, and the shards of them all
+    const n = a.many.length, top = AWARD_TIERS.filter(t => a.many.some(x => x.tier === t.id)).pop().id, shards = a.many.reduce((sum, x) => sum + AWARD_TIER[x.tier].shards, 0);
+    el.className = "glass on " + top;
+    el.innerHTML = `${ic("trophy_" + top, "big")}<span><small>${tr("see them in the Book")} · +${shards} ✦</small><b>${n} ${pl(n, "award earned", "awards earned")}</b></span>`;
   } else {
     const t = AWARD_TIER[a.tier];
     el.className = "glass on " + a.tier;
     el.innerHTML = `${ic("trophy_" + a.tier, "big")}<span><small>${tr(t.one)} · +${t.shards} ✦</small><b>${tr(a.name)}</b></span>`;
   }
-  placeBanner(el);
-  if ($("toast").classList.contains("on")) placeBanner($("toast"));
   sfx.levelUp(); buzz([10, 40, 10]);
-  setTimeout(() => { el.classList.remove("on"); setTimeout(() => { awardShowing = false; showAward(); }, 450); }, 3400);
 }
 
 // ---------- the daily moon egg ----------

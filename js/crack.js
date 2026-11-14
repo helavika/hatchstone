@@ -897,7 +897,7 @@ const spotEgg = () => game.scene === "crack" ? { x: L.ex0 - 8, y: L.ey0 - 8, w: 
 const TALKS = {
   intro: () => [[MOSSA, "Oh! A visitor. Hello, hello."], [MOSSA, "I'm Mossa. I've watched over this grotto since before the moss was green."],
     [MOSSA, "Glowlings sleep inside the stone eggs down here. Crack one open, and whoever's inside will need a home.", "#crackTab"],
-    [MOSSA, "This empty nest is yours. Let's go and find your first one!", "#firstEgg"]],
+    [MOSSA, "This empty nest is yours. Let's go and find your first one!"]],
   meet: () => [[MOSSA, "Oh! And we've never been properly introduced. What should I call you?"]],
   firstPet: () => { const cr = firstPet(), g = glowVoice(cr); return [[g, "Pip?", spotActor], [g, "...pip-pip! ♥", spotActor],
     [MOSSA, tr("{0} likes you already. Glowlings remember a kind hand.", cr.name), spotActor],
