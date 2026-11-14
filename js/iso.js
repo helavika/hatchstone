@@ -294,6 +294,8 @@ function updateActors(dt) {
   syncActors();
   game.nest.obst = roomObstacles();
   const list = [...actors.values()], call = game.nest.call;
+  // a finger held still on the floor keeps calling (moving it is not needed)
+  if (call && pointer && pointer.call) call.t = game.time;
   for (const a of list) {
     const cr = save.creatures.find(c => c.id === a.id);
     if (!cr) continue;
