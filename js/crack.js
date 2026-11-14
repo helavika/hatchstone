@@ -866,6 +866,18 @@ function showFound() {
 
 // ---------- dialogs: Mossa, the old stone who keeps the grotto, talks you through the big moments ----------
 
+// Mossa's portrait: one big round pale stone, worn smooth, under a cap of moss that creeps down her brow and temple;
+// happy closed eyes with a warm glow along the lids, rosy lichen on the cheeks, the pale flower of her old icon.
+// Drawn by designs/mossa/portrait/mossa_portrait.py.
+PX_PORTRAITS.mossa = { pal: { k: "#160c26", j: "#2c1d47", a: "#fbf7f0", b: "#e4dfe8", c: "#b9b1c9", d: "#857b9f", e: "#544970", M: "#cbe98b", m: "#82c66a", n: "#57ad6a", o: "#2f6d57", p: "#1d4449", w: "#fff6cf", y: "#ffc94a", g: "#e08f35", r: "#e88bb1" }, rows: [
+  "..........................", ".................w........", "....M...pppp....wgw.......", "...nm.ppMMMmpp...w........",
+  "..pppMMmmmmmnnopppppp.....", ".pMMmnmmmmnnnoopMMmmnp....", ".pmmnonmmnnnooonmmmnnopk..", ".pmnnooppoopccccpoonnoopk.",
+  ".pMmnopaaaaabbbbaaaaonopk.", ".pmmnocbbbbbbbbbbbbbbcopk.", ".pmnoccccccccbbccccccccpk.", ".pnoccbjjjbbbbbcbjjbcccdk.",
+  ".pocbbjgygjbbbbcjygjbccdk.", ".ecbbbjaaajbbabcjaajbccdk.", ".ecbrrrbbbbbbaabcbbrrccdk.", ".ecbrrbbbbbbcdddcbbrcccdk.",
+  ".ecbbbbbbbbebbbbbebbcccdk.", ".ecdbbbbbbbbjjjjjbbccccdk.", ".eccddbbbbbbbaaabbcccccdk.", ".edccbddbbbbbbbbccMccddck.",
+  ".pmncccbdbbbbbbccMMcddop..", "pMmmnoccccccccccccddonop..", "pmmnnopddddddddddddonnnop.", "pmmnnnoopppppppppponnnoopk",
+  "pmnnnooopoonnnoopnnnnooopk", "pnnnooooppooooooppnnooooop",
+] };
 const MOSSA = { name: "Mossa", face: () => pxPortrait("mossa"), voice: { f: 190, wave: "triangle", spread: 0.22, glide: 0.92, gain: 0.07, len: 0.07 } };
 const glowVoice = cr => ({ name: cr.name, face: () => creatureImage(specOf(cr), { art: 32, level: cr.level, shiny: cr.shiny }),
   voice: { f: 640 * (specOf(cr).voice || 1), wave: "square", spread: 0.4, glide: 1.3, gain: 0.03, len: 0.05 } });
