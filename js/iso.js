@@ -1423,52 +1423,113 @@ const ISO_ART = {
     const [lx, ly] = P(A, A * 0.55, 0); T.line(lx + 2, ly, lx + 6, ly - h - 8, IC.m3);
   },
   bellows(t, T, ax, ay) {
-    // paired leather bellows on a wooden frame, their nozzle into the hearth, worked by a long lever overhead
-    const cx = ax, cy = ay + t / 2;
-    t *= 1.35;
-    for (const [dx, dy] of [[-t * 0.3, 0], [t * 0.3, 0], [0, -t * 0.15], [0, t * 0.15]]) T.line(cx + dx, cy + dy, cx + dx, cy + dy - t * 0.35, IC.w3);
-    const by = cy - t * 0.42;
-    // the lower board, the leather between, the upper board (teardrop shapes pointing at the hearth)
-    const drop = (oy, col) => T.poly([[cx - t * 0.62, by + oy + 2], [cx - t * 0.1, by + oy - t * 0.2], [cx + t * 0.42, by + oy - t * 0.05], [cx + t * 0.45, by + oy + t * 0.15], [cx - t * 0.05, by + oy + t * 0.25]], col);
-    drop(t * 0.14, IC.w3);
-    drop(t * 0.07, (px, py) => (Math.floor(px / 4) % 2) ? IC.r3 : IC.w3);
-    drop(0, (px, py) => pxNoise(px * 0.1, py * 0.6) > 0.55 ? IC.w3 : IC.w2);
-    T.line(cx - t * 0.62, by + 2, cx - t * 0.85, by + 5, IC.s2); T.line(cx - t * 0.62, by + 3, cx - t * 0.85, by + 6, IC.s3);
-    // the lever and its chain
-    T.line(cx + t * 0.3, by - t * 0.05, cx + t * 0.3, by - t * 0.75, IC.w3);
-    T.line(cx - t * 0.4, by - t * 0.55, cx + t * 0.75, by - t * 0.9, IC.w2);
-    for (let k = 0; k < 5; k++) T.px(cx - t * 0.1, by - t * 0.6 + k * 3, IC.s2);
+    // great bellows lying on a trestle beside the hearth: a teardrop of two boards with pleated leather between them, an iron
+    // nozzle into the fire, and a rocker on a post overhead with a chain down to the top board and a rope to pull
+    const U = t / 2, K = isoKit(T, ax, ay), zb = Math.round(t * 0.8), lh = Math.round(t * 0.32), zt = zb + 2 + lh;
+    const leather = ["#8a5a36", "#6b4127", "#4a2a19", "#2e180e"].map(pxHex);
+    const leg = (u, v) => K.box(u - 1, v - 1, 0, 2, 2, zb, IC.w2, IC.w2, IC.w3, false);
+    leg(0.25 * U, 0.25 * U); leg(0.85 * U, 0.25 * U); leg(0.25 * U, 0.8 * U);
+    K.box(0.2 * U, 0.48 * U, zb - 3, 0.75 * U, 0.1 * U, 2, IC.w1, IC.w2, IC.w3, false);
+    const pts = [[0.02, 0.5], [0.3, 0.2], [0.68, 0.1], [0.94, 0.24], [1.0, 0.5], [0.94, 0.76], [0.68, 0.9], [0.3, 0.8]].map(([u, v]) => [u * U, v * U]);
+    const board = (z, top, edge) => { K.quad(pts.map(([u, v]) => [u, v, z]), edge); K.quad(pts.map(([u, v]) => [u, v, z + 2]), top, 1); };
+    board(zb, IC.w2, IC.w3);
+    // the leather: only the sides facing us, each pleated in ridges that catch the light
+    const sides = pts.map((p, i) => [p, pts[(i + 1) % pts.length]]).map(([p, q]) => ({ p, q, nu: q[1] - p[1], nv: -(q[0] - p[0]) })).filter(e => e.nu + e.nv > 0).sort((a, b) => a.p[0] + a.p[1] - b.p[0] - b.p[1]);
+    for (const e of sides) for (let z = zb + 2; z < zt; z++) {
+      const lit = e.nv > e.nu, pleat = (z - zb) % 3, bulge = Math.sin(Math.PI * (z - zb - 2) / lh);
+      const col = leather[clamp((lit ? 1 : 2) + (pleat === 0 ? 1 : pleat === 2 ? -1 : 0) - (bulge > 0.7 && pleat === 2 ? 1 : 0), 0, 3)];
+      K.quad([[e.p[0], e.p[1], z], [e.q[0], e.q[1], z], [e.q[0], e.q[1], z + 1], [e.p[0], e.p[1], z + 1]], col, 0);
+    }
+    leg(0.85 * U, 0.8 * U);
+    board(zt, IC.w1, IC.w2);
+    for (const [u, v] of pts.slice(2, 7)) K.dot(u, v, zt + 1, IC.y1);
+    // the nozzle, tapering into the hearth
+    for (let k = 0; k < 7; k++) { const u = -k * 0.07 * U, r = 2.2 - k * 0.2; const [x, y] = K.P(u, 0.5 * U, zb + 5); T.ball(x, y, r, IC.m1, IC.m2, IC.m3, r * 0.8); }
+    // the rocker: a post, a beam across its top, a chain to the board and a rope with a toggle to pull
+    K.box(1.02 * U, 0.45 * U, 0, 2, 2, zt + Math.round(t * 0.95), IC.w1, IC.w2, IC.w3, false);
+    const zr = zt + Math.round(t * 0.9);
+    for (let k = 0; k < 2; k++) K.seg([0.3 * U, 0.5 * U, zr - 4 + k], [1.3 * U, 0.5 * U, zr + 2 + k], k ? IC.w3 : IC.w1);
+    for (let z = zt + 2; z < zr - 3; z += 2) K.dot(0.55 * U, 0.5 * U, z, z % 4 ? IC.m1 : IC.m3);
+    K.seg([1.3 * U, 0.5 * U, zr + 2], [1.3 * U, 0.5 * U, zb], BURLAP[1]); K.box(1.27 * U, 0.47 * U, zb - 4, 1, 1, 4, IC.w1, IC.w2, IC.w3, false);
   },
   anvil(t, T, ax, ay) {
-    // a London-pattern anvil on an oak stump: a flat steel face, a long horn, a square heel with its hardy hole, and a hammer leaning on the stump
-    const cx = ax, cy = ay + t / 2;
-    T.cyl(cx, cy, t * 0.3, Math.round(t * 0.4), (px, py) => Math.hypot(px - cx, (py - (cy - t * 0.4)) * 2) % 3 < 1 ? IC.w2 : IC.w1, IC.w2, IC.w3);
-    const top = cy - Math.round(t * 0.4);
-    T.poly([[cx - t * 0.15, top], [cx + t * 0.15, top + t * 0.07], [cx + t * 0.1, top - t * 0.12], [cx - t * 0.1, top - t * 0.18]], IC.m4);
-    T.box(cx - t * 0.2, top - t * 0.42, t * 0.42, t * 0.15, Math.round(t * 0.14), IC.m0, IC.m3, IC.m4);
-    T.poly([[cx + t * 0.64, top - t * 0.42 + t * 0.21], [cx + t * 1.05, top - t * 0.3 + t * 0.21], [cx + t * 0.64, top - t * 0.26 + t * 0.21]], (px) => px < cx + t * 0.8 ? IC.m1 : IC.m2);
-    T.px(cx - t * 0.1, top - t * 0.34, IC.ink); T.px(cx - t * 0.1 + 1, top - t * 0.34, IC.ink);
-    T.line(cx - t * 0.62, cy, cx - t * 0.33, top - t * 0.15, IC.w2); T.box(cx - t * 0.46, top - t * 0.36, 2, 2, 3, IC.m1, IC.m2, IC.m3);
+    // a London-pattern anvil on an oak stump: a broad foot, a waist, a flat steel face with the hardy and pritchel holes in
+    // its heel, a long tapering horn; a hammer lying on the face, a bar glowing on the horn, tongs leaning on the stump
+    const U = t / 2, K = isoKit(T, ax, ay), c = 0.5 * U, sh = Math.round(t * 0.75), [sx, sy] = K.P(c, c, 0), sr = U * 0.3 * 2.83;
+    // tongs behind the stump
+    T.line(sx + sr * 0.9, sy - 2, sx + sr * 0.5, sy - sh - 6, IC.m3); T.line(sx + sr * 0.9 + 2, sy - 2, sx + sr * 0.5 + 1, sy - sh - 6, IC.m2);
+    T.grain(3, () => { for (let z = 0; z <= sh; z++) T.disc(sx, sy - z, sr, xx => { const f = (xx + 0.5 - sx) / sr, ridge = pxNoise(xx * 0.7, z * 0.12) > 0.62; return f < -0.55 ? (ridge ? IC.w2 : IC.w1) : f > 0.4 ? (ridge ? IC.ink2 : IC.w3) : ridge ? IC.w3 : IC.w2; }); });
+    T.grain(0, () => T.disc(sx, sy - sh, sr - 1, (xx, yy) => { const d = Math.hypot(xx + 0.5 - sx, (yy + 0.5 - sy + sh) * 2) / sr; return Math.round(d * 5) % 2 ? IC.w1 : IC.w0; }));
+    T.line(sx, sy - sh, sx + sr * 0.6, sy - sh + sr * 0.2, IC.w2);
+    const z0 = sh + 1, steel = [IC.m0, IC.m2, IC.m3];
+    K.box(c - 0.34 * U, c - 0.26 * U, z0, 0.68 * U, 0.52 * U, 4, IC.m1, IC.m2, IC.m3);
+    K.box(c - 0.18 * U, c - 0.13 * U, z0 + 4, 0.36 * U, 0.26 * U, 7, IC.m1, IC.m3, IC.m4);
+    // the horn, from its tip to where it meets the body (far parts first)
+    const zf = z0 + 19, n = 9;
+    for (let k = n; k >= 1; k--) { const f = k / n, r = 0.17 * U * (1 - f * 0.85), u = c - 0.42 * U - f * 0.5 * U; K.box(u, c - r, zf - 2 * r - 1, 0.06 * U, 2 * r, 2 * r + 1, IC.m0, IC.m2, IC.m3, false); }
+    K.box(c - 0.42 * U, c - 0.18 * U, z0 + 11, 0.84 * U, 0.36 * U, 8, ...steel);
+    // a glint along the face's front edge, the hardy hole and the pritchel hole in the heel
+    K.seg([c - 0.4 * U, c + 0.18 * U, zf], [c + 0.4 * U, c + 0.18 * U, zf], IC.white);
+    K.flat(c + 0.24 * U, c - 0.05 * U, c + 0.34 * U, c + 0.05 * U, zf, IC.m4); K.dot(c + 0.12 * U, c, zf, IC.m4);
+    // the hammer lying across the face, and a bar glowing orange on the horn
+    K.seg([c - 0.05 * U, c - 0.35 * U, zf + 1], [c - 0.05 * U, c + 0.4 * U, zf + 1], IC.w2); K.seg([c - 0.02 * U, c - 0.35 * U, zf + 1], [c - 0.02 * U, c + 0.4 * U, zf + 1], IC.w3);
+    K.box(c - 0.12 * U, c - 0.42 * U, zf + 1, 0.16 * U, 0.12 * U, 3, IC.m1, IC.m2, IC.m3, false);
+    for (let k = 0; k < 8; k++) { const [x, y] = K.P(c - 0.55 * U + k * 0.06 * U, c + 0.2 * U - k * 0.05 * U, zf + 1); T.px(x, y, k < 3 ? IC.y0 : k < 5 ? IC.y1 : k < 7 ? IC.r1 : IC.m3); }
+    const [gx, gy] = K.P(c - 0.5 * U, c + 0.15 * U, zf + 1); T.glow(gx, gy, U * 0.7, IC.y1, 0.4);
   },
   coalbin(t, T, ax, ay) {
-    const cx = ax, cy = ay + t / 2, a = t * 0.4, b = t * 0.34, h = Math.round(t * 0.36);
-    const q = T.box(cx, cy - a, a, b, h, IC.w2, IC.w3, IC.ink2);
-    for (let k = 0; k < 14; k++) T.ball(q.top[0] - b + 2 + pxHash(k, 2) * (a + b) * 1.4, q.top[1] + 2 + pxHash(k, 5) * a * 0.9, 1.3, k % 5 ? IC.s4 : IC.r1, k % 5 ? IC.ink2 : IC.r2, IC.ink);
+    // a plank bunker of coal against the wall, its corners strapped and riveted in iron, the coal heaped up over the rim in
+    // glinting lumps, a shovel stuck in it, a few lumps spilled on the floor
+    const U = t / 2, K = isoKit(T, ax, ay), u0 = 0.06 * U, v0 = 0.08 * U, a = 0.86 * U, b = 0.82 * U, hz = Math.round(t * 0.8);
+    K.box(u0, v0, 0, a, b, hz, IC.ink2, IC.w2, IC.w3);
+    for (const [p, q] of [[u0, u0 + 0.1 * U], [u0 + a - 0.1 * U, u0 + a]]) K.faceV(v0 + b, p, q, 0, hz, IC.m3, 3);
+    K.faceU(u0 + a, v0 + b - 0.1 * U, v0 + b, 0, hz, IC.m4, 3);
+    for (const z of [3, hz - 3]) { K.dot(u0 + 0.05 * U, v0 + b, z, IC.m1); K.dot(u0 + a - 0.05 * U, v0 + b, z, IC.m1); K.dot(u0 + a, v0 + b - 0.05 * U, z, IC.m2); }
+    // the heap: lumps from the back to the front, each a dark chunk with a cold glint on its lit facet
+    const lump = (u, v, z, r) => { const [x, y] = K.P(u, v, z); T.poly([[x - r, y], [x - r * 0.4, y - r * 0.9], [x + r * 0.6, y - r * 0.7], [x + r, y + 0.2], [x + r * 0.2, y + r * 0.5]], IC.m4); T.poly([[x - r * 0.7, y - 0.3], [x - r * 0.3, y - r * 0.8], [x + r * 0.2, y - r * 0.5], [x - r * 0.1, y]], IC.m3); T.px(x - r * 0.3, y - r * 0.5, pxHash(x, y) > 0.5 ? IC.m1 : IC.s2); };
+    const L = [];
+    for (let i = 0; i < 7; i++) for (let j = 0; j < 7; j++) { const u = u0 + a * (0.1 + i * 0.13), v = v0 + b * (0.1 + j * 0.13), d = Math.hypot(i - 3, j - 3) / 4.3; L.push([u + pxHash(i, j) * 2, v + pxHash(j, i) * 2, hz + 1 + Math.round(t * 0.35 * Math.max(0, 1 - d * d)), 2 + pxHash(i + 7, j) * 1.5]); }
+    L.sort((p, q) => p[0] + p[1] - q[0] - q[1]).forEach(l => lump(...l));
+    // the shovel
+    K.seg([u0 + a * 0.55, v0 + b * 0.4, hz + Math.round(t * 0.3)], [u0 + a * 0.75, v0 + b * 0.3, hz + Math.round(t * 1.15)], IC.w2);
+    K.quad([[u0 + a * 0.42, v0 + b * 0.38, hz + 2], [u0 + a * 0.62, v0 + b * 0.38, hz + 2], [u0 + a * 0.6, v0 + b * 0.42, hz + Math.round(t * 0.32)], [u0 + a * 0.46, v0 + b * 0.42, hz + Math.round(t * 0.32)]], IC.m2, 0);
+    K.box(u0 + a * 0.72, v0 + b * 0.28, hz + Math.round(t * 1.15), 0.14 * U, 0.06 * U, 2, IC.w1, IC.w2, IC.w3, false);
+    for (const [u, v] of [[1.0, 0.7], [0.9, 1.0], [0.6, 1.05]]) lump(u * U, v * U, 0, 2);
   },
   rack(t, T, ax, ay) {
-    // a tool board on the wall: pegs, with tongs, hammers and a file hanging from them
-    const a = t - 2, x = ax, y = ay + 1, lift = Math.round(t * 1.25), bh = Math.round(t * 0.75);
-    const p0 = [x, y - lift], p1 = [x + 2 * a, y + a - lift];
-    T.poly([[p0[0], p0[1] - bh], [p1[0], p1[1] - bh], p1, p0], (px, py) => pxNoise(px * 0.08, py * 0.5) > 0.6 ? IC.w3 : IC.w2);
-    T.line(p0[0], p0[1] - bh, p1[0], p1[1] - bh, IC.w1);
-    const tools = ["tongs", "hammer", "file", "hammer2", "tongs"];
-    tools.forEach((kind, k) => {
-      const f = (k + 0.6) / tools.length, hx = p0[0] + (p1[0] - p0[0]) * f, hy = p0[1] + (p1[1] - p0[1]) * f - bh + 3;
-      T.px(hx, hy - 1, IC.m3);
-      if (kind === "tongs") { T.line(hx - 1, hy, hx - 2, hy + t * 0.55, IC.m3); T.line(hx + 1, hy, hx + 2, hy + t * 0.55, IC.m2); }
-      else if (kind === "file") T.line(hx, hy, hx, hy + t * 0.45, IC.m1);
-      else { const len = kind === "hammer" ? t * 0.5 : t * 0.38; T.line(hx, hy, hx, hy + len, IC.w3); T.box(hx - 2, hy + len - 1, 2, 1, 3, IC.m1, IC.m2, IC.m3); }
-    });
+    // a tool board on the wall, planks with a ledge at the foot: tongs, hammers, a file and horseshoes on iron hooks, each
+    // throwing a shadow on the boards behind it
+    const U = t / 2, K = isoKit(T, ax, ay), vb = 0.06 * U, u0 = 0.12 * U, u1 = 1.88 * U, z0 = Math.round(t * 1.3), z1 = Math.round(t * 2.55);
+    K.faceV(vb, u0, u1, z0, z1, IC.w2, 1);
+    K.faceV(vb, u0, u1, z1 - 1, z1, IC.w1, 5); K.faceV(vb, u0, u1, z0, z0 + 1, IC.w3, 5);
+    K.box(u0, 0, z0 - 3, u1 - u0, 0.2 * U, 3, IC.w1, IC.w2, IC.w3, false);
+    const v = vb + 0.04 * U, sh = (fn) => { fn(1, IC.w3); fn(0, null); };
+    const tool = (kind, u) => {
+      const zt = z1 - 4, [hx, hy] = K.P(u, v, zt);
+      T.px(hx, hy - 1, IC.m4); T.px(hx, hy, IC.m3);
+      const draw = (o, col) => {
+        const c = k => col || k;
+        if (kind === "tongs") { T.line(hx - 1 + o, hy + 1 + o, hx - 2 + o, hy + t * 0.85 + o, c(IC.m3)); T.line(hx + 1 + o, hy + 1 + o, hx + 2 + o, hy + t * 0.85 + o, c(IC.m2)); T.line(hx - 2 + o, hy + t * 0.85 + o, hx - 1 + o, hy + t * 0.95 + o, c(IC.m1)); T.line(hx + 2 + o, hy + t * 0.85 + o, hx + 1 + o, hy + t * 0.95 + o, c(IC.m3)); }
+        else if (kind === "file") { T.line(hx + o, hy + 1 + o, hx + o, hy + t * 0.25 + o, c(IC.w2)); T.line(hx + o, hy + t * 0.25 + o, hx + o, hy + t * 0.7 + o, c(IC.m1)); T.line(hx + 1 + o, hy + t * 0.25 + o, hx + 1 + o, hy + t * 0.7 + o, c(IC.m3)); }
+        else if (kind === "shoe") { for (let k = 0; k < 9; k++) { const an = k / 8 * Math.PI; T.px(hx + Math.cos(an) * 3 + o, hy + 3 + Math.sin(an) * 4 + o, c(k < 4 ? IC.m1 : IC.m2)); } T.px(hx - 3 + o, hy + 3 + o, c(IC.m1)); T.px(hx + 3 + o, hy + 3 + o, c(IC.m3)); }
+        else { const len = kind === "hammer" ? t * 0.75 : t * 0.55; T.line(hx + o, hy + 3 + o, hx + o, hy + len + o, c(IC.w1)); T.line(hx + 1 + o, hy + 3 + o, hx + 1 + o, hy + len + o, c(IC.w3));
+          if (col) T.poly([[hx - 3 + o, hy + o], [hx + 4 + o, hy + o], [hx + 4 + o, hy + 3 + o], [hx - 3 + o, hy + 3 + o]], col);
+          else { T.poly([[hx - 3, hy], [hx + 4, hy], [hx + 4, hy + 3], [hx - 3, hy + 3]], IC.m2); T.line(hx - 3, hy, hx + 3, hy, IC.m0); T.line(hx - 3, hy + 3, hx + 4, hy + 3, IC.m4); } }
+      };
+      sh(draw);
+    };
+    [["tongs", 0.3], ["hammer", 0.6], ["shoe", 0.82], ["file", 1.0], ["hammer2", 1.22], ["shoe", 1.42], ["tongs", 1.65]].forEach(([k, u]) => tool(k, u * U));
+    // on the ledge: an oil can and a whetstone
+    { const [x, y] = K.P(0.5 * U, 0.1 * U, z0); K.cyl(0.5 * U, 0.1 * U, z0, 0.07 * U, 4, IC.m1, IC.m2, IC.m3); T.line(x + 1, y - 4, x + 4, y - 7, IC.m2); }
+    K.box(1.3 * U, 0.04 * U, z0, 0.24 * U, 0.08 * U, 2, IC.s1, IC.s2, IC.s3, false);
+  },
+  barrel2(t, T, ax, ay) {
+    // the slack tub by the anvil: half a cask of dark water for quenching, ripples and a gleam on it, tongs across its rim,
+    // a wisp of steam
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), r = U * 0.9, h = Math.round(t * 0.8);
+    isoCask(T, x, y, r, h, { hoops: [0.14, 0.86], belly: 0.05, fill: (xx, yy) => { const d = Math.hypot(xx + 0.5 - x - r * 0.15, (yy + 0.5 - y + h) * 2) / r; return Math.abs(d - 0.45) < 0.06 || Math.abs(d - 0.75) < 0.05 ? IC.b2 : xx < x - r * 0.3 && yy < y - h ? IC.b1 : IC.b3; } });
+    T.line(x - r * 0.7, y - h - 2, x + r * 0.7, y - h + 2, IC.m3); T.line(x - r * 0.7, y - h - 1, x + r * 0.7, y - h + 3, IC.m2);
+    for (let k = 0; k < 7; k++) T.px(x - 2 + Math.round(Math.sin(k * 0.9) * 2), y - h - 4 - k * 2, k % 2 ? IC.s0 : IC.white);
   },
   // ---- the explorers' camp
   tent(t, T, ax, ay) {
