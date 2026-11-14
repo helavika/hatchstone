@@ -72,7 +72,7 @@ const NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.7, 1318.5];
 
 /** Tap a decoration: it reacts with a little sound and sparkle, and the glowlings who love it come over. */
 function playDecor(hit) {
-  if (hit.id === "garden") { if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.12, 900, 0.8, 0.12, "lowpass"); markTip("garden"); openGarden(); return; }
+  if (hit.id === "garden") { if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.12, 900, 0.8, 0.12, "lowpass"); markTip("garden"); pressProp("garden", openGarden); return; }
   const d = DECO[hit.id], [x, y] = decorSpot(hit.id), b = N.base;
   decorFx[hit.id] = game.time;
   markTip("decorTap");
@@ -598,6 +598,7 @@ function warmEgg(d) {
 /** Hatching: tap the ready egg three times; it cracks a little more each time, then pops open. */
 function tapIncubator() {
   const inc = save.incubator, n = game.nest;
+  pressProp("incubator");
   if (!inc) return openIncubator();
   if (Date.now() < inc.due) return openIncubator();
   n.hatchTaps = (n.hatchTaps || 0) + 1;
@@ -681,6 +682,7 @@ function drawIncubator() {
   orbit(Math.PI, TAU);
   if (!moonFront) moon();
   drawBaked(incubatorPod(x, y, b));
+  propCue("incubator", incubatorPod(x, y, b));
   if (inc) {
     // the egg: speckled in both parents' colors, glowing warmer as it gets closer
     const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), wob = ready ? Math.sin(game.time * 0.02) * 0.08 + (n.hatchWob || 0) * Math.sin(game.time * 0.05) * 0.2 : 0;

@@ -16,7 +16,7 @@ const pxFbm = (x, y) => pxNoise(x, y) * .55 + pxNoise(x * 2.1, y * 2.1) * .3 + p
 function pxSmooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
 // ---------- pixel icons: little sprites for buttons and labels, drawn from text maps ----------
-const PX_ICON_COLORS = { U: "#2f68c8", K: "#3a2440", w: "#efe6ff", W: "#ffffff", l: "#ad91e6", L: "#d2bfff", p: "#6b4fa8", d: "#3d2866", k: "#160c26", g: "#eec26a", G: "#fff0b5", o: "#c98f3a", b: "#946027", B: "#5e3a1c", r: "#e88bb1", R: "#c25586", s: "#e4dfe8", S: "#8a8494", z: "#5d5666", t: "#69b7d6", T: "#3383a8", m: "#57ad6a", e: "#e0634f", E: "#b8323b" };
+const PX_ICON_COLORS = { U: "#2f68c8", K: "#3a2440", w: "#efe6ff", W: "#ffffff", l: "#ad91e6", L: "#d2bfff", p: "#6b4fa8", d: "#3d2866", k: "#160c26", g: "#eec26a", G: "#fff0b5", o: "#c98f3a", b: "#946027", B: "#5e3a1c", r: "#e88bb1", R: "#c25586", s: "#e4dfe8", S: "#8a8494", z: "#5d5666", t: "#69b7d6", T: "#3383a8", m: "#57ad6a", M: "#a3dd9b", e: "#e0634f", E: "#b8323b" };
 const PX_ICON_MAPS = {
   lantern: ["....zzzz....", "...z....z...", "....SSSS....", "...SzzzzS...", "...sGGGGs...", "...sGWWGs...", "...sGWgGs...", "...sGggGs...", "...sGGGGs...", "...SzzzzS...", "....SSSS....", "............"],
   barFirefly: ["............", "............", "...BBBBBB...", "..BbbbbbbB..", "..BbGbbbbB..", "..BbbbbbbB..", "..BbbbbbbB..", "..BbbbbGbB..", "..BbbbbbbB..", "...BBBBBB...", "............", "............"],
@@ -31,6 +31,7 @@ const PX_ICON_MAPS = {
   moon: ["............", "....GGGG....", "...GGg......", "..GGg.......", "..GGg.......", "..GGg.......", "..GGgg......", "...GGgggg...", "....GGGGGg..", "............", "............", "............"],
   sun: ["............", ".g...g...g..", "..g.ggg.g...", "...gGGGg....", "..gGGWGGg...", "gggGWWGGggg.", "..gGGGGGg...", "...gGGGg....", "..g.ggg.g...", ".g...g...g..", "............", "............"],
   candle: [".....g......", "....gGg.....", "....gWg.....", ".....o......", "....wws.....", "....wws.....", "....wws.....", "....wws.....", "...SSSSS....", "..SzzzzzS...", "............", "............"],
+  sprout: ["............", "......mmmm..", ".mmm..mMmmm.", "mmMmm.mmmm..", ".mmmmm.m....", "....mm.m....", "......m.....", "......m.....", "..bbbbbbbb..", ".boBboobBob.", ".BBBBBBBBBB.", "............"],
   heart: ["............", "..RR...RR...", ".RrrR.RrrR..", ".RrWrRrrrR..", ".RrrrrrrrR..", "..RrrrrrR...", "...RrrrR....", "....RrR.....", ".....R......", "............", "............", "............"],
   star: [".....g......", ".....g......", "....gGg.....", "ggggGWGgggg.", ".gGGGGGGGg..", "..gGGGGGg...", "..gGGgGGg...", ".gGg...gGg..", ".g.......g..", "............", "............", "............"],
   shard: ["............", "....LLLL....", "...LWLLlp...", "..LWLLLlpp..", "..ppppppppd.", "...pppppdd..", "....ppppd...", ".....ppd....", "......d.....", "............", "............", "............"],
