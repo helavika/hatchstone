@@ -7,40 +7,42 @@
 /**
  * Real minerals that form in geodes or nodules. style: how the inside is drawn.
  * cavity = a hollow lined with crystal points, banded = tight rings, flecks = gold pyrite specks, flash = a colored sheen.
+ * cave: its home, 0..3 down the grotto (see CAVES). At home it turns up three times as often as others of its rarity.
+ * Homes follow each cave's colors, and no legendary lives in the first cave, where none can be found.
  */
 const CRYSTALS = [
-  { id: "amethyst", name: "Amethyst", rarity: "common", style: "cavity", c: ["#b48cf0", "#d9c2ff", "#7a52c7"], fact: "Purple quartz; the classic geode lining. Its color comes from traces of iron." },
-  { id: "quartz", name: "Clear Quartz", rarity: "common", style: "cavity", c: ["#dde6f5", "#ffffff", "#9fadc6"], fact: "The most common crystal in geodes: six-sided points, clear as ice." },
-  { id: "citrine", name: "Citrine", rarity: "common", style: "cavity", c: ["#ffd27a", "#fff0b8", "#e8a33d"], fact: "Golden quartz. Natural citrine is rare; most is heated amethyst." },
-  { id: "smoky", name: "Smoky Quartz", rarity: "common", style: "cavity", c: ["#9a8a7c", "#d6cabd", "#5e5148"], fact: "Quartz darkened by natural radiation deep underground." },
-  { id: "calcite", name: "Calcite", rarity: "common", style: "cavity", c: ["#f5b971", "#ffe2b8", "#c9813a"], fact: "Honey-colored and soft enough to scratch with a coin. Common in limestone geodes." },
-  { id: "rose", name: "Rose Quartz", rarity: "common", style: "cavity", c: ["#f7a8c4", "#ffd6e5", "#d9779e"], fact: "Pink quartz, usually found in big masses rather than crystals." },
-  { id: "agate", name: "Blue Lace Agate", rarity: "common", style: "banded", c: ["#8fb0d9", "#e1ecf7", "#4f6f9e"], fact: "Layer after layer of chalcedony fills the hollow, making fine wavy bands." },
-  { id: "celestite", name: "Celestite", rarity: "common", style: "cavity", c: ["#a9d4f5", "#e8f6ff", "#6fa3d1"], fact: "Sky-blue crystals. Madagascar is famous for celestite geodes." },
-  { id: "aqua", name: "Aquamarine", rarity: "rare", style: "cavity", c: ["#8fd8ef", "#d4f3ff", "#4fa9c9"], fact: "Blue-green beryl, a cousin of emerald. Named for sea water." },
-  { id: "moonstone", name: "Moonstone", rarity: "rare", style: "flash", c: ["#c4ccff", "#ffffff", "#8c98d9"], fact: "A feldspar with a floating blue glow called adularescence." },
-  { id: "peridot", name: "Peridot", rarity: "rare", style: "cavity", c: ["#b9e88a", "#ecffd0", "#78ad47"], fact: "Olivine from deep in the mantle, carried up by volcanoes." },
-  { id: "fluorite", name: "Fluorite", rarity: "rare", style: "cavity", c: ["#a98bf0", "#c4f2d6", "#5f7f9e"], fact: "Purple and green cubes. It glows under UV light, which is where 'fluorescence' got its name." },
-  { id: "rhodochrosite", name: "Rhodochrosite", rarity: "rare", style: "banded", c: ["#f08aa0", "#ffd1db", "#b5485f"], fact: "Raspberry-pink bands, formed in old silver mines in Argentina." },
-  { id: "malachite", name: "Malachite", rarity: "rare", style: "banded", c: ["#3fb07a", "#a8ecc8", "#1d6b49"], fact: "Swirling green copper mineral, once ground up to make green paint." },
-  { id: "turquoise", name: "Turquoise", rarity: "common", style: "flecks", c: ["#5fc9c0", "#c4f2ec", "#2f7d76"], fact: "Sky-blue copper stone with dark veins, treasured for thousands of years." },
-  { id: "pyrite", name: "Pyrite", rarity: "rare", style: "cavity", c: ["#e0c060", "#fff2b0", "#9a7a2a"], fact: "Fool's gold: brassy cubes so perfect they look machine-made." },
-  { id: "tourmaline", name: "Watermelon Tourmaline", rarity: "rare", style: "banded", c: ["#f07aa0", "#c8f0b0", "#3f9a5a"], fact: "Pink in the middle and green at the rim, like a slice of watermelon." },
-  { id: "sunstone", name: "Sunstone", rarity: "rare", style: "flash", c: ["#f7a35c", "#ffe0b8", "#c2623a"], fact: "Feldspar full of tiny copper plates that glitter like a sunset." },
-  { id: "opal", name: "Opal", rarity: "legendary", style: "flash", c: ["#ffc8ef", "#c9f1ff", "#b9a2ff"], fact: "Tiny silica spheres split light into flashes of every color." },
-  { id: "labradorite", name: "Labradorite", rarity: "legendary", style: "flash", c: ["#5d7a8f", "#9fe3e0", "#2c3e4f"], fact: "Gray stone that flashes peacock blue and gold when it turns in the light." },
-  { id: "carnelian", name: "Carnelian", rarity: "common", style: "banded", c: ["#f28a4a", "#ffd2ad", "#b8461f"], fact: "Orange chalcedony. Romans carved it into seals because hot wax won't stick to it." },
-  { id: "garnet", name: "Garnet", rarity: "rare", style: "cavity", c: ["#c8384f", "#ff9aa8", "#7a1630"], fact: "Deep red crystals with many faces. Its name comes from pomegranate seeds." },
-  { id: "tigereye", name: "Tiger's Eye", rarity: "rare", style: "flash", c: ["#b8742a", "#ffd36a", "#4a2a0e"], fact: "Quartz made of fine fibers: golden stripes shimmer and roll as you turn it." },
-  { id: "emerald", name: "Emerald", rarity: "legendary", style: "cavity", c: ["#2fbf71", "#b4ffd6", "#13693c"], fact: "Green beryl. Almost every emerald has tiny flaws inside, called its \"garden\"." },
-  { id: "lapis", name: "Lapis Lazuli", rarity: "legendary", style: "flecks", c: ["#3a4fb8", "#9fb0ff", "#1c2366"], fact: "Deep blue with gold pyrite specks like stars. Ground into ultramarine paint for 6,000 years." },
-  { id: "desertrose", name: "Desert Rose", rarity: "common", style: "cavity", c: ["#e3a77c", "#fde3c8", "#a8653f"], fact: "Thin gypsum blades that grew inside desert sand, trapping the grains as they went, so each cluster looks like a stone rose." },
-  { id: "mossagate", name: "Moss Agate", rarity: "common", style: "cavity", c: ["#cfe6cf", "#f6fff4", "#3d8a4c"], fact: "Not banded like other agates: milky chalcedony with green mineral threads inside that look like moss, ferns or tiny forests." },
-  { id: "obsidian", name: "Obsidian", rarity: "common", style: "flash", c: ["#5a5278", "#b4acd9", "#231d33"], fact: "Volcanic glass: lava that cooled too fast to grow crystals. Its broken edges are sharper than a steel scalpel." },
-  { id: "stibnite", name: "Stibnite", rarity: "rare", style: "cavity", c: ["#a9b0c2", "#eef1f8", "#555b70"], fact: "Sprays of long steel-grey needles that shine like polished metal. Ground to powder, it has been used as black eyeliner (kohl) since ancient times." },
-  { id: "vanadinite", name: "Vanadinite", rarity: "rare", style: "cavity", c: ["#e2533a", "#ffb08c", "#8c2618"], fact: "Bright red six-sided barrels, each a tiny crystal. The best come from old mines in the Atlas Mountains of Morocco." },
-  { id: "kyanite", name: "Kyanite", rarity: "rare", style: "cavity", c: ["#4f86d6", "#c2e2ff", "#22407f"], fact: "Long blue blades with two hardnesses: a knife scratches it along the blade, but not across it." },
-  { id: "bismuth", name: "Bismuth", rarity: "legendary", style: "flash", c: ["#e08ad8", "#ffe08a", "#4f86d8"], fact: "A heavy metal that cools into hollow stair-step \"hopper\" crystals. A skin of oxide thinner than a soap bubble paints them in rainbow colors." },
+  { id: "amethyst", name: "Amethyst", rarity: "common", cave: 0, style: "cavity", c: ["#b48cf0", "#d9c2ff", "#7a52c7"], fact: "Purple quartz; the classic geode lining. Its color comes from traces of iron." },
+  { id: "quartz", name: "Clear Quartz", rarity: "common", cave: 0, style: "cavity", c: ["#dde6f5", "#ffffff", "#9fadc6"], fact: "The most common crystal in geodes: six-sided points, clear as ice." },
+  { id: "citrine", name: "Citrine", rarity: "common", cave: 0, style: "cavity", c: ["#ffd27a", "#fff0b8", "#e8a33d"], fact: "Golden quartz. Natural citrine is rare; most is heated amethyst." },
+  { id: "smoky", name: "Smoky Quartz", rarity: "common", cave: 3, style: "cavity", c: ["#9a8a7c", "#d6cabd", "#5e5148"], fact: "Quartz darkened by natural radiation deep underground." },
+  { id: "calcite", name: "Calcite", rarity: "common", cave: 3, style: "cavity", c: ["#f5b971", "#ffe2b8", "#c9813a"], fact: "Honey-colored and soft enough to scratch with a coin. Common in limestone geodes." },
+  { id: "rose", name: "Rose Quartz", rarity: "common", cave: 0, style: "cavity", c: ["#f7a8c4", "#ffd6e5", "#d9779e"], fact: "Pink quartz, usually found in big masses rather than crystals." },
+  { id: "agate", name: "Blue Lace Agate", rarity: "common", cave: 1, style: "banded", c: ["#8fb0d9", "#e1ecf7", "#4f6f9e"], fact: "Layer after layer of chalcedony fills the hollow, making fine wavy bands." },
+  { id: "celestite", name: "Celestite", rarity: "common", cave: 1, style: "cavity", c: ["#a9d4f5", "#e8f6ff", "#6fa3d1"], fact: "Sky-blue crystals. Madagascar is famous for celestite geodes." },
+  { id: "aqua", name: "Aquamarine", rarity: "rare", cave: 1, style: "cavity", c: ["#8fd8ef", "#d4f3ff", "#4fa9c9"], fact: "Blue-green beryl, a cousin of emerald. Named for sea water." },
+  { id: "moonstone", name: "Moonstone", rarity: "rare", cave: 1, style: "flash", c: ["#c4ccff", "#ffffff", "#8c98d9"], fact: "A feldspar with a floating blue glow called adularescence." },
+  { id: "peridot", name: "Peridot", rarity: "rare", cave: 2, style: "cavity", c: ["#b9e88a", "#ecffd0", "#78ad47"], fact: "Olivine from deep in the mantle, carried up by volcanoes." },
+  { id: "fluorite", name: "Fluorite", rarity: "rare", cave: 0, style: "cavity", c: ["#a98bf0", "#c4f2d6", "#5f7f9e"], fact: "Purple and green cubes. It glows under UV light, which is where 'fluorescence' got its name." },
+  { id: "rhodochrosite", name: "Rhodochrosite", rarity: "rare", cave: 0, style: "banded", c: ["#f08aa0", "#ffd1db", "#b5485f"], fact: "Raspberry-pink bands, formed in old silver mines in Argentina." },
+  { id: "malachite", name: "Malachite", rarity: "rare", cave: 2, style: "banded", c: ["#3fb07a", "#a8ecc8", "#1d6b49"], fact: "Swirling green copper mineral, once ground up to make green paint." },
+  { id: "turquoise", name: "Turquoise", rarity: "common", cave: 1, style: "flecks", c: ["#5fc9c0", "#c4f2ec", "#2f7d76"], fact: "Sky-blue copper stone with dark veins, treasured for thousands of years." },
+  { id: "pyrite", name: "Pyrite", rarity: "rare", cave: 3, style: "cavity", c: ["#e0c060", "#fff2b0", "#9a7a2a"], fact: "Fool's gold: brassy cubes so perfect they look machine-made." },
+  { id: "tourmaline", name: "Watermelon Tourmaline", rarity: "rare", cave: 2, style: "banded", c: ["#f07aa0", "#c8f0b0", "#3f9a5a"], fact: "Pink in the middle and green at the rim, like a slice of watermelon." },
+  { id: "sunstone", name: "Sunstone", rarity: "rare", cave: 3, style: "flash", c: ["#f7a35c", "#ffe0b8", "#c2623a"], fact: "Feldspar full of tiny copper plates that glitter like a sunset." },
+  { id: "opal", name: "Opal", rarity: "legendary", cave: 3, style: "flash", c: ["#ffc8ef", "#c9f1ff", "#b9a2ff"], fact: "Tiny silica spheres split light into flashes of every color." },
+  { id: "labradorite", name: "Labradorite", rarity: "legendary", cave: 3, style: "flash", c: ["#5d7a8f", "#9fe3e0", "#2c3e4f"], fact: "Gray stone that flashes peacock blue and gold when it turns in the light." },
+  { id: "carnelian", name: "Carnelian", rarity: "common", cave: 2, style: "banded", c: ["#f28a4a", "#ffd2ad", "#b8461f"], fact: "Orange chalcedony. Romans carved it into seals because hot wax won't stick to it." },
+  { id: "garnet", name: "Garnet", rarity: "rare", cave: 0, style: "cavity", c: ["#c8384f", "#ff9aa8", "#7a1630"], fact: "Deep red crystals with many faces. Its name comes from pomegranate seeds." },
+  { id: "tigereye", name: "Tiger's Eye", rarity: "rare", cave: 3, style: "flash", c: ["#b8742a", "#ffd36a", "#4a2a0e"], fact: "Quartz made of fine fibers: golden stripes shimmer and roll as you turn it." },
+  { id: "emerald", name: "Emerald", rarity: "legendary", cave: 2, style: "cavity", c: ["#2fbf71", "#b4ffd6", "#13693c"], fact: "Green beryl. Almost every emerald has tiny flaws inside, called its \"garden\"." },
+  { id: "lapis", name: "Lapis Lazuli", rarity: "legendary", cave: 1, style: "flecks", c: ["#3a4fb8", "#9fb0ff", "#1c2366"], fact: "Deep blue with gold pyrite specks like stars. Ground into ultramarine paint for 6,000 years." },
+  { id: "desertrose", name: "Desert Rose", rarity: "common", cave: 2, style: "cavity", c: ["#e3a77c", "#fde3c8", "#a8653f"], fact: "Thin gypsum blades that grew inside desert sand, trapping the grains as they went, so each cluster looks like a stone rose." },
+  { id: "mossagate", name: "Moss Agate", rarity: "common", cave: 2, style: "cavity", c: ["#cfe6cf", "#f6fff4", "#3d8a4c"], fact: "Not banded like other agates: milky chalcedony with green mineral threads inside that look like moss, ferns or tiny forests." },
+  { id: "obsidian", name: "Obsidian", rarity: "common", cave: 3, style: "flash", c: ["#5a5278", "#b4acd9", "#231d33"], fact: "Volcanic glass: lava that cooled too fast to grow crystals. Its broken edges are sharper than a steel scalpel." },
+  { id: "stibnite", name: "Stibnite", rarity: "rare", cave: 1, style: "cavity", c: ["#a9b0c2", "#eef1f8", "#555b70"], fact: "Sprays of long steel-grey needles that shine like polished metal. Ground to powder, it has been used as black eyeliner (kohl) since ancient times." },
+  { id: "vanadinite", name: "Vanadinite", rarity: "rare", cave: 0, style: "cavity", c: ["#e2533a", "#ffb08c", "#8c2618"], fact: "Bright red six-sided barrels, each a tiny crystal. The best come from old mines in the Atlas Mountains of Morocco." },
+  { id: "kyanite", name: "Kyanite", rarity: "rare", cave: 1, style: "cavity", c: ["#4f86d6", "#c2e2ff", "#22407f"], fact: "Long blue blades with two hardnesses: a knife scratches it along the blade, but not across it." },
+  { id: "bismuth", name: "Bismuth", rarity: "legendary", cave: 2, style: "flash", c: ["#e08ad8", "#ffe08a", "#4f86d8"], fact: "A heavy metal that cools into hollow stair-step \"hopper\" crystals. A skin of oxide thinner than a soap bubble paints them in rainbow colors." },
 ];
 const CRYSTAL = Object.fromEntries(CRYSTALS.map(c => [c.id, c]));
 
@@ -182,6 +184,16 @@ const STONES = [
   ["#b8896a", "#8a5f45", "#d9b49a"], // iron-stained
   ["#d4b48c", "#a8875f", "#ecd6b6"], // desert sandstone
   ["#6f6a78", "#4a4652", "#9893a3"], // dark volcanic
+];
+/**
+ * When you choose between geodes, the shell is tinted like the cave its crystal calls home.
+ * The colors are the scene palette's own (see PIXEL_PALETTE), so the stone keeps its hue when the scene is pixelled.
+ */
+const CAVE_STONES = [
+  ["#ad91e6", "#6b4fa8", "#d2bfff"], // Amethyst Hollow: lilac
+  ["#69b7d6", "#3383a8", "#b8e6f5"], // Celestite Grotto: pale blue
+  ["#57ad6a", "#2f7d4a", "#a3dd9b"], // Malachite Deep: green
+  ["#1d5276", "#0f2f4a", "#3383a8"], // Labradorite Vault: deep blue
 ];
 
 const SNACKS = {

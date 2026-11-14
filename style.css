@@ -1309,3 +1309,29 @@ body.compact .place-who img { width: 36px; height: 36px; }
 .r-spark { background: linear-gradient(90deg, #ffc4da, #fff0b5, #b8e6f5); color: var(--px-ink); }
 .spark-acts { display: flex; justify-content: center; margin: 12px 0 4px; }
 .spark-note { display: block; color: var(--soft); font-size: 12px; margin-top: 4px; }
+/* a choice of three geodes: big targets side by side, each in the stone of its home cave; a twinkle on rare ones, a ? on one the Book lacks */
+/* (it shows at once instead of easing in from hidden, so the keyboard can land on the first geode straight away) */
+#pickSheet:not(.hidden) { transition: opacity .45s; }
+#pickRow { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 14px 3px 8px; }
+#pickRow button { position: relative; min-height: 96px; padding: 12px 2px 8px; display: flex; flex-direction: column; align-items: center; gap: 8px; cursor: pointer; font: inherit; color: var(--ink); background: var(--px-raise); border: 0; border-radius: 0;
+  box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep), 0 6px 0 0 rgba(11, 6, 20, .6); }
+#pickRow button:active { transform: translateY(3px); box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-deep), inset -3px -3px 0 0 var(--px-hi); }
+#pickRow button:focus-visible { outline: 3px solid var(--px-gold-hi); outline-offset: 4px; }
+#pickRow .pg { position: relative; display: block; }
+#pickRow img { display: block; width: 64px; height: auto; image-rendering: pixelated; }
+#pickRow .shim img { filter: drop-shadow(0 0 5px rgba(255, 240, 181, .8)); }
+#pickRow small { font-size: 14px; line-height: 1.05; color: var(--soft); overflow-wrap: anywhere; }
+#pickRow .pg i, .pick-key i { width: 9px; height: 9px; background: linear-gradient(var(--px-gold-hi), var(--px-gold-hi)) center / 3px 100% no-repeat, linear-gradient(var(--px-gold-hi), var(--px-gold-hi)) center / 100% 3px no-repeat; }
+/* (with Less motion the twinkles hold still, and still show) */
+#pickRow .pg i { position: absolute; animation: pickTwinkle 1.5s steps(3) infinite; }
+#pickRow .pg i:nth-of-type(1) { top: -3px; right: -9px; }
+#pickRow .pg i:nth-of-type(2) { top: 46%; left: -11px; animation-delay: -.5s; }
+#pickRow .pg i:nth-of-type(3) { bottom: 5px; right: -7px; animation-delay: -1s; }
+@keyframes pickTwinkle { 50% { opacity: .1; transform: scale(.5); } }
+#pickRow .new, .pick-key .new { display: grid; place-items: center; font-weight: 400; line-height: 1; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame); }
+#pickRow .new { position: absolute; top: -5px; right: -5px; width: 20px; height: 20px; font-size: 18px; }
+.pick-key { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 18px; margin: 10px 0 0; font-size: 15px; color: var(--soft); }
+.pick-key span { display: inline-flex; align-items: center; gap: 7px; }
+.pick-key .new { width: 14px; height: 14px; font-size: 13px; margin: 0 2px; }
+/* the Book says where a missing geode is at home, in plain small letters so a long cave name fits its card */
+#libGrid small.home { margin-top: 2px; padding-top: 0; font-size: 13px; line-height: 1.05; text-transform: none; letter-spacing: 0; overflow-wrap: anywhere; }

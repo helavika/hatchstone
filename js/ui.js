@@ -413,6 +413,16 @@ $("worldTab").addEventListener("click", () => {
 $("worldClose").addEventListener("click", () => { sfx.tick(); closeWorld(); });
 $("spaceClose").addEventListener("click", () => show("spaceSheet", false));
 $("thingClose").addEventListener("click", () => show("thingSheet", false));
+$("pickClose").addEventListener("click", closePick);
+// the arrow keys walk along the three geodes, round and round; Escape puts the sheet away
+$("pickSheet").addEventListener("keydown", e => {
+  if (e.key === "Escape") { e.preventDefault(); closePick(); return; }
+  const three = [...$$("#pickRow button")], i = three.indexOf(document.activeElement), n = three.length;
+  const to = { ArrowRight: (i + 1) % n, ArrowLeft: (i + n - 1) % n, Home: 0, End: n - 1 }[e.key];
+  if (i < 0 || to === undefined) return;
+  e.preventDefault();
+  three[to].focus({ preventScroll: true });
+});
 // the trail of levels closes back to the grotto's hall
 $("mapClose").addEventListener("click", () => { sfx.tick(); arriveAt("grotto"); });
 $("worldIn").addEventListener("click", () => zoomWorld(1));
@@ -823,6 +833,9 @@ function litLibTabs() {
     if (on) row.scrollTo({ left: row.scrollLeft + b.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - b.offsetWidth) / 2, behavior: opts().calm ? "auto" : "smooth" });
   }
 }
+/** Under an empty place in the Book: the cave where that crystal is at home, so you know where to look. */
+const foundIn = cry => `<small class="home">${tr("found in: {0}", CAVES[cry.cave])}</small>`;
+
 function renderLib() {
   litLibTabs();
   const found = SPECIES.filter(s => save.seen[s.id]).length;
@@ -861,13 +874,13 @@ function renderLib() {
   } else if (game.libTab === "sp") {
     $("libGrid").innerHTML = SPECIES.map((s, i) => {
       const seen = save.seen[s.id];
-      return `<button data-sp="${s.id}" class="${seen ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${creatureImage(s, { art: 32, sil: !seen })}" alt=""></span><b>${seen ? s.name : "???"}</b><small>${rar(rarityOf(s))}</small></button>`;
+      return `<button data-sp="${s.id}" class="${seen ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${creatureImage(s, { art: 32, sil: !seen })}" alt=""></span><b>${seen ? s.name : "???"}</b><small>${rar(rarityOf(s))}</small>${seen || s.moon ? "" : foundIn(CRYSTAL[s.crystal])}</button>`;
     }).join("");
   } else {
     for (const c of CRYSTALS) if (save.geodes[c.id] && !save.geodes[c.id].img) { save.geodes[c.id].img = crystalThumb(c.id); persist(); }
     $("libGrid").innerHTML = CRYSTALS.map((c, i) => {
       const geo = save.geodes[c.id];
-      return `<button data-cr="${c.id}" class="${geo ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img src="${geo ? geo.img : mysteryGeode()}" alt=""></span><b>${geo ? c.name : "???"}</b><small>${rarF(c.rarity)}${geo && geo.count > 1 ? ` · ×${geo.count}` : ""}</small></button>`;
+      return `<button data-cr="${c.id}" class="${geo ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("No. {0}", i + 1)}</i><span class="pg"><img src="${geo ? geo.img : mysteryGeode()}" alt=""></span><b>${geo ? c.name : "???"}</b><small>${rarF(c.rarity)}${geo && geo.count > 1 ? ` · ×${geo.count}` : ""}</small>${geo ? "" : foundIn(c)}</button>`;
     }).join("");
   }
   $$("#libGrid [data-sp]").forEach(b => b.addEventListener("click", () => openSpecies(SP[b.dataset.sp])));
@@ -1111,7 +1124,7 @@ function openSpecies(sp) {
   $("spFacts").innerHTML = seen
     ? tr("Favorite snack: {0}<br>Met {1} {2} · first on {3}", SNACKS[sp.snack].emoji + " " + SNACKS[sp.snack].name, seen.count, pl(seen.count, "time", "times"), new Date(seen.first).toLocaleDateString(LOCALE)) +
       (mine.length ? tr("<br>In your nest: {0}", mine.map(c => tr("{0} (level {1})", c.name, c.level)).join(", ")) : "")
-    : sp.event ? tr("Only in 🌙 moon eggs during {0}.", eventName(EVENT[sp.event])) : sp.moon ? tr("Only in 🌙 moon eggs, in {0}.", seasonIn(sp.moon)) : tr(cry.rarity === "common" ? "Found anywhere in the grotto." : cry.rarity === "rare" ? "Found deeper in the grotto." : "Found rarely, in the deepest parts of the grotto.");
+    : sp.event ? tr("Only in 🌙 moon eggs during {0}.", eventName(EVENT[sp.event])) : sp.moon ? tr("Only in 🌙 moon eggs, in {0}.", seasonIn(sp.moon)) : tr(cry.rarity === "common" ? "Found anywhere in the grotto." : cry.rarity === "rare" ? "Found deeper in the grotto." : "Found rarely, in the deepest parts of the grotto.") + " " + tr("Home cave: {0}.", CAVES[cry.cave]);
   show("spCard", true);
   if (seen) sfx.chirp(sp.voice);
 }
@@ -1128,6 +1141,6 @@ function openCrystal(cry) {
   $("spLore").textContent = geo ? cry.fact : tr("A geode you haven't opened yet.");
   $("spFacts").innerHTML = geo
     ? tr("Opened {0} {1}<br>Glowlings that live inside: {2}", geo.count, pl(geo.count, "time", "times"), who.map(s => save.seen[s.id] ? s.name : "???").join(", "))
-    : tr("Glowlings sleeping inside: {0}.", who.length);
+    : tr("Glowlings sleeping inside: {0}.", who.length) + "<br>" + tr("Home cave: {0}.", CAVES[cry.cave]);
   show("spCard", true);
 }
