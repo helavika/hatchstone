@@ -1,7 +1,7 @@
 // Hatchstone offline support: the page itself is fetched fresh when online, everything else from the cache.
 // The test copy lives under /staging/ on the same site with its own worker: each keeps to its own caches and pages.
 const STAGING = self.registration.scope.includes("/staging/");
-const CACHE = (STAGING ? "staging-" : "") + "hatchstone-v45";
+const CACHE = (STAGING ? "staging-" : "") + "hatchstone-v46";
 const SHELL = [
   "./", "index.html", "style.css", "js/i18n.js", "js/core.js", "js/data.js", "js/pixel.js", "js/save.js", "js/glowlings.js", "js/crack.js", "js/scenes.js", "js/nest.js", "js/world.js", "js/iso.js", "js/keepers.js", "js/play.js", "js/coop.js", "js/ui.js", "js/main.js",
   "coop-link.js", "coop-invite.js", "coop-state.js", "vendor/peerjs-1.5.5.min.js", "manifest.webmanifest",
@@ -37,7 +37,7 @@ self.addEventListener("fetch", e => {
     // (revalidated, so the browser's own short cache can't hand back an old copy either)
     e.respondWith(fetch(req, { cache: "no-cache" })
       .then(res => { if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req, copy)); } return res; })
-      .catch(() => caches.match(req, { cacheName: CACHE })));
+      .catch(() => caches.match(req, { cacheName: CACHE, ignoreSearch: true })));
     return;
   }
   e.respondWith(caches.match(req, { cacheName: CACHE }).then(hit => hit || fetch(req)));

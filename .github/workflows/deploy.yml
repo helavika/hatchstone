@@ -35,6 +35,13 @@ jobs:
             mkdir -p site/staging && cp -a staging-src/. site/staging/
           fi
           rm -rf site/.git
+      - name: Stamp the scripts and styles with this deploy, so a browser never runs last version's code
+        run: |
+          for f in site/index.html site/staging/index.html; do
+            [ -f "$f" ] || continue
+            sed -i -E 's#(src="[^"?]+\.js)"#\1?v=${{ github.run_id }}"#g; s#(href="style\.css)"#\1?v=${{ github.run_id }}"#g' "$f"
+          done
+          grep -c '?v=' site/index.html || true
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
