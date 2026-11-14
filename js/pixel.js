@@ -221,6 +221,28 @@ const PX_ICON_MAPS = {
   compass: ["............", "....ssss....", "..ssSSSSss..", ".sSw.e..wSs.", ".sS..e...Ss.", ".sS.eWe..Ss.", ".sS..t...Ss.", ".sSw.t..wSs.", "..ssSSSSss..", "....ssss....", "............", "............"],
   gift: ["............", "..gg....gg..", ".gGGg..gGGg.", "..gGGggGGg..", ".RRRRggRRRR.", ".RrrrgGrrrR.", ".RrrrgGrrrR.", ".RrWrgGrrrR.", ".RrrrgGrrrR.", ".RrrrgGrrrR.", ".RRRRggRRRR.", "............"],
   broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
+  // for the Book's tabs: a glowling, and a mossy stone face for the folk
+  glowling: ["............", "..L......L..", "...l....l...", "...llllll...", "..lLLllllp..", ".lLlllllllp.", ".llkllllklp.", ".lrlllllrlp.", ".llllllllpp.", "..llllllpp..", "...pppppp...", "............"],
+  folk: ["............", "...mmmmmm...", "..mMmmmmmm..", ".mmmmsmmsmm.", ".msssssssss.", ".sWsssssssS.", ".sskssskssS.", ".sskssskssS.", ".srsskssrsS.", ".SsssssssSz.", "..SSSSSSSz..", "............"],
+  // the chest standing open with nothing in it, for an empty shelf
+  chestOpen: [
+    "................",
+    "....oooooooo....",
+    "...boBBBBBBob...",
+    "...bBddddddBb...",
+    "..bBddddddddBb..",
+    "..bBddddddddBb..",
+    "..bBBBBBBBBBBb..",
+    ".BBkkkkkkkkkkBB.",
+    ".BkkkkkkkkkkkkB.",
+    ".BkkKKKKKKKKkkB.",
+    ".bbbbbbGGbbbbbB.",
+    ".bobooogGooobbB.",
+    ".boooooooooobbB.",
+    ".bobooooooooobB.",
+    ".BBBBBBBBBBBBBB.",
+    "................",
+  ],
 };
 // the trophy in each award's metal: bronze, silver, amethyst and gold
 for (const [tier, [a, b, c]] of Object.entries({ common: "obB", rare: "sSz", epic: "Llp", legendary: "Ggo" }))

@@ -674,10 +674,17 @@ $("fileIn").addEventListener("change", async e => {
 });
 $$("[data-lib]").forEach(b => b.addEventListener("click", () => {
   game.libTab = b.dataset.lib;
-  $$("[data-lib]").forEach(x => x.classList.toggle("on", x === b));
   sfx.page();
   renderLib();
 }));
+// the arrow keys walk along the Book's tabs, round and round; Home and End jump to the ends
+$("libTabs").addEventListener("keydown", e => {
+  const tabs = [...$$("[data-lib]")], i = tabs.indexOf(document.activeElement), n = tabs.length;
+  const to = { ArrowRight: (i + 1) % n, ArrowLeft: (i + n - 1) % n, Home: 0, End: n - 1 }[e.key];
+  if (i < 0 || to === undefined) return;
+  e.preventDefault();
+  tabs[to].focus({ preventScroll: true }); tabs[to].click();
+});
 
 // ---------- backup codes: a nest you can carry to another device ----------
 
@@ -807,7 +814,17 @@ const FOLK = [
   { name: "Fennel", face: () => keeperFace("fennel"), where: "the garden", met: () => !!save.heroTalk?.yard, hint: "visit the garden",
     about: "A turtle-folk gardener who talks to the plants and waters them for you. Slow and steady, and quick to hide in the shell." },
 ];
+/** The Book's tabs stand in one row that scrolls sideways: light the open one and bring it to the middle of the row. */
+function litLibTabs() {
+  const row = $("libTabs");
+  for (const b of row.children) {
+    const on = b.dataset.lib === game.libTab;
+    b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1;
+    if (on) row.scrollTo({ left: row.scrollLeft + b.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - b.offsetWidth) / 2, behavior: opts().calm ? "auto" : "smooth" });
+  }
+}
 function renderLib() {
+  litLibTabs();
   const found = SPECIES.filter(s => save.seen[s.id]).length;
   const geos = CRYSTALS.filter(c => save.geodes[c.id]).length;
   const hyN = save.creatures.filter(c => c.mix).length;
@@ -840,7 +857,7 @@ function renderLib() {
   } else if (game.libTab === "hy") {
     const hy = save.creatures.filter(c => c.mix);
     $("libGrid").innerHTML = hy.length ? hy.map((c, i) => `<button data-hy="${c.id}" style="animation-delay:${i * 20}ms"><span class="pg"><img class="lib-px" src="${creatureImage(specOf(c), { art: 32, level: c.level, shiny: c.shiny })}" alt=""></span><b>${c.name}</b><small>${c.mix.parents.join(" × ")}</small></button>`).join("")
-      : `<p class="sub" style="grid-column:1/-1;padding:20px 0">${tr("No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in the lab 💞", PAIR_LEVEL)}</p>`;
+      : `<div class="lib-empty"><p class="sub">${tr("No hybrids yet. Grow two glowlings to level {0}, keep them happy, and tap the incubator in the lab 💞", PAIR_LEVEL)}</p>${placeOk("lab") ? `<button class="act" id="toLab">${ic("flask")}${tr("To the lab")}</button>` : ""}</div>`;
   } else if (game.libTab === "sp") {
     $("libGrid").innerHTML = SPECIES.map((s, i) => {
       const seen = save.seen[s.id];
@@ -860,6 +877,7 @@ function renderLib() {
     if (unlocked(p.at) && talkSeen(p.id)) retell(p); else sfx.tick();
   }));
   $$("#libGrid [data-hy]").forEach(b => b.addEventListener("click", () => openHybrid(save.creatures.find(c => c.id === Number(b.dataset.hy)))));
+  $("toLab")?.addEventListener("click", () => { sfx.tick(); arriveAt("lab"); });
 }
 
 // ---------- postcards: a picture of your glowling to send to friends ----------
