@@ -960,17 +960,23 @@ const GLOOM = { name: "the Gloom", icon: "gloom", face: () => pxPortrait("gloom"
 const GLOOM_STONE = Object.assign(["#3a2a52", "#1a1028", "#6b4fa8"], { gloom: true });
 /** Before the sealed geode at the end of cave k (1..4), the Gloom has its say; after it opens, your friends have theirs. */
 const GLOOM_TALKS = {
-  g1: () => [[GLOOM, "Another little light... how annoying."], [GLOOM, "These sparks are mine. They sleep in my cold, and they'll stay asleep."],
-    [MOSSA, tr("{0}, don't listen to it. Crack the seal: the spark inside is frightened!", myName())]],
-  g1win: () => [[MOSSA, "You did it! The Gloom let go of that one."], [MOSSA, "It's been creeping up from the deep since the Heartlight broke. It can't stand anything warm."]],
-  g2: () => [[GLOOM, tr("You again. Do you know what I am, {0}?", myName())], [GLOOM, "I'm what's left when the light goes out. Every spark you wake is one less for me."]],
-  g2win: () => [[MOSSA, "It's afraid of you. I can feel the stone getting warmer."]],
-  g3: () => [[GLOOM, "The Heartlight hid from me in a thousand pieces. Clever."], [GLOOM, "But little pieces are easy to snuff out."],
-    [DORMA, "So that's why it gave itself away... to hide its light from the Gloom!"]],
-  g3win: () => [[WICK, "Did you see it flinch? Ha! I'm telling everyone."]],
-  g4: () => [[GLOOM, "This is the last one. The oldest spark of all."], [GLOOM, "Wake it, and there'll be nowhere left in the deep for me to hide."],
-    [MOSSA, tr("Then let's light up every corner. Together, {0}.", myName())]],
-  g4win: () => [[MOSSA, "The Gloom has left the deep caves. Not forever, maybe... but every nest that glows keeps it away."],
+  g1: () => [[GLOOM, "Little light. You are loud."], [GLOOM, "They are not kept. They are hidden. Hidden things do not get hurt."],
+    [MOSSA, "There's a spark asleep in there. Hidden things don't get to play, either."], [MOSSA, tr("Crack the seal, {0}, and let's wake it.", myName())]],
+  g1win: () => [[MOSSA, "You did it! That spark is awake now, and it has a home."],
+    [MOSSA, "The Gloom was here before the moss, and before me. And did you feel it? When the seal cracked, it let go."]],
+  g2: () => [[GLOOM, "I am what stayed when the light ran. I did not put it out."], [GLOOM, "Every one you wake can be hurt again. Have you counted that?"],
+    [MOSSA, "We have. We wake them anyway."]],
+  g2win: () => [[MOSSA, "Another spark is awake. Can you feel it? The stone is a little warmer."],
+    [MOSSA, "I don't think the Gloom is cruel. I think it's afraid of anyone getting hurt again."]],
+  g3: () => [[GLOOM, "The Heartlight did not run from me. It was hurting, and it hid."], [GLOOM, "It broke itself into a thousand pieces. I have hidden them ever since."],
+    [DORMA, "Oh... so that's why it gave itself away. It wasn't hiding from the Gloom. It was hiding from the hurt."],
+    [DORMA, "A book that stays shut is safe, too. But nobody ever gets to read it. Let's open this one."]],
+  g3win: () => [[WICK, "That spark woke up humming! I'm telling everyone."],
+    [WICK, "I had a joke about the Gloom all ready. I'm keeping it to myself."], [WICK, "All that time alone, looking after a thousand pieces. That's no joke."]],
+  g4: () => [[GLOOM, "This is the last one. The oldest spark of all."], [GLOOM, tr("Wake it, and nothing here is hidden any more. Can you stand to be seen, {0}?", myName())],
+    [MOSSA, "Not alone. That's why there are two of us."]],
+  g4win: () => [[MOSSA, "The oldest spark is awake, and the Gloom has drawn back from the deep caves. It isn't gone, only quieter."],
+    [MOSSA, "The dark will come again, the way it does. But every nest that glows keeps the dark gentle."],
     [MOSSA, tr("Thank you, {0}. You're a true keeper now.", myName())]],
 };
 Object.assign(TALKS, GLOOM_TALKS);
@@ -1169,7 +1175,7 @@ const STORY = [
     [MOSSA, "Thank you, friend. I can finally rest easy on my watch."]] },
 ];
 // the Gloom's parts, told at the sealed geodes, join the story in the book once heard
-for (const [i, at] of [[1, 6], [2, 12], [3, 18], [4, 24]]) STORY.push({ id: "g" + i, at, title: ["The Gloom", "What's left in the dark", "A thousand pieces", "The oldest spark"][i - 1], who: GLOOM, lines: GLOOM_TALKS["g" + i], gloom: true });
+for (const [i, at] of [[1, 6], [2, 12], [3, 18], [4, 24]]) STORY.push({ id: "g" + i, at, title: ["The Gloom", "What stayed in the dark", "A thousand pieces", "The oldest spark"][i - 1], who: GLOOM, lines: GLOOM_TALKS["g" + i], gloom: true });
 STORY.sort((a, b) => a.at - b.at || (a.gloom ? 1 : 0) - (b.gloom ? 1 : 0));
 for (const s of STORY) TALKS[s.id] = s.lines;
 /** Tell a part of the story again, from the book. */

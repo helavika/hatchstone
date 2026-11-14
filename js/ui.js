@@ -801,7 +801,7 @@ const FOLK = [
     about: "A lantern moth who trades in glimmers and gossip, and always seems to know more than he says." },
   { name: "Dorma", face: () => pxPortrait("dorma"), where: "the grotto's library", met: () => talkSeen("s4"), hint: "reach level 13",
     about: "Keeps the grotto's sleepy library. Finds the lost pages of the Heartlight's story, usually under the pillow." },
-  { name: "the Gloom", face: () => pxPortrait("gloom"), where: "the dark past the forge", met: () => talkSeen("g1"), hint: "something waits at level 6",
+  { name: "the Gloom", face: () => pxPortrait("gloom"), where: "wherever something hurt", met: () => talkSeen("g1"), hint: "something waits at level 6",
     about: "Something old in the dark that seals glowlings away in stone. Nobody knows what it wants." },
   { name: "Tansy", face: () => keeperFace("tansy"), where: "the shop", met: () => !!save.heroTalk?.shop, hint: "visit the shop",
     about: "A hedgehog merchant. Sells sensible things, dreams of selling one very good hat, and curls into a ball if poked too much." },
