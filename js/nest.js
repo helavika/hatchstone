@@ -389,6 +389,7 @@ function plantSeed(id) {
   g.seeds[id]--; g.slots[i] = { seed: id, at: Date.now() };
   sfx.grain && sfx.ready() && sfx.grain(sfx.ac.currentTime, 0.15, 700, 0.8, 0.15, "lowpass");
   toast(tr("{0} planted 🌱", seedName(id)));
+  coreAdd("ritual");
   persist(); openGarden();
 }
 /** A drink for a plant: it grows a little at once. Once every half hour per plant. */
@@ -396,7 +397,7 @@ function waterPlot(i, who) {
   const q = garden().slots[i];
   if (!q || stageOf2(q) === 3 || (q.wet && Date.now() - q.wet < WATER_EVERY)) return false;
   q.at -= SEEDS[q.seed].hrs * 3600e3 * WATER_BOOST; q.wet = Date.now();
-  if (!who) { sfx.tone && sfx.ready() && sfx.tone(sfx.ac.currentTime, 1400, 0.05, 0.3, "sine", 900, true); openGarden(); }
+  if (!who) { sfx.tone && sfx.ready() && sfx.tone(sfx.ac.currentTime, 1400, 0.05, 0.3, "sine", 900, true); coreAdd("ritual"); openGarden(); }
   persist();
   return true;
 }
@@ -527,6 +528,10 @@ function tripsHome() {
       else if (f === "seeds") { const sd = pick(["glowberry", "moonmint", "cookiecorn"]), n = 1 + Math.floor(k / 4); garden().seeds[sd] = (garden().seeds[sd] || 0) + n; got.push(`${seedName(sd)} ×${n}`); }
       else if (Math.random() < 0.25 + k * 0.08) { giveBar(f); got.push(barName(f)); }
     }
+    // and sometimes a spark of inspiration: a song, a colour, a sight of the lands past the valley
+    const spark = bringSpark(c, k, true);
+    if (spark) got.push(sparkNote(spark));
+    c.sparked = true;
     addXP(c, 6 * k);
     remember(c, got.length ? "Came back from {0} with {1}" : "Came back from {0}", placeName(pl), got.join(", "));
     c.trip = null; c.roam = false; c.outAt = c.outAt || now;
@@ -662,7 +667,7 @@ function openJukebox() {
 let noteT = 0;
 function musicNotes(dt) {
   const p = N.iso && hasDecor("musicbox") && isoLayout().placed.musicbox;
-  if (!p || save.muted || (noteT -= dt) > 0) return;
+  if (!p || sfx.muted || (noteT -= dt) > 0) return;
   noteT = rand(1.1, 1.9);
   const [x, y] = isoPieceAt(p);
   floatText(pick(["♪", "♫", "♪"]), x + rand(-8, 8), y - N.isoW / ISO_G * 1.6, pick(["#fff0b5", "#ffc4da", "#b8e6f5", "#d2bfff"]));
@@ -755,7 +760,7 @@ const PIP = { name: "Pip", face: () => keeperFace("pip"), voice: { f: 520, wave:
 const FENNEL = { name: "Fennel", face: () => keeperFace("fennel"), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
 const OLLO = { name: "Ollo", face: () => keeperFace("ollo"), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
 const HEROES = {
-  shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.5, 0.42], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
+  shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.7, 0.5], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
     hello: ["Welcome, welcome! Mind the sacks, they're full of seeds.", "Food, furniture, seeds: if it's on a shelf, it's for sale.", "Furniture goes into your chest. Food goes into your basket."],
     lines: ["Fresh cookies today. Well, fresh-ish.", "One day I'll sell a hat. Just one. A very good hat.", "Moonberries are flying off the shelf!", "Starfruit? Oh no, that only grows in a garden. Not here.", "A tidy nest is a happy nest, I always say.", "Wick sells odd things. I sell sensible things."] },
   forge: { who: EMBER, eyes: [[5, 3, 2, 2, "#e0634f"], [9, 3, 2, 2, "#e0634f"]], quirk: "sparks", icon: "ember", at: [0.76, 0.26], role: "works the forge", act: [["hammer", "Forge", () => openForge()]],
@@ -764,7 +769,7 @@ const HEROES = {
   camp: { who: PIP, eyes: [[5, 6, 1, 1, "#3d2866"], [10, 6, 1, 1, "#3d2866"]], quirk: "startle", icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
     hello: ["Oh! Hello! I'm Pip, I map the tunnels. Well, I try.", "Send me a glowling and we'll go exploring for a few hours.", "We always come back with something: seeds, shards, the odd geode."],
     lines: ["I've drawn this map three times. The tunnels keep moving.", "Do you think the Gloom has a map? I'd like to see it. From far away.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it."] },
-  yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "curl", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sun", "Garden bed", () => openGarden()]],
+  yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "curl", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sprout", "Garden bed", () => openGarden()], ["walk", "A walk", () => openWalk()]],
     hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
     lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."] },
   grotto: { who: { name: "Grotto" }, icon: "grotto", none: true, role: "the hall before the tunnel", act: [["egg", "Into the tunnel", () => startLevel(nextLevel())], ["map", "Map of levels", () => setScene("map")]], hello: [], lines: [] },
@@ -859,13 +864,120 @@ function drawBubble(x, y, text, alpha = 1) {
 }
 const heroAt = (x, y) => { if (!heroHere() || heroHere().none || !N.iso) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.6 && y < hy + N.base * 0.15 && y > hy - N.base * 1.6; };
 const propAt = (x, y) => Object.values(isoLayout().placed).find(p => PLACE_PROPS.has(p.id) && pieceHits[p.id] && spriteHit(pieceHits[p.id].c, pieceHits[p.id].x, pieceHits[p.id].y, x, y))?.id || null;
-/** Things in a place that do something of their own when tapped. */
+/** Things in a place that do something of their own when tapped (the keeper's counter, anvil and map table do the keeper's job). */
 const PROP_TAP = {
-  tunnel: () => { sfx.tick(); startLevel(nextLevel()); },
-  wallmap: () => { sfx.tick(); setScene("map"); },
-  altar: () => openThing("moon"),
-  shrine: () => eventNow() && openThing("event"),
+  tunnel: () => pressProp("tunnel", () => { sfx.tick(); startLevel(nextLevel()); }),
+  wallmap: () => pressProp("wallmap", () => { sfx.tick(); setScene("map"); }),
+  altar: () => pressProp("altar", () => openThing("moon")),
+  shrine: () => eventNow() && pressProp("shrine", () => openThing("event")),
+  ...Object.fromEntries(["counter", "anvil", "maptable"].map(id => [id, () => pressProp(id, () => { sfx.tick(); heroHere()?.act[0][2](); })])),
 };
+// ---------- what can be tapped in a place: a warm rim that breathes, a glint sweeping across now and then, the sign of what it does over it ----------
+
+/** The things in the places that do something: the icon of what they do (the same as on its button) and whether one is calling you right now. */
+const PROP_CUES = {
+  tunnel: { icon: "egg" }, wallmap: { icon: "map" },
+  altar: { icon: "moon", call: () => !moonDone() },
+  shrine: { icon: "star", on: () => !!eventNow(), call: () => !moonDone() && !save.seen[eventNow().sp] },
+  counter: { icon: "stall", dx: -0.28 }, anvil: { icon: "hammer" }, maptable: { icon: "compass" },
+  incubator: { icon: "heart", call: () => !!save.incubator && Date.now() >= save.incubator.due },
+  garden: { icon: "sprout", call: () => garden().slots.some(q => q && stageOf2(q) === 3) },
+};
+/** Each cue keeps its own time, so they never pulse together. */
+const cuePhase = id => [...id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 997, 7) / 997;
+/** Pressed: the rim lights up and the piece dips a pixel, then (a moment later) it does its thing. Tapped once, its cue calms down. */
+function pressProp(id, then, wait = 140) {
+  game.propPress = { id, t: game.time };
+  markTip("cue:" + id);
+  if (then) setTimeout(then, wait);
+  return true;
+}
+const propPressed = id => !!game.propPress && game.propPress.id === id && game.time - game.propPress.t < 160;
+/**
+ * A piece's highlight, worked out once per picture: a one-pixel rim just outside its ink outline (pale gold on the lit
+ * side, deeper gold on the shadow side, like a selective outline), its solid pixels as a mask for the glint, and its top.
+ */
+const cueBakes = new WeakMap();
+function cueBake(c) {
+  if (cueBakes.has(c)) return cueBakes.get(c);
+  const w = c.width, h = c.height;
+  let solid = c._solid;
+  if (!solid) { const d = c.getContext("2d").getImageData(0, 0, w, h).data; solid = new Uint8Array(w * h); for (let i = 0; i < w * h; i++) solid[i] = d[i * 4 + 3] > 40 ? 1 : 0; }
+  const on = (m, x, y) => x >= 0 && y >= 0 && x < w && y < h && m[y * w + x];
+  const body = new Uint8Array(w * h);
+  let x0 = w, x1 = -1, top = h;
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    if (solid[y * w + x]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); top = Math.min(top, y); }
+    body[y * w + x] = solid[y * w + x] || on(solid, x - 1, y) || on(solid, x + 1, y) || on(solid, x, y - 1) || on(solid, x, y + 1) ? 1 : 0;
+  }
+  if (x1 < 0) { cueBakes.set(c, null); return null; }
+  const mk = (cw, ch) => { const k = document.createElement("canvas"); k.width = cw; k.height = ch; return k; };
+  const rim = mk(w + 2, h + 2), rg = rim.getContext("2d"), ri = rg.createImageData(w + 2, h + 2), lit = pxHex("#fff0b5"), deep = pxHex("#eec26a");
+  for (let y = -1; y <= h; y++) for (let x = -1; x <= w; x++) {
+    if (on(body, x, y)) continue;
+    const toR = on(body, x + 1, y), toD = on(body, x, y + 1);
+    if (!(toR || toD || on(body, x - 1, y) || on(body, x, y - 1))) continue;
+    const col = toR || toD ? lit : deep, o = ((y + 1) * (w + 2) + x + 1) * 4;
+    ri.data[o] = col[0]; ri.data[o + 1] = col[1]; ri.data[o + 2] = col[2]; ri.data[o + 3] = 255;
+  }
+  rg.putImageData(ri, 0, 0);
+  const mask = mk(w, h), mg = mask.getContext("2d"), mi = mg.createImageData(w, h);
+  for (let i = 0; i < w * h; i++) if (solid[i]) { mi.data[i * 4] = mi.data[i * 4 + 1] = 255; mi.data[i * 4 + 2] = 236; mi.data[i * 4 + 3] = 255; }
+  mg.putImageData(mi, 0, 0);
+  const k = { rim, mask, w, h, top, cx: (x0 + x1 + 1) / 2, span: x1 + 1 - x0 };
+  cueBakes.set(c, k);
+  return k;
+}
+/** Where this frame's cues want their little icons (drawn over everything, by drawPlaceLife). */
+const cueIcons = {};
+/** The cue on one piece in a place, drawn right after the piece: its rim breathing, now and then a glint. */
+function propCue(id, f, dy = 0) {
+  const q = PROP_CUES[id];
+  if (!q || game.scene !== "nest" || arrange.on || (q.on && !q.on())) return;
+  const k = cueBake(f.c); if (!k) return;
+  const x0 = f.x, y0 = f.y + Math.round(dy / PX) * PX, now = game.time, ph = cuePhase(id), fresh = !tipDone("cue:" + id), press = game.propPress && game.propPress.id === id && now - game.propPress.t < 260;
+  // brighter and quicker until it's been tapped once; after that slow and faint, but there
+  const per = fresh ? 2600 : 5600, s = 0.5 - 0.5 * Math.cos((now / per + ph) * TAU);
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  ctx.globalAlpha = press ? 1 : fresh ? 0.3 + 0.5 * s : 0.08 + 0.24 * s;
+  ctx.drawImage(k.rim, x0 - PX, y0 - PX, k.rim.width * PX, k.rim.height * PX);
+  // the glint: a slanted band three pixels wide crossing it from left to right, every few seconds (a flash when pressed)
+  const every = fresh ? 4600 : 9000, sweep = 650, tt = (now + ph * every) % every;
+  if (press || tt < sweep) {
+    if (!press) {
+      const pos = -4 + (k.w + k.h / 2 + 8) * tt / sweep;
+      ctx.beginPath();
+      for (let y = k.top; y < k.h; y++) ctx.rect(x0 + Math.floor(pos - y / 2) * PX, y0 + y * PX, 3 * PX, PX);
+      ctx.clip();
+    }
+    ctx.globalAlpha = press ? 0.28 : fresh ? 0.42 : 0.28;
+    ctx.drawImage(k.mask, x0, y0, k.w * PX, k.h * PX);
+  }
+  ctx.restore();
+  cueIcons[id] = { x: x0 + (k.cx + (q.dx || 0) * k.span) * PX, y: y0 + k.top * PX, t: now, show: fresh || !!(q.call && q.call()), ph };
+}
+/**
+ * The icons over the cued pieces, each on a little dark tag with a point at the bottom, so it reads as a sign and not as
+ * something standing in the room: until each piece has been tapped once, and after that only when one is calling you.
+ */
+function drawCueIcons() {
+  const sz = Math.round(N.base * 0.32 / 14) * 14 || 14, P = Math.max(1, Math.round(sz / 14)), pad = P;
+  for (const [id, c] of Object.entries(cueIcons)) {
+    if (c.t !== game.time) { delete cueIcons[id]; continue; }
+    if (!c.show) continue;
+    const icon = PROP_CUES[id].icon, im = heroImgs["ic:" + icon] || (heroImgs["ic:" + icon] = Object.assign(new Image(), { src: pxIcon(icon) }));
+    if (!im.complete) continue;
+    const bob = Math.round(Math.sin(game.time * 0.004 + c.ph * TAU)) * P, x = Math.round(c.x - sz / 2), y = Math.round(c.y - sz - pad * 2 - 4 * P + bob);
+    ctx.save(); ctx.imageSmoothingEnabled = false;
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = "#160c26"; ctx.fillRect(x - pad, y - pad + P, sz + pad * 2, sz + pad * 2 - 2 * P); ctx.fillRect(x - pad + P, y - pad, sz + pad * 2 - 2 * P, sz + pad * 2);
+    const cx = Math.round(c.x / P) * P; ctx.fillRect(cx - 2 * P, y + sz + pad, 4 * P, P); ctx.fillRect(cx - P, y + sz + pad + P, 2 * P, P);
+    ctx.fillStyle = "#2c1d4d"; ctx.fillRect(x + P, y + P, sz - 2 * P, sz - 2 * P);
+    ctx.globalAlpha = 1;
+    ctx.drawImage(im, x, y, sz, sz);
+    ctx.restore();
+  }
+}
 /** A little card about one thing in a place: what it is, and the one thing to do with it. */
 function openThing(what) {
   sfx.tick();
@@ -902,12 +1014,7 @@ function drawPlaceLife() {
     if (L.filter(p => p.kind === "fly").length < 6) add({ kind: "fly", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base * 1.5, N.y1), ph: rand(0, TAU), life: 1e9 });
   }
   if (kind === "lab") { const d = pieceCenter("labdesk", rand(0.25, 0.65), 0.25); if (d && Math.random() < 0.06) add({ kind: "bubble", x: d[0], y: d[1], vx: rand(-4, 4), vy: rand(-22, -14), life: rand(1, 1.8) }); }
-  if (kind === "grotto") for (const [id, icon, on] of [["altar", "moon", !moonDone()], ["shrine", "star", !!eventNow() && !moonDone()], ["wallmap", "scroll", false]]) {
-    const pl = on && isoLayout().placed[id]; if (!pl) continue;
-    const at = isoPieceAt(pl), tile = N.isoW / ISO_G; at[1] -= tile * (id === "shrine" ? 1.75 : 1.15);
-    const im = heroImgs["ic:" + icon] || (heroImgs["ic:" + icon] = Object.assign(new Image(), { src: pxIcon(icon) })), sz = Math.round(N.base * 0.32 / 14) * 14 || 14;
-    if (im.complete) ctx.drawImage(im, Math.round(at[0] - sz / 2), Math.round(at[1] - sz - 4 + Math.round(Math.sin(now * 0.005)) * 3), sz, sz);
-  }
+  drawCueIcons();
   if (kind === "shop" && L.length < 22 && Math.random() < 0.08) add({ kind: "mote", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base * 2.5, N.y1 - N.base), vx: rand(-5, 5), vy: rand(-4, 4), life: rand(4, 7) });
   if (kind === "yard" && L.filter(p => p.kind === "butterfly").length < 3) add({ kind: "butterfly", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base, N.y1), ph: rand(0, TAU), col: pick(["#ffc4da", "#fff0b5", "#b8e6f5"]), life: 1e9 });
   ctx.save();
@@ -936,6 +1043,8 @@ function tapHero(auto = false) {
   for (let k = 0; k < 4; k++) setTimeout(() => sfx.voice(h.who.voice), k * 90);
   const seen = save.heroTalk?.[save.rooms[save.room].kind] || 0;
   let line = tr(seen < h.hello.length ? h.hello[seen] : pick(h.lines));
+  // Pip wants to hear about every spark the glowlings bring home
+  if (h.who === PIP && seen >= h.hello.length) line = sparkPipLine() || line;
   save.heroTalk = { ...save.heroTalk, [save.rooms[save.room].kind]: seen + 1 };
   // poked three times in a few seconds, Tansy curls up into a ball
   const prev = game.heroPokes && game.heroPokes.room === save.room ? game.heroPokes.list : [];
@@ -966,7 +1075,7 @@ function arriveAt(kind) {
   ensurePlace(kind);
   toRoomKind(kind);
   const h = HEROES[kind];
-  if (h && !(save.heroTalk || {})[kind]) setTimeout(() => tapHero(true), 500);
+  if (h && (!(save.heroTalk || {})[kind] || (h.who === PIP && sparkNews()))) setTimeout(() => tapHero(true), 500);
   else if (kind === "yard") {
     const g = garden(), dry = g.slots.map((q, i) => [q, i]).filter(([q, i]) => q && waterPlot(i, FENNEL));
     if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
@@ -1161,7 +1270,7 @@ function toggleSleep() {
   if (!cr.sleeping && cr.energy >= SLEEPY_AT) { refuseWith(cr, tr("not sleepy yet!")); toast(tr("{0} is full of energy ({1}%). Bedtime comes below {2}%.", cr.name, Math.round(cr.energy), SLEEPY_AT)); return; }
   cr.sleeping = !cr.sleeping;
   cr.selfSlept = false;
-  if (cr.sleeping) { sfx.lullaby(); toast(tr("Sweet dreams, {0} 🌙", cr.name)); }
+  if (cr.sleeping) { sfx.lullaby(); toast(tr("Sweet dreams, {0} 🌙", cr.name)); coreRest(); }
   else { cr.wokeAt = Date.now(); sfx.chirp(specOf(cr).voice); const a = activeActor(); if (a) a.hop = 1; }
   persist();
   renderNest();
@@ -1277,7 +1386,8 @@ function sendExploring(id) {
  * for a long trip), and after a long trip, now and then a geode for the collection.
  */
 function exploreFind(c) {
-  const hrs = (Date.now() - (c.outAt || Date.now())) / 3600e3;
+  const hrs = (Date.now() - (c.outAt || Date.now())) / 3600e3, sparked = c.sparked;
+  delete c.sparked;
   if (hrs < 0.05) return null;
   const shards = Math.min(30, Math.round(2 + hrs * 4));
   let geode = null;
@@ -1287,17 +1397,19 @@ function exploreFind(c) {
     g.count++; save.geodes[geode.id] = g;
   }
   save.shards += shards;
+  // a wander can bring a spark home too (the trip's own was already rolled when it came back)
+  const spark = sparked ? null : bringSpark(c, hrs, false);
   // the gift shows over its head once it's back in the room
   setTimeout(() => {
     const a = actors.get(c.id);
     if (!a) return;
     const v = actorView(a);
-    floatText(`+${shards} ✦${geode ? " 💎" : ""}`, v.x, v.y - v.size * 0.9, "#fff0b5");
+    floatText(`+${shards} ✦${geode ? " 💎" : ""}${spark ? " ✨" : ""}`, v.x, v.y - v.size * 0.9, "#fff0b5");
     a.hop = 1; sfx.shimmer();
   }, 350);
-  return { shards, geode };
+  return { shards, geode, spark };
 }
-const findNote = (c, f) => !f ? "" : " · " + (f.geode ? tr("{0} brought back ✦ {1} and a {2} geode!", c.name, f.shards, CRYSTAL[f.geode.id].name) : tr("{0} brought back ✦ {1}", c.name, f.shards));
+const findNote = (c, f) => !f ? "" : " · " + (f.geode ? tr("{0} brought back ✦ {1} and a {2} geode!", c.name, f.shards, CRYSTAL[f.geode.id].name) : tr("{0} brought back ✦ {1}", c.name, f.shards)) + (f.spark ? " · " + sparkNote(f.spark) : "");
 /** Away for how long, said simply. */
 const awayFor = c => { const m = Math.max(1, Math.round((Date.now() - (c.outAt || Date.now())) / 60000)); return m < 60 ? tr("{0} min", m) : tr("{0} h", Math.floor(m / 60)); };
 

@@ -14,14 +14,55 @@ let toastTimer = 0;
 function toast(text) {
   $("toast").textContent = text;
   $("toast").classList.add("on");
+  placeBanner($("toast"));
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => $("toast").classList.remove("on"), 2600);
 }
+
+/**
+ * The open sheet's title block on screen (whatever sits above its title and the title itself, and its ×): { top, bottom,
+ * sheet } (sheet: a card over the scene, not a full screen like the Book), or null with none open. The topmost one counts.
+ */
+function sheetTitle() {
+  let best = null, bz = -Infinity;
+  for (const o of document.querySelectorAll(".overlay:not(.hidden)")) {
+    const card = o.querySelector(":scope > .card"), z = Number(getComputedStyle(o).zIndex) || 0;
+    if (card && card.getClientRects().length && z >= bz) { best = [o, card]; bz = z; }
+  }
+  if (!best) return null;
+  const [o, card] = best, r = card.getBoundingClientRect();
+  let bottom = r.top + 12;
+  for (const el of card.children) {
+    if (el.matches(".x-close, [id$=Close]")) { const b = el.getBoundingClientRect(); if (b.top < r.top + 90) bottom = Math.max(bottom, b.bottom); continue; }
+    const b = el.getBoundingClientRect();
+    if (b.height) bottom = Math.max(bottom, b.bottom);
+    if (el.tagName === "H2") break;
+    if (b.top > r.top + innerHeight * 0.45) { bottom = r.top + 12; break; } // no title near the top: only the card's own top edge
+  }
+  return { top: r.top, bottom, sheet: o.classList.contains("modal") || !o.classList.contains("screen") };
+}
+/**
+ * A banner at the top (a toast, an award) never covers an open sheet's title or its ×: if they'd meet, it moves down to
+ * just under the title block, and a toast also keeps clear of an award showing above it. Kept on screen.
+ */
+function placeBanner(el) {
+  el.style.top = "";
+  const top = parseFloat(getComputedStyle(el).top) || 0, h = el.offsetHeight, s = sheetTitle(), aw = $("award");
+  let y = top;
+  if (s && y < s.bottom && y + h > s.top) y = s.bottom + 8;
+  // (the award's resting place, not where its slide-in has got to)
+  if (el !== aw && awardShowing && aw.classList.contains("on")) { const a = aw.offsetTop, b = a + aw.offsetHeight; if (y < b && y + h > a) y = b + 8; }
+  if (y !== top) el.style.top = Math.round(Math.min(y, innerHeight - h - 12)) + "px";
+}
+/** Does an open sheet's title sit where this banner would drop in? */
+const bannerClash = el => { el.style.top = ""; const s = sheetTitle(), top = parseFloat(getComputedStyle(el).top) || 0; return !!s && s.sheet && top < s.bottom && top + (el.offsetHeight || 64) > s.top; };
 
 function setScene(scene) {
   if (scene !== "nest" && arrange.on) stopArrange();
   // into or out of cracking: the pixel size changes (finer everywhere else), so everything is laid out again
   const wasCrack = game.scene === "crack";
+  // an egg left before it opened: no harm done, but going back to the stone after it counts (see coreTried)
+  if (wasCrack && scene !== "crack" && game.egg?.state === "cracking" && game.egg.taps > 0 && !game.egg.conf.coop) coreFell();
   if (game.scene === "nest" && scene !== "nest") sfx.purrOff();
   game.scene = scene;
   if (wasCrack !== (scene === "crack") && W) refit();
@@ -41,7 +82,8 @@ function setScene(scene) {
   $("nestEmpty").hidden = !(scene === "nest" && !save.creatures.length);
   if (scene === "map") renderMap();
   if (scene === "lib") { renderLib(); taskDone("book"); }
-  if (scene === "nest") { renderNest(true); nudgeBackup(); }
+  // (in the nest, the places you can go to are painted ahead while nothing else is going on)
+  if (scene === "nest") { renderNest(true); nudgeBackup(); bakeAhead(); }
   updateTopbar();
   talkMoments(scene);
 }
@@ -70,13 +112,13 @@ function fitTopbar() {
   if (over()) body.classList.add("tighter");
 }
 
-// ---------- settings: music and sound volumes, less motion, bigger text ----------
+// ---------- settings: music on or off, music and sound volumes, less motion, bigger text ----------
 
-// less motion starts on if the device asks for it
-const opts = () => ({ music: 1, sfx: 1, calm: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, big: false, look: 1, ...(save.opts || {}) });
+// less motion starts on if the device asks for it; the music starts on, and quiet
+const opts = () => ({ musicOn: true, music: 0.5, sfx: 1, calm: !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches, big: false, look: 1, ...(save.opts || {}) });
 function applyOpts() {
   const o = opts();
-  sfx.setVolumes(o.music, o.sfx);
+  sfx.setVolumes(o.music, o.sfx, o.musicOn !== false);
   document.body.classList.toggle("calm", !!o.calm);
   document.body.classList.toggle("bigtext", !!o.big);
 }
@@ -85,16 +127,17 @@ function openOpts() {
   sfx.tick();
   const o = opts(), pct = v => `${Math.round(v * 100)}%`;
   $("optsList").innerHTML = `
-    <label class="opt"><span>${ic("sound")}${tr("Music")}<em id="vMusic">${pct(o.music)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.music}" data-opt="music"></label>
+    <button class="opt-toggle${o.musicOn ? " on" : ""}" data-toggle="musicOn"><span>${tr("Music")}<small>${tr("a slow, quiet soundtrack, its own in every place")}</small></span><b>${o.musicOn ? tr("on") : tr("off")}</b></button>
+    <label class="opt"><span>${ic("sound")}${tr("Music volume")}<em id="vMusic">${pct(o.music)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.music}" data-opt="music"${o.musicOn ? "" : " disabled"}></label>
     <label class="opt"><span>${ic("bell")}${tr("Sounds")}<em id="vSfx">${pct(o.sfx)}</em></span><input type="range" min="0" max="1" step="0.05" value="${o.sfx}" data-opt="sfx"></label>
-    <p class="me-hint">${tr("Music is the backdrops' songs and the grotto's hum; sounds are everything else: taps, chirps, voices.")}</p>
+    <p class="me-hint">${tr("Music is the soundtrack: each place has its own, in its backdrop's key; sounds are everything else: taps, chirps, voices.")}</p>
     <button class="opt-toggle${o.calm ? " on" : ""}" data-toggle="calm"><span>${tr("Less motion")}<small>${tr("no shaking or bouncing, gentler effects")}</small></span><b>${o.calm ? tr("on") : tr("off")}</b></button>
     <button class="opt-toggle${o.big ? " on" : ""}" data-toggle="big"><span>${tr("Bigger text")}<small>${tr("for the cards, dialogs and hints")}</small></span><b>${o.big ? tr("on") : tr("off")}</b></button>`;
   $("optsList").innerHTML += `<div class="opt"><span>${ic("sparkle")}${tr("How glowlings shine")}</span></div><div class="seg look-seg">${[["Classic", 0], ["Glow", 1], ["Spirit", 2]].map(([n, v]) => `<button data-look="${v}" class="${o.look === v ? "on" : ""}">${tr(n)}</button>`).join("")}</div>`;
   $$("#optsList [data-look]").forEach(b => b.addEventListener("click", () => { setOpt("look", Number(b.dataset.look)); sfx.chirp(1); openOpts(); }));
   $$("#optsList [data-opt]").forEach(r => r.addEventListener("input", () => {
     const v = Number(r.value); $(r.dataset.opt === "music" ? "vMusic" : "vSfx").textContent = pct(v);
-    sfx.setVolumes(r.dataset.opt === "music" ? v : opts().music, r.dataset.opt === "sfx" ? v : opts().sfx);
+    sfx.setVolumes(r.dataset.opt === "music" ? v : opts().music, r.dataset.opt === "sfx" ? v : opts().sfx, opts().musicOn);
   }));
   $$("#optsList [data-opt]").forEach(r => r.addEventListener("change", () => { setOpt(r.dataset.opt, Number(r.value)); if (r.dataset.opt === "sfx") sfx.chirp(1); }));
   $$("#optsList [data-toggle]").forEach(b => b.addEventListener("click", () => { setOpt(b.dataset.toggle, !opts()[b.dataset.toggle]); openOpts(); }));
@@ -125,7 +168,7 @@ function keeperLevel() {
 const keeperTitle = l => tr(KEEPER_TITLES.filter(([at]) => l >= at).pop()[1]);
 const skill = id => (save.me && save.me.skill && save.me.skill[id]) || 0;
 /** Keeper XP for the things you do; each level brings a skill point. */
-const KEEPER_XP = { trips: 5, cracked: 12, harvested: 6, fed: 2, petted: 1, played: 4, taskDays: 15, wickBought: 3, rescued: 40 };
+const KEEPER_XP = { trips: 5, cracked: 12, harvested: 6, fed: 2, petted: 1, played: 4, taskDays: 15, wickBought: 3, rescued: 40, lamplit: 10 };
 function keeperXP(n) {
   if (!n || coopSession || game.coopTouched) return;
   const before = keeperLevel().l;
@@ -146,10 +189,10 @@ function openMe(first) {
   $$("#meForm [data-form]").forEach(b => b.classList.toggle("on", b.dataset.form === m.form));
   const nextTitle = KEEPER_TITLES.find(([at]) => at > k.l);
   $("meLevel").innerHTML = `<h3>${tr("Your level")}<button class="q" data-q="lvl" aria-label="?">?</button></h3>`
-    + `<b>${tr("Level {0}", k.l)} · ${keeperTitle(k.l)}</b><i class="aw-bar" style="--k:${k.xp / k.need}"><u>${tr("{0} of {1} XP", k.xp, k.need)}</u></i>`
+    + `<b>${tr("Level {0}", k.l)} · ${keeperTitle(k.l)}</b>${coreGift("title") ? `<small class="me-title">✦ ${tr("Steady heart")}</small>` : ""}<i class="aw-bar" style="--k:${k.xp / k.need}"><u>${tr("{0} of {1} XP", k.xp, k.need)}</u></i>`
     + `<p class="me-hint">${tr("You earn XP for everything you do in the game. Every new level gives you a skill point.")}${nextTitle ? " " + tr("Next title at level {0}: {1}.", nextTitle[0], tr(nextTitle[1])) : ""}</p>`
     + `<div class="me-more" data-more="lvl" hidden><p>${tr("Where XP comes from:")}</p><ul>${[
-      [tr("cracking an egg"), KEEPER_XP.cracked], [tr("freeing a spark from the Gloom"), KEEPER_XP.rescued], [tr("finishing all of a day's tasks"), KEEPER_XP.taskDays],
+      [tr("cracking an egg"), KEEPER_XP.cracked], [tr("freeing a spark from the Gloom"), KEEPER_XP.rescued], [tr("pushing the Gloom's shadows back"), KEEPER_XP.lamplit], [tr("finishing all of a day's tasks"), KEEPER_XP.taskDays],
       [tr("picking a harvest"), KEEPER_XP.harvested], [tr("playing a mini-game"), KEEPER_XP.played], [tr("buying from Wick"), KEEPER_XP.wickBought],
       [tr("giving a snack"), KEEPER_XP.fed], [tr("petting a glowling"), KEEPER_XP.petted], [tr("an award"), "20–250"]].map(([w, n]) => `<li><span>${w}</span><b>+${n}</b></li>`).join("")}</ul></div>`;
   $("meSkills").innerHTML = `<h3>${tr("Skills")}<button class="q" data-q="sk" aria-label="?">?</button></h3>`
@@ -159,6 +202,7 @@ function openMe(first) {
       const l = skill(sk.id);
       return `<div class="forge skill">${ic(sk.icon, "big")}<span class="txt"><b>${tr(sk.name)} <em>${l}/${SKILL_MAX}</em></b><span class="pips">${Array.from({ length: SKILL_MAX }, (_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l ? tr("now: {0}", sk.what(l)) : tr("not yet")}${l < SKILL_MAX ? ` · ${tr("next: ")}${sk.what(l + 1)}` : ""}</small></span><button class="act" data-skill="${sk.id}" ${!m.pts || l >= SKILL_MAX ? "disabled" : ""} aria-label="+1 ${tr(sk.name)}">+1</button></div>`;
     }).join("");
+  $("meCore").innerHTML = coreHtml();
   $$("#meSheet .q").forEach(b => b.addEventListener("click", () => { const m2 = document.querySelector(`#meSheet [data-more="${b.dataset.q}"]`); m2.hidden = !m2.hidden; b.classList.toggle("on", !m2.hidden); sfx.tick(); }));
   $("meFirst").hidden = !first;
   $$("#meSkills [data-skill]").forEach(b => b.addEventListener("click", () => {
@@ -183,7 +227,7 @@ const AWARD_TIERS = [
 const AWARD_TIER = Object.fromEntries(AWARD_TIERS.map(t => [t.id, t]));
 /** Counters for the things the save didn't count before: eggs cracked, snacks, pets, games, finished days. */
 const cnt = k => (save.counts && save.counts[k]) || 0;
-function bump(k, n = 1) { save.counts = { ...save.counts, [k]: cnt(k) + n }; keeperXP((KEEPER_XP[k] || 0) * n); }
+function bump(k, n = 1) { save.counts = { ...save.counts, [k]: cnt(k) + n }; keeperXP((KEEPER_XP[k] || 0) * n); coreBump(k); }
 const stat = {
   // older nests counted every hatch in the glowpedia, so cracking starts from there
   cracked: () => Math.max(cnt("cracked"), Object.values(save.seen).reduce((a, v) => a + (v.count || 0), 0)),
@@ -218,6 +262,7 @@ const AWARDS = [
   { id: "harvest25", tier: "rare", name: "Harvest festival", how: "Pick 25 harvests", test: () => [cnt("harvested"), 25] },
   { id: "biteleaf", tier: "epic", name: "It bites", how: "Grow and pick a biteleaf", test: () => [cnt("biteleaf"), 1] },
   { id: "rescue1", tier: "rare", name: "First light", how: "Free a spark from the Gloom", test: () => [cnt("rescued"), 1] },
+  { id: "lamp5", tier: "rare", name: "Lamplighter", how: "Push the Gloom's shadows back with your light 5 times", test: () => [cnt("lamplit"), 5] },
   { id: "cracked250", tier: "epic", name: "Quarry lord", how: "Crack 250 eggs", test: () => [stat.cracked(), 250] },
   { id: "species20", tier: "epic", name: "Glowpedia scholar", how: "Meet 20 kinds of glowlings", test: () => [stat.species(), 20] },
   { id: "stars60", tier: "epic", name: "Constellation", how: "Earn 60 stars", test: () => [totalStars(), 60] },
@@ -237,6 +282,7 @@ const AWARDS = [
 ];
 const awardQueue = [];
 let awardShowing = false;
+const AWARD_HOLD = 6000; // how long an award waits for an open sheet to close before it shows anyway
 /** Hand out what you've earned. The first time (or with quiet) they arrive together, with one word in the corner. */
 function checkAwards(quiet) {
   // like the dialogs, awards wait while (and after) you play together, so a shared egg never changes your own save behind its back
@@ -261,11 +307,24 @@ function checkAwards(quiet) {
   showAward();
 }
 /** A trophy slides down from the top, like a console achievement. */
+let awardHeld = 0;
 function showAward() {
   if (awardShowing || !awardQueue.length) return;
+  // a sheet open with its title just where the trophy would drop in: it waits for the sheet to close (a few seconds at
+  // most, then it drops in just under the sheet's title instead)
+  clearTimeout(showAward.wait);
+  if (bannerClash($("award"))) {
+    if (!awardHeld) awardHeld = Date.now();
+    if (Date.now() - awardHeld < AWARD_HOLD) { showAward.wait = setTimeout(showAward, 400); return; }
+  }
+  awardHeld = 0;
   const a = awardQueue.shift(), el = $("award");
   awardShowing = true;
-  if (a.keeper) {
+  if (a.core) {
+    // a new facet of the core: its picture, and its name
+    el.className = "glass on legendary core";
+    el.innerHTML = `<i class="ic big" style="background-image:url(${coreArt(CORE_FACETS[a.core - 1].at)})" aria-hidden="true"></i><span><small>${tr("A new facet of your core")}</small><b>${tr(CORE_FACETS[a.core - 1].name)}</b></span>`;
+  } else if (a.keeper) {
     el.className = "glass on legendary";
     el.innerHTML = `${ic("star", "big")}<span><small>${tr("Keeper level {0}", a.level)} · ${tr("+1 skill point")}</small><b>${keeperTitle(a.level)}</b></span>`;
   } else {
@@ -273,6 +332,8 @@ function showAward() {
     el.className = "glass on " + a.tier;
     el.innerHTML = `${ic("trophy_" + a.tier, "big")}<span><small>${tr(t.one)} · +${t.shards} ✦</small><b>${tr(a.name)}</b></span>`;
   }
+  placeBanner(el);
+  if ($("toast").classList.contains("on")) placeBanner($("toast"));
   sfx.levelUp(); buzz([10, 40, 10]);
   setTimeout(() => { el.classList.remove("on"); setTimeout(() => { awardShowing = false; showAward(); }, 450); }, 3400);
 }
@@ -363,6 +424,7 @@ function finishMoon() {
   // every moon egg brings a firefly square; every third night in a row, a star bar
   giveBar(streak % 3 ? "firefly" : "star");
   taskDone("moon");
+  coreAdd("ritual");
   return 25 + Math.min(50, (streak - 1) * 5);
 }
 
@@ -373,19 +435,21 @@ function untilTomorrow() {
 
 // ---------- the lantern: oil for trips into the grotto, and snack bars that top it up ----------
 
-const OIL_MAX = 5, OIL_EVERY = 20 * 60e3;
+const OIL_EVERY = 20 * 60e3;
+/** The lantern holds 5 drops, one more once Ember has deepened it (the core's second facet, see inner.js). */
+const oilMax = () => 5 + (coreGift("oil") ? 1 : 0);
 const BARS = {
   firefly: { name: "Firefly square", oil: 1, icon: "barFirefly" },
   nut: { name: "Nut bar", oil: 3, icon: "barNut" },
-  star: { name: "Star bar", oil: OIL_MAX, icon: "barStar" },
+  star: { name: "Star bar", get oil() { return oilMax(); }, icon: "barStar" },
 };
 /** Oil in the lantern now: one drop comes back every 20 minutes up to the brim (bars can fill it past that). */
 function oilNow() {
   // (only reads: a full lantern leaves the save alone, so looking at it never changes anything)
   const now = Date.now(), o = save.oil;
-  if (o.n >= OIL_MAX) return o.n;
+  if (o.n >= oilMax()) return o.n;
   const k = Math.floor((now - o.t) / OIL_EVERY);
-  if (k > 0) { o.n = Math.min(OIL_MAX, o.n + k); o.t = o.n >= OIL_MAX ? now : o.t + k * OIL_EVERY; }
+  if (k > 0) { o.n = Math.min(oilMax(), o.n + k); o.t = o.n >= oilMax() ? now : o.t + k * OIL_EVERY; }
   return o.n;
 }
 const oilNext = () => Math.max(0, save.oil.t + OIL_EVERY - Date.now());
@@ -394,7 +458,7 @@ const tripCosts = n => !(n > 0 && save.stars[n] >= 3);
 function burnOil() {
   if (oilNow() < 1) return false;
   // the 20 minutes start counting from the first drop used
-  if (save.oil.n >= OIL_MAX) save.oil.t = Date.now();
+  if (save.oil.n >= oilMax()) save.oil.t = Date.now();
   save.oil.n--;
   persist();
   updateTopbar();
@@ -412,7 +476,7 @@ function useBar(id) {
   oilNow();
   save.bars[id]--;
   save.oil.n = Math.min(99, save.oil.n + BARS[id].oil);
-  if (save.oil.n >= OIL_MAX) save.oil.t = Date.now();
+  if (save.oil.n >= oilMax()) save.oil.t = Date.now();
   persist();
   sfx.munch(); setTimeout(() => sfx.shimmer(), 250);
   updateTopbar();
@@ -420,13 +484,13 @@ function useBar(id) {
 }
 function renderOilPill() {
   const n = oilNow();
-  const drops = Array.from({ length: OIL_MAX }, (_, i) => `<i${i < n ? ' class="on"' : ""}></i>`).join("");
-  $("oilCount").innerHTML = `${ic("lantern", n ? "" : "off")}<span class="drops" aria-label="${n}/${OIL_MAX}">${drops}</span>${n > OIL_MAX ? `<em>+${n - OIL_MAX}</em>` : n < OIL_MAX ? `<em>${fmtClock(oilNext())}</em>` : ""}`;
+  const drops = Array.from({ length: oilMax() }, (_, i) => `<i${i < n ? ' class="on"' : ""}></i>`).join("");
+  $("oilCount").innerHTML = `${ic("lantern", n ? "" : "off")}<span class="drops" aria-label="${n}/${oilMax()}">${drops}</span>${n > oilMax() ? `<em>+${n - oilMax()}</em>` : n < oilMax() ? `<em>${fmtClock(oilNext())}</em>` : ""}`;
   // the Crack button says so when the lantern is out
   const next = nextLevel(), dry = !n && tripCosts(next);
   $("crackTab").classList.toggle("dry", !!dry);
   $("crackLvl").textContent = dry ? `⏳ ${fmtClock(oilNext())}` : next ? tr("Lv {0}", next) : tr("Wander");
-  $("oilWhen").textContent = n >= OIL_MAX ? tr("lantern") : fmtClock(oilNext());
+  $("oilWhen").textContent = n >= oilMax() ? tr("lantern") : fmtClock(oilNext());
   $("oilPill").classList.toggle("empty", !n);
 }
 const fmtClock = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
@@ -434,9 +498,9 @@ const fmtClock = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s 
 function openLantern(needed) {
   const n = oilNow();
   $("lanternTitle").textContent = needed && !n ? tr("The lantern is out") : tr("Lantern");
-  $("lanternSub").textContent = (n >= OIL_MAX ? tr("Full: {0} trips into the grotto.", n) : tr("{0} of {1} drops of oil · the next one in {2}", n, OIL_MAX, fmtLeft(oilNext())))
+  $("lanternSub").textContent = (n >= oilMax() ? tr("Full: {0} trips into the grotto.", n) : tr("{0} of {1} drops of oil · the next one in {2}", n, oilMax(), fmtLeft(oilNext())))
     + (needed && !n ? ". " + tr("Have a bar, or come back a little later.") : "");
-  $("lanternMeter").innerHTML = Array.from({ length: Math.max(OIL_MAX, n) }, (_, i) => ic("lantern", i < n ? "" : "off")).join("");
+  $("lanternMeter").innerHTML = Array.from({ length: Math.max(oilMax(), n) }, (_, i) => ic("lantern", i < n ? "" : "off")).join("");
   $("barList").innerHTML = Object.entries(BARS).map(([id, b]) => {
     const have = save.bars?.[id] || 0;
     return `<button class="snack" data-bar="${id}" ${have ? "" : "disabled"}>${ic(b.icon, "big")}<span><b>${barName(id)}</b><small>${id === "star" ? tr("fills the lantern, even past the brim") : tr("+{0} oil", b.oil)}</small></span><span class="cost">×${have}</span></button>`;
@@ -445,8 +509,8 @@ function openLantern(needed) {
   // the rules in three small labels, and the whole story behind the ?
   $("oilFacts").textContent = [tr("1 per trip"), tr("+1 every {0} min", OIL_EVERY / 60e3), tr("★★★ levels free")].join(" · ");
   $("lanternFree").innerHTML = [
-    tr("Each trip into the Grotto burns 1 drop of oil. The lantern holds {0}.", OIL_MAX),
-    tr("A drop comes back every {0} minutes on its own, until the lantern is full again: from empty to full takes {1}.", OIL_EVERY / 60e3, fmtLeft(OIL_MAX * OIL_EVERY)),
+    tr("Each trip into the Grotto burns 1 drop of oil. The lantern holds {0}.", oilMax()) + (coreGift("oil") ? " " + tr("Ember deepened it for you: one more drop fits.") : ""),
+    tr("A drop comes back every {0} minutes on its own, until the lantern is full again: from empty to full takes {1}.", OIL_EVERY / 60e3, fmtLeft(oilMax() * OIL_EVERY)),
     tr("Bars fill it at once, even past the brim. They come from daily tasks, level-ups, moon eggs and sometimes the rubble of a geode."),
     tr("Free, always: moon eggs, playing together, and levels you already have ★★★ on. Quit before the first tap and you get the drop back."),
   ].map(t => `<p>${t}</p>`).join("");
@@ -456,7 +520,7 @@ function openLantern(needed) {
 function startLevel(n) {
   // a trip into the grotto takes a drop of lantern oil
   const paid = tripCosts(n);
-  if (paid && !burnOil()) { sfx.tick(); openLantern(true); return; }
+  if (paid && !burnOil()) { sfx.tick(); openLantern(true); coreFell(); return; }
   sfx.tick();
   game.chips = []; game.sparks = [];
   setScene("crack");

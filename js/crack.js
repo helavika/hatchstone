@@ -64,6 +64,8 @@ const FLASH = {
   moonstone: ["#8fa6ff", "#e8f0ff", "#8fa6ff"],
   sunstone: ["#ff9a4a", "#ffd9a0", "#e8703a", "#ffe0b8", "#ff9a4a"],
   tigereye: ["#5a3410", "#ffd36a", "#7a4a16", "#ffe9a8", "#5a3410", "#e0a84a", "#5a3410"],
+  bismuth: ["#ffd25f", "#ff7ac8", "#7a5cff", "#3fd0e0", "#9cff8a", "#ffd25f"],
+  obsidian: ["#231d33", "#7e6fb0", "#231d33", "#c9a9e8", "#231d33"],
 };
 
 /** The inside, drawn the way the real mineral looks. */
@@ -132,7 +134,7 @@ function makeInterior(crystal, stone) {
     o.restore();
   }
   if (crystal.style === "flash") {
-    // labradorite, opal, moonstone, sunstone and tiger's eye: a sheen of color across the stone (tiger's eye in rolling golden stripes)
+    // labradorite, opal, moonstone, sunstone, tiger's eye, obsidian and bismuth: a sheen of color across the stone (tiger's eye in rolling golden stripes)
     o.save(); tracePoly(o, whole); o.clip();
     const sheen = o.createLinearGradient(cx - L.ew * 0.5, cy - L.eh * 0.5, cx + L.ew * 0.5, cy + L.eh * 0.5);
     const flash = FLASH[crystal.id] || [main, light, main];
@@ -831,7 +833,7 @@ function showFound() {
   checkThemes();
   taskDone("crack");
   if (shine >= 0.8) taskDone("polish");
-  if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); }
+  if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); coreTried(); }
 
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
@@ -1083,6 +1085,7 @@ document.addEventListener("keydown", ev => { if (talkNow && (ev.key === " " || e
 const talkLater = [];
 function talkMoments(scene) {
   if (!["nest", "map", "lib"].includes(scene) || !$("found").classList.contains("hidden")) return;
+  coreMoments(scene);
   while (talkLater.length) talk(...talkLater.shift());
   if (scene === "nest" && save.creatures.length) talk("firstPet");
   if (scene === "nest") tellTrips();
@@ -1109,8 +1112,10 @@ function talkMoments(scene) {
 }
 
 function nestHint() {
-  if (!save.creatures.length) return "";
+  // (nothing over the valley map: it would cover the places you came to tap)
+  if (!save.creatures.length || worldOpen()) return "";
   if (!tipDone("pet")) return tr("stroke {0} to pet it ♥", activeCreature()?.name || tr("your glowling"));
+  if (game.scene === "nest" && gloomNow.on) return tipDone("lantern") ? tr("the Gloom's shadows: shine your light on them, together") : tr("shadows of the Gloom! hold your finger on one to shine your lantern");
   // (only about someone who is right here: not from the shop or the forge, nor for someone in another room)
   const cr = activeCreature(), call = cr && !isPlace() && roomOf(cr) === save.room && !cr.out && callOf(cr);
   if (call) return { hungry: tr("{0} is hungry: give it a snack", cr.name), sleepy: tr("{0} is sleepy: tuck it in", cr.name), messy: tr("dust bunnies! tap them to sweep the nest"), lonely: tr("{0} feels lonely: pet it or play", cr.name) }[call];
@@ -1150,6 +1155,8 @@ function coachMove() {
   if (game.scene === "nest" && incHere() && tipDone("pet") && save.incubator && Date.now() >= save.incubator.due) {
     const [x, y] = incSpot(); return { kind: "tap", at: [x, y - N.base * 0.4] };
   }
+  // the first of the Gloom's shadows: a finger shows where to hold your light
+  if (game.scene === "nest" && gloomNow.on && !tipDone("lantern")) { const w = gloomNow.wisps.find(q => q.on && q.t > 0.6); if (w) return { kind: "tap", at: [w.x, w.y - gloomAlt()] }; }
   // the first dust bunny in the nest: a tap on it shows how it's swept
   if (game.scene === "nest" && tipDone("pet") && !tipDone("sweep")) { const s = dustSpots()[0]; if (s) return { kind: "tap", at: [s.x, s.y - s.r * 0.6] }; }
   if (game.scene === "nest" && !tipDone("pet")) {

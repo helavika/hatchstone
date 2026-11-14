@@ -14,12 +14,14 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "crack" && game.egg.state === "polish") { sfx.rubOn(); pointer.lt = now; }
   if (game.scene === "catch" && game.catch) game.catch.tx = x;
   if (game.scene === "echo") { echoTap(x, y); return; }
+  if (game.scene === "walk") { pointer = null; walkTap(x, y); return; }
   if (game.scene === "nest" && !remote) { const ps = passageAt(x, y); if (ps) { pointer = null; goPassage(ps); return; } }
   if (game.scene === "nest" && cloudAt(x, y)) { pointer.cloud = true; return; }
   if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
+  if (game.scene === "nest" && !remote && lanternDown(x, y)) { pointer.lantern = true; return; }
   if (game.scene === "nest" && !remote && wickAt(x, y)) { pointer = null; openWick(); return; }
-  if (game.scene === "nest" && !remote && isPlace()) { const pr = propAt(x, y); if (pr && PROP_TAP[pr]) { pointer = null; markTip("hall"); setHint(""); PROP_TAP[pr](); return; } if (heroAt(x, y) || (pr && !heroHere()?.none)) { pointer = null; tapHero(); return; } }
+  if (game.scene === "nest" && !remote && isPlace()) { const pr = propAt(x, y); if (pr && PROP_TAP[pr]) { pointer = null; if (heroHere()?.none) { markTip("hall"); setHint(""); } PROP_TAP[pr](); return; } if (heroAt(x, y) || (pr && !heroHere()?.none)) { pointer = null; tapHero(); return; } }
   if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
   else if (game.scene === "nest" && !actorAt(x, y) && (pointer.decor = decorAt(x, y))) {
     if (pointer.decor.id === "lights") playDecor(pointer.decor);
@@ -37,6 +39,7 @@ function handlePointerMove(x, y, now = performance.now(), remote = false) {
   }
   if (game.scene === "nest" && pointer.cloud) { if (pointer.moved > 6) { moveCloud(x, y); pointer.cloudMoved = true; } pointer.lx = x; pointer.ly = y; return; }
   if (game.scene === "nest" && pointer.arrange) { if (pointer.moved > 6) arrangeMove(x, y); pointer.lx = x; pointer.ly = y; return; }
+  if (pointer.lantern) { lanternMove(x, y); pointer.lx = x; pointer.ly = y; return; }
   if (game.scene === "nest") {
     if (pointer.call) game.nest.call = { x: clamp(x, N.x0, N.x1), y: clamp(y, N.y0, N.y1), t: game.time };
     else if (pointer.warm) warmEgg(d);
@@ -51,6 +54,7 @@ function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (!pointer) return;
   if (pointer.cloud) { const moved = pointer.cloudMoved; pointer = null; if (moved) { persist(); sfx.tick(); } else playDecor({ id: "cushion" }); return; }
   if (pointer.arrange) { pointer = null; arrangeUp(); return; }
+  if (pointer.lantern) { pointer = null; lanternUp(); return; }
   const tap = pointer.moved < 10 && now - pointer.t0 < 350, calling = pointer.call, decorHit = pointer.decor;
   if (!remote && coopIsGuest()) { coopSendInput("up", x, y); pointer = null; return; }
   pointer = null;
@@ -61,7 +65,7 @@ function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (game.scene === "crack") { const egg = game.egg; if (egg.state === "open" && Math.hypot(x - L.ecx, y - L.ecy) < L.ew * 0.25) { egg.hop = 1; sfx.chirp(egg.species.voice); } }
   if (game.scene === "nest" && !calling) { const a = actorAt(x, y); if (a && a.id !== save.active) selectCreature(a.id); else if (a) { const cr = activeCreature(), v = actorView(a); if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); } } }
 }
-function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
+function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; lanternUp(); game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
 cvs.addEventListener("pointerdown", e => { if (game.scene === "menu") return; try { cvs.setPointerCapture(e.pointerId); } catch {} handlePointerDown(e.clientX, e.clientY); });
 cvs.addEventListener("pointermove", e => handlePointerMove(e.clientX, e.clientY));
 cvs.addEventListener("pointerup", e => handlePointerUp(e.clientX, e.clientY));
@@ -404,7 +408,7 @@ $("crackTab").addEventListener("click", () => {
 });
 $("worldTab").addEventListener("click", () => {
   if ($("tabs").inert || (coopSession?.round && game.scene === "crack")) return;
-  if (worldOpen()) { sfx.tick(); closeWorld(); } else openWorld();
+  if (worldOpen()) { sfx.tick(); closeWorld(); } else { openWorld(); bakeAhead(); }
 });
 $("worldClose").addEventListener("click", () => { sfx.tick(); closeWorld(); });
 $("spaceClose").addEventListener("click", () => show("spaceSheet", false));
@@ -520,7 +524,7 @@ const FAQ_SECTIONS = [
 const FAQ = [
   ["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and look after it at home. Cracking earns shards and stars. The deeper you go, the more of the valley opens up around the grotto: a shop, a garden, a forge, an explorers' camp and a lab, each with someone who looks after it."],
   ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars."],
-  ["What is the lantern?", "Every trip into the Grotto takes a drop of lantern oil. The lantern holds 5 drops, and one comes back every 20 minutes. Bars fill it right away: a firefly square gives 1 drop, a nut bar 3, and a star bar fills it to the brim. Moon eggs, playing together and levels you already have ★★★ on don't use oil."],
+  ["What is the lantern?", "Every trip into the Grotto takes a drop of lantern oil. The lantern holds 5 drops (6 once your core is steadier), and one comes back every 20 minutes. Bars fill it right away: a firefly square gives 1 drop, a nut bar 3, and a star bar fills it to the brim. Moon eggs, playing together and levels you already have ★★★ on don't use oil."],
   ["Where do I get bars?", "From daily tasks (finish them all for a nut bar), when a glowling reaches a new level, from moon eggs (every third night in a row brings a star bar), from a new best in Echo song, from expeditions, and now and then from the rubble of a geode. Wick sells them too, and the workbench at the Forge makes them from spare geodes. Tap the lantern at the top to use one."],
   ["What are daily tasks?", "A few small things to do each day: tap the tasks counter at the top. Each one gives 10 shards, and finishing them all gives 15 more and a nut bar."],
   ["Why polish a geode?", "When a geode opens, rub it with your finger to make it shine. The shinier it gets, the more shards you earn. Tap the button when you're happy with it."],
@@ -529,6 +533,7 @@ const FAQ = [
   ["How do I look after my glowling?", "Use the three buttons under the room: Hunger feeds it from your pantry, Boredom opens a game, and Sleepiness tucks it in when its eyes are closing. Stroke it with your finger too. The button for what it needs right now glows. A happy glowling earns XP and grows up to level 20, and a well-rested, happy one cheers you on when you crack an egg: a few more shards."],
   ["What are hungry, sleepy, lonely and messy?", "The four things a glowling calls you for, shown as a little icon by its picture next to the needs buttons. Hungry: give it a snack. Sleepy: tuck it in, or it will nod off right where it stands. Lonely: stroke it or play a game together. Messy: dust bunnies are piling up, so sweep them away. When someone at home needs you, the Nest tab gets a little dot."],
   ["What are dust bunnies?", "Little grey puffs that gather on the floor while your glowlings are awake. A couple of them make a glowling feel messy, and an untidy room wears joy down faster. Tap one to sweep it away."],
+  ["What are the shadows in the nest?", "Now and then a few soft shadows of the Gloom seep into the nest, and your glowlings huddle together. Hold a finger on a shadow to shine your lantern on it: glowlings close to your light shine with you, and it goes faster. Each shadow lets go of the little light hidden inside it. Leave them be and they drift off by themselves: nothing is lost."],
   ["What games can I play with my glowling?", "Tap Boredom in the nest. Sparkle catch: drag to catch sparkles and dodge pebbles. Echo song: listen to the tune the stones sing, then sing it back. Playing makes a glowling happy but tires it out, so let it nap."],
   ["Can my glowlings have a baby?", "Yes. When two glowlings reach level 5, the Laboratory opens on the map. Ollo keeps the incubator there: two happy glowlings at level 5 or higher can share a mixed egg. The baby mixes both parents and hatches in about 3 hours; stroke the egg to speed it up. Your mixes live in Book → Hybrids."],
   ["What does shiny mean?", "Now and then a glowling hatches shiny, with a sparkly look of its own: about 1 in 25 from geodes and 1 in 10 from moon eggs. A sunpetal from the garden makes your next egg far more likely to be shiny, and a little Luck helps too."],
@@ -545,6 +550,7 @@ const FAQ = [
   ["What is the workbench?", "It's in the Forge. Every geode past the first of its kind is a spare; the first one always stays in your book. Spares melt down into useful things: 3 common ones make a nut bar, 2 common ones a bundle of seeds, 3 rare ones a star bar, and one legendary spare sells for 150 shards."],
   ["How does the garden work?", "The garden bed has three spots. Plant seeds, water them (each plant can drink once every half hour, and it helps them grow), and pick what's ripe. Plants grow in real time, even while you're away, and Fennel waters them when you visit. The garden grows what no shop sells: berry juice, moon mint tea, starfruit, growcaps that help glowlings grow up, and sunpetals for shiny eggs. Seeds come from the Shop, expeditions and the workbench, and picking often gives one back. From chapter II, Wick the moth visits every third day with odd wares and gossip."],
   ["How do expeditions work?", "At the explorers' camp, choose who goes, where (deeper caves open as you go) and for how long: 1, 4 or 8 hours. Explorers need nothing while they're away and come back by themselves with a story and finds: shards, seeds, geodes and sometimes bars. The longer the trip, the more they find, and they earn XP too."],
+  ["What are sparks of inspiration?", "Now and then a glowling comes home from exploring with more than shards: a spark. It can be a song it hums, a colour it saw, or a sight of the lands past the valley. Longer expeditions bring them more often, and sights only come from trips of 4 hours or more. They're kept in the Book, under Sparks: tap one to hear it or look again. A colour can dye every cozy scarf in the nest, and when both sights of a faraway land are home, Pip has something to tell you about it."],
   ["What's in the Grotto?", "The hall before the tunnel. Go into the tunnel (or tap Crack from anywhere) for your next egg. The map on the wall shows every level, so you can go back to old ones for more stars. The altar holds today's moon egg, and during an event a shrine lights up beside it."],
   ["What is the moon egg?", "One special egg a day, waiting on the altar in the Grotto. It doesn't use lantern oil. Open it every day to build a streak: the longer the streak, the more shards, and every third night in a row brings a star bar."],
   ["What are events?", "A few weeks a year the grotto celebrates: Spring Bloom, Firefly Nights, Harvest Moon, Hollow Night, First Frost and Winter Lights. During an event a limited glowling sleeps in the moon egg and the grotto dresses up for it. Tap the shrine in the Grotto to see how many days are left."],
@@ -608,6 +614,11 @@ $("meSave").addEventListener("click", () => { const first = !!$("meSave").datase
 $("meName").addEventListener("change", saveMe);
 $$("#meForm [data-form]").forEach(b => b.addEventListener("click", () => { me().form = b.dataset.form; persist(); sfx.tick(); $$("#meForm [data-form]").forEach(x => x.classList.toggle("on", x === b)); }));
 $("award").addEventListener("click", () => { if ($("award").classList.contains("legendary") && awardShowing) openMe(); });
+// a sheet opening or closing while a banner shows: the banner moves out of the sheet's title (or back to its place)
+new MutationObserver(() => {
+  if ($("toast").classList.contains("on")) placeBanner($("toast"));
+  if (awardShowing) placeBanner($("award"));
+}).observe(document.body, { subtree: true, attributes: true, attributeFilter: ["class"] });
 $("homeClose").addEventListener("click", () => show("homeSheet", false));
 $("homePill").addEventListener("click", openHome);
 $("residentsBtn").addEventListener("click", openHome);
@@ -820,6 +831,8 @@ function renderLib() {
       const ok = f.met();
       return `<div class="aw folk${ok ? " got" : ""}"><img class="folk-face" src="${ok ? f.face() : mysteryGeode()}" alt=""><span><b>${ok ? tr(f.name) : "???"}</b><small>${ok ? `<em class="folk-where">${tr(f.where)}</em>${tr(f.about)}` : tr(f.hint)}</small></span></div>`;
     }).join("") + "</div>";
+  } else if (game.libTab === "sk") {
+    renderSparkLib();
   } else if (game.libTab === "st") {
     $("libGrid").innerHTML = STORY.map((p, i) => {
       const open = unlocked(p.at) && talkSeen(p.id);

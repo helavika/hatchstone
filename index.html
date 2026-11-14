@@ -270,6 +270,7 @@
     <p class="me-hint">Mossa and the others will call you by it.</p>
     <div id="meForm" class="me-form"><span>Як до тебе звертатися</span><div class="seg"><button data-form="f">ти знайшла</button><button data-form="m">ти знайшов</button><button data-form="n">ти знайшли</button></div><p class="me-hint">Так персонажі говоритимуть із тобою: «ти знайшла», «ти знайшов» або нейтрально.</p></div>
     <div id="meLevel" class="me-level"></div>
+    <div id="meCore" class="me-core"></div>
     <div id="meSkills"></div>
     </div>
     <button class="cta" id="meSave" hidden>Save</button>
@@ -370,6 +371,31 @@
   <div class="pill glass">✨ <span id="catchScore">0</span></div>
   <div class="pill glass">⏱ <span id="catchTime">20</span></div>
 </div>
+<div id="walkHud"><button class="pill glass btn round" id="walkQuit" aria-label="Head home" title="Head home"><i class="ic" data-ic="close"></i></button><div class="pill glass" id="walkName"></div><div class="pill glass" id="walkBag"></div></div>
+<div id="walkSheet" class="overlay modal hidden">
+  <div class="card glass dark wide">
+    <h2 id="walkSheetTitle"></h2>
+    <p class="sub" id="walkSheetSub"></p>
+    <div class="scroll"><h3 id="walkWhoH"></h3><div id="walkWho" class="home-grid walk-who"></div><h3 id="walkPathsH"></h3><div id="walkPaths"></div><p class="me-hint" id="walkKeep" hidden></p></div>
+    <button class="ghost" id="walkSheetClose">not now</button>
+  </div>
+</div>
+<div id="walkDone" class="overlay hidden">
+  <div class="card glass dark">
+    <div class="orn" aria-hidden="true"></div>
+    <h2 id="walkTitle"></h2>
+    <div id="walkPics" class="walk-pics"></div>
+    <p class="sub" id="walkSub"></p>
+    <div id="walkGot" class="walk-got"></div>
+    <div class="stats">
+      <div><b id="wdJoy"></b><span id="wdJoyL"></span></div>
+      <div><b id="wdFinds"></b><span id="wdFindsL"></span></div>
+      <div><b id="wdTired"></b><span id="wdTiredL"></span></div>
+    </div>
+    <p id="walkNew" hidden></p>
+    <button class="cta" id="walkHome"></button>
+  </div>
+</div>
 <div id="echoHud"><button class="pill glass btn round hud-quit" aria-label="Stop playing" title="Stop playing"><i class="ic" data-ic="close"></i></button><div class="pill glass">♪ <span id="echoRound">1</span></div></div>
 <div id="games" class="overlay modal hidden">
   <div class="card glass dark">
@@ -397,7 +423,7 @@
     <h2>Glowpedia</h2>
     <div class="orn" aria-hidden="true"></div>
     <p class="sub" id="libSub"></p>
-    <div class="seg"><button data-lib="sp" class="on">Glowlings</button><button data-lib="cr">Geodes</button><button data-lib="hy">Hybrids</button><button data-lib="fk">Folk</button><button data-lib="st">Story</button><button data-lib="aw">Awards</button></div>
+    <div class="seg"><button data-lib="sp" class="on">Glowlings</button><button data-lib="cr">Geodes</button><button data-lib="hy">Hybrids</button><button data-lib="fk">Folk</button><button data-lib="sk">Sparks</button><button data-lib="st">Story</button><button data-lib="aw">Awards</button></div>
     <div class="scroll"><div id="libGrid"></div></div>
   </div>
 </div>
@@ -547,8 +573,12 @@
 </div>
 <script src="js/i18n.js"></script>
 <script src="js/core.js"></script>
+<script src="js/music.js"></script>
 <script src="js/data.js"></script>
 <script src="js/pixel.js"></script>
+<script src="js/sparks.js"></script>
+<script src="js/inner.js"></script>
+<script src="js/walk.js"></script>
 <script src="js/save.js"></script>
 <script src="js/glowlings.js"></script>
 <script src="js/crack.js"></script>

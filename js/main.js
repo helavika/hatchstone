@@ -10,7 +10,8 @@ let nestTick = 0, dustTick = 0;
 function update(dt) {
   game.time += dt * 1000;
   // the nest's dust clock, while you're home (a shared egg must leave everyone's progress as it was; time away catches up on return)
-  if (game.scene === "nest" && !coopSession && (dustTick += dt) > 4) { dustTick = 0; const d = gatherDust(); if (d) { persist(); dustLanded(d); } }
+  if (game.scene === "nest" && !coopSession && !gloomNow.on && (dustTick += dt) > 4) { dustTick = 0; const d = gatherDust(); if (d) { persist(); dustLanded(d); } }
+  updateGloom(dt);
   for (const m of motes) { m.y -= m.vy * dt; if (m.y < -4) { m.y = H + 4; m.x = rand(0, W); } }
   updateEventMotes(dt);
 
@@ -51,6 +52,7 @@ function update(dt) {
   }
   if (game.scene === "catch") updateCatch(dt);
   if (game.scene === "echo") updateEcho(dt);
+  if (game.scene === "walk") updateWalk(dt);
 
   const drag = Math.exp(-1.5 * dt);
   for (const p of game.pieces) {
@@ -474,14 +476,15 @@ function frame(now) {
   updateClock();
   fx.clearRect(0, 0, W, H);
   if (talkNow) updateSpot();
-  drawBackground();
-  if (game.scene !== "menu") drawBats(dt);
+  // (a walk paints its own land, layer by layer: see walk.js)
+  if (game.scene !== "walk") drawBackground();
+  if (game.scene !== "menu" && game.scene !== "walk") drawBats(dt);
   if (game.scene === "crack" && game.egg) {
     ctx.save();
     if (game.shake > 0.3 && !opts().calm) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     drawCushion(L.ecx, L.floor + 4, L.ew * 0.62);
     const cx = Math.min(L.ew * 0.66, W / 2 - 8 * PX);
-    drawCandle(L.ecx - cx, L.floor + 8, 12, 0); drawCandle(L.ecx + cx, L.floor + 10, 8, 2.1);
+    drawCandle(L.ecx - cx, L.floor + 8, 12, 0); (coreGift("lantern") ? drawCoreLantern : drawCandle)(L.ecx + cx, L.floor + 10, 8, 2.1);
     drawEgg();
     drawPieces();
     ctx.restore();
@@ -492,6 +495,8 @@ function frame(now) {
     drawCatch();
   } else if (game.scene === "echo") {
     drawEcho();
+  } else if (game.scene === "walk") {
+    drawWalk();
   } else {
     drawIdle();
   }
@@ -673,6 +678,8 @@ function tgBackTarget() {
   const m = $$(".overlay.modal:not(.hidden)").pop();
   if (m) return m.querySelector('[id$="Close"]') || m.querySelector("#keepCracking");
   if (!$("catchDone").classList.contains("hidden")) return $("catchBack");
+  if (!$("walkDone").classList.contains("hidden")) return $("walkHome");
+  if (game.scene === "walk") return $("walkQuit");
   if (game.scene === "crack") return $("quit");
   return null;
 }
@@ -736,5 +743,6 @@ if (/[#&?]tgWebApp/.test(location.hash + location.search)) {
 
 // ---------- once every script has loaded: timers that reach across them ----------
 game.actors = actors;
+Object.assign(TALKS, CORE_TALKS);
 giftWire();
 setInterval(() => { if (game.scene !== "menu" && !talkNow) checkAwards(); }, 1500);

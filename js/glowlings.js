@@ -120,6 +120,19 @@ function drawBack(c, s, sp, t, pal, ink1 = 1) {
       c.closePath(); c.fill();
       break;
     }
+    case "needles": {
+      // stibnite: a spray of long steel needles fanned out behind, each with a bright metal edge
+      const bristle = Math.sin(t * 0.003) * 0.04;
+      for (let i = 0; i < 9; i++) {
+        const a = -Math.PI / 2 + (i - 4) * 0.3 + bristle * (i - 4) / 4, len = s * (i % 2 ? 0.66 : 0.8), w = s * 0.055;
+        const ux = Math.cos(a), uy = Math.sin(a), nx = -uy * w, ny = ux * w, bx = ux * s * 0.12, by = uy * s * 0.12 - s * 0.02;
+        c.fillStyle = i % 2 ? tint(main, deep, 0.35) : main;
+        c.beginPath(); c.moveTo(bx + nx, by + ny); c.lineTo(ux * len, uy * len - s * 0.02); c.lineTo(bx - nx, by - ny); c.closePath(); c.fill();
+        c.fillStyle = tint(light, "#ffffff", 0.5);
+        c.beginPath(); c.moveTo(bx + nx * 0.2, by + ny * 0.2); c.lineTo(ux * len, uy * len - s * 0.02); c.lineTo(bx - nx * 0.7, by - ny * 0.7); c.closePath(); c.fill();
+      }
+      break;
+    }
   }
 }
 
@@ -155,6 +168,30 @@ function drawBehindHead(c, s, sp, t, pal, top, ink1 = 1) {
       c.fillStyle = deep;
       for (const d of [-1, 1]) {
         c.beginPath(); c.moveTo(d * s * 0.26, top + s * 0.08); c.lineTo(d * s * 0.5, top + s * 0.16); c.lineTo(d * s * 0.5, top - s * 0.15); c.closePath(); c.fill();
+      }
+      break;
+    case "blades":
+      // kyanite: two long flat blades with a slanted tip, streaked pale along the grain
+      for (const d of [-1, 1]) {
+        c.save();
+        c.translate(d * s * 0.16, top + s * 0.1); c.rotate(d * (0.32 + Math.sin(t * 0.003 + d) * 0.04));
+        const w = s * 0.075, h = s * 0.52;
+        c.fillStyle = main; c.beginPath(); c.moveTo(-w, 0); c.lineTo(-w, -h + d * s * 0.06); c.lineTo(w, -h - d * s * 0.06); c.lineTo(w, 0); c.closePath(); c.fill();
+        c.fillStyle = tint(main, deep, 0.55); c.fillRect(d > 0 ? w * 0.35 : -w, -h + s * 0.08, w * 0.65, h - s * 0.08);
+        c.fillStyle = tint(light, "#ffffff", 0.45); c.fillRect(-w * 0.55, -h + s * 0.06, w * 0.4, h - s * 0.12);
+        c.restore();
+      }
+      break;
+    case "shards":
+      // obsidian: sharp chipped ears of volcanic glass, a lit facet and a dark one, with a curved shine where it broke
+      for (const d of [-1, 1]) {
+        const bx = d * s * 0.1, ox = d * s * 0.46, tx = d * s * 0.36, ty = top - s * 0.34;
+        c.fillStyle = tint(main, deep, 0.4);
+        c.beginPath(); c.moveTo(bx, top + s * 0.12); c.lineTo(tx, ty); c.lineTo(d * s * 0.4, top - s * 0.12); c.lineTo(ox, top - s * 0.06); c.lineTo(d * s * 0.47, top + s * 0.2); c.closePath(); c.fill();
+        c.fillStyle = tint(main, light, 0.35);
+        c.beginPath(); c.moveTo(bx, top + s * 0.12); c.lineTo(tx, ty); c.lineTo(d * s * 0.28, top + s * 0.14); c.closePath(); c.fill();
+        c.strokeStyle = tint(light, "#ffffff", 0.5); c.lineWidth = Math.max(s * 0.035, ink1 * 1.2); c.lineCap = "round";
+        c.beginPath(); c.moveTo(d * s * 0.22, top + s * 0.02); c.quadraticCurveTo(d * s * 0.27, top - s * 0.1, tx - d * s * 0.02, ty + s * 0.08); c.stroke();
       }
       break;
   }
@@ -249,6 +286,22 @@ function drawPattern(c, s, sp, t, pal, R) {
       c.globalAlpha = 0.4; c.fillStyle = g; c.fillRect(-s, -s, s * 2, s * 2); c.globalAlpha = 1;
       break;
     }
+    case "moss": {
+      // moss agate: green threads branching up from below like tiny ferns, and a soft cushion of moss along the bottom
+      const low = (sp.body === "drop" ? 0.57 : BODY[sp.body].ry) * s, m = c.getTransform();
+      c.strokeStyle = tint(deep, main, 0.15); c.lineWidth = Math.max(s * 0.055, 2.4 / (Math.hypot(m.a, m.b) || 1)); c.lineCap = "round";
+      for (const [x, h] of [[-0.34, 0.5], [0.34, 0.42]]) {
+        const x0 = x * s, y0 = low - s * 0.04, y1 = y0 - h * s;
+        c.beginPath(); c.moveTo(x0, y0); c.lineTo(x0 + Math.sign(x) * s * 0.03, y1); c.stroke();
+        for (const k of [0.35, 0.65]) for (const d of [-1, 1]) {
+          const yy = y0 - h * s * k;
+          c.beginPath(); c.moveTo(x0 + Math.sign(x) * s * 0.03 * k, yy); c.lineTo(x0 + d * s * 0.1, yy - s * 0.1); c.stroke();
+        }
+      }
+      c.fillStyle = tint(deep, main, 0.15);
+      for (let i = -3; i <= 3; i++) { c.beginPath(); c.arc(i * s * 0.14, low - s * 0.04, s * (0.11 + (i & 1) * 0.03), 0, TAU); c.fill(); }
+      break;
+    }
   }
 }
 
@@ -301,7 +354,90 @@ function drawHeadTop(c, s, sp, t, pal, top, level) {
       c.fillStyle = "#fff"; c.beginPath(); c.arc(s * 0.45 + droop, top + s * 0.08, s * 0.065, 0, TAU); c.fill();
       break;
     }
+    case "hopper": {
+      // bismuth: a little stair-step crystal, each step a different rainbow colour, with the hollow square on top
+      const m = c.getTransform(), ink = 2.4 * 1.6 / (Math.hypot(m.a, m.b) || 1), steps = [deep, main, light, tint(deep, main, 0.5)], h = s * 0.085;
+      steps.forEach((col, k) => {
+        const w = s * (0.34 - k * 0.075), y = top + s * 0.08 - (k + 1) * h;
+        c.beginPath(); c.rect(-w, y, w * 2, h);
+        if (faceStamp) { c.save(); c.globalCompositeOperation = "source-atop"; c.strokeStyle = "#22143a"; c.lineWidth = ink; c.stroke(); c.restore(); }
+        c.fillStyle = col; c.fill();
+        c.fillStyle = tint(col, "#ffffff", 0.5); c.fillRect(-w, y, w * 2, h * 0.3);
+        c.fillStyle = tint(col, "#22143a", 0.3); c.fillRect(w - s * 0.05, y + h * 0.3, s * 0.05, h * 0.7);
+      });
+      c.fillStyle = tint(deep, "#22143a", 0.5); c.fillRect(-s * 0.05, top + s * 0.08 - 4 * h, s * 0.1, h * 0.45);
+      break;
+    }
+    case "rosette": {
+      // desert rose: thin sandy blades grown edge to edge in a fan, round one face-on blade, like a stone flower
+      const m = c.getTransform(), ink = 2.4 * 1.6 / (Math.hypot(m.a, m.b) || 1), cy = top + s * 0.02;
+      const blade = (x, y, rx, ry, a, col) => {
+        c.save(); c.translate(x, y); c.rotate(a);
+        c.beginPath(); c.ellipse(0, 0, rx, ry, 0, 0, TAU);
+        if (faceStamp) { c.save(); c.globalCompositeOperation = "source-atop"; c.strokeStyle = "#22143a"; c.lineWidth = ink; c.stroke(); c.restore(); }
+        c.fillStyle = col; c.fill();
+        c.fillStyle = tint(light, "#ffffff", 0.3); c.beginPath(); c.ellipse(0, -ry * 0.55, rx * 0.8, ry * 0.35, 0, 0, TAU); c.fill();
+        c.restore();
+      };
+      for (const k of [0, 4, 1, 3]) {
+        const a = -Math.PI / 2 + (k - 2) * 0.62;
+        blade(Math.cos(a) * s * 0.22, cy + Math.sin(a) * s * 0.22, s * 0.2, s * 0.07, a, k % 2 ? tint(main, deep, 0.35) : tint(main, deep, 0.7));
+      }
+      blade(0, cy - s * 0.16, s * 0.13, s * 0.13, 0, main);
+      c.fillStyle = tint(main, deep, 0.6); c.beginPath(); c.ellipse(s * 0.02, cy - s * 0.14, s * 0.07, s * 0.075, 0, 0, TAU); c.fill();
+      break;
+    }
+    case "barrels": {
+      // vanadinite: three stubby six-sided red barrels, flat on top
+      const m = c.getTransform(), ink = 2.4 * 1.6 / (Math.hypot(m.a, m.b) || 1);
+      for (const [x, h, a] of [[-0.15, 0.2, -0.3], [0.15, 0.17, 0.3], [0, 0.28, 0]]) {
+        c.save(); c.translate(x * s, top + s * 0.08); c.rotate(a);
+        const w = s * 0.075, hh = h * s, e = w * 0.45;
+        c.beginPath(); c.moveTo(-w, 0); c.lineTo(-w, -hh); c.lineTo(-w * 0.5, -hh - e); c.lineTo(w * 0.5, -hh - e); c.lineTo(w, -hh); c.lineTo(w, 0); c.closePath();
+        if (faceStamp) { c.save(); c.globalCompositeOperation = "source-atop"; c.strokeStyle = "#22143a"; c.lineWidth = ink; c.stroke(); c.restore(); }
+        c.fillStyle = main; c.fill();
+        c.fillStyle = tint(main, deep, 0.55); c.fillRect(w * 0.2, -hh, w * 0.8, hh);
+        c.fillStyle = tint(main, light, 0.45); c.fillRect(-w, -hh, w * 0.45, hh);
+        c.fillStyle = tint(light, "#ffffff", 0.3);
+        c.beginPath(); c.moveTo(-w, -hh); c.lineTo(-w * 0.5, -hh - e); c.lineTo(w * 0.5, -hh - e); c.lineTo(w, -hh); c.lineTo(w * 0.5, -hh + e); c.lineTo(-w * 0.5, -hh + e); c.closePath(); c.fill();
+        c.restore();
+      }
+      break;
+    }
+    case "octahedron": {
+      // fluorite: a perfect eight-sided diamond, purple above and green below, just as it cleaves
+      const y = top - s * 0.24 + Math.sin(t * 0.003) * s * 0.02, w = s * 0.22, h = s * 0.27;
+      const face = (x1, y1, x2, y2, col) => { c.fillStyle = col; c.beginPath(); c.moveTo(0, y); c.lineTo(x1, y1); c.lineTo(x2, y2); c.closePath(); c.fill(); };
+      face(-w, y, 0, y - h, tint(main, "#ffffff", 0.35));
+      face(w, y, 0, y - h, tint(main, deep, 0.3));
+      face(-w, y, 0, y + h, tint(light, "#ffffff", 0.2));
+      face(w, y, 0, y + h, tint(light, deep, 0.6));
+      c.fillStyle = "#ffffff"; sparklePath(c, -w * 0.4, y - h * 0.45, s * 0.045); c.fill();
+      break;
+    }
+    case "fern": {
+      // moss agate: a little fern frond, leaning over, with a curl at its tip
+      const m = c.getTransform(), lw = Math.max(s * 0.035, 2.4 / (Math.hypot(m.a, m.b) || 1)), sway = Math.sin(t * 0.003) * 0.06;
+      c.save(); c.translate(s * 0.02, top + s * 0.06); c.rotate(0.25 + sway);
+      c.strokeStyle = tint(deep, main, 0.1); c.lineWidth = lw; c.lineCap = "round";
+      c.beginPath(); c.moveTo(0, 0); c.quadraticCurveTo(-s * 0.02, -s * 0.3, s * 0.08, -s * 0.46); c.stroke();
+      c.beginPath(); c.arc(s * 0.13, -s * 0.46, s * 0.05, Math.PI, Math.PI * 2.6); c.stroke();
+      for (let i = 0; i < 4; i++) {
+        const y = -s * (0.1 + i * 0.09), l = s * (0.2 - i * 0.035);
+        for (const d of [-1, 1]) { c.fillStyle = d < 0 ? tint(deep, light, 0.3) : tint(deep, main, 0.1); c.beginPath(); c.ellipse(d * l * 0.55, y - l * 0.2, l * 0.55, s * 0.035, d * -0.45, 0, TAU); c.fill(); }
+      }
+      c.restore();
+      break;
+    }
   }
+}
+
+/** Blinks come irregularly: now one, now a quick two, now none for a while (worked out from the time alone, so a frame never changes). */
+function blinkAt(t) {
+  const W = 1900, n = Math.floor(t / W), h = Math.abs(Math.sin(n * 12.9898) * 43758.5453) % 1, off = t - n * W;
+  if (h > 0.42) return false;
+  const at = h / 0.42 * (W - 450);
+  return (off >= at && off < at + 120) || (h < 0.07 && off >= at + 260 && off < at + 380);
 }
 
 function drawFace(c, s, sp, t, mood, eating) {
@@ -309,7 +445,7 @@ function drawFace(c, s, sp, t, mood, eating) {
   const ink = "#2a1f4a";
   c.fillStyle = ink; c.strokeStyle = ink; c.lineCap = "round";
   c.lineWidth = Math.max(1.2, s * 0.025);
-  const blink = (t % 3800) < 140;
+  const blink = blinkAt(t);
   if (mood === "asleep") {
     for (const d of [-1, 1]) { c.beginPath(); c.arc(d * ex, fy - s * 0.01, s * 0.045, 0.15 * Math.PI, 0.85 * Math.PI); c.stroke(); }
   } else if (mood === "happy" || mood === "joy") {
@@ -405,13 +541,13 @@ function drawAccessory(c, s, sp, top, id) {
     }
   } else if (id === "scarf") {
     // round the neck, just under the face, as wide as the body is there
-    const y = fy + s * (sp.body === "wide" ? 0.2 : 0.26), band = y - s * 0.06;
+    const scarf = scarfTint(), y = fy + s * (sp.body === "wide" ? 0.2 : 0.26), band = y - s * 0.06;
     const half = sp.body === "drop" ? 0.47 * s * Math.sqrt(Math.max(0, 1 - ((band / s - 0.1) / 0.47) ** 2)) : B.rx * s * Math.sqrt(Math.max(0, 1 - (band / (B.ry * s)) ** 2));
-    c.strokeStyle = "#e0634f"; c.lineWidth = s * 0.11; c.lineCap = "round";
+    c.strokeStyle = scarf; c.lineWidth = s * 0.11; c.lineCap = "round";
     c.beginPath(); c.ellipse(0, band, Math.max(s * 0.2, half * 0.86), s * 0.1, 0, 0.1 * Math.PI, 0.9 * Math.PI); c.stroke();
     // the loose end hangs down the front, but never below the tummy
     const end = Math.min(s * 0.22, (sp.body === "drop" ? 0.5 : B.ry - 0.06) * s - y);
-    c.fillStyle = "#e0634f"; c.fillRect(s * 0.16, y - s * 0.02, s * 0.1, end);
+    c.fillStyle = scarf; c.fillRect(s * 0.16, y - s * 0.02, s * 0.1, end);
     c.fillStyle = "#fff0b5"; for (const k of [0.08, 0.15]) if (k * s < end - s * 0.03) c.fillRect(s * 0.16, y - s * 0.02 + k * s, s * 0.1, s * 0.03);
   } else if (id === "glasses") {
     c.strokeStyle = "#22143a"; c.lineWidth = Math.max(s * 0.03, thin);
@@ -457,12 +593,14 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   const R = seeded(sp.id);
   s *= [0.82, 1, 1.12, 1.22][stage];
   const asleep = mood === "asleep";
-  const bob = (asleep ? Math.sin(t * 0.0015) * 0.015 : Math.sin(t * 0.003) * 0.03) * s;
+  // a slow breath, slower with age; a hop lifts it less the older it is
+  const bw = (asleep ? 0.0011 : 0.0019) * (0.7 + 0.3 * calmOf(level).fidget), hk = o.hopK ?? 1;
+  const bob = (asleep ? Math.sin(t * bw) * 0.015 : Math.sin(t * bw) * 0.03) * s;
   const hop = o.hop || 0;
-  const sq = (asleep ? 1 + Math.sin(t * 0.0015) * 0.03 : 1 + Math.sin(t * 0.003) * 0.025) - hop * 0.08;
+  const sq = (asleep ? 1 + Math.sin(t * bw) * 0.03 : 1 + Math.sin(t * bw) * 0.025) - hop * 0.08 * hk;
   const B = BODY[sp.body], top = B.top * s;
   c.save();
-  c.translate(x, y + bob - Math.sin(hop * Math.PI) * s * 0.35);
+  c.translate(x, y + bob - Math.sin(hop * Math.PI) * s * 0.35 * hk);
   if (!o.sil && o.glow !== false) {
     const gr = Math.min(s * (0.95 + stage * 0.15), o.maxGlow || Infinity);
     const g = c.createRadialGradient(0, 0, s * 0.2, 0, 0, gr);
@@ -516,14 +654,14 @@ function drawCreature(c, x, y, s, sp, o = {}) {
     const m = c.getTransform(), at = (lx, ly) => [(m.a * lx + m.c * ly + m.e) / 2, (m.b * lx + m.d * ly + m.f) / 2];
     const fy = BODY[sp.body].face * s, ex = eyeX(sp) * s, bx = ex + s * 0.1;
     faceStamp.push({ eyes: [at(-ex, fy), at(ex, fy)], mouth: at(0, fy + s * 0.09), blush: [at(-bx, fy + s * 0.11), at(bx, fy + s * 0.11)], cat: sp.ears === "cat" || sp.ears === "fox",
-      r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" || (sp.beh || BEHAVIOR[sp.id]) === "curious" ? "sleepy" : sp.eyes, eating: !!o.eating, blink: (t % 3800) < 140, t });
+      r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" && o.tired !== false ? "tired" : sp.eyes, eating: !!o.eating, blink: blinkAt(t), face: o.face || "", t });
   } else drawFace(c, s, sp, t, mood, o.eating);
   // growing up: orbiting sparkles, then a halo
   if (stage >= 2) {
     const n = stage === 3 ? 5 : 3;
     c.fillStyle = "#fff";
     for (let i = 0; i < n; i++) {
-      const a = t * 0.0015 + i * TAU / n;
+      const a = t * 0.001 + i * TAU / n;
       sparklePath(c, Math.cos(a) * s * 0.72, Math.sin(a) * s * 0.22 - s * 0.05, s * 0.045); c.fill();
     }
   }
@@ -635,14 +773,14 @@ function drawSprite(x, y, s, sp, o = {}) {
   const grow = [0.82, 1, 1.12, 1.22][stageOf(o.level || 1)], look = o.look ?? (typeof opts === "function" ? opts().look : 0);
   if (o.glow !== false && look) {
     // a pool of the glowling's own light, breathing slowly, laid on with "lighter" so it glows rather than paints
-    const gr = s * grow * (look === 2 ? 1.35 : 1.15), pulse = 0.85 + 0.15 * Math.sin((o.t ?? game.time) * 0.0025 + sp.id.length), n = neonOf(sp), k = (o.glowK ?? 1) * pulse;
+    const gr = s * grow * (look === 2 ? 1.35 : 1.15), pulse = 0.85 + 0.15 * Math.sin((o.t ?? game.time) * 0.0015 + sp.id.length), n = neonOf(sp), k = (o.glowK ?? 1) * pulse;
     const g = ctx.createRadialGradient(x, y, s * 0.15, x, y, gr);
     g.addColorStop(0, n.css(0.42 * k)); g.addColorStop(0.5, n.css(0.18 * k)); g.addColorStop(1, n.css(0));
     ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, gr, 0, TAU); ctx.fill(); ctx.restore();
   }
   // pixel-art pace: a new frame every 100 ms, drawn once and reused, placed on whole pixels so it never shimmers
   const t = Math.floor((o.t ?? game.time) / 100) * 100;
-  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${t}|${PX}|${o.acc || ""}|${!!o.cap}|${!!o.sil}`;
+  const key = `${sp.id}|${Math.round(s)}|${o.level || 1}|${!!o.shiny}|${o.mood || ""}|${!!o.eating}|${Math.round((o.hop || 0) * 6)}|${o.hopK ?? 1}|${o.face || ""}|${o.tired ?? ""}|${t}|${PX}|${o.acc || ""}|${!!o.cap}|${!!o.sil}|${o.acc === "scarf" ? scarfTint() : ""}`;
   let f = spriteFrames.get(key);
   if (!f) {
     if (spriteFrames.size > 400) spriteFrames.clear();
@@ -650,7 +788,11 @@ function drawSprite(x, y, s, sp, o = {}) {
     f.t = t;
     spriteFrames.set(key, f);
   }
-  drawBaked(look && !o.sil ? neonize(f, sp, look) : f, x, y);
+  const shown = look && !o.sil ? neonize(f, sp, look) : f;
+  drawBaked(shown, x, y);
+  // dimmed (in the Gloom's shadow): the same picture again, multiplied over itself, so its colors sink without going see-through
+  // (only when painting normally: a picture used to cut others out stays as it is)
+  if (o.dim > 0.02 && ctx.globalCompositeOperation === "source-over") { const ga = ctx.globalAlpha; ctx.globalCompositeOperation = "multiply"; ctx.globalAlpha = ga * Math.min(1, o.dim); drawBaked(shown, x, y); ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = ga; }
 }
 const spriteFrames = new Map();
 
@@ -714,7 +856,10 @@ function stampFace(d, w, h, solid, f, ox, oy) {
   const eyes = f.eyes.map(([x, y]) => [Math.round(x - ox - e / 2), Math.round(y - oy - tall / 2)]);
   const arc = (x, y, up) => { for (let k = -1; k <= e; k++) put(x + k, y + (k === -1 || k === e ? (up ? 1 : 0) : (up ? 0 : 1)), FACE.ink); };
   const round = (x0, y0, E, T) => { for (let j = 0; j < T; j++) for (let k = 0; k < E; k++) if (E < 3 || ((k + 0.5 - E / 2) / (E / 2)) ** 2 + ((j + 0.5 - T / 2) / (T / 2)) ** 2 <= 1.2) put(x0 + k, y0 + j, FACE.ink); };
-  for (const [x, y] of eyes) {
+  // a moment's face (only on a calm one): eyes shut a blink, a happy squint, or open and turned aside (and up, thinking)
+  const fc = f.mood === "ok" || f.mood === "happy" ? f.face : "", side = /L$/.test(fc) ? -1 : /R$/.test(fc) ? 1 : 0, lift = /^think/.test(fc) ? -1 : 0;
+  for (let [x, y] of eyes) {
+    x += side; y += lift;
     if (f.mood === "hungry" && !f.blink && !f.eating && R >= 8) {
       // hungry: big, round, shiny puppy eyes (larger than usual, two glints, a wet shine along the bottom)
       const E = Math.max(3, Math.round(e * 1.4)), Th = Math.max(4, Math.round(tall * 1.3)), x0 = Math.round(x + e / 2 - E / 2), y0 = Math.round(y + tall / 2 - Th / 2);
@@ -723,16 +868,19 @@ function stampFace(d, w, h, solid, f, ox, oy) {
       for (let j = 0; j < g; j++) for (let k = 0; k < g; k++) put(x0 + E - 1 - g + k - (E >= 5 ? 1 : 0), y0 + 1 + j, FACE.hi);
       put(x0 + 1, y0 + Th - 2 - (E >= 6 ? 1 : 0), FACE.hi);
     }
-    else if (f.mood === "happy" || f.mood === "joy") arc(x, y + Math.floor(tall / 2), true);
+    else if (f.mood === "joy" || fc === "squint") arc(x, y + Math.floor(tall / 2), true);
     else if (f.mood === "asleep") arc(x, y + Math.floor(tall / 2) - 1, false);
-    else if (f.blink) for (let k = 0; k < e; k++) put(x + k, y + Math.floor(tall / 2), FACE.ink);
-    else if (f.kind === "sleepy") { for (let k = -1; k <= e; k++) put(x + k, y + Math.floor(tall / 2) - 1, FACE.ink); for (let k = 0; k < e; k++) for (let j = 0; j < Math.ceil(tall / 2); j++) put(x + k, y + Math.floor(tall / 2) + j, FACE.ink); }
+    else if (f.blink || fc === "blink") for (let k = 0; k < e; k++) put(x + k, y + Math.floor(tall / 2), FACE.ink);
+    else if (f.kind === "tired" || (f.kind === "sleepy" && e < 3)) { for (let k = -1; k <= e; k++) put(x + k, y + Math.floor(tall / 2) - 1, FACE.ink); for (let k = 0; k < e; k++) for (let j = 0; j < Math.ceil(tall / 2); j++) put(x + k, y + Math.floor(tall / 2) + j, FACE.ink); }
     else if (e >= 3) {
-      // a round eye with a glint high on the lit side, and a little one low on the other
+      // a round eye with a glint high on the lit side, and a little one low on the other (both swap round to follow a look aside);
+      // the sleepy-eyed kinds, awake, have the same open eye under a flat lid line
       round(x, y, e, tall);
-      const g = e >= 5 ? 2 : 1, gx = x + Math.max(0, Math.round(e * 0.22) - (e >= 5 ? 0 : 0)), gy = y + Math.max(0, Math.round(tall * 0.15));
+      const lid = f.kind === "sleepy";
+      if (lid) for (let k = -1; k <= e; k++) put(x + k, y, FACE.ink);
+      const g = e >= 5 ? 2 : 1, in1 = Math.round(e * 0.22), gx = side > 0 ? x + e - g - in1 : x + in1, gy = y + Math.max(lid ? 1 : 0, lift ? 0 : Math.round(tall * 0.15));
       for (let j = 0; j < g; j++) for (let k = 0; k < g; k++) put(gx + k, gy + j, FACE.hi);
-      if (e >= 4 || f.kind === "sparkle") put(x + e - 1 - (e >= 5 ? 1 : 0), y + tall - 2, FACE.hi);
+      if (e >= 4 || f.kind === "sparkle") put(side > 0 ? x + (e >= 5 ? 1 : 0) : x + e - 1 - (e >= 5 ? 1 : 0), y + tall - 2, FACE.hi);
       if (e >= 4) for (let k = 1; k < e - 1; k++) if (d[((y + tall - 1) * w + x + k) * 4] === FACE.ink[0]) put(x + k, y + tall - 1, FACE.deep);
     }
     else {
@@ -831,7 +979,7 @@ function cutSprite(target, x, y, size, draw, { lut = SPRITE_LUT, up = 1.75, down
 const thumbCache = new Map();
 /** A glowling as a small picture: for the nest switcher, the glowpedia and the found card. */
 function creatureImage(sp, { size = 120, sil = false, level = 1, shiny = false, mood = "ok", art = 0, acc = null } = {}) {
-  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}|${art}|${acc || ""}`;
+  const key = `${sp.id}|${size}|${sil}|${level}|${shiny}|${mood}|${art}|${acc || ""}${acc === "scarf" ? scarfTint() : ""}`;
   if (thumbCache.has(key)) return thumbCache.get(key);
   // a real pixel sprite (about one art pixel per three of yours), scaled up with hard edges.
   // With `art`, it stays at exactly that many pixels, for the page to blow up by a whole number (2× or 3×) so every pixel is the same size

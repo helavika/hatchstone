@@ -115,11 +115,14 @@ function freeFloorPoint() {
 }
 
 /** Keep a glowling on the floor and out of the furniture (the one riding the swing or asleep on the bed is placed by hand). */
-function keepInRoom(a) {
+function keepInRoom(a, dt) {
   if (N.iso) {
-    const m = isoMargin(0.42); let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+    // (lying on the bed, a sleeper may lie closer to the wall than anyone walks: the bed fills its corner)
+    const m = a.onBed && (a.state === "sleep" || a.state === "toBed") ? bedMargin() : isoMargin(0.42), x0 = a.x, y0 = a.y; let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
     if (a.state !== "visit" || (a.decor !== "swing" && a.decor !== "mushrooms")) pushOutOfPieces(a);
     [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+    // a little slide happens at once; a big one (stepping off the swing or the caps, a piece put down on it) is a quick eased shuffle, not a jump
+    if (dt && Math.hypot(a.x - x0, a.y - y0) > N.base * 0.04) { a.x = lerp(x0, a.x, Math.min(1, dt * 5)); a.y = lerp(y0, a.y, Math.min(1, dt * 5)); }
     return;
   }
   a.y = clamp(a.y, N.y0, N.y1);
@@ -190,8 +193,19 @@ function refuseWith(cr, text) {
   floatText(text, v.x, v.y - v.size * 0.85, "#e6e0ff");
 }
 
+/** Fed and cared for, with nothing to call you about: it takes things slowly. */
+const content = cr => !callOf(cr) && cr.tummy >= 40;
+/** How long it lingers before the next thing: a content one takes its time, and the older, the longer. */
+const linger = cr => calmOf(cr.level).rest * (content(cr) ? 2.3 : 1);
+
 /** Pick what to do next: nap, dance, visit a friend, or wander (flutterers chase the light motes). */
 function chooseNext(a, list) {
+  // content: as often as not it stays where it is and looks about (or, a bit tired, dozes off); a hungry one perks up instead
+  const cr = save.creatures.find(c => c.id === a.id);
+  if (cr && content(cr) && Math.random() < 0.55) {
+    if (cr.energy < 60 && Math.random() < 0.3) { a.state = "nap"; a.t = rand(5, 9) * calmOf(cr.level).rest; return; }
+    a.state = "idle"; a.t = rand(3, 6) * linger(cr); return;
+  }
   // outside, hoppers and swimmers like the garden best: they walk over and water a thirsty plant
   const gp = isOutside() && N.iso && isoLayout().placed.garden;
   if (gp && ["hop", "swim"].includes(a.beh) && Math.random() < 0.25) {
@@ -257,16 +271,38 @@ function meetFriend(a, f, cr) {
   }
 }
 
+/** A hopper's way forward comes in pushes, one per hop (on average as fast as a steady walk). */
+const hopGate = a => Math.sin(((a.gait || 0) % 1) * Math.PI) * Math.PI / 2;
+
+// little faces while it rests, now and then: a blink, a contented squint, a look aside, a thought. Which ones, by character
+const FACE_MIX = { sleepy: { squint: 2, look: 1, think: 1, blink: 1 }, curious: { think: 3, look: 3, squint: 1, blink: 1 }, sparkle: { blink: 3, look: 3, think: 1, squint: 1 }, big: { look: 2, think: 2, blink: 2, squint: 1 }, round: { blink: 2, look: 2, think: 1, squint: 1 } };
+const FACE_LIFE = { blink: 0.4, squint: 1.1, look: 2, think: 2.4 };
+function faceMoments(a, cr, dt) {
+  const calm = calmOf(cr.level), resting = a.state === "idle" && !cr.sleeping && !(a.id === save.active && game.nest.petting);
+  if (a.face && ((a.face.t += dt) > a.face.life || !resting)) a.face = null;
+  if (!resting || a.face || (a.faceT = (a.faceT ?? rand(2, 10)) - dt) > 0) return;
+  // every 6 to 12 seconds or so, each on its own clock; the older, the rarer and the slower
+  a.faceT = rand(6, 12) / calm.fidget;
+  const sp = specOf(cr), mix = FACE_MIX[(sp.beh || BEHAVIOR[sp.id]) === "curious" ? "curious" : sp.eyes] || FACE_MIX.round;
+  let r = Math.random() * Object.values(mix).reduce((n, w) => n + w, 0), kind = "blink";
+  for (const [k, w] of Object.entries(mix)) if ((r -= w) < 0) { kind = k; break; }
+  a.face = { kind, t: 0, life: FACE_LIFE[kind] / (0.6 + 0.4 * calm.fidget), side: Math.random() < 0.5 ? -1 : 1 };
+}
+/** The face moment to draw this instant ("" for none): a blink is a quick double one. */
+const faceNow = a => !a.face ? "" : a.face.kind === "blink" ? (a.face.t % 0.25 < 0.11 ? "blink" : "") : a.face.kind === "squint" ? "squint" : a.face.kind + (a.face.side < 0 ? "L" : "R");
+
 function updateActors(dt) {
   syncActors();
   game.nest.obst = roomObstacles();
   const list = [...actors.values()], call = game.nest.call;
+  // a finger held still on the floor keeps calling (moving it is not needed)
+  if (call && pointer && pointer.call) call.t = game.time;
   for (const a of list) {
     const cr = save.creatures.find(c => c.id === a.id);
     if (!cr) continue;
     a.ph += dt;
     if (a.emote && (a.emote.t += dt) > a.emote.life) a.emote = null;
-    a.hop = Math.max(0, a.hop - dt * 2.5);
+    a.hop = Math.max(0, a.hop - dt * 1.8);
     if (a.shake) a.shake = Math.max(0, a.shake - dt * 1.4);
     // every few seconds: real time catches up, and a very tired glowling takes itself to bed (and gets up again when rested)
     if ((a.needT = (a.needT ?? rand(0, 3)) - dt) < 0) {
@@ -277,8 +313,9 @@ function updateActors(dt) {
       if (!cr.sleeping && cr.energy < 20 && !petted && a.state !== "eat" && Date.now() - (cr.wokeAt || 0) > 3 * 60e3) { cr.sleeping = true; cr.selfSlept = true; emote(a, "🥱", 2.2); sfx.yawn(); a.hop = 1; persist(); if (a.id === save.active) renderNest(); }
       else if (cr.sleeping && cr.energy >= 99) wakeRested(cr, a);
     }
-    const base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100;
-    let speed = base * (a.rain ? 1.6 : 1), target = null;
+    // an unhurried pace, slower with age, and a stroll when there's nothing it needs
+    const calm = calmOf(cr.level), base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100 * 0.8 * calm.go;
+    let speed = base * (a.rain ? 1.6 : content(cr) ? 0.85 : 1), target = null;
     if (cr.sleeping) {
       target = bedSpot(a.id);
       // asleep somewhere else (the bed moved, or someone else lay down and the places shifted): shuffle over and lie down again
@@ -289,7 +326,7 @@ function updateActors(dt) {
       if (a.state !== "called") emote(a, "!", 0.9);
       a.state = "called";
       target = [call.x + Math.cos(a.id * 2.4) * N.base * 0.55, clamp(call.y + Math.sin(a.id * 2.4) * N.base * 0.3, N.y0, N.y1)];
-      speed = base * (a.beh === "curious" ? 2.4 : 1.7);
+      speed = base * (a.beh === "curious" ? 3.2 : 2.3);
     } else if (a.state === "called") { a.state = "idle"; a.t = rand(1, 2.5); }
     // someone is being fed: the hungry ones come running, hoping for a crumb
     const fc = game.nest.feedCall;
@@ -298,8 +335,14 @@ function updateActors(dt) {
       if (a.state !== "begging") { emote(a, SNACKS[specOf(cr).snack].emoji, 1.8); a.hop = 1; }
       a.state = "begging"; a.goal = a.friend = null; a.rain = false;
       target = [f.x + Math.cos(an) * N.base * 0.75, f.y + Math.sin(an) * N.base * 0.4];
-      speed = base * 2;
+      speed = base * 2.6;
     } else if (a.state === "begging") { a.state = "idle"; a.t = rand(1, 2); }
+    // the Gloom's shadows are in: the little ones huddle close together, and gather round your light while it shines (gloomHuddle)
+    const hud = !target && !cr.sleeping && a.state !== "eat" && gloomHuddle(a);
+    if (hud) {
+      if (a.state !== "huddle") { a.goal = a.friend = a.decor = null; a.rain = a.garden = false; }
+      a.state = "huddle"; target = hud; speed = base * (gloomNow.lamp.on ? 2.2 : 1.3);
+    } else if (a.state === "huddle") { a.state = "idle"; a.t = rand(1, 2); }
     // until the first stroke, your glowling waits in the middle of the room where the hint points
     if (!target && !cr.sleeping && a.id === save.active && !tipDone("pet") && a.state !== "eat") {
       target = decorSpot("rug"); a.goal = a.friend = null;
@@ -307,7 +350,7 @@ function updateActors(dt) {
     }
     if (a.id === save.active && game.nest.petting) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
     else if (target) { a.tx = target[0]; a.ty = target[1]; }
-    else if (a.state === "eat") { if ((a.t -= dt) <= 0) { a.state = "idle"; a.t = rand(1, 2); } }
+    else if (a.state === "eat") { if ((a.t -= dt) <= 0) { a.state = "idle"; a.t = rand(1, 2) * linger(cr); } }
     else if (a.state === "idle" || a.state === "nap" || a.state === "dance" || a.state === "visit") { if ((a.t -= dt) <= 0) { a.decor = null; chooseNext(a, list); } }
 
     // a little personal space: glowlings gently push apart instead of piling up
@@ -336,28 +379,31 @@ function updateActors(dt) {
     if (moving && wp) {
       // walking has weight: it picks up speed from a stop, slows down to arrive, and turns gradually toward the next corner of its way
       const [wx, wy] = wp, wdx = wx - a.x, wdy = wy - a.y, wd = Math.hypot(wdx, wdy) || 1;
-      const left = Math.hypot(a.tx - a.x, a.ty - a.y), want = speed * (a.state === "toBed" ? 1.4 : 1) * clamp(left / (N.base * 0.4) + 0.35, 0.35, 1);
-      const k = Math.min(1, dt * 5);
+      // (eased both ways: a slow start, a soft smooth stop, and a turn never flips it round on the spot)
+      const left = Math.hypot(a.tx - a.x, a.ty - a.y), e = clamp(left / (N.base * 0.7), 0, 1), want = speed * (a.state === "toBed" ? 1.4 : 1) * (0.18 + 0.82 * e * e * (3 - 2 * e));
+      const k = Math.min(1, dt * 3);
       a.vx = lerp(a.vx || 0, wdx / wd * want, k); a.vy = lerp(a.vy || 0, wdy / wd * want, k);
-      const gate = a.beh === "hop" ? Math.max(0, Math.sin(a.ph * 7)) * 2 : 1;
+      const gate = a.beh === "hop" ? hopGate(a) : 1;
       const step = Math.hypot(a.vx, a.vy) * dt * gate, lim = Math.min(step, wd);
       const x0 = a.x, y0 = a.y;
       if (step > 0) { a.x += a.vx * dt * gate * (lim / step); a.y += a.vy * dt * gate * (lim / step); }
       // pressed against something for a second and a half without getting anywhere: give up and think of something else
       if (a.lastX === undefined) { a.lastX = x0; a.lastY = y0; }
-      a.stuck = Math.hypot(a.x - a.lastX, a.y - a.lastY) < N.base * 0.15 ? (a.stuck || 0) + dt : 0;
+      // (measured against its own pace, so a slow old stroller isn't taken for a stuck one)
+      a.stuck = Math.hypot(a.x - a.lastX, a.y - a.lastY) < Math.min(N.base * 0.15, want * 0.5) ? (a.stuck || 0) + dt : 0;
       if (!a.stuck) { a.lastX = a.x; a.lastY = a.y; }
-      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
+      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
     } else if (moving) {
       const hopper = a.beh === "hop";
-      const step = Math.min(d, speed * dt * (hopper ? Math.max(0, Math.sin(a.ph * 7)) * 2 : 1));
+      const step = Math.min(d, speed * dt * (hopper ? hopGate(a) : 1));
       a.x += dx / d * step; a.y += dy / d * step;
     } else if (a.state === "walk" && a.goal) {
       // arrived at a favorite thing
       const d = DECO[a.goal];
       a.decor = a.goal; a.goal = null;
       a.state = d.id === "cushion" ? "nap" : d.id === "rug" ? "dance" : "visit";
-      a.t = d.id === "cushion" ? rand(6, 10) : rand(3, 6);
+      if (d.id === "swing" || d.id === "mushrooms") { a.from = [a.x, a.y, a.alt]; a.blend = 0; }
+      a.t = (d.id === "cushion" ? rand(6, 10) : rand(3, 6)) * calm.rest;
       emote(a, d.emote, 2);
       if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
 
@@ -366,14 +412,14 @@ function updateActors(dt) {
       a.rain = false; a.state = "dance"; a.t = rand(0.9, 1.6); a.hop = 1;
       emote(a, weather.kind === "snow" ? "❄" : "💧", 1.2);
     } else if (a.state === "walk" && a.garden) {
-      a.garden = false; a.state = "idle"; a.t = rand(1.5, 3); emote(a, "💧", 1.6); gardenHelp(cr);
+      a.garden = false; a.state = "idle"; a.t = rand(1.5, 3) * linger(cr); emote(a, "💧", 1.6); gardenHelp(cr);
     } else if (a.state === "walk") {
-      a.state = "idle"; a.t = rand(1.2, 3.5);
+      a.state = "idle"; a.t = rand(1.2, 3.5) * linger(cr);
       const f = a.friend && actors.get(a.friend);
       if (f) meetFriend(a, f, cr);
       a.friend = null;
     } else if (a.state === "toBed" && d <= 8) a.state = "sleep";
-    keepInRoom(a);
+    keepInRoom(a, dt);
     // standing on the bed (it fills its corner, so there's no "behind" it): up on its soft top, with a little hop on the way up
     const onBed = isoOnBed(a.x, a.y);
     if (onBed && !a.onBed) a.hop = 1;
@@ -386,11 +432,18 @@ function updateActors(dt) {
     // a doze anywhere else: fliers and swimmers settle down to the floor instead of sleeping in mid-air
     else if (a.state === "nap") ease(0, 4);
     else if (a.state === "visit" && (a.decor === "swing" || a.decor === "spring")) { /* set above */ }
-    else if (a.beh === "flutter") ease(N.base * (0.5 + 0.14 * Math.sin(a.ph * 3)), 3);
-    else if (a.beh === "swim") ease(N.base * (0.28 + 0.1 * Math.sin(a.ph * 1.6)), 3);
-    else if (a.beh === "hop" && moving) a.alt = Math.abs(Math.sin(a.ph * 7)) * N.base * 0.18;
-    else ease(0, 6);
-    if (a.state === "dance") a.hop = Math.abs(Math.sin(a.ph * 6)) * 0.6;
+    else if (a.beh === "flutter") ease(N.base * (0.5 + 0.14 * Math.sin(a.ph * 2 * (0.7 + 0.3 * calm.fidget))), 3);
+    else if (a.beh === "swim") ease(N.base * (0.28 + 0.1 * Math.sin(a.ph * 1.2 * (0.7 + 0.3 * calm.fidget))), 3);
+    // a hopper goes in little arcs: each starts on the floor, and the last one lands before it stops
+    else if (a.beh === "hop" && (moving || a.gait)) {
+      const k = (a.gait || 0) % 1;
+      a.gait = (a.gait || 0) + dt * 1.6 * (0.6 + 0.4 * calm.fidget);
+      if (!moving && a.gait % 1 < k) a.gait = 0;
+      const arc = Math.sin((a.gait % 1) * Math.PI) * N.base * 0.12 * calm.hop;
+      if (Math.abs(a.alt - arc) > N.base * 0.05) ease(arc, 8); else a.alt = arc; // (coming down off something first)
+    }
+    else ease(0, 4);
+    if (a.state === "dance") a.hop = lerp(a.hop, Math.abs(Math.sin(a.ph * 4 * (0.7 + 0.3 * calm.fidget))) * 0.45 * calm.hop, Math.min(1, dt * 8));
     if (a.state === "visit") {
       if (a.decor === "swing") {
         // sit on the moon seat and swing with it
@@ -401,7 +454,7 @@ function updateActors(dt) {
         // hopping from cap to cap like platforms: an arc between two caps, a squish on landing
         const caps = mushroomCaps();
         if (caps.length > 1) {
-          const ph = (game.time / 1000 + a.id * 0.37) / 0.75, i = Math.floor(ph) % caps.length, k = ph - Math.floor(ph), [x0, y0] = caps[i], [x1, y1] = caps[(i + 1) % caps.length];
+          const ph = (game.time / 1000 + a.id * 0.37) / 1.05 * (0.7 + 0.3 * calm.fidget), i = Math.floor(ph) % caps.length, k = ph - Math.floor(ph), [x0, y0] = caps[i], [x1, y1] = caps[(i + 1) % caps.length];
           const size = N.base * depth(a.y), top = lerp(y0, y1, k) - Math.sin(k * Math.PI) * N.base * 0.4, p = isoLayout().placed.mushrooms;
           a.x = lerp(x0, x1, k); a.y = isoAt((p.i + 0.5) / ISO_G, (p.j + 0.5) / ISO_G)[1] + 1;
           a.alt = a.y - size * 0.45 - (top - size * 0.32); a.hop = k < 0.12 ? 0.5 : 0;
@@ -409,7 +462,15 @@ function updateActors(dt) {
         } else a.hop = Math.abs(Math.sin(a.ph * 5)) * 0.8;
       }
       else if (a.decor === "spring") a.alt = Math.sin(a.ph * 2.5) * N.base * 0.04;
-    }
+      // getting on: from where it stood up to the seat (or the first cap) in a short eased climb, not a jump
+      if (a.from) {
+        a.blend = Math.min(1, a.blend + dt * 2.5);
+        const k = a.blend * a.blend * (3 - 2 * a.blend);
+        a.x = lerp(a.from[0], a.x, k); a.y = lerp(a.from[1], a.y, k); a.alt = lerp(a.from[2], a.alt, k);
+        if (a.blend >= 1) a.from = null;
+      }
+    } else a.from = null;
+    faceMoments(a, cr, dt);
     // needs show up as little thought bubbles now and then
     const wants = callOf(cr);
     if (!a.emote && a.state !== "sleep" && Math.random() < dt * (wants ? 0.4 : 0.07)) {
@@ -424,11 +485,17 @@ function updateActors(dt) {
   }
 }
 
+/** What the room's walls and floor are painted from: when it changes, they're painted again. */
+const roomKey = () => `${currentTheme()}|${isPlace() ? save.rooms[save.room].kind : ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}${N.iso}`;
 function drawRoom() {
   const { y1 } = N, cx = N.cx, kind = ROOM_KIND[currentTheme()] || "cave";
-  // the walls and floor of this backdrop, painted once in art pixels
-  const rk = `${currentTheme()}|${isPlace() ? save.rooms[save.room].kind : ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}`;
-  if (roomCanvas.key !== rk + N.iso) { roomCanvas.key = rk + N.iso; roomCanvas.c = N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()); }
+  // the walls and floor of this backdrop, painted once in art pixels (or ahead of time: see bakeAhead), and kept a while
+  // after you leave, so walking back in is smooth too
+  const rk = roomKey();
+  if (roomCanvas.key !== rk) {
+    if (roomCanvas.c && roomCanvas.key) keepAhead(roomAhead, roomCanvas.key, roomCanvas.c, 8);
+    roomCanvas.key = rk; roomCanvas.c = roomAhead.get(rk) || (N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()));
+  }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
   // a round window onto the night sky in the cave wall (the abbey has its own arched one; outdoors the sky is already there)
   const wr = N.win.r, wy = N.win.y;
@@ -679,6 +746,8 @@ function isoArt(w, h, paint, { outline = true, texture = true, light = true } = 
     }
   }
   g.putImageData(img, 0, 0);
+  // (the solid part, without its glow: what a highlight goes round)
+  c._solid = solid;
   return c;
 }
 
@@ -1226,6 +1295,17 @@ const ISO_ART = {
       const [x, y] = K.P(u + (k - n / 2) * 0.1 * U, v + (k % 2) * 0.08 * U, 0), hh = t * (0.35 + 0.35 * pxHash(k, u)), w = 2 + (k % 2), lean = (k - n / 2) * 1.2;
       T.poly([[x - w, y], [x + lean, y - hh], [x, y + 1]], IC.l1); T.poly([[x, y + 1], [x + lean, y - hh], [x + w, y]], IC.l3); T.line(x + lean, y - hh, x + lean * 0.5, y - hh * 0.5, IC.l0); T.px(x + lean, y - hh, IC.white);
     }
+    // a signpost by the mouth, out on the right: a board nailed to a stake with an egg painted on it and an arrow pointing in
+    { const su = pu1 + 0.48 * U, sv = vm + 0.24 * U, sz = Math.round(t * 0.9), bz0 = sz - Math.max(5, Math.round(t * 0.4)), bv = sv + 0.12 * U;
+      K.box(su, sv, 0, 0.1 * U, 0.1 * U, sz + 2, IC.w1, IC.w2, IC.w3);
+      K.faceV(bv, su - 0.36 * U, su + 0.4 * U, bz0, sz, IC.w3, 0);
+      K.faceV(bv, su - 0.32 * U, su + 0.36 * U, bz0 + 1, sz - 1, IC.w1, 0);
+      K.seg([su - 0.32 * U, bv, sz - 1], [su + 0.36 * U, bv, sz - 1], IC.w0);
+      const [ex, ey] = K.P(su - 0.14 * U, bv, (bz0 + sz) / 2);
+      T.px(ex, ey - 2, IC.white); T.px(ex - 1, ey - 1, IC.white); T.px(ex, ey - 1, IC.l0); T.px(ex + 1, ey - 1, IC.l1); T.px(ex - 1, ey, IC.l0); T.px(ex, ey, IC.l1); T.px(ex + 1, ey, IC.l2); T.px(ex, ey + 1, IC.l2);
+      const [rx, ry] = K.P(su + 0.2 * U, bv, (bz0 + sz) / 2);
+      T.line(rx + 2, ry, rx - 2, ry + 2, IC.r2); T.px(rx - 2, ry + 1, IC.r2); T.px(rx - 1, ry + 2, IC.r2);
+      for (const nu of [su - 0.26 * U, su + 0.3 * U]) K.dot(nu, bv, sz - 2, IC.m3); }
   },
   altar(t, T, ax, ay, o) {
     // a carved stone pedestal: a stepped plinth, a fluted shaft with a crescent cut in it, a capital, a shallow bowl on top;
@@ -1242,6 +1322,20 @@ const ISO_ART = {
     T.disc(tx, ty - 1, U * 0.24 * 2.83, IC.s1); T.disc(tx, ty - 1.5, U * 0.18 * 2.83, IC.s3);
     if (!o.done) { T.glow(tx, ty - t * 0.35, t * 0.95, IC.b0, 0.45); T.ball(tx, ty - t * 0.32, t * 0.22, IC.white, IC.b0, IC.l2, t * 0.28); T.px(tx - 2, ty - t * 0.48, IC.white); T.px(tx - 2, ty - t * 0.44, IC.white); for (let k = 0; k < 4; k++) T.px(tx + 1 + k % 2, ty - t * 0.38 + k * 2, IC.l1); }
     else { T.ball(tx - 2, ty - 2, t * 0.12, IC.s0, IC.s1, IC.s2, t * 0.08); T.ball(tx + 3, ty - 1, t * 0.1, IC.s0, IC.s1, IC.s2, t * 0.07); }
+    // the moon's cradle: a brass crescent rising out of the bowl, its horns either side of the egg (empty once it's opened)
+    { const cy = ty - t * 0.3, rx = t * 0.3, ry = t * 0.32;
+      for (let k = 0; k <= 28; k++) { const an = -0.18 * Math.PI + k / 28 * 1.36 * Math.PI, w = 1.6 * Math.sin(clamp((an + 0.18 * Math.PI) / (1.36 * Math.PI), 0, 1) * Math.PI);
+        for (let d = 0; d <= w; d += 0.5) { const x = tx + Math.cos(an) * (rx + d), y = cy + Math.sin(an) * (ry + d); T.px(x, y, Math.cos(an) < -0.3 ? IC.y0 : Math.cos(an) > 0.4 ? IC.w2 : IC.y1); } }
+      for (const sx of [-1, 1]) T.px(tx + sx * Math.cos(-0.18 * Math.PI) * rx, cy + Math.sin(-0.18 * Math.PI) * ry - 1, IC.y0); }
+    // two candles on the floor before it, burning
+    for (const [u, v, hh] of [[0.3 * U, 0.98 * U, Math.round(t * 0.42)], [0.98 * U, 0.3 * U, Math.round(t * 0.3)]]) {
+      const [cx, cyy] = K.P(u, v, 0);
+      T.disc(cx, cyy, 2.6, IC.s3, 1.3);
+      for (let z = 0; z < hh; z++) { T.px(cx - 1, cyy - z, IC.s0); T.px(cx, cyy - z, IC.y0); T.px(cx + 1, cyy - z, IC.s1); }
+      T.px(cx, cyy - hh, IC.ink2); T.px(cx - 1, cyy - hh + 1, IC.white);
+      T.glow(cx, cyy - hh - 2, t * 0.55, IC.y0, 0.4);
+      T.px(cx, cyy - hh - 1, IC.y1); T.px(cx, cyy - hh - 2, IC.y0); T.px(cx, cyy - hh - 3, IC.white); T.px(cx + 1, cyy - hh - 1, IC.r1);
+    }
   },
   wallmap(t, T, ax, ay) {
     // the map of the levels pinned high on the wall: aged parchment darker at its edges with a curling corner, four caverns
@@ -1265,6 +1359,14 @@ const ISO_ART = {
     // a corner curling forward, with its shadow; nails at the other corners
     { const [cx2, cy2] = at(1, 1); T.poly([[cx2, cy2], [cx2 + 6, cy2 - 3], [cx2 + 1, cy2 - 6]], PARCH[1]); T.line(cx2 + 6, cy2 - 3, cx2 + 1, cy2 - 6, PARCH[3]); }
     for (const [fv, fz] of [[0.02, 0.04], [0.98, 0.04], [0.02, 0.96]]) { const [nx, ny] = at(fv, fz); T.px(nx, ny, IC.m3); T.px(nx - 1, ny - 1, IC.m1); }
+    // pins with round heads in the caverns along the trail, the last one gold; a red ribbon hanging from the bottom nail; a wax seal
+    for (const [k, c0, c1] of [[0, IC.l0, IC.l2], [3, IC.b0, IC.b2], [5, IC.g0, IC.g2], [7, IC.y0, IC.w1]]) {
+      const [px, py] = at(...stops[k]); T.px(px + 1, py + 1, PARCH[3]); T.px(px, py - 1, c0); T.px(px + 1, py - 1, c1); T.px(px, py - 2, c0); T.px(px + 1, py - 2, c0); T.px(px - 1, py - 2, c1); T.px(px, py - 3, c1);
+    }
+    { const [rx, ry] = at(0.04, 0.96), n = Math.round(t * 0.6);
+      T.px(rx - 1, ry, IC.r1); T.px(rx + 1, ry, IC.r1); T.px(rx - 2, ry - 1, IC.r2); T.px(rx + 2, ry - 1, IC.r2); T.px(rx - 2, ry + 1, IC.r3); T.px(rx + 2, ry + 1, IC.r3); T.px(rx, ry, IC.r3);
+      for (const d of [-1, 1]) { for (let k = 1; k <= n - (d > 0 ? 2 : 0); k++) T.px(rx + d * Math.round(k / 4), ry + k, d < 0 ? IC.r1 : IC.r2); const e = n - (d > 0 ? 2 : 0); T.px(rx + d * Math.round(e / 4) + d, ry + e + 1, IC.r3); } }
+    { const [sx, sy] = at(0.82, 0.88); T.ball(sx, sy, 2.4, IC.r1, IC.r2, IC.r3); T.px(sx, sy, IC.r3); T.px(sx - 1, sy - 1, IC.p0); }
   },
   shrine(t, T, ax, ay, o) {
     // a festival's shrine, only while one is on: First Frost is a pillar of ice; others take their egg's colours
@@ -1516,6 +1618,10 @@ const ISO_ART = {
       K.flat(u - w2, v - d2, u + w2, v + d2, H, IC.r3); K.flat(u - w2 + 0.6, v - d2 + 0.4, u - 0.3, v + d2 - 0.4, H + 1, IC.white); K.flat(u + 0.3, v - d2 + 0.4, u + w2 - 0.6, v + d2 - 0.4, H + 1, IC.s0);
       for (let k = 0; k < 4; k++) { K.seg([u - w2 + 2, v - d2 + 1.5 + k * 1.6, H + 1], [u - 1.5, v - d2 + 1.5 + k * 1.6, H + 1], IC.s2); K.seg([u + 1.5, v - d2 + 1.5 + k * 1.6, H + 1], [u + w2 - 2, v - d2 + 1.5 + k * 1.6, H + 1], IC.s2); }
       K.seg([u, v - d2, H + 1], [u, v + d2, H + 1], IC.s1); K.seg([u + w2 * 0.6, v + d2, H + 1], [u + w2 * 0.6, v + d2 + 3, H - 1], IC.r1); }
+    // a lantern at the far end, so the counter is the brightest thing in the shop
+    { const [lx, ly] = K.P(0.14 * U, 0.74 * U, H); T.glow(lx, ly - 5, t * 0.9, IC.y0, 0.38);
+      T.line(lx - 2, ly, lx + 2, ly, IC.m3); T.poly([[lx - 2, ly - 1], [lx + 2, ly - 1], [lx + 2, ly - 7], [lx - 2, ly - 7]], IC.y1);
+      T.px(lx - 1, ly - 3, IC.white); T.px(lx - 1, ly - 4, IC.y0); T.px(lx, ly - 4, IC.y0); T.line(lx - 2, ly - 8, lx + 2, ly - 8, IC.m3); T.px(lx, ly - 9, IC.m2); T.px(lx, ly - 10, IC.m3); }
     // the cash box
     { const u = 1.38 * U, v = 0.32 * U; K.box(u, v, H, 0.26 * U, 0.22 * U, 6, IC.w3, IC.r3, IC.ink2); K.box(u, v, H + 6, 0.26 * U, 0.22 * U, 1, IC.w2, IC.r2, IC.r3);
       for (const [cu, cv] of [[u, v + 0.22 * U], [u + 0.26 * U, v + 0.22 * U], [u + 0.26 * U, v]]) { K.dot(cu, cv, H + 1, IC.y1); K.dot(cu, cv, H + 6, IC.y0); }
@@ -1856,6 +1962,10 @@ const ISO_ART = {
     { const [sx, sy] = K.P(mu1 - 0.04 * U, mv0 + 0.04 * U, h + 1); T.ball(sx, sy - 1.5, 2.6, IC.s1, IC.s2, IC.s3, 1.8); }
     K.cyl(u1 - 0.12 * U, v1 - 0.08 * U, h, 0.07 * U, 5, IC.m3, IC.m1, IC.m2);
     { const [cx3, cy3] = K.P(u0 + 0.1 * U, v0 + 0.1 * U, h); T.line(cx3, cy3, cx3, cy3 - 4, IC.s0); T.px(cx3, cy3 - 5, IC.y0); T.px(cx3, cy3 - 6, IC.y1); T.glow(cx3, cy3 - 6, U * 0.6, IC.y0, 0.4); }
+    // where the next trip goes: a little red pennant on a pin, stuck in the X
+    { const [xx, yy] = K.P(mu0 + (mu1 - mu0) * 0.78, mv0 + (mv1 - mv0) * 0.48, h + 1), ph = Math.max(6, Math.round(t * 0.45));
+      T.line(xx, yy - 1, xx, yy - ph, IC.m2); T.px(xx, yy - ph - 1, IC.m0);
+      for (let k = 0; k < 4; k++) for (let j = 0; j <= 3 - k; j++) T.px(xx + 1 + k, yy - ph + j + Math.floor(k / 2), j === 0 ? IC.r1 : IC.r2); }
   },
   // ---- the lab
   labdesk(t, T, ax, ay) {
@@ -1985,6 +2095,19 @@ const ISO_ART = {
     // the boards between the plots
     for (const f of [1 / 3, 2 / 3]) for (let k = 0; k <= 4; k++) { const v = k / 4; T.px(x0 + 2 * ia * f - 2 * ib * v, y0 + ia * f + ib * v, IC.w1); }
     (o.p || []).forEach((q, k) => { if (q) { const f = (k + 0.5) / 3; gardenPlant(T, x0 + 2 * ia * f - ib, y0 + ia * f + ib / 2 + 1, q[0], q[1], t * 2.2); } });
+    // a corner post at each outer corner, standing a little proud of the rim with a pale cap
+    for (const [px, py] of [[x - 2 * b, y + b], [x + 2 * a - 2 * b, y + a + b], [x + 2 * a, y + a]]) {
+      for (let z = 0; z <= h + 2; z++) { T.px(px - 1, py - z, IC.w1); T.px(px, py - z, IC.w2); T.px(px + 1, py - z, IC.w3); }
+      T.px(px - 1, py - h - 3, IC.w0); T.px(px, py - h - 3, IC.w0); T.px(px + 1, py - h - 3, IC.w1);
+    }
+    // a label on a stake pushed in along the front of each plot: a blank card while it's empty, the seed's colour on it once something's sown
+    for (let k = 0; k < 3; k++) {
+      const q = (o.p || [])[k], f = (k + 0.25) / 3, lx = Math.round(x0 + 2 * ia * f - 2 * ib), ly = Math.round(y0 + ia * f + ib), lh = 3;
+      for (let z = 0; z < lh; z++) { T.px(lx, ly - z, IC.w2); T.px(lx + 1, ly - z, IC.w3); }
+      const top = ly - lh, ink = q ? (GARDEN_TAG[q[0]] || IC.g1) : IC.s2;
+      for (let a = -3; a <= 3; a++) for (let bb = -5; bb <= 0; bb++) { const sl = Math.round(a * 0.5); T.px(lx + 1 + a, top + bb + sl, bb === 0 || a === 3 ? IC.ink2 : bb === -5 || a === -3 ? IC.w2 : IC.s0); }
+      T.px(lx - 1, top - 2, ink); T.px(lx, top - 2, ink); T.px(lx + 1, top - 1, ink); T.px(lx + 2, top - 1, q ? ink : IC.s1); T.px(lx + 1, top - 2, IC.s1);
+    }
   },
   bench(t, T, ax, ay) {
     // a wooden garden bench: four legs, a seat of planks, a back
@@ -2411,6 +2534,8 @@ const BED_ART = {
   },
 };
 
+/** The dab of colour on a garden label: each seed's own. */
+const GARDEN_TAG = { glowberry: IC.l2, moonmint: IC.b1, cookiecorn: IC.w1, growcap: IC.r1, sunpetal: IC.y1, crystalbloom: IC.l1, biteleaf: IC.r2 };
 /** A small picture of a bed, for choosing one. */
 const bedThumbs = {};
 function bedThumb(id) {
@@ -2420,7 +2545,7 @@ function bedThumb(id) {
   return bedThumbs[id] = c.toDataURL();
 }
 /** The baked picture of one placed piece, in CSS pixels ready for drawBaked. */
-function isoPiece(p, extra = {}) {
+function isoPiece(p, extra = {}, ahead = false) {
   const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3, base = pieceDims(p.id, false);
   // (room above the footprint for tall pieces: dressers, chimneys, a greenhouse's roof)
   const w = Math.ceil((base.fw + base.fd) * tw + pad * 2), h = (base.fw + base.fd) * tw / 2 + tw * 4 + pad;
@@ -2428,16 +2553,21 @@ function isoPiece(p, extra = {}) {
   // (where it stands on screen is part of the key: a resized window can move the room without changing its size)
   const [bx, by] = isoAt(p.i / ISO_G, p.j / ISO_G);
   const key = `${p.id}|${p.i},${p.j}|${p.flip}|${tw.toFixed(2)}|${Math.round(bx)},${Math.round(by)}|${JSON.stringify(extra)}`;
-  return cachedSprite(isoPieces, p.id + (extra.part || ""), key, () => {
+  const slot = p.id + (extra.part || ""), id = slot + "|" + key;
+  // baking ahead (see bakeAhead): painted now and put by until the room is walked into, the room you're in left as it is
+  if (ahead) { if (isoPieces[slot]?.key !== key && !isoAhead.has(id)) keepAhead(isoAhead, id, make(), 60); return null; }
+  return cachedSprite(isoPieces, slot, key, () => { const f = isoAhead.get(id); isoAhead.delete(id); return f || make(); });
+  function make() {
     let c = isoArt(w, h, T => ISO_ART[p.id](tw, T, ax0, ay, extra)), ax = ax0;
     if (p.flip) {
       // turned to face the other wall: a mirror image (the back corner stays the back corner)
       const m = document.createElement("canvas"); m.width = c.width; m.height = c.height;
       const g = m.getContext("2d"); g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(c, 0, 0);
+      if (c._solid) { const s = c._solid, cw = c.width; m._solid = s.map((_, i) => s[i - i % cw + cw - 1 - i % cw]); }
       c = m; ax = c.width - ax0;
     }
     return { c, x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX };
-  });
+  }
 }
 
 /** The geode shelf on its wall, showing your three shiniest geodes in their own colors. */
@@ -2623,6 +2753,82 @@ function drawArrangeGrid() {
 }
 const isoPieces = {};
 
+// ---------- baking ahead: the places' rooms, pieces and keepers are painted in idle moments, so walking in is smooth ----------
+const roomAhead = new Map(), isoAhead = new Map();
+/** Put something by in a little store that forgets the oldest first. */
+const keepAhead = (m, k, v, max) => { m.delete(k); m.set(k, v); while (m.size > max) m.delete(m.keys().next().value); };
+/** The map's places and the room each one is (the garden is the yard outside, the trail leads to the explorers' camp). */
+const PLACE_ROOM = { garden: "yard", trail: "camp" };
+/** Everything as if you stood in room i (its decor, its layout, its backdrop) while fn paints; then all back as it was. */
+function asIfIn(i, fn) {
+  const was = save.room, keep = ROOM_KEYS.map(k => [k, k in save, save[k]]), on = Object.entries(save.decor).map(([id, d]) => [d, d.on]), layout = isoLayoutCache;
+  try {
+    const r = save.rooms[i];
+    save.room = i;
+    for (const [id, d] of Object.entries(save.decor)) d.on = r.on.includes(id);
+    for (const k of ROOM_KEYS) { if (r[k] == null) delete save[k]; else save[k] = r[k]; }
+    isoLayoutCache = null;
+    fn();
+  } finally {
+    save.room = was;
+    for (const [k, had, v] of keep) { if (had) save[k] = v; else delete save[k]; }
+    for (const [d, v] of on) d.on = v;
+    isoLayoutCache = layout;
+  }
+}
+/** One place's backdrop and walls ("room"), its furniture ("pieces") or its keeper ("keeper"), painted ahead of time. */
+function bakePlace(kind, part) {
+  let i = save.rooms.findIndex(r => r.kind === kind);
+  const added = i < 0;
+  // (a place never visited has no room yet: one stands in for it while it's painted, the way ensurePlace will make it)
+  if (added) { save.rooms.push({ kind, on: [], theme: ROOM_KINDS.find(k => k.id === kind).theme }); i = save.rooms.length - 1; }
+  try {
+    asIfIn(i, () => {
+      // (the same view and pixel grid as when you get there, or there's nothing to gain)
+      if ((roomView() === "iso") !== !!N.iso || !N.iso) return;
+      if (part === "room") {
+        bgFor("nest");
+        const key = roomKey();
+        if (roomCanvas.key !== key && !roomAhead.has(key)) keepAhead(roomAhead, key, paintRoomIso(currentTheme()), 8);
+      } else if (part === "pieces") {
+        // (as drawRoomIso paints them: the incubator and the swing draw themselves, wall pieces hang elsewhere)
+        for (const p of Object.values(isoLayout().placed)) {
+          if (p.id === "incubator" || p.id === "swing" || typeof ISO_ART[p.id] !== "function") continue;
+          const extra = pieceExtra(p), layers = p.id === "bed" && BED_LAYERS[extra.style];
+          isoPiece(p, layers ? { ...extra, part: "base" } : extra, true);
+          if (layers) for (const part of layers) isoPiece(p, { ...extra, part }, true);
+        }
+      } else if (heroHere() && !heroHere().none) {
+        // the keeper drawn once out of sight, which bakes the pose they'll stand in
+        const real = ctx, said = game.hero;
+        ctx = bakeScratch.getContext("2d"); game.hero = null;
+        try { drawHero(); } finally { ctx = real; game.hero = said; }
+      }
+    });
+  } finally { if (added) save.rooms.pop(); }
+}
+const bakeScratch = document.createElement("canvas");
+let aheadJobs = null;
+/**
+ * Paint the places you can go to before you get there, one job at a time when the browser is idle (after Play, and when the
+ * map opens): the first step into the forge or the camp is then as smooth as the hundredth.
+ */
+function bakeAhead() {
+  if (aheadJobs) return;
+  const here = save.rooms[save.room]?.kind;
+  const kinds = WORLD.filter(w => w.id !== "nest" && placeOk(w.id)).map(w => PLACE_ROOM[w.id] || w.id).filter(k => k !== here && ROOM_KINDS.some(r => r.id === k));
+  aheadJobs = kinds.flatMap(k => ["room", "pieces", "keeper"].map(part => () => bakePlace(k, part)));
+  const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 2000 }) : setTimeout(f, 250));
+  const next = () => {
+    // (only on the room's own pixel grid: not while cracking, nor in the middle of playing together)
+    if (!aheadJobs.length || !["nest", "map", "lib"].includes(game.scene) || coopSession) { aheadJobs = null; return; }
+    // (a job that fails costs nothing but its own head start)
+    try { aheadJobs.shift()(); } catch (e) { console.warn("bakeAhead", e); }
+    idle(next);
+  };
+  idle(next);
+}
+
 // ---------- the floating cloud: it drifts above everything, you can drag it anywhere, and sleepy glowlings nap on top ----------
 const CLOUD_DEFAULT = [0.16, 0.5];
 const cloudUV = () => save.cloud && Number.isFinite(save.cloud[0]) ? save.cloud : CLOUD_DEFAULT;
@@ -2771,23 +2977,80 @@ function gazeboPosts() {
   return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([su, sv]) => [cu + su * GAZEBO_A, cv + sv * GAZEBO_A]);
 }
 
-/** Each sleeper's own place on the bed: a 2×2 spread on the big isometric bed, side by side on the straight-on one. */
+/**
+ * Where everyone sleeps on each bed, by how many are in it: [a, b] from the middle of the bed, in tiles across the screen (a)
+ * and toward the front (b). Side by side in a row, the one in the middle a little forward, so every face shows; never more
+ * than the bed's soft top really holds (the extras curl up on the floor beside it, see bedPlaces). The gazebo keeps its
+ * sleepers at the front of its deck, faces out from under the roof and either side of the front post; the hammock keeps
+ * them in its sling.
+ */
+const BED_SLOTS = {
+  nest: [[[0, 0.1]], [[-0.62, 0], [0.62, 0.1]], [[-1.15, -0.1], [0, 0.25], [1.15, -0.05]]],
+  basket: [[[0, 0.1]], [[-0.62, 0], [0.62, 0.1]], [[-1.15, -0.1], [0, 0.25], [1.15, -0.05]]],
+  canopy: [[[0, 0.15]], [[-0.62, 0.05], [0.62, 0.15]], [[-1.15, -0.05], [0, 0.3], [1.15, 0]]],
+  gazebo: [[[-0.55, 1.05]], [[-0.62, 1.05], [0.62, 1.05]]],
+  hammock: [[[0, 0]], [[-0.85, 0], [0.85, 0.05]], [[-1.15, -0.05], [0, 0.1], [1.15, -0.05]]],
+};
+/** How close to the walls a sleeper may lie on the bed (closer than anyone walks: the bed fills its corner). */
+const bedMargin = () => isoMargin(0.2);
+let bedPlacesCache = null;
+/**
+ * Everyone asleep in the room you're in and where each lies, id → [x, y]: up to the bed's places on its soft top
+ * (see BED_SLOTS), and the rest curled up on the floor right in front of it, a cozy cluster on the rug or the stones,
+ * spaced so nobody's face is hidden behind another. Counted in this room only (every room has its own bed).
+ */
+function bedPlaces(r = save.room) {
+  const sleepers = save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q);
+  const p = N.iso && isoLayout().placed.bed, style = bedStyle();
+  const key = [r, style, sleepers.join(","), p ? isoLayout().key : "front", N.isoW, N.base, N.bedX, N.bedY].join("|");
+  if (bedPlacesCache && bedPlacesCache.key === key) return bedPlacesCache.at;
+  const at = new Map();
+  if (!p) {
+    // seen straight on: side by side along the bed
+    sleepers.forEach((id, k) => at.set(id, [N.bedX + (k - (sleepers.length - 1) / 2) * N.base * 0.42, N.bedY + (k % 2) * N.base * 0.1]));
+    bedPlacesCache = { key, at };
+    return at;
+  }
+  const G = ISO_G, cu = p.i + p.fw / 2, cv = p.j + p.fd / 2, size = N.base * depth(0), top = isoBedTop();
+  const mB = bedMargin() * G, mF = isoMargin(0.42) * G, posts = gazeboPosts();
+  // on the floor nobody lies over another's face: a little apart from each other, well clear of the faces on the bed
+  const taken = [], inBed = [];
+  const roomy = (x, y) => taken.every(([tx, ty]) => ((x - tx) / (size * 0.76)) ** 2 + ((y - ty) / (size * 1.0)) ** 2 >= 1)
+    && inBed.every(([tx, ty]) => ((x - tx) / (size * 0.85)) ** 2 + ((y - ty) / (size * 1.15)) ** 2 >= 1);
+  const offPosts = (U, V) => posts.every(([pu, pv]) => Math.hypot(U - pu, V - pv) > BODY_R * 0.8 + 0.1);
+  // on the bed: the places for this many (or as many as it holds), each kept where keepInRoom lets a sleeper lie
+  const slots = BED_SLOTS[style] || BED_SLOTS.nest, onBed = [];
+  for (const [a0, b] of slots[Math.min(sleepers.length, slots.length) - 1] || []) {
+    const a = p.flip ? -a0 : a0, U = clamp(cu + (a + b) / 2, mB, G - mB), V = clamp(cv + (b - a) / 2, mB, G - mB), [x, y] = isoAt(U / G, V / G);
+    // (a place the room's walls squeeze onto another's is dropped: one more for the floor)
+    if (!isoOnBed(x, y) || !offPosts(U, V) || onBed.some(([ox, oy]) => Math.hypot(x - ox, y - oy) < size * 0.5)) continue;
+    inBed.push([x, y - top]); onBed.push([x, y]);
+  }
+  // beside it: free floor next to the bed (not behind it, where it would hide them, nor in a doorway), nearest first
+  const floor = [], doors = doorTiles();
+  for (let U = mF; U <= G - mF + 1e-6; U += 0.25) for (let V = mF; V <= G - mF + 1e-6; V += 0.25) {
+    const du = Math.max(p.i - U, 0, U - p.i - p.fw), dv = Math.max(p.j - V, 0, V - p.j - p.fd), out = Math.hypot(du, dv);
+    if (out < BODY_R + 0.12 || out > 2.6 || (U + V < cu + cv + 0.6 && Math.abs(U - cu - V + cv) < (p.fw + p.fd) / 2 + 0.7) || !offPosts(U, V)) continue;
+    if (doors.has(`${Math.floor(U)},${Math.floor(V)}`)) continue;
+    if (!cellFree(Math.floor(U * 2), Math.floor(V * 2)) || !walkClear(U, V, U, V)) continue;
+    const [x, y] = isoAt(U / G, V / G);
+    if (isoOnBed(x, y)) continue;
+    floor.push({ x, y, d: out + Math.abs((U - cu) - (V - cv)) * 0.12 });
+  }
+  floor.sort((m, n) => m.d - n.d);
+  sleepers.forEach((id, k) => {
+    if (k < onBed.length) { at.set(id, onBed[k]); return; }
+    const f = floor.find(f => roomy(f.x, f.y)) || floor[0];
+    if (!f) { at.set(id, onBed[k % Math.max(1, onBed.length)] || isoAt(cu / G, cv / G)); return; }
+    taken.push([f.x, f.y]); at.set(id, [f.x, f.y]);
+  });
+  bedPlacesCache = { key, at };
+  return at;
+}
+/** This sleeper's own place: on the bed when there's room, curled up on the floor beside it when there isn't. */
 function bedSpot(id) {
-  const sleepers = save.creatures.filter(c => c.sleeping).map(c => c.id).sort((p, q) => p - q), k = Math.max(0, sleepers.indexOf(id)), n = sleepers.length;
-  const p = N.iso && isoLayout().placed.bed;
-  if (p && bedStyle() === "hammock") {
-    // side by side in the sling, spread along the wall it stands by (straight across it would push one into the wall,
-    // where nobody can stand): one end of the sling a little higher on screen than the other, both still inside it
-    const a = clamp((k % 3 - (Math.min(n, 3) - 1) / 2) * 0.6, -0.65, 0.65) + Math.floor(k / 3) * 0.25, m = isoMargin(0.45);
-    const [du, dv] = p.flip ? [0, a] : [a, 0];
-    return isoAt(clamp((p.i + p.fw / 2 + du) / ISO_G, m, 1 - m), clamp((p.j + p.fd / 2 + dv) / ISO_G, m, 1 - m));
-  }
-  if (p) {
-    // a 2×2 spread kept inside the bed (and away from the walls, where glowlings can't stand)
-    const ci = k % 2, ri = Math.floor(k / 2) % 2, extra = Math.floor(k / 4) * 0.12, m = isoMargin(0.45);
-    return isoAt(clamp((p.i + p.fw * (0.3 + 0.42 * ci + extra)) / ISO_G, m, 1 - m), clamp((p.j + p.fd * (0.32 + 0.4 * ri + extra)) / ISO_G, m, 1 - m));
-  }
-  return [N.bedX + (k - (n - 1) / 2) * N.base * 0.42, N.bedY + (k % 2) * N.base * 0.1];
+  const me = save.creatures.find(c => c.id === id), r = me ? roomOf(me) : save.room;
+  return bedPlaces(r).get(id) || [N.bedX, N.bedY];
 }
 
 /** A piece's own pixel picture for the Decor list (the same drawing as in the room), or its emoji if it hangs on a wall. */
@@ -3438,7 +3701,8 @@ function drawRoomIso() {
     const box = { u0: p.i, u1: p.i + p.fw, v0: p.j, v1: p.j + p.fd, id: p.id };
     if (p.id === "incubator") { items.push({ y: fy, box, draw: drawIncubator }); continue; }
     if (p.id === "swing") { items.push({ y: fy, box, draw: () => drawSwingIso(p) }); continue; }
-    const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
+    // (pressed, a thing in a place dips a pixel before it does what it does)
+    const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : propPressed(p.id) ? PX : 0;
     const extra = pieceExtra(p);
     const layers = p.id === "bed" && BED_LAYERS[extra.style];
     if (layers) {
@@ -3449,7 +3713,7 @@ function drawRoomIso() {
       // whoever naps there hides under the gazebo's roof or the glowcap's cap
       if (layers.includes("roof")) items.push({ y: fy, box: { ...box, id: "bedroof" }, roofOf: "bed", after: layers.includes("post") ? "bedpost" : null, draw: () => drawBaked(isoPiece(p, { ...extra, part: "roof" }), 0, bob) });
     }
-    items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); } });
+    items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); if (PROP_CUES[p.id]) propCue(p.id, f, bob); } });
   }
   if (hasDecor("shelf")) items.push({ y: -2, draw: drawShelfIso });
   if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });

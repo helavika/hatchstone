@@ -25,7 +25,7 @@ function loadSave() {
     // keep a damaged save aside instead of throwing it away
     try { localStorage.setItem(SAVE_KEY + ".damaged", raw); } catch {}
   }
-  return freshSave();
+  return migrate(freshSave());
 }
 
 /** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
@@ -50,6 +50,12 @@ function migrate(d) {
   d.dust = dust.filter(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)).slice(0, DUST_MAX);
   for (const cr of d.creatures || []) delete cr.dust;
   if (!Number.isFinite(d.dustT)) d.dustT = 0;
+  // sparks of inspiration from exploring (see sparks.js): found ones, Pip's news, the scarf dye
+  d.sparks = sparkSaveOf(d.sparks);
+  // the keeper's core (see inner.js): an older nest starts part-way, from what it's already been through
+  d.core = coreSaveOf(d.core, d);
+  // walks outside (see walk.js): how far the paths are open, the best hauls, the keepsakes
+  d.walks = walkSaveOf(d.walks);
   // wardstones: the ones in hand (by the crystal each was forged from) and the ones set on the map (by land and spot)
   const w = d.wards && typeof d.wards === "object" ? d.wards : {}, set = w.set && typeof w.set === "object" && !Array.isArray(w.set) ? w.set : {};
   d.wards = { have: (Array.isArray(w.have) ? w.have : []).filter(id => typeof id === "string").slice(0, 99), set: Object.fromEntries(Object.entries(set).filter(([k, v]) => /^[a-z]+\.\d$/.test(k) && typeof v === "string")) };
@@ -58,6 +64,7 @@ function migrate(d) {
 }
 
 const save = loadSave();
+coreLastSeen = save.core.seen; // when this nest was last open: a day or more ago, and Mossa says welcome back
 let lastBak = 0, saveWarned = false;
 
 function persist() {
@@ -68,6 +75,7 @@ function persist() {
     if (theirs && validSave(theirs) && ((theirs.rev || 0) > save.rev || (startedEmpty && !save.rev && theirs.creatures.length))) { adoptSave(theirs); return; }
   } catch {}
   save.rev = (save.rev || 0) + 1;
+  if (!document.hidden) save.core.seen = coreSeenNow();
   if (!store.set(SAVE_KEY, save)) {
     // storage is full: geode pictures can be redrawn, progress can't
     for (const g of Object.values(save.geodes)) delete g.img;
