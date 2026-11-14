@@ -493,7 +493,7 @@ document.addEventListener("click", ev => { if (!ev.target.closest(".menu-wrap"))
 
 // tapping the dimmed space around a card closes it (not for questions that need an answer)
 $$(".overlay.modal").forEach(o => o.addEventListener("click", ev => {
-  if (ev.target === o && !["coopDialog", "confirmLeave", "incubator"].includes(o.id)) { sfx.tick(); show(o.id, false); if (o.id === "forge" && game.scene === "map") renderMap(); }
+  if (ev.target === o && !["coopDialog", "confirmLeave", "incubator", "giftParcel"].includes(o.id)) { sfx.tick(); show(o.id, false); if (o.id === "forge" && game.scene === "map") renderMap(); }
 }));
 
 // every button answers your finger: a soft click and, where the phone can, the lightest buzz

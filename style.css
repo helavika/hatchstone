@@ -1169,3 +1169,31 @@ body.compact .place-who img { width: 36px; height: 36px; }
 #libGrid .aw.folk:not(.got) .folk-face { opacity: .45; }
 .folk-where { display: block; font-style: normal; color: var(--px-gold); }
 .look-seg { margin: 4px 0 10px; }
+
+/* gifts via a link: wrapping a parcel, and the one Pip brings */
+#gift .card.wide { text-align: left; height: calc(100vh - var(--top) - var(--bottom) - 150px); height: calc(100dvh - var(--top) - var(--bottom) - 150px); max-height: 760px; }
+#gift h2, #gift .sub, #giftDone { text-align: center; }
+#giftForm:not([hidden]), #giftDone:not([hidden]) { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+#giftDone { overflow-y: auto; }
+#gift .scroll { flex: 1 1 auto; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+#giftCount { gap: 14px; align-items: center; margin-top: 6px; }
+#giftCount .act { padding: 4px 16px; }
+#giftCount b { font-weight: 400; font-size: 22px; color: #ffe9a8; min-width: 44px; text-align: center; }
+#giftNote, #giftLink { width: 100%; box-sizing: border-box; margin-top: 10px; font: inherit; font-size: 17px; padding: 10px; color: #fff; resize: none; }
+#giftLink { font-size: 13px; margin: 6px 0 10px; }
+.gift-meta { display: flex; justify-content: space-between; gap: 8px; margin: 6px 2px 12px; font-size: 14px; color: var(--soft); }
+#giftWrap { display: flex; margin: 0 auto 4px; align-items: center; gap: 8px; flex: none; }
+#giftForm > #giftPicked, #giftForm > textarea, #giftForm > .gift-meta { flex: none; }
+#giftWrap:disabled { opacity: .5; }
+.gift-out { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 6px 3px; }
+.gift-out span { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.gift-out .em { width: 32px; height: 32px; font-size: 24px; object-fit: contain; image-rendering: pixelated; }
+.gift-out b { font-weight: 400; }
+.gift-out .act { padding: 6px 10px; font-size: 15px; }
+.gift-big { width: 96px; height: 96px; image-rendering: pixelated; display: block; margin: 4px auto 8px; animation: pxBob 1.6s steps(2) infinite; }
+.gift-entry { display: flex; align-items: center; gap: 8px; margin: 4px auto 2px; }
+.parcel img, .parcel span { width: 112px; height: 112px; image-rendering: pixelated; display: grid; place-items: center; font-size: 70px; }
+.parcel img.wobble { animation: parcelWobble 1.4s steps(4) infinite; }
+@keyframes parcelWobble { 0%, 60%, 100% { transform: rotate(0); } 70% { transform: rotate(-6deg); } 80% { transform: rotate(6deg); } 90% { transform: rotate(-3deg); } }
+.gift-note { margin: 10px 4px 6px; padding: 12px 14px; font-size: 19px; line-height: 1.3; color: #3b2a1c; background: #f4e6c4; box-shadow: var(--px-frame); text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
+#parcelEmoji[hidden], #parcelImg[hidden] { display: none; }

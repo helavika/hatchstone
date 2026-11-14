@@ -734,4 +734,5 @@ if (/[#&?]tgWebApp/.test(location.hash + location.search)) {
 
 // ---------- once every script has loaded: timers that reach across them ----------
 game.actors = actors;
+giftWire();
 setInterval(() => { if (game.scene !== "menu" && !talkNow) checkAwards(); }, 1500);
