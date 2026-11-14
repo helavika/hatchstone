@@ -1541,6 +1541,7 @@ const UK = {
   "{0}: the road is still being cleared. Pip will lead the way when it's ready.": "{0}: дорогу ще розчищають. Коли все буде готово, Піп покаже шлях.",
   "Set a wardstone on each spot at the edge of the veil.": "Постав вартовий камінь на кожне місце на краю пелени.",
   "Tap a glowing spot at the edge of the fog to set a wardstone.": "Торкнись сяйливого місця на краю туману, щоб поставити вартовий камінь.",
+  "tap a lock for its hint": "торкнись замка, щоб побачити підказку",
   "Wardstone": "Вартовий камінь",
   "set it on the map, where the fog is thickest": "став на мапі, там, де туман найгустіший",
   "Wardstone of a rare crystal": "Вартовий камінь з рідкісного кристала",
