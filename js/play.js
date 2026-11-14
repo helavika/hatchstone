@@ -345,13 +345,21 @@ function sweepDust(x, y) {
 // 2. The little ones close to them dim, look worried and huddle together. Nothing they have is taken from them.
 // 3. Hold a finger on a wisp and your lantern shines on it: it shrinks, and lets go of the light hidden in it, a spark that
 //    floats up. Glowlings near your light shine with you (a ring each, three at most), and each one makes it go faster.
+//    Two friends who both shine with you hold a thread of light between them: a wisp that drifts onto it fades fast,
+//    even one your lantern isn't on. Friends together glow stronger.
 // 4. All gone by your light: everyone perks up, "It's lighter now. Together.", a shard a wisp, keeper XP, Lamplighter.
 // 5. Left alone, they thin out and drift off after a minute or so. Nothing is lost: the little ones just brighten again.
 const GLOOM_WAIT = 40, GLOOM_LIFE = 60, GLOOM_SEEP = 1.8, GLOOM_FADE = 2.5, GLOOM_HELP = 3, GLOOM_RISE = 2.4;
+// the friends' thread: how fast a wisp on it fades (a whole one in about a second, three times your lantern alone), and how
+// close to it a wisp's edge has to come (in glowling sizes: half the reach of your lantern's pool)
+const GLOOM_TIE = 0.9, GLOOM_TIE_R = 0.45;
 const GLOOM_STEPS = [1, 0.84, 0.68, 0.52, 0.36], GLOOM_FRAMES = 6;
 const gloomNow = {
   on: false, count: 0, calm: 0, tick: 0, held: false, heldT: 0, endT: 0, freed: 0, W: 0, H: 0, gx: 0, gy: 0, helpers: 0, chime: 0,
-  wisps: [0, 1, 2].map(() => ({ on: false, x: 0, y: 0, t: 0, life: 0, hp: 1, k: 0, fade: 1, ph: 0, lit: 0 })),
+  wisps: [0, 1, 2].map(() => ({ on: false, x: 0, y: 0, t: 0, life: 0, hp: 1, k: 0, fade: 1, ph: 0, lit: 0, tie: 0, spk: 0 })),
+  // who shines with you this moment, the threads between the friends among them, and what this visit has seen of them:
+  // the pairs that have held one, the glowlings whose diaries know, and the pair whose thread a wisp let go on
+  team: [null, null, null], threads: [0, 1, 2].map(() => ({ on: false, live: false, a: null, b: null, k: 0, hot: 0 })), tied: [], told: [], pair: null,
   lights: [0, 1, 2].map(() => ({ on: false, x: 0, y: 0, t: 0 })),
   lamp: { on: false, x: 0, y: 0, k: 0 }, crack: { x: 0, y: 0, t: -1 }, spot: [0, 0],
 };
@@ -395,7 +403,8 @@ function gloomCome() {
   save.gloom = { day: dayKey() };
   persist();
   const g = gloomNow;
-  Object.assign(g, { on: true, endT: 0, freed: 0, helpers: 0, held: false, heldT: 0.5, W, H });
+  Object.assign(g, { on: true, endT: 0, freed: 0, helpers: 0, held: false, heldT: 0.5, W, H, tied: [], told: [], pair: null });
+  for (const th of g.threads) th.on = th.live = false;
   // the little ones huddle at the front of the room, away from where the shadows come in
   const huddle = { x: 0, y: 0 };
   gloomFloor(huddle, N.iso ? 0.66 : 0.5, N.iso ? 0.66 : 0.78);
@@ -406,7 +415,7 @@ function gloomCome() {
   g.wisps.forEach((w, i) => {
     w.on = i < count;
     gloomFloor(w, ...from[i]);
-    Object.assign(w, { t: -i * 1.2, life: GLOOM_LIFE + rand(-6, 6), hp: 1, k: 0, fade: 1, ph: rand(0, TAU), lit: 0 });
+    Object.assign(w, { t: -i * 1.2, life: GLOOM_LIFE + rand(-6, 6), hp: 1, k: 0, fade: 1, ph: rand(0, TAU), lit: 0, tie: 0, spk: 0 });
   });
   gloomFloor(g.crack, 0, 0);
   if (!N.iso) gloomFloor(g.crack, 0.5, 0);
@@ -437,7 +446,7 @@ function updateGloom(dt) {
   if (game.scene !== "nest" || save.room !== nestRoom() || arrange.on || coopSession || W !== g.W || H !== g.H) { gloomEnd(false); return; }
   // a dialog or a window over the nest: everything waits
   if ((g.heldT -= dt) <= 0) { g.heldT = 0.5; g.held = gloomHeld(); }
-  if (g.held) { lamp.on = false; lamp.k = 0; return; }
+  if (g.held) { lamp.on = false; lamp.k = 0; for (const th of g.threads) th.on = th.live = false; return; }
   lamp.k = clamp(lamp.k + (lamp.on ? dt * 6 : -dt * 4), 0, 1);
   if (g.crack.t >= 0) g.crack.t += dt;
   // who's close by dims; who's close to your light shines with you
@@ -447,12 +456,13 @@ function updateGloom(dt) {
     let near = 0;
     for (const w of g.wisps) if (w.on && w.t > 0) near = Math.max(near, clamp((2.6 * b - Math.hypot(a.x - w.x, (a.y - w.y) * 1.4)) / (1.6 * b), 0, 1) * w.k * w.fade);
     const helping = awake && lamp.on && helpers < GLOOM_HELP && Math.hypot(a.x - lamp.x, (a.y - lamp.y - alt) * 1.4) < b * 2;
-    if (helping) { helpers++; if (!a.gloomHelp) { a.gloomHelp = true; emote(a, "✦", 1); a.hop = 0.8; } }
+    if (helping) { g.team[helpers++] = a; if (!a.gloomHelp) { a.gloomHelp = true; emote(a, "✦", 1); a.hop = 0.8; } }
     else a.gloomHelp = false;
     a.gloomK = lerp(a.gloomK || 0, awake ? near : 0, Math.min(1, dt * 2.5));
     a.gloomLit = lerp(a.gloomLit || 0, helping ? 1 : 0, Math.min(1, dt * 5));
   }
   g.helpers = helpers;
+  gloomTie(dt);
   // the wisps: seep in, drift toward the little ones, give way to the light
   // (a whole core makes your light a little stronger: see inner.js)
   const drain = (0.28 + 0.2 * helpers) * (coreGift("shine") ? 1.25 : 1);
@@ -466,12 +476,19 @@ function updateGloom(dt) {
     if (w.t > w.life && (w.fade -= dt / GLOOM_FADE) <= 0) { w.on = false; continue; }
     const lx = lamp.x - w.x, ly = lamp.y - (w.y - alt), ld = Math.hypot(lx, ly);
     w.lit = lamp.on && lamp.k > 0.5 && ld < b * 0.9 + gloomR(w) ? Math.min(1, w.lit + dt * 6) : Math.max(0, w.lit - dt * 4);
+    // on a thread two friends hold: caught there, it fades fast, your lantern on it or not, and sheds a few warm sparks
+    const th = gloomOnThread(w);
+    w.tie = th ? Math.min(1, w.tie + dt * 6) : Math.max(0, w.tie - dt * 4);
+    if (th && w.tie > 0.5) {
+      lit = true; th.hot = 1; w.hp -= GLOOM_TIE * dt;
+      if ((w.spk -= dt) <= 0 && !opts().calm) { w.spk = 0.14; game.sparks.push({ x: w.x + rand(-0.2, 0.2) * b, y: w.y - alt + rand(-0.15, 0.15) * b, vx: rand(-30, 30), vy: rand(-80, -30), t: 0, life: rand(0.4, 0.7), s: rand(2, 3), color: pick(["#fff0b5", "#eec26a", "#ffe9a8"]) }); }
+    }
+    if (w.lit > 0.5) { lit = true; w.hp -= drain * dt; }
+    if (w.hp <= 0) { if (th && w.tie > 0.5 && !g.pair) g.pair = [th.a.id, th.b.id]; gloomFree(w); continue; }
     if (w.lit > 0.5) {
-      lit = true;
-      if ((w.hp -= drain * dt) <= 0) { gloomFree(w); continue; }
       // it gives way, backing off from the light
       if (ld > 1) { w.x -= lx / ld * b * 0.3 * dt; w.y -= ly / ld * b * 0.15 * dt; }
-    } else if (grow >= 1) {
+    } else if (grow >= 1 && w.tie <= 0.5) {
       // slowly toward the nearest little one, but never quite onto it
       const a = gloomNearest(w.x, w.y);
       if (a) { const dx = a.x - w.x, dy = a.y - w.y, d = Math.hypot(dx, dy); if (d > b * 1.25) { const s = b * 0.17 * dt / d; w.x += dx * s; w.y += dy * s; } }
@@ -483,6 +500,49 @@ function updateGloom(dt) {
   // a soft high note now and then while the light is on one
   if (lit && (g.chime -= dt) <= 0) { g.chime = 0.38; if (sfx.ready()) sfx.tone(sfx.ac.currentTime, rand(1500, 2100), 0.012, 0.35, "sine", null, true); }
   if (!left && (g.endT += dt) > 0.8) gloomEnd(true);
+}
+
+/** How far a spot on the floor is from the line between two others (a step toward the back counts for 1.4 across, as it does
+ *  for your lantern). */
+function gloomSegDist(px, py, ax, ay, bx, by) {
+  const dx = bx - ax, dy = (by - ay) * 1.4, qx = px - ax, qy = (py - ay) * 1.4, len = dx * dx + dy * dy, t = len ? clamp((qx * dx + qy * dy) / len, 0, 1) : 0;
+  return Math.hypot(qx - dx * t, qy - dy * t);
+}
+/** The thread a wisp has drifted onto, if friends are holding one there. */
+function gloomOnThread(w) {
+  const reach = N.base * GLOOM_TIE_R + gloomR(w);
+  for (const th of gloomNow.threads) if (th.live && gloomSegDist(w.x, w.y, th.a.x, th.a.y, th.b.x, th.b.y) < reach) return th;
+  return null;
+}
+/** Friends who both shine with you hold a thread of light between them: one for each pair of friends, three at most. The first
+ *  time a pair holds one in a visit they show it, and each keeps the moment in its diary (once a visit). */
+function gloomTie(dt) {
+  const g = gloomNow;
+  for (const th of g.threads) th.live = false;
+  for (let i = 0; i < g.helpers; i++) for (let j = i + 1; j < g.helpers; j++) {
+    const a = g.team[i], b = g.team[j], ca = crOf(a.id), cb = crOf(b.id);
+    if (!ca || !cb || !areFriends(ca, cb)) continue;
+    const th = g.threads.find(q => q.on && ((q.a === a && q.b === b) || (q.a === b && q.b === a))) || g.threads.find(q => !q.on);
+    if (!th) continue;
+    if (!th.on) Object.assign(th, { on: true, a, b, k: 0, hot: 0 });
+    th.live = true;
+    const key = Math.min(a.id, b.id) + ":" + Math.max(a.id, b.id);
+    if (g.tied.includes(key)) continue;
+    g.tied.push(key);
+    for (const [who, cr, pal] of [[a, ca, cb], [b, cb, ca]]) {
+      emote(who, "♥", 1.4); who.hop = 1;
+      if (!g.told.includes(cr.id)) { g.told.push(cr.id); remember(cr, "Held the light with {0} ♥", pal.name); }
+    }
+    if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.tone(t, 880, 0.03, 0.6, "sine", null, true); sfx.tone(t + 0.1, 1318.5, 0.03, 0.8, "sine", null, true); }
+    persist();
+  }
+  // a thread reaches out from both friends and meets in the middle; let go of, it's gone in a blink
+  for (const th of g.threads) {
+    if (!th.on) continue;
+    th.k = clamp(th.k + (th.live ? dt * 4 : -dt * 6), 0, 1);
+    th.hot = Math.max(0, th.hot - dt * 3);
+    if (!th.live && th.k <= 0) th.on = false;
+  }
 }
 
 /** A wisp lets go: the light hidden in it floats up, a shard for you, and the nearest little one cheers. */
@@ -507,14 +567,16 @@ function gloomFree(w) {
 
 /** The visit is over. Pushed back by your light: everyone perks up, a warm word, keeper XP. Gone by itself: just quiet. */
 function gloomEnd(seen) {
-  const g = gloomNow, freed = g.freed;
-  g.on = false; g.endT = 0; g.calm = 0; g.freed = 0; g.lamp.on = false; g.crack.t = -1;
+  const g = gloomNow, freed = g.freed, pair = (g.pair || []).map(crOf);
+  g.on = false; g.endT = 0; g.calm = 0; g.freed = 0; g.lamp.on = false; g.crack.t = -1; g.pair = null;
   for (const w of g.wisps) w.on = false;
+  for (const th of g.threads) th.on = th.live = false;
   if (seen && freed) {
     bump("lamplit");
     for (const cr of residents(nestRoom())) if (!cr.sleeping) cr.joy = clamp(cr.joy + 5, 0, 100);
     for (const a of actors.values()) { const cr = crOf(a.id); if (cr && !cr.sleeping) { a.hop = 1; emote(a, a.id % 2 ? "♥" : "✦", 1.8); } }
-    toast(tr("It's lighter now. Together."));
+    // (two friends whose thread caught a wisp get a word of their own)
+    toast(pair[0] && pair[1] ? tr("It's lighter now. {0} and {1} held the light together.", pair[0].name, pair[1].name) : tr("It's lighter now. Together."));
     if (sfx.ready()) { const t = sfx.ac.currentTime; [659.25, 783.99, 1046.5].forEach((f, i) => sfx.tone(t + i * 0.13, f, 0.05, 1.4, "sine", null, true)); }
     persist();
     updateTopbar();
@@ -721,7 +783,50 @@ function drawGloomUnder() {
   ctx.imageSmoothingEnabled = was;
 }
 
-/** Over the room: the wisps, your lantern and its light, and the freed sparks floating up. */
+/** The threads of light friends hold between them, in art pixels: a cord of pale gold from one to the other, three pixels
+ *  thick with a dithered glow along it, beads of white light running from both ends to meet in the middle, and a little star
+ *  where each of them holds it. It brightens while a wisp is caught on it. With less motion it's simply there, steady. */
+function drawGloomThreads(P) {
+  const calm = opts().calm, beat = calm ? 0 : Math.floor(game.time / 80);
+  for (const th of gloomNow.threads) {
+    if (!th.on || th.k <= 0) continue;
+    const a = th.a, b = th.b, sa = N.base * depth(a.y), sb = N.base * depth(b.y);
+    const ax = a.x, ay = a.y - sa * 0.4 - (a.perch || 0), bx = b.x, by = b.y - sb * 0.4 - (b.perch || 0), d = Math.hypot(bx - ax, by - ay) || 1, ux = (bx - ax) / d, uy = (by - ay) / d;
+    // each holds it at its side, toward its friend (close together, their sides touch: one star between them)
+    const near = d < (sa + sb) * 0.4, ka = near ? d / 2 : sa * 0.4, kb = near ? d / 2 : sb * 0.4;
+    const x0 = Math.round((ax + ux * ka) / P), y0 = Math.round((ay + uy * ka * 0.8) / P), x1 = Math.round((bx - ux * kb) / P), y1 = Math.round((by - uy * kb * 0.8) / P);
+    const n = Math.max(Math.abs(x1 - x0), Math.abs(y1 - y0), 1), flat = Math.abs(x1 - x0) >= Math.abs(y1 - y0), sx = flat ? 0 : 1, sy = flat ? 1 : 0, hot = th.hot > 0.3;
+    // (it reaches out from both friends at once; steady, it just comes up out of the dark)
+    const reach = calm ? 1 : th.k, fade = calm ? th.k : 1;
+    for (let i = 0; i <= n; i++) {
+      const f = i / n, end = Math.min(i, n - i);
+      if (Math.min(f, 1 - f) * 2 > reach) continue;
+      const x = Math.round(lerp(x0, x1, f)), y = Math.round(lerp(y0, y1, f)), bead = !calm && (end - beat) % 10 === 0;
+      // the glow: two pixels out each side, every other one (all of them while it's catching a wisp)
+      ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = fade * (hot ? 0.8 : 0.55);
+      ctx.fillStyle = "#c98f3a";
+      if (hot || (i & 1)) ctx.fillRect((x - sx * 2) * P, (y - sy * 2) * P, P, P);
+      if (hot || !(i & 1)) ctx.fillRect((x + sx * 2) * P, (y + sy * 2) * P, P, P);
+      // the cord itself: gold either side of a pale middle
+      ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = fade;
+      ctx.fillStyle = bead ? "#fff0b5" : hot && (i + beat) % 2 ? "#ffe9a8" : "#eec26a";
+      ctx.fillRect((x - sx) * P, (y - sy) * P, P * (1 + sx * 2), P * (1 + sy * 2));
+      ctx.fillStyle = bead || hot ? "#ffffff" : "#fff0b5";
+      ctx.fillRect(x * P, y * P, P, P);
+    }
+    // where each one holds it: a four-pointed star, twinkling in turn
+    ctx.globalAlpha = fade;
+    for (const [x, y, q] of near ? [[x0, y0, 0]] : [[x0, y0, 0], [x1, y1, 1]]) {
+      const big = !calm && (Math.floor(game.time / 320) + q) % 2 ? 1 : 0;
+      ctx.fillStyle = "#eec26a"; ctx.fillRect((x - 3 - big) * P, y * P, P * (7 + big * 2), P); ctx.fillRect(x * P, (y - 3 - big) * P, P, P * (7 + big * 2)); ctx.fillRect((x - 1) * P, (y - 1) * P, P * 3, P * 3);
+      ctx.fillStyle = "#fff0b5"; ctx.fillRect((x - 2) * P, y * P, P * 5, P); ctx.fillRect(x * P, (y - 2) * P, P, P * 5);
+      ctx.fillStyle = "#ffffff"; ctx.fillRect((x - big) * P, y * P, P * (1 + big * 2), P); ctx.fillRect(x * P, (y - big) * P, P, P * (1 + big * 2));
+    }
+  }
+  ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+}
+
+/** Over the room: the wisps, your lantern and its light, the threads friends hold, and the freed sparks floating up. */
 function drawGloomOver() {
   const g = gloomNow;
   let rising = false;
@@ -731,14 +836,14 @@ function drawGloomOver() {
   ctx.imageSmoothingEnabled = false;
   if (g.on) for (const w of g.wisps) {
     if (!w.on || w.t <= 0 || w.k <= 0) continue;
-    const s = gloomStep(w.k), St = A.steps[s], fr = St.frames[Math.floor(w.ph * 7) % GLOOM_FRAMES];
-    // it floats with a slow bob, and trembles while the light is on it
-    const bob = Math.round(Math.sin(w.ph * 2.1) * 1.5), shake = w.lit > 0.5 ? (Math.floor(w.ph * 20) % 2 ? 1 : -1) : 0;
+    const s = gloomStep(w.k), St = A.steps[s], fr = St.frames[Math.floor(w.ph * 7) % GLOOM_FRAMES], glow = Math.max(w.lit, w.tie);
+    // it floats with a slow bob, and trembles while the light is on it (your lantern's, or two friends' thread)
+    const bob = Math.round(Math.sin(w.ph * 2.1) * 1.5), shake = glow > 0.5 ? (Math.floor(w.ph * 20) % 2 ? 1 : -1) : 0;
     const x = (Math.round(w.x / P) + shake - St.ax) * P, y = (Math.round((w.y - alt) / P) + bob - St.ay) * P;
     ctx.globalAlpha = w.fade * clamp(w.k / GLOOM_STEPS[4], 0, 1);
     ctx.drawImage(fr, x, y, St.w * P, St.h * P);
     // lit: the light inside it answers (the same picture laid over itself, lighter: the dark stays dark, the violet glows)
-    if (w.lit > 0.05) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = w.lit * 0.8 * w.fade; ctx.drawImage(fr, x, y, St.w * P, St.h * P); ctx.globalCompositeOperation = "source-over"; }
+    if (glow > 0.05) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = glow * 0.8 * w.fade; ctx.drawImage(fr, x, y, St.w * P, St.h * P); ctx.globalCompositeOperation = "source-over"; }
   }
   // your lantern, held up over your finger, and its cone of warm light down onto the dark
   const lamp = g.lamp;
@@ -752,6 +857,8 @@ function drawGloomOver() {
     ctx.globalAlpha = lamp.k;
     ctx.drawImage(L.c, (cx - Math.floor(L.s * L.m / 2) + sway) * P, (cy - C.py - (L.s - 3) * L.m) * P, L.s * L.m * P, L.s * L.m * P);
   }
+  // the threads go over it all, so they read even across your lantern's own pool of light
+  if (g.on) drawGloomThreads(P);
   ctx.globalAlpha = 1;
   ctx.imageSmoothingEnabled = was;
   // the light that was hidden in a wisp, free again: it floats up, sways, and goes out softly
