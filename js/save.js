@@ -129,9 +129,19 @@ const activeCreature = () => save.creatures.find(c => c.id === save.active) || s
 const totalStars = () => Object.values(save.stars).reduce((s, v) => s + v, 0);
 const unlocked = n => n === 1 || (save.stars[n - 1] || 0) > 0;
 
+// Away a day or more, and nobody comes home to hungry, lonely or worn-out little ones: Mossa looked in. She leaves every
+// need at three icons of four: well clear of what makes a glowling call or look sad (tummy and joy under 25, energy
+// under 20), enough for a happy face (joy over 70, tummy over 50), and not full, so there's still something kind to do.
+const AWAY_MIN = 24 * 60, KEPT = 75;
+const KEPT_QUIET = 60e3; // and for the first minute home nobody calls for anything: the welcome comes first
+/** Just home to a glowling Mossa looked in on: it's glad, and asks for nothing yet. */
+const keptQuiet = (cr, now = Date.now()) => cr.keptAt > 0 && Math.abs(now - cr.keptAt) < KEPT_QUIET;
+/** That first minute home: the dots that ask for something (the valley's, the day's tasks') wait as well. */
+const homeQuiet = () => save.creatures.some(cr => keptQuiet(cr));
+
 /** Real time passes in the nest too, gently: needs drift down, sleep refills energy. */
 function applyTime(cr, now = Date.now()) {
-  const min = clamp((now - (cr.last || now)) / 60000, 0, 24 * 60);
+  const min = clamp((now - (cr.last || now)) / 60000, 0, AWAY_MIN);
   cr.last = now;
   if (min <= 0) return;
   // out exploring: having a lovely time, needing nothing
@@ -148,6 +158,12 @@ function applyTime(cr, now = Date.now()) {
     cr.energy = clamp(cr.energy - min * 0.25, 0, 100);
     cr.messT = (cr.messT || 0) + min;
   }
+  // a day or more: Mossa looked in (see KEPT), and her visit leaves no mess behind
+  if (min >= AWAY_MIN) {
+    for (const k of ["tummy", "joy", "energy"]) cr[k] = Math.max(cr[k], KEPT);
+    cr.messT = 0;
+    cr.keptAt = now;
+  }
 }
 
 // ---------- dust bunnies: only ever in the nest, and always in the same order ----------
@@ -160,6 +176,7 @@ function applyTime(cr, now = Date.now()) {
 //    their "!" bubbles and the hint, which shows only in the nest).
 // 5. A tap sweeps it (sweepDust): a puff, +1 ✦, the nearest glowling cheers ♥, everyone in the nest gets joy back.
 //    A full nest's clock stops at half, so a swept nest stays tidy for a while.
+// 6. Home after a day or more, Mossa has swept too (see KEPT): all but one bunny, and one alone makes nobody call.
 const MESS_MIN = 45;
 const nestRoom = () => save.rooms.findIndex(r => r.kind === "nest");
 
@@ -168,6 +185,7 @@ function gatherDust() {
   for (const cr of save.creatures) applyTime(cr);
   const n = Math.max(1, save.creatures.length), nest = nestRoom(), dust = save.dust = save.dust || [];
   for (const cr of save.creatures) if (cr.messT) { save.dustT = (save.dustT || 0) + cr.messT / n; cr.messT = 0; }
+  if (homeQuiet()) { dust.length = Math.min(dust.length, 1); save.dustT = 0; }
   let d = null;
   if (nest >= 0 && dust.length < DUST_MAX && save.dustT >= MESS_MIN && !residents(nest).some(c => c.sleeping)) {
     dust.push(d = [Math.round(Math.random() * 100) / 100, Math.round(Math.random() * 100) / 100]);
@@ -177,9 +195,20 @@ function gatherDust() {
   return d;
 }
 
+/** Home after a day or more (see coreMoments): everyone's time is caught up, and if Mossa looked in while you were away
+ *  (since: a moment the nest was already closed), the quiet minute starts now, when you're really here. Returns whether she did. */
+function comeHome(since, now = Date.now()) {
+  for (const cr of save.creatures) applyTime(cr, now);
+  const kept = save.creatures.filter(cr => cr.keptAt > since);
+  if (!kept.length) return false;
+  for (const cr of kept) cr.keptAt = now;
+  gatherDust(); // (she swept too)
+  return true;
+}
+
 /** What a glowling is calling you for, if anything: gently, the way a Tamagotchi beeps. */
-function callOf(cr) {
-  if (cr.sleeping || cr.out) return "";
+function callOf(cr, now = Date.now()) {
+  if (cr.sleeping || cr.out || keptQuiet(cr, now)) return "";
   if (cr.tummy < 25) return "hungry";
   if (cr.energy < 20) return "sleepy";
   if ((save.dust || []).length >= 2 && roomOf(cr) === nestRoom()) return "messy";
@@ -195,7 +224,8 @@ function updateCalls() {
   const n = save.creatures.filter(c => { const p = { ...c }; applyTime(p); return callOf(p); }).length;
   t.classList.toggle("call", n > 0 && game.scene !== "nest");
   checkPlaces();
-  $("worldTab")?.classList.toggle("call", (!moonDone() && game.scene !== "map") || (placeOk("forge") && canForge()) || (placeOk("garden") && ripePlots() > 0) || (save.mapFresh || []).length > 0 || (!!save.incubator && Date.now() >= save.incubator.due && !incHere()));
+  // (the first minute home after a day or more, the valley's dot waits too)
+  $("worldTab")?.classList.toggle("call", !homeQuiet() && ((!moonDone() && game.scene !== "map") || (placeOk("forge") && canForge()) || (placeOk("garden") && ripePlots() > 0) || (save.mapFresh || []).length > 0 || (!!save.incubator && Date.now() >= save.incubator.due && !incHere())));
 }
 
 function moodOf(cr) {
@@ -513,7 +543,7 @@ const game = {
   scene: "menu", egg: null, time: 0, libTab: "sp",
   coop: null,
   chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], swings: [], floaters: [], ripples: [], pops: [], gems: [], shake: 0, freeze: 0,
-  nest: { snack: null, petDist: 0, petXpT: 0, petting: false, call: null },
+  nest: { snack: null, petDist: 0, petXpT: 0, petting: false, call: null, glad: false },
   actors: null,
   catch: null,
   quality, save,

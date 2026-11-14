@@ -146,12 +146,20 @@ function coreMoments(scene) {
   const seen = coreLastSeen;
   coreLastSeen = 0;
   if (save.core.old) talk("coreOld");
-  if (!coreBack(save.core, seen)) return;
-  const id = "back-" + coreDay();
-  TALKS[id] = CORE_BACK;
-  talk(id);
-  coreLit();
-  persist();
+  if (coreBack(save.core, seen)) {
+    // time away is caught up first, so the welcome is true: only if Mossa looked in does she say so
+    // (seen is to the hour: the nest was open until some time in the hour after it)
+    const kept = comeHome(seen + 36e5), id = "back-" + coreDay();
+    TALKS[id] = () => CORE_BACK(kept);
+    talk(id);
+    coreLit();
+    persist();
+    game.nest.glad = kept;
+    // the dots that ask for something wait out the quiet minute (see homeQuiet), and are back the moment it's over
+    if (kept) { updateTopbar(); setTimeout(updateTopbar, KEPT_QUIET + 100); }
+  }
+  // and the little ones are glad to see you, as soon as you're in the nest to see it
+  if (scene === "nest" && game.nest.glad) gladHome();
 }
 // leaving the tab marks when you were last here; coming back after a day or more is a return too
 if (typeof addEventListener === "function") addEventListener("visibilitychange", () => {
@@ -161,9 +169,12 @@ if (typeof addEventListener === "function") addEventListener("visibilitychange",
   if (game.scene !== "menu" && !talkNow) coreMoments(game.scene);
 });
 
-const CORE_BACK = () => {
-  const i = Math.floor(Date.now() / 864e5) % 3;
-  return [[MOSSA, ["You came back. The light held.", "There you are. The nest kept warm for you.", "Welcome home. Everyone's here, and the light held."][i]],
+/** Mossa's welcome home. kept: she looked in while you were away (see applyTime in save.js), so the warm words are true. */
+const CORE_BACK = kept => {
+  const hello = ["You came back. The light held.", "Welcome home. Everyone's here, and the light held."];
+  if (kept) hello.push("There you are. The nest kept warm for you.");
+  return [[MOSSA, hello[Math.floor(Date.now() / 864e5) % hello.length]],
+    ...(kept ? [[MOSSA, "I looked in at dusk. They're not hungry. They're just glad."]] : []),
     [MOSSA, "Coming back is strength too. Your core grew a little."]];
 };
 /** The facets' words: Mossa for the first, Ember for the lantern she deepens, Mossa again for the title and the last. */

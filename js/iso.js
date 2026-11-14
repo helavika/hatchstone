@@ -188,6 +188,19 @@ function selectCreature(id) {
   renderNest(true);
 }
 
+/** Home after a day or more: everyone awake in the room hops with a heart, one after another, glad to see you. */
+function gladHome() {
+  game.nest.glad = false;
+  [...actors.values()].forEach((a, i) => setTimeout(() => {
+    const cr = save.creatures.find(c => c.id === a.id);
+    if (!cr || cr.sleeping || game.scene !== "nest") return;
+    // (one standing about or dozing stays put while its heart shows, rather than nodding off under it)
+    if (a.state === "idle" || a.state === "nap") { a.state = "idle"; a.t = 2.4; }
+    a.hop = 1; emote(a, "♥", 2.4);
+    if (i < 3) sfx.chirp(specOf(cr).voice);
+  }, 300 + i * 180));
+}
+
 /** Slept enough: a stretch and a yawn, and up it gets. */
 function wakeRested(cr, a) {
   cr.sleeping = false; cr.selfSlept = false;
@@ -498,6 +511,8 @@ function updateActors(dt) {
       else if (m === "hungry") emote(a, SNACKS[specOf(cr).snack].emoji, 2.2);
       else if (m === "sleepy") emote(a, "zz", 2.2);
       else if (m === "sad") emote(a, "…", 2.2);
+      // (just home after a day or more: still glad)
+      else if (keptQuiet(cr)) emote(a, "♥", 1.6);
       // the one you're looking after beeps for you now and then
       if (wants && a.id === save.active && Math.random() < 0.3) sfx.chirp(specOf(cr).voice * 1.2);
     }

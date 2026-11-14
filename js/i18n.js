@@ -780,6 +780,7 @@ const UK = {
   "You came back. The light held.": "Ти знову тут. Світло втрималося.",
   "There you are. The nest kept warm for you.": "Ось і ти. Гніздечко берегло для тебе тепло.",
   "Welcome home. Everyone's here, and the light held.": "З поверненням додому. Усі тут, і світло втрималося.",
+  "I looked in at dusk. They're not hungry. They're just glad.": "Я зазирала надвечір. Голодних тут немає. Тобі просто раді.",
   "Coming back is strength too. Your core grew a little.": "Повертатися — теж сила. Твій стрижень трохи зміцнів.",
   "Look at you. There's something steady in you now, like a stone that won't roll.": "Подивися на себе. У тобі тепер є щось стійке, як камінь, що не котиться.",
   "I've hung a little lantern by the eggs. So you never have to crack in the dark.": "Я повісила маленький ліхтарик біля яєць. Щоб тобі ніколи не доводилося колоти в темряві.",
