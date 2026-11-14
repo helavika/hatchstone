@@ -304,8 +304,46 @@ const KEEPER_PIX = {
 function keeperPixCanvas(id, blink, S, f = 0) {
   const k = KEEPER_PIX[id], c = document.createElement("canvas"); c.width = KW * S; c.height = KH * S;
   const g = c.getContext("2d"), px = blink ? k.blink : typeof f === "string" ? k[f] : k.frames[f % k.frames.length];
+  if (S % 2 === 0) {
+    // drawn on the room's own grid: twice the keeper's pixels, so lines are one room pixel wide like everything else's
+    const { w, h, at } = keeperFine(px, k.pal), cell = S / 2;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) { const col = at[y * w + x]; if (col) { g.fillStyle = col; g.fillRect(x * cell, y * cell, cell, cell); } }
+    return c;
+  }
   for (let i = 0; i < px.length; i++) { const ch = px[i]; if (ch === ".") continue; g.fillStyle = k.pal[ch]; g.fillRect((i % KW) * S, Math.floor(i / KW) * S, S, S); }
   return c;
+}
+/**
+ * A keeper at twice the resolution: Scale2x rounds the diagonals, then the ink lines thin to a single fine pixel.
+ * The outer edge keeps one pixel, tinted toward the colour it wraps; lines inside keep their lower/right half, softened.
+ */
+function keeperFine(px, pal) {
+  const w = KW * 2, h = KH * 2, G = new Array(w * h), src = (x, y) => x < 0 || y < 0 || x >= KW || y >= KH ? "." : px[y * KW + x];
+  for (let y = 0; y < KH; y++) for (let x = 0; x < KW; x++) {
+    const P = src(x, y), A = src(x, y - 1), B = src(x + 1, y), C = src(x - 1, y), D = src(x, y + 1);
+    const ok = A !== D && C !== B, o = y * 2 * w + x * 2;
+    G[o] = ok && C === A ? A : P; G[o + 1] = ok && A === B ? B : P; G[o + w] = ok && D === C ? C : P; G[o + w + 1] = ok && B === D ? D : P;
+  }
+  const ink = ch => ch === "k" || ch === "K", get = (x, y) => x < 0 || y < 0 || x >= w || y >= h ? "." : G[y * w + x];
+  const rgb = hex => [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16)), dark = rgb(pal.k || "#000000");
+  const mix = (ch, t) => { const a = rgb(pal[ch]); return `rgb(${a.map((v, i) => Math.round(v + (dark[i] - v) * t)).join(",")})`; };
+  const N4 = [[0, -1], [-1, 0], [1, 0], [0, 1]];
+  // the colour an ink pixel sits against (the nearest non-ink, non-empty pixel)
+  const fill = (x, y) => { for (const r of [1, 2]) for (const [dx, dy] of N4) { const q = get(x + dx * r, y + dy * r); if (q !== "." && !ink(q)) return q; } return null; };
+  const at = new Array(w * h).fill(null);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const ch = G[y * w + x]; if (ch === ".") continue;
+    if (!ink(ch)) { at[y * w + x] = pal[ch]; continue; }
+    const edge = N4.some(([dx, dy]) => get(x + dx, y + dy) === "."), nf = fill(x, y);
+    if (edge) { at[y * w + x] = nf ? mix(nf, 0.72) : pal[ch]; continue; }
+    const nextToEdge = N4.some(([dx, dy]) => { const q = get(x + dx, y + dy); return ink(q) && N4.some(([ex, ey]) => get(x + dx + ex, y + dy + ey) === "."); });
+    if (!nf) { at[y * w + x] = pal[ch]; continue; }
+    if (nextToEdge) { at[y * w + x] = mix(nf, 0.3); continue; }
+    // a two-pixel line inside the figure: the upper/left half fades into its colour
+    const ul = get(x, y - 1), ll = get(x - 1, y);
+    at[y * w + x] = (ul !== "." && !ink(ul)) || (ll !== "." && !ink(ll)) ? mix(nf, 0.35) : mix(nf, 0.8);
+  }
+  return { w, h, at };
 }
 const keeperCache = {};
 /** A keeper's full-length picture as a canvas, S real pixels to each of its own (S = 1 is the small 34×46 version). */
