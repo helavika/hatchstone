@@ -1106,7 +1106,8 @@ function talkMoments(scene) {
 }
 
 function nestHint() {
-  if (!save.creatures.length) return "";
+  // (nothing over the valley map: it would cover the places you came to tap)
+  if (!save.creatures.length || worldOpen()) return "";
   if (!tipDone("pet")) return tr("stroke {0} to pet it ♥", activeCreature()?.name || tr("your glowling"));
   if (game.scene === "nest" && gloomNow.on) return tipDone("lantern") ? tr("the Gloom's shadows: shine your light on them, together") : tr("shadows of the Gloom! hold your finger on one to shine your lantern");
   // (only about someone who is right here: not from the shop or the forge, nor for someone in another room)
