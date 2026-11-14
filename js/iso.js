@@ -731,6 +731,8 @@ function isoArt(w, h, paint, { outline = true, texture = true, light = true } = 
     }
   }
   g.putImageData(img, 0, 0);
+  // (the solid part, without its glow: what a highlight goes round)
+  c._solid = solid;
   return c;
 }
 
@@ -1278,6 +1280,17 @@ const ISO_ART = {
       const [x, y] = K.P(u + (k - n / 2) * 0.1 * U, v + (k % 2) * 0.08 * U, 0), hh = t * (0.35 + 0.35 * pxHash(k, u)), w = 2 + (k % 2), lean = (k - n / 2) * 1.2;
       T.poly([[x - w, y], [x + lean, y - hh], [x, y + 1]], IC.l1); T.poly([[x, y + 1], [x + lean, y - hh], [x + w, y]], IC.l3); T.line(x + lean, y - hh, x + lean * 0.5, y - hh * 0.5, IC.l0); T.px(x + lean, y - hh, IC.white);
     }
+    // a signpost by the mouth, out on the right: a board nailed to a stake with an egg painted on it and an arrow pointing in
+    { const su = pu1 + 0.48 * U, sv = vm + 0.24 * U, sz = Math.round(t * 0.9), bz0 = sz - Math.max(5, Math.round(t * 0.4)), bv = sv + 0.12 * U;
+      K.box(su, sv, 0, 0.1 * U, 0.1 * U, sz + 2, IC.w1, IC.w2, IC.w3);
+      K.faceV(bv, su - 0.36 * U, su + 0.4 * U, bz0, sz, IC.w3, 0);
+      K.faceV(bv, su - 0.32 * U, su + 0.36 * U, bz0 + 1, sz - 1, IC.w1, 0);
+      K.seg([su - 0.32 * U, bv, sz - 1], [su + 0.36 * U, bv, sz - 1], IC.w0);
+      const [ex, ey] = K.P(su - 0.14 * U, bv, (bz0 + sz) / 2);
+      T.px(ex, ey - 2, IC.white); T.px(ex - 1, ey - 1, IC.white); T.px(ex, ey - 1, IC.l0); T.px(ex + 1, ey - 1, IC.l1); T.px(ex - 1, ey, IC.l0); T.px(ex, ey, IC.l1); T.px(ex + 1, ey, IC.l2); T.px(ex, ey + 1, IC.l2);
+      const [rx, ry] = K.P(su + 0.2 * U, bv, (bz0 + sz) / 2);
+      T.line(rx + 2, ry, rx - 2, ry + 2, IC.r2); T.px(rx - 2, ry + 1, IC.r2); T.px(rx - 1, ry + 2, IC.r2);
+      for (const nu of [su - 0.26 * U, su + 0.3 * U]) K.dot(nu, bv, sz - 2, IC.m3); }
   },
   altar(t, T, ax, ay, o) {
     // a carved stone pedestal: a stepped plinth, a fluted shaft with a crescent cut in it, a capital, a shallow bowl on top;
@@ -1294,6 +1307,20 @@ const ISO_ART = {
     T.disc(tx, ty - 1, U * 0.24 * 2.83, IC.s1); T.disc(tx, ty - 1.5, U * 0.18 * 2.83, IC.s3);
     if (!o.done) { T.glow(tx, ty - t * 0.35, t * 0.95, IC.b0, 0.45); T.ball(tx, ty - t * 0.32, t * 0.22, IC.white, IC.b0, IC.l2, t * 0.28); T.px(tx - 2, ty - t * 0.48, IC.white); T.px(tx - 2, ty - t * 0.44, IC.white); for (let k = 0; k < 4; k++) T.px(tx + 1 + k % 2, ty - t * 0.38 + k * 2, IC.l1); }
     else { T.ball(tx - 2, ty - 2, t * 0.12, IC.s0, IC.s1, IC.s2, t * 0.08); T.ball(tx + 3, ty - 1, t * 0.1, IC.s0, IC.s1, IC.s2, t * 0.07); }
+    // the moon's cradle: a brass crescent rising out of the bowl, its horns either side of the egg (empty once it's opened)
+    { const cy = ty - t * 0.3, rx = t * 0.3, ry = t * 0.32;
+      for (let k = 0; k <= 28; k++) { const an = -0.18 * Math.PI + k / 28 * 1.36 * Math.PI, w = 1.6 * Math.sin(clamp((an + 0.18 * Math.PI) / (1.36 * Math.PI), 0, 1) * Math.PI);
+        for (let d = 0; d <= w; d += 0.5) { const x = tx + Math.cos(an) * (rx + d), y = cy + Math.sin(an) * (ry + d); T.px(x, y, Math.cos(an) < -0.3 ? IC.y0 : Math.cos(an) > 0.4 ? IC.w2 : IC.y1); } }
+      for (const sx of [-1, 1]) T.px(tx + sx * Math.cos(-0.18 * Math.PI) * rx, cy + Math.sin(-0.18 * Math.PI) * ry - 1, IC.y0); }
+    // two candles on the floor before it, burning
+    for (const [u, v, hh] of [[0.3 * U, 0.98 * U, Math.round(t * 0.42)], [0.98 * U, 0.3 * U, Math.round(t * 0.3)]]) {
+      const [cx, cyy] = K.P(u, v, 0);
+      T.disc(cx, cyy, 2.6, IC.s3, 1.3);
+      for (let z = 0; z < hh; z++) { T.px(cx - 1, cyy - z, IC.s0); T.px(cx, cyy - z, IC.y0); T.px(cx + 1, cyy - z, IC.s1); }
+      T.px(cx, cyy - hh, IC.ink2); T.px(cx - 1, cyy - hh + 1, IC.white);
+      T.glow(cx, cyy - hh - 2, t * 0.55, IC.y0, 0.4);
+      T.px(cx, cyy - hh - 1, IC.y1); T.px(cx, cyy - hh - 2, IC.y0); T.px(cx, cyy - hh - 3, IC.white); T.px(cx + 1, cyy - hh - 1, IC.r1);
+    }
   },
   wallmap(t, T, ax, ay) {
     // the map of the levels pinned high on the wall: aged parchment darker at its edges with a curling corner, four caverns
@@ -1317,6 +1344,14 @@ const ISO_ART = {
     // a corner curling forward, with its shadow; nails at the other corners
     { const [cx2, cy2] = at(1, 1); T.poly([[cx2, cy2], [cx2 + 6, cy2 - 3], [cx2 + 1, cy2 - 6]], PARCH[1]); T.line(cx2 + 6, cy2 - 3, cx2 + 1, cy2 - 6, PARCH[3]); }
     for (const [fv, fz] of [[0.02, 0.04], [0.98, 0.04], [0.02, 0.96]]) { const [nx, ny] = at(fv, fz); T.px(nx, ny, IC.m3); T.px(nx - 1, ny - 1, IC.m1); }
+    // pins with round heads in the caverns along the trail, the last one gold; a red ribbon hanging from the bottom nail; a wax seal
+    for (const [k, c0, c1] of [[0, IC.l0, IC.l2], [3, IC.b0, IC.b2], [5, IC.g0, IC.g2], [7, IC.y0, IC.w1]]) {
+      const [px, py] = at(...stops[k]); T.px(px + 1, py + 1, PARCH[3]); T.px(px, py - 1, c0); T.px(px + 1, py - 1, c1); T.px(px, py - 2, c0); T.px(px + 1, py - 2, c0); T.px(px - 1, py - 2, c1); T.px(px, py - 3, c1);
+    }
+    { const [rx, ry] = at(0.04, 0.96), n = Math.round(t * 0.6);
+      T.px(rx - 1, ry, IC.r1); T.px(rx + 1, ry, IC.r1); T.px(rx - 2, ry - 1, IC.r2); T.px(rx + 2, ry - 1, IC.r2); T.px(rx - 2, ry + 1, IC.r3); T.px(rx + 2, ry + 1, IC.r3); T.px(rx, ry, IC.r3);
+      for (const d of [-1, 1]) { for (let k = 1; k <= n - (d > 0 ? 2 : 0); k++) T.px(rx + d * Math.round(k / 4), ry + k, d < 0 ? IC.r1 : IC.r2); const e = n - (d > 0 ? 2 : 0); T.px(rx + d * Math.round(e / 4) + d, ry + e + 1, IC.r3); } }
+    { const [sx, sy] = at(0.82, 0.88); T.ball(sx, sy, 2.4, IC.r1, IC.r2, IC.r3); T.px(sx, sy, IC.r3); T.px(sx - 1, sy - 1, IC.p0); }
   },
   shrine(t, T, ax, ay, o) {
     // a festival's shrine, only while one is on: First Frost is a pillar of ice; others take their egg's colours
@@ -1568,6 +1603,10 @@ const ISO_ART = {
       K.flat(u - w2, v - d2, u + w2, v + d2, H, IC.r3); K.flat(u - w2 + 0.6, v - d2 + 0.4, u - 0.3, v + d2 - 0.4, H + 1, IC.white); K.flat(u + 0.3, v - d2 + 0.4, u + w2 - 0.6, v + d2 - 0.4, H + 1, IC.s0);
       for (let k = 0; k < 4; k++) { K.seg([u - w2 + 2, v - d2 + 1.5 + k * 1.6, H + 1], [u - 1.5, v - d2 + 1.5 + k * 1.6, H + 1], IC.s2); K.seg([u + 1.5, v - d2 + 1.5 + k * 1.6, H + 1], [u + w2 - 2, v - d2 + 1.5 + k * 1.6, H + 1], IC.s2); }
       K.seg([u, v - d2, H + 1], [u, v + d2, H + 1], IC.s1); K.seg([u + w2 * 0.6, v + d2, H + 1], [u + w2 * 0.6, v + d2 + 3, H - 1], IC.r1); }
+    // a lantern at the far end, so the counter is the brightest thing in the shop
+    { const [lx, ly] = K.P(0.14 * U, 0.74 * U, H); T.glow(lx, ly - 5, t * 0.9, IC.y0, 0.38);
+      T.line(lx - 2, ly, lx + 2, ly, IC.m3); T.poly([[lx - 2, ly - 1], [lx + 2, ly - 1], [lx + 2, ly - 7], [lx - 2, ly - 7]], IC.y1);
+      T.px(lx - 1, ly - 3, IC.white); T.px(lx - 1, ly - 4, IC.y0); T.px(lx, ly - 4, IC.y0); T.line(lx - 2, ly - 8, lx + 2, ly - 8, IC.m3); T.px(lx, ly - 9, IC.m2); T.px(lx, ly - 10, IC.m3); }
     // the cash box
     { const u = 1.38 * U, v = 0.32 * U; K.box(u, v, H, 0.26 * U, 0.22 * U, 6, IC.w3, IC.r3, IC.ink2); K.box(u, v, H + 6, 0.26 * U, 0.22 * U, 1, IC.w2, IC.r2, IC.r3);
       for (const [cu, cv] of [[u, v + 0.22 * U], [u + 0.26 * U, v + 0.22 * U], [u + 0.26 * U, v]]) { K.dot(cu, cv, H + 1, IC.y1); K.dot(cu, cv, H + 6, IC.y0); }
@@ -1908,6 +1947,10 @@ const ISO_ART = {
     { const [sx, sy] = K.P(mu1 - 0.04 * U, mv0 + 0.04 * U, h + 1); T.ball(sx, sy - 1.5, 2.6, IC.s1, IC.s2, IC.s3, 1.8); }
     K.cyl(u1 - 0.12 * U, v1 - 0.08 * U, h, 0.07 * U, 5, IC.m3, IC.m1, IC.m2);
     { const [cx3, cy3] = K.P(u0 + 0.1 * U, v0 + 0.1 * U, h); T.line(cx3, cy3, cx3, cy3 - 4, IC.s0); T.px(cx3, cy3 - 5, IC.y0); T.px(cx3, cy3 - 6, IC.y1); T.glow(cx3, cy3 - 6, U * 0.6, IC.y0, 0.4); }
+    // where the next trip goes: a little red pennant on a pin, stuck in the X
+    { const [xx, yy] = K.P(mu0 + (mu1 - mu0) * 0.78, mv0 + (mv1 - mv0) * 0.48, h + 1), ph = Math.max(6, Math.round(t * 0.45));
+      T.line(xx, yy - 1, xx, yy - ph, IC.m2); T.px(xx, yy - ph - 1, IC.m0);
+      for (let k = 0; k < 4; k++) for (let j = 0; j <= 3 - k; j++) T.px(xx + 1 + k, yy - ph + j + Math.floor(k / 2), j === 0 ? IC.r1 : IC.r2); }
   },
   // ---- the lab
   labdesk(t, T, ax, ay) {
@@ -2037,6 +2080,19 @@ const ISO_ART = {
     // the boards between the plots
     for (const f of [1 / 3, 2 / 3]) for (let k = 0; k <= 4; k++) { const v = k / 4; T.px(x0 + 2 * ia * f - 2 * ib * v, y0 + ia * f + ib * v, IC.w1); }
     (o.p || []).forEach((q, k) => { if (q) { const f = (k + 0.5) / 3; gardenPlant(T, x0 + 2 * ia * f - ib, y0 + ia * f + ib / 2 + 1, q[0], q[1], t * 2.2); } });
+    // a corner post at each outer corner, standing a little proud of the rim with a pale cap
+    for (const [px, py] of [[x - 2 * b, y + b], [x + 2 * a - 2 * b, y + a + b], [x + 2 * a, y + a]]) {
+      for (let z = 0; z <= h + 2; z++) { T.px(px - 1, py - z, IC.w1); T.px(px, py - z, IC.w2); T.px(px + 1, py - z, IC.w3); }
+      T.px(px - 1, py - h - 3, IC.w0); T.px(px, py - h - 3, IC.w0); T.px(px + 1, py - h - 3, IC.w1);
+    }
+    // a label on a stake pushed in along the front of each plot: a blank card while it's empty, the seed's colour on it once something's sown
+    for (let k = 0; k < 3; k++) {
+      const q = (o.p || [])[k], f = (k + 0.25) / 3, lx = Math.round(x0 + 2 * ia * f - 2 * ib), ly = Math.round(y0 + ia * f + ib), lh = 3;
+      for (let z = 0; z < lh; z++) { T.px(lx, ly - z, IC.w2); T.px(lx + 1, ly - z, IC.w3); }
+      const top = ly - lh, ink = q ? (GARDEN_TAG[q[0]] || IC.g1) : IC.s2;
+      for (let a = -3; a <= 3; a++) for (let bb = -5; bb <= 0; bb++) { const sl = Math.round(a * 0.5); T.px(lx + 1 + a, top + bb + sl, bb === 0 || a === 3 ? IC.ink2 : bb === -5 || a === -3 ? IC.w2 : IC.s0); }
+      T.px(lx - 1, top - 2, ink); T.px(lx, top - 2, ink); T.px(lx + 1, top - 1, ink); T.px(lx + 2, top - 1, q ? ink : IC.s1); T.px(lx + 1, top - 2, IC.s1);
+    }
   },
   bench(t, T, ax, ay) {
     // a wooden garden bench: four legs, a seat of planks, a back
@@ -2463,6 +2519,8 @@ const BED_ART = {
   },
 };
 
+/** The dab of colour on a garden label: each seed's own. */
+const GARDEN_TAG = { glowberry: IC.l2, moonmint: IC.b1, cookiecorn: IC.w1, growcap: IC.r1, sunpetal: IC.y1, crystalbloom: IC.l1, biteleaf: IC.r2 };
 /** A small picture of a bed, for choosing one. */
 const bedThumbs = {};
 function bedThumb(id) {
@@ -2486,6 +2544,7 @@ function isoPiece(p, extra = {}) {
       // turned to face the other wall: a mirror image (the back corner stays the back corner)
       const m = document.createElement("canvas"); m.width = c.width; m.height = c.height;
       const g = m.getContext("2d"); g.translate(c.width, 0); g.scale(-1, 1); g.drawImage(c, 0, 0);
+      if (c._solid) { const s = c._solid, cw = c.width; m._solid = s.map((_, i) => s[i - i % cw + cw - 1 - i % cw]); }
       c = m; ax = c.width - ax0;
     }
     return { c, x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX };
@@ -3490,7 +3549,8 @@ function drawRoomIso() {
     const box = { u0: p.i, u1: p.i + p.fw, v0: p.j, v1: p.j + p.fd, id: p.id };
     if (p.id === "incubator") { items.push({ y: fy, box, draw: drawIncubator }); continue; }
     if (p.id === "swing") { items.push({ y: fy, box, draw: () => drawSwingIso(p) }); continue; }
-    const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
+    // (pressed, a thing in a place dips a pixel before it does what it does)
+    const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : propPressed(p.id) ? PX : 0;
     const extra = pieceExtra(p);
     const layers = p.id === "bed" && BED_LAYERS[extra.style];
     if (layers) {
@@ -3501,7 +3561,7 @@ function drawRoomIso() {
       // whoever naps there hides under the gazebo's roof or the glowcap's cap
       if (layers.includes("roof")) items.push({ y: fy, box: { ...box, id: "bedroof" }, roofOf: "bed", after: layers.includes("post") ? "bedpost" : null, draw: () => drawBaked(isoPiece(p, { ...extra, part: "roof" }), 0, bob) });
     }
-    items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); } });
+    items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); if (PROP_CUES[p.id]) propCue(p.id, f, bob); } });
   }
   if (hasDecor("shelf")) items.push({ y: -2, draw: drawShelfIso });
   if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
