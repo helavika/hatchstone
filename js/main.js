@@ -5,10 +5,12 @@
 // ---------- simulation ----------
 
 const GRAVITY = 900;
-let nestTick = 0;
+let nestTick = 0, dustTick = 0;
 
 function update(dt) {
   game.time += dt * 1000;
+  // the nest's dust clock, wherever you are: a bunny that lands is saved, and shown with a puff if you're watching
+  if ((dustTick += dt) > 4) { dustTick = 0; const d = gatherDust(); if (d) { persist(); dustLanded(d); } }
   for (const m of motes) { m.y -= m.vy * dt; if (m.y < -4) { m.y = H + 4; m.x = rand(0, W); } }
   updateEventMotes(dt);
 
@@ -516,7 +518,7 @@ if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.ser
 
 window.addEventListener("resize", resize);
 window.addEventListener("hashchange", coopImportLocationInvite);
-for (const cr of save.creatures) applyTime(cr);
+for (let i = 0; i < DUST_MAX; i++) gatherDust(); // time away caught up, any dust that gathered quietly in place
 clearDoorways();
 resize();
 updateTopbar();

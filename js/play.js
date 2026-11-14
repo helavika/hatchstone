@@ -174,58 +174,152 @@ function drawEmote(a, v) {
   fx.restore();
 }
 
-/** Dust bunnies: little grey puffs with ears and eyes, gathering on the floor until you sweep them. */
+/** Dust bunnies: little fluffy puffs with ears and eyes on the nest floor, until you sweep them (the order of it all: see gatherDust). */
+const dustView = { key: "", spots: [] }, dustArt = { R: 0 }, dustBorn = new Map();
+/** Where the nest's dust bunnies are: worked out again only when the dust, the room or its furniture change. Nowhere but the nest. */
 function dustSpots() {
-  const out = [];
-  for (const cr of save.creatures) (cr.dust || []).forEach(([u, v], i) => {
-    const [x, y] = N.iso ? isoDustAt(u, v) : [lerp(N.x0, N.x1, 0.06 + u * 0.88), lerp(N.y0, N.y1, 0.2 + v * 0.75)];
-    out.push({ cr, i, x, y, r: N.base * 0.26 * depth(y) });
+  const dust = save.dust || [];
+  if (!dust.length || save.room !== nestRoom()) return [];
+  const lay = N.iso && isoLayout(), key = `${W}|${H}|${N.base}|${N.iso}|${dust.join(";")}`;
+  if (dustView.key === key && dustView.lay === lay && dustView.dust === dust) return dustView.spots;
+  const taken = [];
+  dustView.spots = dust.map((d, i) => {
+    const [x, y] = N.iso ? isoDustAt(d[0], d[1], taken) : [lerp(N.x0, N.x1, 0.06 + d[0] * 0.88), lerp(N.y0, N.y1, 0.2 + d[1] * 0.75)];
+    return { d, i, x, y, r: N.base * 0.24 * depth(y) };
   });
-  return out;
+  dustView.key = key; dustView.lay = lay; dustView.dust = dust;
+  return dustView.spots;
 }
 
-/** A dust bunny's place on the isometric floor: where it fell, or the nearest spot that's free and in plain sight. */
-function isoDustAt(u, v) {
+/** A dust bunny's place on the isometric floor: where it fell, or the nearest spot that's free, in plain sight and not on another bunny. */
+function isoDustAt(u, v, taken) {
   const m = isoMargin(0.42), want = [m + u * (1 - 2 * m), m + v * (1 - 2 * m)];
   let best = want, bd = Infinity;
   for (let i = 0; i <= 10; i++) for (let j = 0; j <= 10; j++) {
     const cu = m + i / 10 * (1 - 2 * m), cv = m + j / 10 * (1 - 2 * m), U = cu * ISO_G, V = cv * ISO_G;
-    if (!cellFree(Math.floor(U * 2), Math.floor(V * 2)) || hiddenSpot(U, V)) continue;
+    if (!cellFree(Math.floor(U * 2), Math.floor(V * 2)) || hiddenSpot(U, V) || taken.some(([a, b]) => Math.hypot(a - cu, b - cv) < 0.14)) continue;
     const d = Math.hypot(cu - want[0], cv - want[1]);
     if (d < bd) { bd = d; best = [cu, cv]; }
   }
+  taken.push(best);
   return isoAt(...best);
 }
 
-function drawDust() {
-  for (const { x, y, r, i } of dustSpots()) {
-    const b = Math.abs(Math.sin(game.time * 0.003 + i * 2 + x)) * r * 0.12;
-    ctx.fillStyle = "rgba(5,0,20,.35)";
-    ctx.beginPath(); ctx.ellipse(x, y, r * 1.1, r * 0.3, 0, 0, TAU); ctx.fill();
-    cutSprite(ctx, x, y - r * 0.4, r * 1.3, ctx => {
-      for (const [dx, h] of [[-0.45, 0.9], [0.45, 0.8]]) {
-        ctx.fillStyle = "#8a8494"; ctx.beginPath(); ctx.ellipse(x + dx * r, y - r * (1.2 + h * 0.5) - b, r * 0.2, r * 0.45 * h, dx * 0.6, 0, TAU); ctx.fill();
+/**
+ * A dust bunny in art pixels, painted once per size: soft cel bands lit from the top left (a pale top, lilac-grey body,
+ * a darker belly), a fluffy scalloped crown, two ears with pink insides, little eyes with a glint (or shut, to blink),
+ * pink cheeks, and a one-pixel dark plum outline so it reads on any floor. The contact shadow is its own picture.
+ */
+function bakeDust(R) {
+  const w = Math.ceil(R * 2.6) + 4, h = Math.ceil(R * 2.4) + 4, cx = w / 2, fy = h - 2, by = fy - R * 0.62, rx = R, ry = R * 0.66;
+  const hex = c => [parseInt(c.slice(1, 3), 16), parseInt(c.slice(3, 5), 16), parseInt(c.slice(5, 7), 16)];
+  const INK = hex("#160c26"), BANDS = ["#7a6a7e", "#a596a8", "#cfc4d6", "#efe6ff"].map(hex), PINK = hex("#e88bb1"), WHITE = hex("#ffffff");
+  const ell = (x, y, ex, ey, ax, ay, rot = 0) => { const dx = x - ex, dy = y - ey, c = Math.cos(rot), s = Math.sin(rot), p = (dx * c + dy * s) / ax, q = (-dx * s + dy * c) / ay; return p * p + q * q; };
+  const ears = [[-0.42, -1.45, -0.35, 1], [0.42, -1.38, 0.35, 0.9]].map(([ex, ey, rot, k]) => [cx + ex * R, fy + ey * R * k + R * (1 - k) * 0.4, R * 0.2, R * 0.44 * k, rot]);
+  const frame = blink => {
+    const c = document.createElement("canvas"); c.width = w; c.height = h;
+    const g = c.getContext("2d"), im = g.createImageData(w, h), px = im.data, col = new Array(w * h).fill(null);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const X = x + 0.5, Y = y + 0.5, nx = (X - cx) / rx, ny = (Y - by) / ry, a = Math.atan2(ny, nx);
+      // the crown is fluffy: a few soft scallops along the top edge
+      const fluff = ny < 0 ? 1 + 0.07 * Math.max(0, Math.sin(a * 9)) : 1;
+      let inBody = nx * nx + ny * ny <= fluff * fluff && Y <= fy;
+      if (inBody) {
+        const l = -0.5 * nx - 0.8 * ny + 0.45 * Math.sqrt(Math.max(0, 1 - nx * nx - ny * ny));
+        col[y * w + x] = BANDS[l > 0.72 ? 3 : l > 0.2 ? 2 : l > -0.35 ? 1 : 0];
+        continue;
       }
-      const g = ctx.createRadialGradient(x - r * 0.3, y - r * 0.9 - b, r * 0.1, x, y - r * 0.6 - b, r * 1.1);
-      g.addColorStop(0, "#e4dfe8"); g.addColorStop(0.5, "#b9b3c0"); g.addColorStop(1, "#5d5666");
-      ctx.fillStyle = g;
-      ctx.beginPath(); ctx.ellipse(x, y - r * 0.6 - b, r * 1.05, r * 0.75, 0, 0, TAU); ctx.fill();
-      ctx.fillStyle = "#160c26";
-      for (const dx of [-0.32, 0.32]) ctx.fillRect(x + dx * r - r * 0.12, y - r * 0.75 - b, r * 0.24, r * 0.3);
-    });
+      for (const [ex, ey, ax, ay, rot] of ears) {
+        const e = ell(X, Y, ex, ey, ax, ay, rot);
+        if (e <= 1) { col[y * w + x] = e < 0.35 && Y < ey + ay * 0.3 ? PINK : BANDS[X < ex ? 3 : 2]; break; }
+      }
+    }
+    // eyes (with a glint), shut in a line to blink, and pink cheeks
+    const e = R >= 10 ? 2 : 1, ey = Math.round(by - R * 0.08), put = (x, y, c) => { x = Math.round(x); y = Math.round(y); if (col[y * w + x]) col[y * w + x] = c; };
+    for (const s of [-1, 1]) {
+      const ex = Math.round(cx + s * R * 0.36 - e / 2);
+      if (blink) for (let k = 0; k < e + 1; k++) put(ex + k, ey + e, INK);
+      else { for (let k = 0; k < e; k++) for (let j = 0; j <= e; j++) put(ex + k, ey + j, INK); if (e > 1) put(ex + e - 1, ey, WHITE); }
+      if (R >= 7) for (let k = 0; k < Math.max(1, Math.round(R * 0.12)); k++) put(ex + (s < 0 ? -1 - k : e + k), ey + e + 1, PINK);
+    }
+    put(cx - 0.5, ey + e + 1, INK);
+    // the dark plum outline, on every side that touches the floor
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const p = y * w + x;
+      if (!col[p] && ((x > 0 && col[p - 1] && col[p - 1] !== INK) || (x < w - 1 && col[p + 1] && col[p + 1] !== INK) || (y > 0 && col[p - w] && col[p - w] !== INK) || (y < h - 1 && col[p + w] && col[p + w] !== INK))) col[p] = INK;
+    }
+    for (let p = 0; p < w * h; p++) if (col[p]) { const i = p * 4; px[i] = col[p][0]; px[i + 1] = col[p][1]; px[i + 2] = col[p][2]; px[i + 3] = 255; }
+    g.putImageData(im, 0, 0);
+    return c;
+  };
+  // a soft dark pool under it, darker in the middle, so it sits on the floor instead of floating over it
+  const sh = document.createElement("canvas"); sh.width = w; sh.height = h;
+  const sg = sh.getContext("2d");
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const q = ell(x + 0.5, y + 0.5, cx, fy, R * 1.12, R * 0.3);
+    if (q <= 1) { sg.fillStyle = `rgba(11,6,20,${q < 0.45 ? 0.55 : 0.32})`; sg.fillRect(x, y, 1, 1); }
   }
+  return { R, w, h, ax: cx, ay: fy, open: frame(false), shut: frame(true), shadow: sh };
 }
 
-/** A tap on a dust bunny sweeps it away: a puff, a shard, and a happier glowling. */
+function drawDust() {
+  const spots = dustSpots();
+  if (!spots.length) return;
+  const R = Math.max(5, Math.round(spots[0].r / PX));
+  if (dustArt.R !== R) Object.assign(dustArt, bakeDust(R));
+  const A = dustArt, t = game.time, was = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  for (const { d, i, x, y } of spots) {
+    // each one breathes (a one-pixel bob) and blinks on its own beat; a new one pops up out of its puff
+    const ph = i * 1.7 + d[0] * 5, up = Math.sin(t * 0.0032 + ph) > 0.55 ? 1 : 0, blink = (t + ph * 900) % 3400 < 150;
+    const born = dustBorn.get(d), k = born == null ? 1 : clamp((t - born) / 380, 0, 1), s = k >= 1 ? 1 : 1 + 2.7 * (k - 1) ** 3 + 1.7 * (k - 1) ** 2;
+    if (k >= 1) dustBorn.delete(d);
+    const ox = Math.round(x / PX) * PX - A.ax * PX, oy = Math.round(y / PX) * PX - A.ay * PX;
+    ctx.drawImage(A.shadow, ox, oy, A.w * PX, A.h * PX);
+    if (s === 1) ctx.drawImage(blink ? A.shut : A.open, ox, oy - up * PX, A.w * PX, A.h * PX);
+    else if (s > 0) { const sw = A.w * PX * s, shh = A.h * PX * s; ctx.drawImage(A.open, Math.round(x - A.ax * PX * s), Math.round(y - A.ay * PX * s), sw, shh); }
+  }
+  ctx.imageSmoothingEnabled = was;
+}
+
+/** A little cloud of dust motes. */
+function dustPuff(x, y, r, n) {
+  for (let i = 0; i < n; i++) game.sparks.push({ x: x + rand(-1, 1) * r, y: y - rand(0, 0.9) * r, vx: rand(-45, 45), vy: rand(-55, -10), t: 0, life: rand(0.35, 0.75), s: rand(2, 4), color: pick(["#efe6ff", "#cfc4d6", "#a596a8"]) });
+}
+/** The awake glowling in this room nearest a spot, if anyone is. */
+function nearestAwake(x, y) {
+  let best = null, bd = Infinity;
+  for (const a of actors.values()) { const cr = save.creatures.find(c => c.id === a.id); if (!cr || cr.sleeping || cr.out) continue; const dd = Math.hypot(a.x - x, a.y - y); if (dd < bd) { bd = dd; best = a; } }
+  return best;
+}
+
+/** A dust bunny just landed: if you're in the nest to see it, it pops up out of a puff and the nearest glowling notices. */
+function dustLanded(d) {
+  if (game.scene !== "nest") return;
+  updateTopbar();
+  const s = dustSpots().find(q => q.d === d);
+  if (!s) return;
+  dustBorn.set(d, game.time);
+  dustPuff(s.x, s.y - s.r * 0.4, s.r, 8);
+  if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.1, 1800, 0.7, 0.08);
+  const a = nearestAwake(s.x, s.y);
+  if (a) { emote(a, "!", 1.4); a.hop = 0.6; }
+  setHint(nestHint());
+}
+
+/** A tap on a dust bunny sweeps it away: a puff, a shard, a cheer and a happier nest. */
 function sweepDust(x, y) {
   const hit = dustSpots().find(s => Math.hypot(x - s.x, y - (s.y - s.r * 0.6)) < Math.max(s.r * 1.6, 22));
   if (!hit) return false;
-  hit.cr.dust.splice(hit.i, 1);
+  save.dust.splice(hit.i, 1);
+  markTip("sweep");
   taskDone("sweep");
-  hit.cr.joy = clamp(hit.cr.joy + 4, 0, 100);
+  for (const cr of residents(nestRoom())) if (!cr.sleeping) cr.joy = clamp(cr.joy + 4, 0, 100);
   save.shards += 1;
-  burst(hit.x, hit.y - hit.r * 0.6, 14, ["#e4dfe8", "#b9b3c0", "#8a8494"], 0.7);
+  dustPuff(hit.x, hit.y - hit.r * 0.5, hit.r * 1.2, 16);
   floatText("+1 ✦", hit.x, hit.y - hit.r * 2, "#fff0b5");
+  const a = nearestAwake(hit.x, hit.y);
+  if (a) setTimeout(() => { emote(a, "♥", 1.4); a.hop = 1; }, 250);
   sfx.tick();
   if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.08, 3000, 0.6, 0.12);
   buzz(8);
