@@ -778,6 +778,8 @@ const heroImgs = {};
  */
 const keeperSizedCache = {};
 function keeperSized(id, blink, f, S, tall) {
+  // drawn at full size by hand: shown pixel for pixel (doubled only on a screen with room for it)
+  if (KEEPER_NATIVE[id]) return keeperNative(id, blink, f, Math.max(1, Math.floor(tall / KEEPER_NATIVE[id].h + 0.2)));
   const fine = KEEPER_PIX[id] ? keeperCanvas(id, blink, 2, f) : null;
   if (!fine || tall >= fine.height) return keeperCanvas(id, blink, S, f);
   const key = `${id}|${blink ? 1 : 0}|${f}|${tall}`;
@@ -802,7 +804,7 @@ function keeperSized(id, blink, f, S, tall) {
 function drawHero() {
   if (heroHere().none) return;
   // drawn on the room's own pixel grid: S of the room's pixels to each of the keeper's, as tall as about one and a half glowlings
-  const h = heroHere(), blink = game.time % 3700 < 140, S = Math.max(1, Math.round(N.base * 1.55 / PX / KH)), tall = Math.round(N.base * 1.55 / PX), pose = (b, f) => keeperSized(h.icon, b, f, S, tall), img = pose(blink, KEEPER_PIX[h.icon] ? Math.floor(game.time / 450) % KEEPER_PIX[h.icon].frames.length : 0);
+  const h = heroHere(), idle = KEEPER_NATIVE[h.icon] ? keeperIdle(h.icon, game.time) : null, blink = game.time % 3700 < 140 && !String(idle).startsWith("act"), S = Math.max(1, Math.round(N.base * 1.55 / PX / KH)), tall = Math.round(N.base * 1.55 / PX), pose = (b, f) => keeperSized(h.icon, b, f, S, tall), img = pose(blink, idle ?? (KEEPER_PIX[h.icon] ? Math.floor(game.time / 450) % KEEPER_PIX[h.icon].frames.length : 0));
   const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time, me = game.hero && game.hero.room === save.room ? game.hero : null;
   const since = me ? t - me.t : 1e9, jump = me && me.startle ? 0.45 : 0.18;
   const hop = since < 500 ? Math.sin(since / 500 * Math.PI) * s * jump : 0;
