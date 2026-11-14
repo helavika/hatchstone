@@ -423,6 +423,8 @@ function keeperImage(id, blink = false, S = 1) {
   const key = `url|${id}|${blink ? 1 : 0}|${S}`;
   return keeperCache[key] || (keeperCache[key] = keeperCanvas(id, blink, S).toDataURL());
 }
+/** Where a portrait's window moves to (art pixels right, down) when the head isn't at the very top: under Fennel's tall straw hat. */
+const KEEPER_FACE_AT = { fennel: [4, 9] };
 /** Just the head and shoulders, for the dialog box. */
 function keeperFace(id) {
   const key = id + ":face";
@@ -435,7 +437,8 @@ function keeperFace(id) {
     let top = 0; while (top < full.height && ![...Array(w).keys()].some(x => d[(top * w + x) * 4 + 3] > 128)) top++;
     let sx = 0, n = 0; for (let y = top; y < Math.min(full.height, top + 18); y++) for (let x = 0; x < w; x++) if (d[(y * w + x) * 4 + 3] > 128) { sx += x; n++; }
     const cx = n ? Math.round(sx / n) : w / 2, g = c.getContext("2d"); g.imageSmoothingEnabled = false;
-    g.drawImage(full, cx - 13, Math.max(0, top - 2), 26, 26, 0, 0, 52, 52);
+    const [dx, dy] = KEEPER_FACE_AT[id] || [0, 0];
+    g.drawImage(full, cx - 13 + dx, Math.max(0, top - 2 + dy), 26, 26, 0, 0, 52, 52);
     return keeperCache[key] = c.toDataURL();
   }
   // head and shoulders, drawn twice as fine as the small version
