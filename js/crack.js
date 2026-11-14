@@ -64,6 +64,8 @@ const FLASH = {
   moonstone: ["#8fa6ff", "#e8f0ff", "#8fa6ff"],
   sunstone: ["#ff9a4a", "#ffd9a0", "#e8703a", "#ffe0b8", "#ff9a4a"],
   tigereye: ["#5a3410", "#ffd36a", "#7a4a16", "#ffe9a8", "#5a3410", "#e0a84a", "#5a3410"],
+  bismuth: ["#ffd25f", "#ff7ac8", "#7a5cff", "#3fd0e0", "#9cff8a", "#ffd25f"],
+  obsidian: ["#231d33", "#7e6fb0", "#231d33", "#c9a9e8", "#231d33"],
 };
 
 /** The inside, drawn the way the real mineral looks. */
@@ -132,7 +134,7 @@ function makeInterior(crystal, stone) {
     o.restore();
   }
   if (crystal.style === "flash") {
-    // labradorite, opal, moonstone, sunstone and tiger's eye: a sheen of color across the stone (tiger's eye in rolling golden stripes)
+    // labradorite, opal, moonstone, sunstone, tiger's eye, obsidian and bismuth: a sheen of color across the stone (tiger's eye in rolling golden stripes)
     o.save(); tracePoly(o, whole); o.clip();
     const sheen = o.createLinearGradient(cx - L.ew * 0.5, cy - L.eh * 0.5, cx + L.ew * 0.5, cy + L.eh * 0.5);
     const flash = FLASH[crystal.id] || [main, light, main];
