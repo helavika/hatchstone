@@ -2083,61 +2083,301 @@ const ISO_ART = {
     // spores drifting up through the light
     for (let i = 0; i < 7; i++) { if ((i + f) % 3 === 0) continue; T.px(cx + Math.round((pxHash(i, 5) - 0.5) * t * 1.5), cy - Math.round(t * (1.1 + pxHash(5, i) * 1.0)) - ((i + f) % 4), i % 2 ? B.white : B.pale); }
   },
-  bed(t, T, ax, ay, o = {}) {
-    if (o.style && o.style !== "nest" && BED_ART[o.style]) return BED_ART[o.style](t, T, ax, ay, o);
-    // a big round, puffy nest-bed over two tiles each way, all fabric: an oval base, a plump rim of cushions all round
-    // (like a doughnut), a soft white middle with pillows, and a striped pink quilt tucked in at the front
-    const cx = ax, cy = ay + t, rx = t * 1.75, ry = rx / 2, lift = Math.max(3, Math.round(t * 0.14));
-    // a cushion with its seam: the ball, then a darker line round its shaded lower edge (so each cushion stands apart)
-    const cushion = (x, y, r, ry2, cols, seam) => {
-      T.ball(x, y, r, ...cols, ry2);
-      for (let py = Math.floor(y - ry2); py <= Math.ceil(y + ry2); py++) for (let qx = Math.floor(x - r); qx <= Math.ceil(x + r); qx++) {
-        const dx = (qx + 0.5 - x) / r, dy = (py + 0.5 - y) / ry2, d = dx * dx + dy * dy;
-        if (d <= 1 && d > 0.72 && dx * 0.6 + dy * 0.8 > 0.15) T.px(qx, py, seam);
-      }
-    };
-    T.cyl(cx, cy, rx, lift, IC.l2, IC.l3, IC.l4);
-    // piping round the base's top edge
-    for (let k = 0; k < 120; k++) { const an = k / 120 * TAU; if (Math.sin(an) > -0.2) T.px(cx + Math.cos(an) * rx, cy - lift + Math.sin(an) * ry, IC.l1); }
-    T.disc(cx, cy - lift, rx * 0.8, (x, y) => (Math.hypot((x - cx) / (rx * 0.8), (y - cy + lift) / (ry * 0.8)) > 0.8 ? IC.s1 : IC.s0));
-    const rim = (front) => {
-      const n = 16, r = Math.max(2.5, t * 0.3);
-      for (let k = 0; k < n; k++) {
-        const an = k / n * TAU, sy = Math.sin(an);
-        if ((sy > 0.15) !== front) continue;
-        cushion(cx + Math.cos(an) * rx * 0.86, cy - lift + sy * ry * 0.86 - r * 0.4, r, r * 0.82, [IC.l0, IC.l1, IC.l2], IC.l3);
-      }
-    };
-    rim(false);
-    for (const [dx, dy] of [[-0.45, -0.32], [0.05, -0.42], [0.5, -0.26]]) cushion(cx + dx * rx, cy - lift + dy * ry, t * 0.26, t * 0.17, [IC.white, IC.s0, IC.s1], IC.s2);
-    // the quilt over the front half: soft stripes, a darker hem round it and little stitches down each stripe
-    const qx = cx + rx * 0.08, qy = cy - lift + ry * 0.28, qr = rx * 0.62, qry = ry * 0.5, sw = Math.max(2, t * 0.22);
-    T.disc(qx, qy, qr, (x, y) => {
-      const d = Math.hypot((x - qx) / qr, (y - qy) / qry);
-      if (d > 0.9) return IC.p2;
-      const st = Math.floor((x - cx) / sw), edge = Math.abs(((x - cx) / sw) - Math.round((x - cx) / sw)) < 0.5 / sw;
-      return edge && Math.round(y) % 2 ? IC.p2 : st % 2 ? IC.p1 : IC.p0;
-    }, qry);
-    rim(true);
-  },
+  bed(t, T, ax, ay, o = {}) { return (BED_ART[o.style] || BED_ART.nest)(t, T, ax, ay, o); },
 };
 
-// ---------- beds to suit the room: the nest-bed, a pile of leaves outside, a hammock, a basket, a canopy bed ----------
+// ---------- beds to suit the room: a geode cradle, a mossy gazebo outside, a glowcap hammock, a root nest, a glowcap canopy ----------
 
 const BEDS = [
-  { id: "nest", name: "Nest-bed", note: "round and puffy, room for everyone" },
-  { id: "gazebo", name: "Garden gazebo", note: "a little roof, fairy lights and lots of cushions" },
-  { id: "hammock", name: "Hammock", note: "sways a little when someone climbs in" },
-  { id: "basket", name: "Basket", note: "woven, with a soft cushion inside" },
-  { id: "canopy", name: "Canopy bed", note: "posts, a drape, very grand" },
+  { id: "nest", name: "Geode cradle", note: "half a geode with moss and a felt blanket, room for everyone" },
+  { id: "gazebo", name: "Mossy gazebo", note: "a moss roof, crystal lights and lots of cushions" },
+  { id: "hammock", name: "Glowcap hammock", note: "felt and moss, slung between two glowcaps" },
+  { id: "basket", name: "Root nest", note: "woven roots, fleece inside, glowcaps at the back" },
+  { id: "canopy", name: "Glowcap canopy", note: "a big glowing mushroom keeps watch overhead" },
 ];
 const BED_FOR_ROOM = { nest: "nest", yard: "gazebo", play: "hammock", garden: "basket", study: "canopy", lab: "canopy" };
 /** The bed in the room you're in: the one you picked for it, or the one that suits its kind. */
 const bedStyle = (i = save.room) => { const b = (save.rooms && save.rooms[i] && (save.rooms[i].bed || BED_FOR_ROOM[save.rooms[i].kind])) || "nest"; return b === "leaves" ? "gazebo" : b; };
+/** The beds drawn in layers in the room, with their sleepers between (see drawRoomIso): a front drawn again over them
+ *  ("post"), a roof or a cap over everything ("roof"). */
+const BED_LAYERS = { gazebo: ["post", "roof"], nest: ["post"], basket: ["post"], hammock: ["post"], canopy: ["roof"] };
 const GAZEBO_A = 0.88; // how far the gazebo's posts stand from its middle, in tiles
+// The beds share the glowlings' own look: soft and plush, cel-shaded in a few flat bands from the top left (dithered only
+// where two bands meet), a big glossy highlight, a gentle glow. Felt, fleece, moss, crystal, the keepers' handiwork.
+const BED_CRUST = ["#e4d4ba", "#bba588", "#8c765e", "#5f4d3d", "#3b2f27"].map(pxHex);
+const BED_AGATE = ["#ffffff", "#e8eefb", "#c6d8f2", "#a2b8e2"].map(pxHex);
+const BED_FELT = ["#c8f6ec", "#80d8c8", "#4aa69e", "#2e7274", "#1c4a54"].map(pxHex);
+const BED_ROSE = ["#ffd8e6", "#f4a2c0", "#d36a98", "#9c4472", "#62284c"].map(pxHex);
+const BED_FLEECE = ["#ffffff", "#fbf2e2", "#e6d4b8", "#b9a184"].map(pxHex);
+const BED_ROOT = ["#d8a868", "#a8743e", "#7a4e28", "#4e3018", "#2e1c10"].map(pxHex);
+const BED_MOSS = ["#c4ec9a", "#86c46a", "#4f9450", "#2e6038"].map(pxHex);
+const BED_GLOW = ["#ffffff", "#c8f2ff", "#7ed4f4", "#3a9cc8", "#1f5a86"].map(pxHex);
+/** Which flat band a light value falls in (steps: thresholds, brightest first), dithered just around each step. */
+const bedBand = (v, steps, x, y, w = 0.07) => {
+  const b = PX_BAYER[(Math.round(y) & 3) * 4 + (Math.round(x) & 3)];
+  let k = 0;
+  for (const s of steps) { if (v > s + w || (v > s - w && b < (v - s + w) / (2 * w))) break; k++; }
+  return k;
+};
+/** A plush lump (a pillow, a cushion, a tuft of moss): four flat bands of its ramp, lit from the top left, and a glossy spot. */
+function bedPlush(T, x, y, r, ry, ramp, { gloss = true, curls = false } = {}) {
+  for (let yy = Math.floor(y - ry); yy <= Math.ceil(y + ry); yy++) for (let xx = Math.floor(x - r); xx <= Math.ceil(x + r); xx++) {
+    const dx = (xx + 0.5 - x) / r, dy = (yy + 0.5 - y) / ry, d = dx * dx + dy * dy;
+    if (d > 1) continue;
+    let k = Math.min(ramp.length - 1, bedBand(-dx * 0.55 - dy * 0.75 + (1 - d) * 0.3, [0.62, 0.12, -0.42], xx, yy) + (ramp.length > 4 ? 1 : 0));
+    if (curls && k > 0 && k < ramp.length - 1 && (xx + yy * 3) % 5 === 0 && pxHash(xx, yy) > 0.45) k++;
+    T.px(xx, yy, ramp[k]);
+  }
+  if (gloss && r > 3) {
+    const gx = x - r * 0.36, gy = y - ry * 0.42, gr = Math.max(1.2, r * 0.26), gry = Math.max(0.8, ry * 0.22);
+    T.disc(gx, gy, gr, (xx, yy) => ((xx + 0.5 - gx) / gr) ** 2 + ((yy + 0.5 - gy) / gry) ** 2 < 0.45 ? IC.white : ramp[ramp.length > 4 ? 1 : 0], gry);
+  }
+}
+/** A crystal point standing at (x, y): a lit facet, a middle one, a shaded one, a pale ridge and a bright tip. */
+function bedCrystal(T, x, y, h, w, lean = 0, ramp = [IC.white, IC.l0, IC.l1, IC.l2, IC.l3, IC.l4]) {
+  const tip = y - h, sh = h * 0.34;
+  for (let yy = Math.floor(tip); yy <= Math.ceil(y); yy++) {
+    const cxx = x + lean * (y - yy) / h, hw = yy < tip + sh ? w * (yy - tip) / sh : w;
+    for (let xx = Math.floor(cxx - hw); xx <= Math.ceil(cxx + hw); xx++) {
+      const f = (xx + 0.5 - cxx) / Math.max(0.6, hw);
+      if (Math.abs(f) > 1) continue;
+      T.px(xx, yy, yy >= y ? ramp[5] : yy < tip + 1.5 ? ramp[0] : f < -0.4 ? ramp[1] : f < -0.1 ? (yy < tip + sh * 1.6 ? ramp[0] : ramp[2]) : f < 0.45 ? ramp[3] : ramp[4]);
+    }
+  }
+}
+/**
+ * A bed like a bowl lying on the floor, open side up (the geode cradle, the root nest): a shell, a cut rim, a lined hollow
+ * with something soft at its bottom, a pillow and a blanket spilling over the front. In the room the front lip (o.part
+ * "post") is drawn again over whoever sleeps in it, so they lie down in the hollow instead of on top of it.
+ * look: R (outer radius), H (rim height), F (how high the soft bottom is), Ri/Rf (the hollow at the rim and at the bottom,
+ * as parts of R), shell(x, y, lit), rim(d, x, y), wall(s, f, x, y) (s: down the wall, f: across a crystal or a strand),
+ * floor(x, y, lit, edge), blanket (a ramp), and back/front extras.
+ */
+function bedBowl(T, t, ax, ay, o, look) {
+  const lipOnly = o.part === "post", cx = ax, cy = ay + t, { R, H, F } = look, Ri = R * look.Ri, Rf = R * look.Rf;
+  const ell = (x, y, z, r) => Math.hypot((x + 0.5 - cx) / r, (y + 0.5 - cy + z) / (r / 2));
+  const shellR = z => R * (0.68 + 0.32 * Math.sin(z / H * Math.PI / 2));
+  // the shell: rings stacked up to the rim, rounded under like a bowl, lit from the left and catching more light higher up
+  for (let z = 0; z < H; z++) {
+    const r = shellR(z);
+    for (let y = Math.floor(cy - z - r / 2); y <= Math.ceil(cy - z + r / 2); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
+      if (ell(x, y, z, r) > 1 || (lipOnly && ell(x, y, H, R) <= 1)) continue;
+      T.px(x, y, look.shell(x, y, -(x + 0.5 - cx) / r * 0.7 + z / H * 0.6 - 0.25));
+    }
+  }
+  // the cut rim, in rings (front half only for the lip)
+  for (let y = Math.floor(cy - H - R / 2); y <= Math.ceil(cy - H + R / 2); y++) for (let x = Math.floor(cx - R); x <= Math.ceil(cx + R); x++) {
+    const d = ell(x, y, H, R);
+    if (d > 1 || d < look.Ri || (lipOnly && y + 0.5 <= cy - H)) continue;
+    T.px(x, y, look.rim((d - look.Ri) / (1 - look.Ri), x, y));
+  }
+  const inner = (x, y) => ell(x, y, H, R) < look.Ri;
+  if (!lipOnly) {
+    if (look.back) look.back(cx, cy);
+    // the hollow: its back wall down to the soft bottom
+    for (let y = Math.floor(cy - H - Ri / 2); y <= Math.ceil(cy - H + Ri / 2); y++) for (let x = Math.floor(cx - Ri); x <= Math.ceil(cx + Ri); x++) {
+      if (!inner(x, y)) continue;
+      const ex = x + 0.5 - cx, df = ell(x, y, F, Rf);
+      if (df <= 1) { T.px(x, y, look.floor(x, y, -ex / Rf * 0.4 - (y + 0.5 - cy + F) / (Rf / 2) * 0.35, df > 0.84)); continue; }
+      const yr = cy - H - Ri / 2 * Math.sqrt(Math.max(0, 1 - (ex / Ri) ** 2)), yf = Math.abs(ex) < Rf ? cy - F - Rf / 2 * Math.sqrt(1 - (ex / Rf) ** 2) : cy - F;
+      T.px(x, y, look.wall(clamp((y + 0.5 - yr) / Math.max(2, yf - yr), 0, 1), Math.acos(clamp(ex / Ri, -1, 1)) / Math.PI, x, y));
+    }
+    // a pillow at the back on the lit side, and the blanket over the front, its edge running along the floor's axis
+    bedPlush(T, cx - Rf * 0.42, cy - F - Rf * 0.1, t * 0.44, t * 0.24, BED_FLEECE, { curls: true });
+    const B = look.blanket, edge = x => cy - F + Rf * 0.02 + ((x + 0.5 - cx) / Rf) ** 2 * Rf * 0.08;
+    for (let y = Math.floor(cy - F - Rf / 2); y <= Math.ceil(cy - F + Rf / 2); y++) for (let x = Math.floor(cx - Rf); x <= Math.ceil(cx + Rf); x++) {
+      const e = y + 0.5 - edge(x), df = ell(x, y, F, Rf);
+      if (e < 0 || df > 1 || !inner(x, y)) continue;
+      // turned down at the top in fleece, a row of stitches under it, soft folds running down to the front
+      if (e < 4) { T.px(x, y, e < 1.2 ? BED_FLEECE[0] : e < 3 ? BED_FLEECE[1] : BED_FLEECE[2]); continue; }
+      if (e < 5) { T.px(x, y, (x & 3) < 2 ? BED_FLEECE[0] : B[2]); continue; }
+      const fold = Math.sin((x + 0.5 - cx) * 0.36) * 0.28;
+      T.px(x, y, B[Math.min(4, 1 + bedBand(-(x + 0.5 - cx) / Rf * 0.5 + fold - (df > 0.9 ? 0.5 : 0), [0.25, -0.2, -0.55], x, y))]);
+    }
+  }
+  // the blanket spilling over the front of the rim and hanging down the shell, blanket-stitched along its hem
+  const x0 = cx - R * 0.42, x1 = cx + R * 0.42, zb = H * 0.22;
+  for (let x = Math.floor(x0); x <= Math.ceil(x1); x++) {
+    const ex = x + 0.5 - cx, side = Math.min(x + 0.5 - x0, x1 - x - 0.5), rb = shellR(zb);
+    const yTop = cy - H + Ri / 2 * Math.sqrt(Math.max(0, 1 - (ex / Ri) ** 2)) - 1, yRim = cy - H + R / 2 * Math.sqrt(Math.max(0, 1 - (ex / R) ** 2));
+    const yBot = cy - zb + rb / 2 * Math.sqrt(Math.max(0, 1 - (ex / rb) ** 2)) + Math.sin(ex * 0.42) * 1.2 - (side < 3 ? 3 - side : 0);
+    for (let y = Math.floor(yTop); y <= Math.ceil(yBot); y++) {
+      if (y + 0.5 < yTop || y - 0.5 > yBot) continue;
+      const B = look.blanket, onTop = y + 0.5 < yRim, fold = Math.sin(ex * 0.5) * 0.3;
+      let k = onTop ? 1 : 2 + bedBand(-ex / R * 0.6 + fold - (y - yRim) / (yBot - yRim + 1) * 0.3, [0.05, -0.4], x, y);
+      if (y + 1.5 > yBot) k = (x & 1) ? 0 : 3;
+      T.px(x, y, y + 1.5 > yBot && (x % 3 === 0) ? BED_FLEECE[0] : B[Math.min(4, k)]);
+    }
+    if (x % 3 === 0) T.px(x, yBot - 2, BED_FLEECE[1]);
+  }
+  if (look.front) look.front(cx, cy, lipOnly);
+}
+/** A glowcap: a pale stem, thicker at its foot, under a domed cap glowing from within, brightest at its rim, with a gloss. */
+function bedGlowcap(T, x, y, h, r) {
+  const sw = Math.max(1, Math.round(r * 0.32)), top = y - h, ry = Math.max(1.5, r * 0.62);
+  for (let k = 0; k <= h; k++) for (let q = -sw; q <= sw; q++) T.px(x + q + (k < 2 ? Math.sign(q) : 0), y - k, q < 0 ? BED_GLOW[0] : q < sw ? BED_GLOW[1] : BED_GLOW[2]);
+  T.disc(x, top + 0.5, r * 0.9, BED_GLOW[3], Math.max(1, r * 0.2));
+  for (let yy = Math.floor(top - ry); yy <= top; yy++) for (let xx = Math.floor(x - r); xx <= Math.ceil(x + r); xx++) {
+    const dx = (xx + 0.5 - x) / r, dy = (yy + 0.5 - top) / ry;
+    if (dx * dx + dy * dy > 1) continue;
+    T.px(xx, yy, yy === top || Math.abs(dx) > 0.86 ? BED_GLOW[1] : BED_GLOW[1 + bedBand(-dx * 0.6 - dy * 0.6 - 0.25, [0.4, -0.1], xx, yy)]);
+  }
+  if (r > 2) T.px(x - Math.round(r * 0.4), top - Math.round(ry * 0.55), BED_GLOW[0]);
+}
 const BED_ART = {
+  nest(t, T, ax, ay, o = {}) {
+    // the geode cradle: half a geode lying open side up, its knobbly crust outside, rings of agate round the cut rim,
+    // amethyst points lining the hollow; a bed of moss at its bottom, a fleece pillow and a teal felt blanket from the
+    // keepers, spilling over the front; a few crystals standing up from the back of the rim, glowing softly
+    const R = t * 1.6, H = Math.round(t * 0.58), F = Math.round(t * 0.28);
+    bedBowl(T, t, ax, ay, o, {
+      R, H, F, Ri: 0.8, Rf: 0.64, blanket: BED_FELT,
+      shell: (x, y, lit) => BED_CRUST[1 + bedBand(lit - 0.15 + (pxNoise(x * 0.3, y * 0.55) - 0.5) * 0.8, [0.35, -0.05, -0.45], x, y)],
+      rim: (s, x, y) => { s += (pxNoise(x * 0.12, y * 0.25) - 0.5) * 0.28; return s > 0.84 ? BED_CRUST[1] : s > 0.6 ? BED_CRUST[0] : s > 0.48 ? BED_AGATE[3] : s > 0.34 ? BED_AGATE[0] : s > 0.2 ? BED_AGATE[2] : IC.l1; },
+      wall: (s, f, x, y) => {
+        // crystals growing in from the wall, their points toward the middle: long ones and short ones in turn
+        const q = f * 13, p = q - Math.floor(q), reach = Math.floor(q) % 2 ? 0.68 : 1, w = 0.5 * (1 - s / reach);
+        if (s < reach && Math.abs(p - 0.5) < w) { const g = (p - 0.5) / w; return s > reach - 0.14 ? IC.l0 : g < -0.4 ? IC.l1 : g < 0.3 ? IC.l2 : IC.l3; }
+        return s < 0.45 ? IC.l4 : IC.ink2;
+      },
+      floor: (x, y, lit, edge) => BED_MOSS[edge ? 3 : bedBand(lit + (pxNoise(x * 0.45, y * 0.8) - 0.5) * 0.7, [0.3, -0.1, -0.5], x, y)],
+      back: (cx, cy) => {
+        for (const [an, hs] of [[-2.55, [0.9, 0.5]], [-0.55, [0.66, 0.36]]]) {
+          const bx = cx + Math.cos(an) * R * 0.9, by = cy - H + Math.sin(an) * R * 0.45;
+          T.glow(bx, by - t * 0.3, t * 0.85, IC.l4, 0.22);
+          hs.forEach((h, k) => bedCrystal(T, bx + (k ? 1 : -0.3) * t * 0.16 * (an < -1.5 ? 1 : -1), by + k * 2, t * h, Math.max(2.5, t * 0.16 - k * 0.6), (k ? 1 : -0.6) * t * 0.16 * (an < -1.5 ? -1 : 1)));
+        }
+      },
+      front: (cx, cy, lipOnly) => {
+        // moss creeping over the rim at the front left, glowcaps sprouting on the right
+        for (const [an, r] of [[2.55, 0.2], [2.3, 0.16], [2.78, 0.13]]) bedPlush(T, cx + Math.cos(an) * R * 0.9, cy - H + Math.sin(an) * R * 0.45 - 1, t * r, t * r * 0.7, BED_MOSS, { gloss: r > 0.15 });
+        const gx = cx + Math.cos(0.75) * R * 0.92, gy = cy - H + Math.sin(0.75) * R * 0.46;
+        bedGlowcap(T, gx, gy, Math.round(t * 0.4), t * 0.2); bedGlowcap(T, gx + t * 0.26, gy + 2, Math.round(t * 0.24), t * 0.13);
+        if (!lipOnly) T.glow(gx, gy - t * 0.25, t * 0.6, BED_GLOW[4], 0.3);
+      },
+    });
+  },
+  basket(t, T, ax, ay, o = {}) {
+    // the root nest: roots woven into a deep round nest, a braided rim, lined with fleece; moss at the bottom, a rose felt
+    // blanket over the front, glowcaps growing out of the weave at the back
+    const R = t * 1.5, H = Math.round(t * 0.42), F = Math.round(t * 0.22);
+    const weave = (x, y) => (Math.floor((x + 2 * y) / 5) + Math.floor((x - 2 * y + 400) / 5)) & 1;
+    bedBowl(T, t, ax, ay, o, {
+      R, H, F, Ri: 0.78, Rf: 0.7, blanket: BED_ROSE,
+      shell: (x, y, lit) => { const k = 1 + bedBand(lit + (weave(x, y) ? 0.22 : -0.22), [0.35, -0.05, -0.45], x, y); return BED_ROOT[Math.min(4, k + ((x + 2 * y) % 5 === 0 || (x - 2 * y + 400) % 5 === 0 ? 1 : 0))]; },
+      rim: (s, x, y) => BED_ROOT[bedBand(0.55 - Math.abs(s - 0.5) * 1.6 + (((Math.floor((x + y * 2) / 4)) & 1) ? 0.22 : -0.22), [0.45, 0.05, -0.35], x, y)],
+      wall: (s, f, x, y) => BED_FLEECE[Math.min(3, 1 + bedBand(0.45 - s * 0.9 - Math.abs(f - 0.5) * 0.5, [0.2, -0.25], x, y) + ((x + y * 3) % 5 === 0 && pxHash(x, y) > 0.5 ? 1 : 0))],
+      floor: (x, y, lit, edge) => BED_MOSS[edge ? 3 : bedBand(lit + (pxNoise(x * 0.45, y * 0.8) - 0.5) * 0.7, [0.3, -0.1, -0.5], x, y)],
+      back: (cx, cy) => {
+        const gx = cx + Math.cos(-0.8) * R * 0.86, gy = cy - H + Math.sin(-0.8) * R * 0.43;
+        T.glow(gx, gy - t * 0.4, t * 1.0, BED_GLOW[4], 0.32);
+        bedGlowcap(T, gx, gy, Math.round(t * 0.62), t * 0.26); bedGlowcap(T, gx + t * 0.3, gy + 2, Math.round(t * 0.38), t * 0.18); bedGlowcap(T, gx - t * 0.28, gy + 1, Math.round(t * 0.26), t * 0.13);
+      },
+      front: (cx, cy) => { for (const [an, r] of [[2.5, 0.18], [2.75, 0.13]]) bedPlush(T, cx + Math.cos(an) * R * 0.9, cy - H + Math.sin(an) * R * 0.45 - 1, t * r, t * r * 0.7, BED_MOSS, { gloss: r > 0.15 }); },
+    });
+  },
+  hammock(t, T, ax, ay, o = {}) {
+    // a glowcap hammock: two great glowcaps growing from mossy mounds, and slung between their stems a deep striped sling
+    // of felt and woven moss on root-wood spreaders, a fleece cushion inside. In the room its near side (o.part "post") is
+    // drawn again over whoever sleeps in it, so they lie down inside the sling
+    const lipOnly = o.part === "post", cx = ax, cy = ay + t, x0 = cx - t * 1.62, x1 = cx + t * 1.62, top = cy - t * 1.02;
+    const e0 = x0 + t * 0.38, e1 = x1 - t * 0.38, S = x => clamp((x + 0.5 - e0) / (e1 - e0), 0, 1), sn = x => Math.sin(Math.PI * S(x));
+    const yc = x => top + t * 0.55 * sn(x), yb = x => yc(x) - t * (0.2 + 0.36 * sn(x)), yf = x => yc(x) - t * (0.08 + 0.2 * sn(x)), yu = x => yc(x) + t * (0.1 + 0.2 * sn(x));
+    if (!lipOnly) {
+      for (const x of [x0, x1]) {
+        // the glowcap: a mossy mound, a pale stem leaning out a little, a wide cap glowing over it
+        const out = x < cx ? -1 : 1, capY = cy - t * 1.6, rx = t * 0.52, ry = t * 0.34, cxp = x + out * t * 0.08;
+        T.glow(cxp, capY, t * 1.05, BED_GLOW[4], 0.3);
+        bedPlush(T, x, cy - t * 0.1, t * 0.4, t * 0.2, BED_MOSS, { gloss: false });
+        const w = Math.max(1.5, t * 0.1);
+        for (let y = Math.round(capY); y <= Math.round(cy - t * 0.14); y++) {
+          const f = (cy - y) / (cy - capY), sx = x + out * t * 0.08 * f * f, ww = w + (f < 0.12 ? (0.12 - f) * 14 : 0);
+          for (let q = Math.floor(-ww); q <= Math.ceil(ww); q++) T.px(sx + q, y, q < -ww * 0.35 ? BED_GLOW[0] : q < ww * 0.4 ? BED_GLOW[1] : BED_GLOW[2]);
+        }
+        T.disc(cxp, capY + 1, rx * 0.96, (xx) => (Math.round(xx - cxp) % 2 ? BED_GLOW[3] : BED_GLOW[4]), ry * 0.42);
+        for (let y = Math.floor(capY - ry); y <= capY; y++) for (let xx = Math.floor(cxp - rx); xx <= Math.ceil(cxp + rx); xx++) {
+          const dx = (xx + 0.5 - cxp) / rx, dy = (y + 0.5 - capY) / ry;
+          if (dx * dx + dy * dy > 1) continue;
+          T.px(xx, y, y === Math.floor(capY) || Math.abs(dx) > 0.9 ? BED_GLOW[1] : BED_GLOW[1 + bedBand(-dx * 0.6 - dy * 0.6 - 0.2, [0.45, -0.05, -0.5], xx, y)]);
+        }
+        { const gx = cxp - rx * 0.38, gy = capY - ry * 0.55; T.disc(gx, gy, Math.max(1.5, rx * 0.22), IC.white, Math.max(1, ry * 0.2)); }
+        for (const [dx, dy] of [[-0.3, 0.35], [0.25, 0.25], [0.5, 0.42]]) T.px(cxp + dx * rx, capY - dy * ry, BED_GLOW[0]);
+        // twine wound round the stem, ropes fanning out to the spreader
+        for (let k = 0; k < 3; k++) T.line(x - w - 1, top - 2 + k * 2, x + w + 1, top - 1 + k * 2, BED_ROOT[k % 2 ? 2 : 1]);
+        const ex = x < cx ? e0 : e1;
+        for (const y of [yb(ex), (yb(ex) + yu(ex)) / 2, yu(ex)]) T.line(x - out * w, top, ex, y, BED_ROOT[1]);
+      }
+      // inside the sling: its far wall of felt in stripes, then the fleece cushion along the bottom
+      for (let x = Math.floor(e0); x <= Math.ceil(e1); x++) for (let y = Math.floor(yb(x)); y <= Math.ceil(yf(x)); y++) {
+        if (y + 0.5 < yb(x)) continue;
+        const v = (y + 0.5 - yb(x)) / Math.max(1, yf(x) - yb(x)), s = S(x);
+        if (v < 0.14) T.px(x, y, BED_FELT[0]);
+        else if (v < 0.5) T.px(x, y, v > 0.28 && v < 0.36 ? BED_FLEECE[2] : BED_FELT[1 + bedBand(0.3 - (s - 0.4) * 0.9 - v, [0.1, -0.3], x, y)]);
+        else T.px(x, y, BED_FLEECE[Math.min(3, bedBand(0.8 - (s - 0.35) * 1.1 - (v - 0.5) * 1.6, [0.6, 0.15, -0.3], x, y) + ((x + y * 3) % 5 === 0 && pxHash(x, y) > 0.5 ? 1 : 0))]);
+      }
+    }
+    // the sling's near side: a rolled plush edge, felt bellying under in stripes, a band of woven moss, moss hanging below
+    for (let x = Math.floor(e0); x <= Math.ceil(e1); x++) {
+      const s = S(x), a = yf(x), b = yu(x);
+      for (let y = Math.floor(a); y <= Math.ceil(b); y++) {
+        if (y + 0.5 < a || y - 0.5 > b) continue;
+        const v = (y + 0.5 - a) / Math.max(1, b - a), lit = 0.45 - (s - 0.35) * 1.3 - v * 0.9;
+        let col;
+        if (y + 0.5 - a < 2.2) col = y + 0.5 - a < 1.1 ? BED_FELT[0] : BED_FELT[1];
+        else if (v > 0.3 && v < 0.42) col = BED_FLEECE[1 + bedBand(lit, [0.1, -0.4], x, y)];
+        else if (v > 0.58 && v < 0.76) col = BED_MOSS[(((x >> 1) + (y & 1)) & 1 ? 1 : 2) + (lit < -0.3 ? 1 : 0)];
+        else col = BED_FELT[Math.min(4, 1 + bedBand(lit, [0.3, -0.15, -0.5], x, y))];
+        T.px(x, y, col);
+      }
+      if (s > 0.12 && s < 0.88 && pxHash(x, 7) > 0.7) { const n = 1 + Math.round(pxHash(x, 9) * 2); for (let k = 1; k <= n; k++) T.px(x, b + k, BED_MOSS[k === n ? 3 : 2]); }
+    }
+    // a glossy sheen on the felt, the way the glowlings shine
+    { const gx = e0 + (e1 - e0) * 0.26, gy = yf(gx) + 3; T.line(gx - t * 0.2, gy, gx + t * 0.14, gy + 1, IC.white); T.px(gx + t * 0.22, gy + 1, BED_FELT[0]); }
+    // the spreaders: a root-wood bar across each end, holding the sling open
+    for (const ex of [e0, e1]) for (let y = Math.floor(yb(ex) - 2); y <= Math.ceil(yu(ex) + 2); y++) { T.px(ex - 1, y, BED_ROOT[1]); T.px(ex, y, BED_ROOT[2]); T.px(ex + 1, y, BED_ROOT[3]); }
+  },
+  canopy(t, T, ax, ay, o = {}) {
+    // the glowcap canopy: a low bed of carved root-wood with a mossy mattress, fleece pillows and a rose felt quilt, under a
+    // great glowcap growing from the back corner, its cap spread over the bed like a lamp, spores drifting down. In the room
+    // the cap is drawn on its own (o.part "roof") over whoever sleeps under it
+    const U = t / 2, K = isoKit(T, ax, ay), hb = Math.round(t * 0.18), hm = Math.round(t * 0.14), zt = hb + hm, u0 = 0.14 * U, u1 = 1.92 * U, v0 = 0.14 * U, v1 = 1.92 * U;
+    const base = o.part !== "roof", roof = !o.part || o.part === "roof", Hs = Math.round(t * 2.4), [sx, sy] = K.P(0.16 * U, 0.16 * U, 0), [kx, ky] = K.P(0.95 * U, 0.95 * U, Hs);
+    const capDraw = () => {
+      // the cap: gills underneath, a domed top glowing from within, brightest at its rim, a big glossy spot
+      const rx = t * 1.3, ry = t * 0.62;
+      T.disc(kx, ky + 1, rx, (x) => ((x - kx) % 3 === 0 ? BED_GLOW[3] : BED_GLOW[2]), rx * 0.32);
+      for (let y = Math.floor(ky - ry); y <= ky; y++) for (let x = Math.floor(kx - rx); x <= Math.ceil(kx + rx); x++) {
+        const dx = (x + 0.5 - kx) / rx, dy = (y + 0.5 - ky) / ry;
+        if (dx * dx + dy * dy > 1) continue;
+        T.px(x, y, Math.abs(dx) > 0.88 || y === ky ? BED_GLOW[1] : BED_GLOW[1 + bedBand(-dx * 0.6 - dy * 0.5 - 0.1, [0.4, -0.05, -0.45], x, y)]);
+      }
+      { const gx = kx - rx * 0.4, gy = ky - ry * 0.62; T.disc(gx, gy, rx * 0.2, IC.white, ry * 0.14); }
+      for (let k = 0; k < 6; k++) { const x = kx + (pxHash(k, 3) - 0.5) * rx * 1.6, y = ky + 4 + pxHash(3, k) * t * 0.9; T.px(x, y, k % 2 ? BED_GLOW[0] : BED_GLOW[1]); }
+    };
+    if (!base) return capDraw();
+    T.glow(kx, ky + t * 0.3, t * 2.0, BED_GLOW[4], 0.3);
+    // the stem: thick at its foot, curving out over the bed, pale and glowing from inside
+    for (let k = 0; k <= Hs + 2; k++) {
+      const f = k / Hs, x = sx + (kx - sx) * f * f, w = Math.max(2, t * (0.2 - 0.08 * f)) + (k < 3 ? 2 : 0);
+      for (let q = -w; q <= w; q++) T.px(x + q, sy - k * (sy - ky) / Hs, q < -w * 0.4 ? BED_GLOW[1] : q < w * 0.35 ? BED_GLOW[0] : BED_GLOW[2]);
+    }
+    bedPlush(T, sx, sy - 1, t * 0.4, t * 0.18, BED_MOSS, { gloss: false });
+    // the bed: a root-wood frame, the mossy mattress, the quilt over the front with a fleece turn-down, pillows at the back
+    K.box(u0, v0, 0, u1 - u0, v1 - v0, hb, BED_ROOT[1], BED_ROOT[2], BED_ROOT[3]);
+    K.box(u0 + 0.06 * U, v0 + 0.06 * U, hb, u1 - u0 - 0.12 * U, v1 - v0 - 0.12 * U, hm, BED_MOSS[1], BED_MOSS[2], BED_MOSS[3]);
+    const qv = v0 + 0.62 * U, ue = u1 - 0.06 * U, ve = v1 - 0.06 * U;
+    K.quad([[u0 + 0.04 * U, qv, zt], [ue + 0.04 * U, qv, zt], [ue + 0.04 * U, ve + 0.04 * U, zt], [u0 + 0.04 * U, ve + 0.04 * U, zt]], BED_ROSE[1], 0);
+    K.faceV(ve + 0.04 * U, u0 + 0.04 * U, ue + 0.04 * U, hb - 2, zt, BED_ROSE[2], 0);
+    K.faceU(ue + 0.04 * U, qv, ve + 0.04 * U, hb - 2, zt, BED_ROSE[3], 0);
+    for (let k = 1; k < 4; k++) { const v = qv + (ve - qv) * k / 4; K.seg([u0 + 0.1 * U, v, zt], [ue, v, zt], BED_ROSE[2]); }
+    K.quad([[u0 + 0.04 * U, qv, zt], [ue + 0.04 * U, qv, zt], [ue + 0.04 * U, qv + 0.16 * U, zt], [u0 + 0.04 * U, qv + 0.16 * U, zt]], BED_FLEECE[1], 0);
+    for (let u = u0 + 0.12 * U; u < ue; u += 0.12 * U) K.dot(u, qv + 0.2 * U, zt, BED_FLEECE[0]);
+    for (const u of [0.55 * U, 1.3 * U]) { const [x, y] = K.P(u, v0 + 0.32 * U, zt); bedPlush(T, x, y - t * 0.08, t * 0.34, t * 0.19, BED_FLEECE, { curls: true }); }
+    if (roof) capDraw();
+  },
   gazebo(t, T, ax, ay, o = {}) {
-    // a wooden deck over the two tiles, four white posts, a peaked red roof with fairy lights round the eaves, cushions inside.
+    // a wooden deck over the two tiles, four posts of root-wood, a peaked roof thatched with moss, crystal lights glowing
+    // round the eaves, plush cushions of felt and fleece inside.
     // In the room it's drawn in two parts (o.part): "base" goes under the sleepers, "roof" (the front post and the roof) over them
     const base = !o.part || o.part === "base", front = !o.part || o.part === "post", roof = !o.part || o.part === "roof";
     const a = GAZEBO_A * t, x = ax, y = ay + t - a, dh = Math.max(2, Math.round(t * 0.14)), ph = Math.round(t * 1.3);
@@ -2145,60 +2385,26 @@ const BED_ART = {
     const top = y - dh, c = [[x, top], [x + 2 * a, top + a], [x - 2 * a, top + a], [x, top + 2 * a]], mid = (p, q, u) => [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u];
     // planks
     if (base) for (const u of [0.2, 0.4, 0.6, 0.8]) { const [x0, y0] = mid(c[0], c[2], u), [x1, y1] = mid(c[1], c[3], u); T.line(x0, y0, x1, y1, IC.w0); }
-    const post = ([px, py]) => { for (let k = 0; k < ph; k++) { T.px(px - 2, py - k, IC.white); T.px(px - 1, py - k, IC.white); T.px(px, py - k, IC.s0); T.px(px + 1, py - k, IC.s1); T.px(px + 2, py - k, IC.s2); } };
+    const post = ([px, py]) => { for (let k = 0; k < ph; k++) { T.px(px - 2, py - k, BED_ROOT[0]); T.px(px - 1, py - k, BED_ROOT[1]); T.px(px, py - k, BED_ROOT[1]); T.px(px + 1, py - k, BED_ROOT[2]); T.px(px + 2, py - k, BED_ROOT[3]); } };
     const cy = top + a;
     if (base) post(c[0]), post(c[1]), post(c[2]);
     // cushions heaped along the back, a small one at the front
-    if (base) for (const [dx, dy, r, cols] of [[0, -0.45, 0.5, [IC.p0, IC.p1, IC.p2]], [-0.9, -0.05, 0.44, [IC.l0, IC.l2, IC.l3]], [0.9, -0.05, 0.44, [IC.b0, IC.b1, IC.b2]], [-0.3, 0.1, 0.36, [IC.white, IC.s0, IC.s1]], [0.45, 0.35, 0.32, [IC.y0, IC.y1, IC.w1]]])
-      T.ball(x + dx * a, cy + dy * a - t * 0.12, t * r, ...cols, t * r * 0.72);
+    if (base) for (const [dx, dy, r, ramp] of [[0, -0.45, 0.5, BED_ROSE], [-0.9, -0.05, 0.44, BED_FELT], [0.9, -0.05, 0.44, BED_MOSS], [-0.3, 0.1, 0.36, BED_FLEECE], [0.45, 0.35, 0.32, BED_ROSE]])
+      bedPlush(T, x + dx * a, cy + dy * a - t * 0.12, t * r, t * r * 0.72, ramp, { curls: ramp === BED_FLEECE });
     if (front) post(c[3]);
     if (!roof) return;
     // the roof: the eaves stick out past the posts, the peak stands high above the middle
     const ex = ([px, py]) => [x + (px - x) * 1.1, cy - ph + (py - cy) * 1.1], e = c.map(ex), apex = [x, cy - ph - t * 1.25];
-    T.poly([e[2], e[3], apex], IC.r1);
-    T.poly([e[1], e[3], apex], IC.r2);
-    for (const u of [0.3, 0.55, 0.8]) { T.line(...mid(apex, e[2], u), ...mid(apex, e[3], u), IC.r2); T.line(...mid(apex, e[3], u), ...mid(apex, e[1], u), IC.r3); }
-    T.line(...apex, ...e[3], IC.y1);
-    for (const [p, q] of [[e[2], e[3]], [e[3], e[1]]]) { T.line(p[0], p[1], q[0], q[1], IC.white); T.line(p[0], p[1] + 1, q[0], q[1] + 1, IC.s1); }
-    // fairy lights hanging in little loops under the eaves
-    for (const [p, q] of [[e[2], e[3]], [e[3], e[1]]]) for (let k = 1; k < 9; k++) { const [lx, ly] = mid(p, q, k / 9), sag = 2 + Math.round(Math.sin((k % 3) / 3 * Math.PI) * 2); T.px(lx, ly + sag, k % 3 ? IC.y0 : IC.p0); T.px(lx + 1, ly + sag, k % 3 ? IC.y1 : IC.p1); T.px(lx, ly + sag + 1, k % 3 ? IC.y1 : IC.p1); }
-    T.ball(apex[0], apex[1] - 2, 2, IC.y0, IC.y1, IC.w1);
-  },
-  hammock(t, T, ax, ay) {
-    // two wooden posts, ropes, and a striped hammock sagging between them
-    const cx = ax, cy = ay + t, x0 = cx - t * 1.45, x1 = cx + t * 1.45, top = cy - t * 1.15;
-    const post = x => { for (let y = Math.round(top - 2); y <= cy + 1; y++) { T.px(x - 1, y, IC.w1); T.px(x, y, IC.w2); T.px(x + 1, y, IC.w3); } T.ball(x, top - 3, 2, IC.w0, IC.w1, IC.w2); };
-    post(x0); post(x1);
-    const sag = x => { const u = (x - x0) / (x1 - x0); return top + 4 + Math.sin(u * Math.PI) * t * 0.7; };
-    for (let x = Math.round(x0 + 2); x <= Math.round(x1 - 2); x++) {
-      const y = Math.round(sag(x)), w = Math.max(3, Math.round(t * 0.22 * Math.sin((x - x0) / (x1 - x0) * Math.PI) + 2));
-      for (let k = 0; k < w; k++) T.px(x, y + k, k === w - 1 ? IC.b3 : Math.floor((x - x0) / 4) % 2 ? IC.b1 : IC.white);
-    }
-    for (const [px0, ex] of [[x0, x0 + 5], [x1, x1 - 5]]) T.line(px0, top, ex, sag(ex), IC.y1);
-  },
-  basket(t, T, ax, ay) {
-    // a woven basket, a cushion inside, a little blanket over its edge
-    const cx = ax, cy = ay + t, rx = t * 1.35, h = Math.round(t * 0.5);
-    for (let k = 0; k <= h; k++) T.disc(cx, cy - k, rx, (x) => (Math.floor(x / 2) + k) % 2 ? IC.w1 : IC.w2);
-    T.disc(cx, cy - h, rx * 0.86, IC.w3);
-    T.disc(cx, cy - h - 1, rx * 0.8, (x, y) => Math.hypot((x - cx) / (rx * 0.8), (y - cy + h + 1) / (rx * 0.4)) > 0.75 ? IC.p1 : IC.p0);
-    for (let k = 0; k < 90; k++) { const an = k / 90 * TAU; if (Math.sin(an) > -0.2) T.px(cx + Math.cos(an) * rx, cy - h + Math.sin(an) * rx / 2, IC.w0); }
-    T.poly([[cx + rx * 0.2, cy - h], [cx + rx * 0.75, cy - h + 2], [cx + rx * 0.8, cy - h * 0.2], [cx + rx * 0.3, cy - h * 0.1]], IC.l2);
-  },
-  canopy(t, T, ax, ay) {
-    // a grand bed: a wooden frame, a white mattress, a purple quilt, four posts and a pink drape across the top
-    const cx = ax, a = t * 0.82, b = t * 0.82, x = cx, y = ay + t - b, h = Math.round(t * 0.32);
-    T.box(x, y, a, b, h, IC.white, IC.w2, IC.w3);
-    const top = y - h;
-    T.poly([[x - 2 * b * 0.1, top + b * 0.1 + 2 * a * 0.45 * 0.5], [x + 2 * a - 2 * b * 0.1, top + a + b * 0.1], [x + 2 * a - 2 * b, top + a + b], [x - 2 * b, top + b + a * 0.45]], IC.l3);
-    T.ball(x + a * 0.2 - b * 0.4, top + b * 0.6, t * 0.22, IC.white, IC.s0, IC.s1, t * 0.14);
-    const corners = [[x, y], [x + 2 * a, y + a], [x - 2 * b, y + b], [x + 2 * a - 2 * b, y + a + b]], ph = Math.round(t * 1.5);
-    for (const [px, py] of corners) for (let k = 0; k < ph; k++) { T.px(px, py - k, IC.w2); T.px(px + 1, py - k, IC.w3); }
-    const up = ([px, py]) => [px, py - ph];
-    for (const [p0, p1] of [[corners[0], corners[1]], [corners[0], corners[2]], [corners[1], corners[3]], [corners[2], corners[3]]]) {
-      const [x0, y0] = up(p0), [x1, y1] = up(p1);
-      for (let k = 0; k <= 20; k++) { const u = k / 20, sx = x0 + (x1 - x0) * u, sy = y0 + (y1 - y0) * u + Math.sin(u * Math.PI) * 3; T.px(sx, sy, IC.p1); T.px(sx, sy + 1, IC.p2); }
-    }
+    // (the moss lies in soft rows, lumpy where they overlap)
+    const thatch = lit => (xx, yy) => BED_MOSS[Math.min(3, bedBand(lit + (pxNoise(xx * 0.4, yy * 0.9) - 0.5) * 0.5, [0.35, -0.1, -0.5], xx, yy))];
+    T.poly([e[2], e[3], apex], thatch(0.25));
+    T.poly([e[1], e[3], apex], thatch(-0.3));
+    for (const u of [0.3, 0.55, 0.8]) { T.line(...mid(apex, e[2], u), ...mid(apex, e[3], u), BED_MOSS[2]); T.line(...mid(apex, e[3], u), ...mid(apex, e[1], u), BED_MOSS[3]); }
+    T.line(...apex, ...e[3], BED_MOSS[0]);
+    for (const [p, q] of [[e[2], e[3]], [e[3], e[1]]]) { T.line(p[0], p[1], q[0], q[1], BED_MOSS[1]); T.line(p[0], p[1] + 1, q[0], q[1] + 1, BED_ROOT[2]); }
+    // crystal lights hanging in little loops under the eaves, glowing
+    for (const [p, q] of [[e[2], e[3]], [e[3], e[1]]]) for (let k = 1; k < 9; k++) { const [lx, ly] = mid(p, q, k / 9), sag = 2 + Math.round(Math.sin((k % 3) / 3 * Math.PI) * 2), [c0, c1] = k % 3 ? [BED_GLOW[1], BED_GLOW[2]] : [IC.l0, IC.l2]; T.px(lx, ly + sag, c0); T.px(lx + 1, ly + sag, c1); T.px(lx, ly + sag + 1, c1); T.glow(lx, ly + sag, 3, c1, 0.35); }
+    bedCrystal(T, apex[0], apex[1] + 1, Math.max(5, t * 0.4), Math.max(1.5, t * 0.09));
   },
 };
 
@@ -2206,7 +2412,8 @@ const BED_ART = {
 const bedThumbs = {};
 function bedThumb(id) {
   if (bedThumbs[id]) return bedThumbs[id];
-  const t = 14, c = isoArt(t * 4 + 8, Math.round(t * 3.6 + 8), T => ISO_ART.bed(t, T, t * 2 + 4, 4 + t * 1.4, { style: id }));
+  // (tall enough for the gazebo's roof and the glowcap's cap)
+  const t = 14, c = isoArt(t * 4 + 8, Math.round(t * 4.4 + 8), T => ISO_ART.bed(t, T, t * 2 + 4, 4 + t * 2.2, { style: id }));
   return bedThumbs[id] = c.toDataURL();
 }
 /** The baked picture of one placed piece, in CSS pixels ready for drawBaked. */
@@ -2546,9 +2753,13 @@ function isoOnBed(x, y) {
   const p = N.iso && isoLayout().placed.bed;
   if (!p) return false;
   const [u, v] = isoFrom(x, y), U = u * ISO_G, V = v * ISO_G;
+  // (the hammock is only its sling, straight across the middle: walking under it at either side stays on the floor)
+  if (bedStyle() === "hammock") return Math.abs(U - p.i - p.fw / 2 + V - p.j - p.fd / 2) < 0.45 && Math.abs(U - p.i - V + p.j) < 1.3;
   return U > p.i + 0.15 && U < p.i + p.fw - 0.05 && V > p.j + 0.05 && V < p.j + p.fd - 0.15;
 }
-const isoBedTop = () => N.isoW / ISO_G * (bedStyle() === "gazebo" ? 0.14 : 0.22);
+/** How high whoever lies on the bed is: on the gazebo's deck, down in the hollow, in the sling, on the mattress. */
+const BED_TOP = { gazebo: 0.14, nest: 0.28, basket: 0.24, hammock: 0.42, canopy: 0.3 };
+const isoBedTop = () => N.isoW / ISO_G * (BED_TOP[bedStyle()] ?? 0.22);
 /** The gazebo's four posts, as floor points in tiles: nobody walks through them. */
 function gazeboPosts() {
   const p = N.iso && bedStyle() === "gazebo" && isoLayout().placed.bed;
@@ -2561,6 +2772,13 @@ function gazeboPosts() {
 function bedSpot(id) {
   const sleepers = save.creatures.filter(c => c.sleeping).map(c => c.id).sort((p, q) => p - q), k = Math.max(0, sleepers.indexOf(id)), n = sleepers.length;
   const p = N.iso && isoLayout().placed.bed;
+  if (p && bedStyle() === "hammock") {
+    // side by side in the sling, spread along the wall it stands by (straight across it would push one into the wall,
+    // where nobody can stand): one end of the sling a little higher on screen than the other, both still inside it
+    const a = clamp((k % 3 - (Math.min(n, 3) - 1) / 2) * 0.6, -0.65, 0.65) + Math.floor(k / 3) * 0.25, m = isoMargin(0.45);
+    const [du, dv] = p.flip ? [0, a] : [a, 0];
+    return isoAt(clamp((p.i + p.fw / 2 + du) / ISO_G, m, 1 - m), clamp((p.j + p.fd / 2 + dv) / ISO_G, m, 1 - m));
+  }
   if (p) {
     // a 2×2 spread kept inside the bed (and away from the walls, where glowlings can't stand)
     const ci = k % 2, ri = Math.floor(k / 2) % 2, extra = Math.floor(k / 4) * 0.12, m = isoMargin(0.45);
@@ -3080,12 +3298,14 @@ function drawRoomIso() {
     if (p.id === "swing") { items.push({ y: fy, box, draw: () => drawSwingIso(p) }); continue; }
     const fx = decorFx[p.id] !== undefined ? fxAge(p.id) : 9, bob = fx < 0.5 ? -Math.round(Math.sin(fx / 0.5 * Math.PI) * 2) * PX : 0;
     const extra = pieceExtra(p);
-    if (p.id === "bed" && extra.style === "gazebo") {
-      // whoever lies or stands on the deck goes between its two layers: under the roof, behind the front post
+    const layers = p.id === "bed" && BED_LAYERS[extra.style];
+    if (layers) {
+      // whoever lies or stands on it goes between its layers: behind the gazebo's front post, down in the hollow of the
+      // geode or the root nest, inside the hammock's sling (its front is drawn again over them)
       extra.part = "base";
-      items.push({ y: fy, box: { ...box, id: "bedpost" }, roofOf: "bed", draw: () => drawBaked(isoPiece(p, { ...extra, part: "post" }), 0, bob) });
-      // whoever naps there hides under the roof
-      items.push({ y: fy, box: { ...box, id: "bedroof" }, roofOf: "bed", after: "bedpost", draw: () => drawBaked(isoPiece(p, { ...extra, part: "roof" }), 0, bob) });
+      if (layers.includes("post")) items.push({ y: fy, box: { ...box, id: "bedpost" }, roofOf: "bed", draw: () => drawBaked(isoPiece(p, { ...extra, part: "post" }), 0, bob) });
+      // whoever naps there hides under the gazebo's roof or the glowcap's cap
+      if (layers.includes("roof")) items.push({ y: fy, box: { ...box, id: "bedroof" }, roofOf: "bed", after: layers.includes("post") ? "bedpost" : null, draw: () => drawBaked(isoPiece(p, { ...extra, part: "roof" }), 0, bob) });
     }
     items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); } });
   }
