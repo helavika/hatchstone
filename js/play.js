@@ -770,13 +770,14 @@ function drawNest() {
   // whoever lies on the bed or sits on a piece is drawn right after it (on top), not by where their feet are
   const frontOf = id => { const p = N.iso && isoLayout().placed[id]; return p ? isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1] : null; };
   for (const a of actors.values()) {
-    const on = a.state === "sleep" || a.state === "toBed" ? frontOf("bed") : N.iso && a.state === "nap" && a.decor === "cushion" ? 1e6 : (a.state === "nap" || a.state === "visit") && a.decor ? frontOf(a.decor) : null;
+    // (asleep on the floor beside a full bed: drawn where it lies, like anyone else on the floor)
+    const on = (a.state === "sleep" || a.state === "toBed") && (!N.iso || a.onBed) ? frontOf("bed") : N.iso && a.state === "nap" && a.decor === "cushion" ? 1e6 : (a.state === "nap" || a.state === "visit") && a.decor ? frontOf(a.decor) : null;
     const item = { y: on != null && a.state !== "toBed" ? on + 0.5 : a.y + 0.5, draw: () => drawActor(a), actor: a };
     if (N.iso) {
       const [u, v] = isoFrom(a.x, a.y);
       item.box = { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G };
       // lying on the bed, napping on the cloud or sitting on the swing or a piece: drawn right after it
-      item.after = a.state === "sleep" || a.onBed ? "bed" : a.state === "nap" && a.decor === "cushion" ? "cushion" : (a.state === "visit" || a.state === "nap") && a.decor ? a.decor : null;
+      item.after = a.onBed ? "bed" : a.state === "nap" && a.decor === "cushion" ? "cushion" : (a.state === "visit" || a.state === "nap") && a.decor ? a.decor : null;
       if (item.after === "cushion") item.top = true;
     }
     items.push(item);

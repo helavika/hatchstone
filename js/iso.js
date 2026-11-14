@@ -117,7 +117,8 @@ function freeFloorPoint() {
 /** Keep a glowling on the floor and out of the furniture (the one riding the swing or asleep on the bed is placed by hand). */
 function keepInRoom(a, dt) {
   if (N.iso) {
-    const m = isoMargin(0.42), x0 = a.x, y0 = a.y; let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+    // (lying on the bed, a sleeper may lie closer to the wall than anyone walks: the bed fills its corner)
+    const m = a.onBed && (a.state === "sleep" || a.state === "toBed") ? bedMargin() : isoMargin(0.42), x0 = a.x, y0 = a.y; let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
     if (a.state !== "visit" || (a.decor !== "swing" && a.decor !== "mushrooms")) pushOutOfPieces(a);
     [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
     // a little slide happens at once; a big one (stepping off the swing or the caps, a piece put down on it) is a quick eased shuffle, not a jump
@@ -484,11 +485,17 @@ function updateActors(dt) {
   }
 }
 
+/** What the room's walls and floor are painted from: when it changes, they're painted again. */
+const roomKey = () => `${currentTheme()}|${isPlace() ? save.rooms[save.room].kind : ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}${N.iso}`;
 function drawRoom() {
   const { y1 } = N, cx = N.cx, kind = ROOM_KIND[currentTheme()] || "cave";
-  // the walls and floor of this backdrop, painted once in art pixels
-  const rk = `${currentTheme()}|${isPlace() ? save.rooms[save.room].kind : ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}`;
-  if (roomCanvas.key !== rk + N.iso) { roomCanvas.key = rk + N.iso; roomCanvas.c = N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()); }
+  // the walls and floor of this backdrop, painted once in art pixels (or ahead of time: see bakeAhead), and kept a while
+  // after you leave, so walking back in is smooth too
+  const rk = roomKey();
+  if (roomCanvas.key !== rk) {
+    if (roomCanvas.c && roomCanvas.key) keepAhead(roomAhead, roomCanvas.key, roomCanvas.c, 8);
+    roomCanvas.key = rk; roomCanvas.c = roomAhead.get(rk) || (N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()));
+  }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
   // a round window onto the night sky in the cave wall (the abbey has its own arched one; outdoors the sky is already there)
   const wr = N.win.r, wy = N.win.y;
@@ -2538,7 +2545,7 @@ function bedThumb(id) {
   return bedThumbs[id] = c.toDataURL();
 }
 /** The baked picture of one placed piece, in CSS pixels ready for drawBaked. */
-function isoPiece(p, extra = {}) {
+function isoPiece(p, extra = {}, ahead = false) {
   const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3, base = pieceDims(p.id, false);
   // (room above the footprint for tall pieces: dressers, chimneys, a greenhouse's roof)
   const w = Math.ceil((base.fw + base.fd) * tw + pad * 2), h = (base.fw + base.fd) * tw / 2 + tw * 4 + pad;
@@ -2546,7 +2553,11 @@ function isoPiece(p, extra = {}) {
   // (where it stands on screen is part of the key: a resized window can move the room without changing its size)
   const [bx, by] = isoAt(p.i / ISO_G, p.j / ISO_G);
   const key = `${p.id}|${p.i},${p.j}|${p.flip}|${tw.toFixed(2)}|${Math.round(bx)},${Math.round(by)}|${JSON.stringify(extra)}`;
-  return cachedSprite(isoPieces, p.id + (extra.part || ""), key, () => {
+  const slot = p.id + (extra.part || ""), id = slot + "|" + key;
+  // baking ahead (see bakeAhead): painted now and put by until the room is walked into, the room you're in left as it is
+  if (ahead) { if (isoPieces[slot]?.key !== key && !isoAhead.has(id)) keepAhead(isoAhead, id, make(), 60); return null; }
+  return cachedSprite(isoPieces, slot, key, () => { const f = isoAhead.get(id); isoAhead.delete(id); return f || make(); });
+  function make() {
     let c = isoArt(w, h, T => ISO_ART[p.id](tw, T, ax0, ay, extra)), ax = ax0;
     if (p.flip) {
       // turned to face the other wall: a mirror image (the back corner stays the back corner)
@@ -2556,7 +2567,7 @@ function isoPiece(p, extra = {}) {
       c = m; ax = c.width - ax0;
     }
     return { c, x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX };
-  });
+  }
 }
 
 /** The geode shelf on its wall, showing your three shiniest geodes in their own colors. */
@@ -2742,6 +2753,82 @@ function drawArrangeGrid() {
 }
 const isoPieces = {};
 
+// ---------- baking ahead: the places' rooms, pieces and keepers are painted in idle moments, so walking in is smooth ----------
+const roomAhead = new Map(), isoAhead = new Map();
+/** Put something by in a little store that forgets the oldest first. */
+const keepAhead = (m, k, v, max) => { m.delete(k); m.set(k, v); while (m.size > max) m.delete(m.keys().next().value); };
+/** The map's places and the room each one is (the garden is the yard outside, the trail leads to the explorers' camp). */
+const PLACE_ROOM = { garden: "yard", trail: "camp" };
+/** Everything as if you stood in room i (its decor, its layout, its backdrop) while fn paints; then all back as it was. */
+function asIfIn(i, fn) {
+  const was = save.room, keep = ROOM_KEYS.map(k => [k, k in save, save[k]]), on = Object.entries(save.decor).map(([id, d]) => [d, d.on]), layout = isoLayoutCache;
+  try {
+    const r = save.rooms[i];
+    save.room = i;
+    for (const [id, d] of Object.entries(save.decor)) d.on = r.on.includes(id);
+    for (const k of ROOM_KEYS) { if (r[k] == null) delete save[k]; else save[k] = r[k]; }
+    isoLayoutCache = null;
+    fn();
+  } finally {
+    save.room = was;
+    for (const [k, had, v] of keep) { if (had) save[k] = v; else delete save[k]; }
+    for (const [d, v] of on) d.on = v;
+    isoLayoutCache = layout;
+  }
+}
+/** One place's backdrop and walls ("room"), its furniture ("pieces") or its keeper ("keeper"), painted ahead of time. */
+function bakePlace(kind, part) {
+  let i = save.rooms.findIndex(r => r.kind === kind);
+  const added = i < 0;
+  // (a place never visited has no room yet: one stands in for it while it's painted, the way ensurePlace will make it)
+  if (added) { save.rooms.push({ kind, on: [], theme: ROOM_KINDS.find(k => k.id === kind).theme }); i = save.rooms.length - 1; }
+  try {
+    asIfIn(i, () => {
+      // (the same view and pixel grid as when you get there, or there's nothing to gain)
+      if ((roomView() === "iso") !== !!N.iso || !N.iso) return;
+      if (part === "room") {
+        bgFor("nest");
+        const key = roomKey();
+        if (roomCanvas.key !== key && !roomAhead.has(key)) keepAhead(roomAhead, key, paintRoomIso(currentTheme()), 8);
+      } else if (part === "pieces") {
+        // (as drawRoomIso paints them: the incubator and the swing draw themselves, wall pieces hang elsewhere)
+        for (const p of Object.values(isoLayout().placed)) {
+          if (p.id === "incubator" || p.id === "swing" || typeof ISO_ART[p.id] !== "function") continue;
+          const extra = pieceExtra(p), layers = p.id === "bed" && BED_LAYERS[extra.style];
+          isoPiece(p, layers ? { ...extra, part: "base" } : extra, true);
+          if (layers) for (const part of layers) isoPiece(p, { ...extra, part }, true);
+        }
+      } else if (heroHere() && !heroHere().none) {
+        // the keeper drawn once out of sight, which bakes the pose they'll stand in
+        const real = ctx, said = game.hero;
+        ctx = bakeScratch.getContext("2d"); game.hero = null;
+        try { drawHero(); } finally { ctx = real; game.hero = said; }
+      }
+    });
+  } finally { if (added) save.rooms.pop(); }
+}
+const bakeScratch = document.createElement("canvas");
+let aheadJobs = null;
+/**
+ * Paint the places you can go to before you get there, one job at a time when the browser is idle (after Play, and when the
+ * map opens): the first step into the forge or the camp is then as smooth as the hundredth.
+ */
+function bakeAhead() {
+  if (aheadJobs) return;
+  const here = save.rooms[save.room]?.kind;
+  const kinds = WORLD.filter(w => w.id !== "nest" && placeOk(w.id)).map(w => PLACE_ROOM[w.id] || w.id).filter(k => k !== here && ROOM_KINDS.some(r => r.id === k));
+  aheadJobs = kinds.flatMap(k => ["room", "pieces", "keeper"].map(part => () => bakePlace(k, part)));
+  const idle = f => (window.requestIdleCallback ? requestIdleCallback(f, { timeout: 2000 }) : setTimeout(f, 250));
+  const next = () => {
+    // (only on the room's own pixel grid: not while cracking, nor in the middle of playing together)
+    if (!aheadJobs.length || !["nest", "map", "lib"].includes(game.scene) || coopSession) { aheadJobs = null; return; }
+    // (a job that fails costs nothing but its own head start)
+    try { aheadJobs.shift()(); } catch (e) { console.warn("bakeAhead", e); }
+    idle(next);
+  };
+  idle(next);
+}
+
 // ---------- the floating cloud: it drifts above everything, you can drag it anywhere, and sleepy glowlings nap on top ----------
 const CLOUD_DEFAULT = [0.16, 0.5];
 const cloudUV = () => save.cloud && Number.isFinite(save.cloud[0]) ? save.cloud : CLOUD_DEFAULT;
@@ -2890,25 +2977,80 @@ function gazeboPosts() {
   return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([su, sv]) => [cu + su * GAZEBO_A, cv + sv * GAZEBO_A]);
 }
 
-/** Each sleeper's own place on the bed: a 2×2 spread on the big isometric bed, side by side on the straight-on one. */
+/**
+ * Where everyone sleeps on each bed, by how many are in it: [a, b] from the middle of the bed, in tiles across the screen (a)
+ * and toward the front (b). Side by side in a row, the one in the middle a little forward, so every face shows; never more
+ * than the bed's soft top really holds (the extras curl up on the floor beside it, see bedPlaces). The gazebo keeps its
+ * sleepers at the front of its deck, faces out from under the roof and either side of the front post; the hammock keeps
+ * them in its sling.
+ */
+const BED_SLOTS = {
+  nest: [[[0, 0.1]], [[-0.62, 0], [0.62, 0.1]], [[-1.15, -0.1], [0, 0.25], [1.15, -0.05]]],
+  basket: [[[0, 0.1]], [[-0.62, 0], [0.62, 0.1]], [[-1.15, -0.1], [0, 0.25], [1.15, -0.05]]],
+  canopy: [[[0, 0.15]], [[-0.62, 0.05], [0.62, 0.15]], [[-1.15, -0.05], [0, 0.3], [1.15, 0]]],
+  gazebo: [[[-0.55, 1.05]], [[-0.62, 1.05], [0.62, 1.05]]],
+  hammock: [[[0, 0]], [[-0.85, 0], [0.85, 0.05]], [[-1.15, -0.05], [0, 0.1], [1.15, -0.05]]],
+};
+/** How close to the walls a sleeper may lie on the bed (closer than anyone walks: the bed fills its corner). */
+const bedMargin = () => isoMargin(0.2);
+let bedPlacesCache = null;
+/**
+ * Everyone asleep in the room you're in and where each lies, id → [x, y]: up to the bed's places on its soft top
+ * (see BED_SLOTS), and the rest curled up on the floor right in front of it, a cozy cluster on the rug or the stones,
+ * spaced so nobody's face is hidden behind another. Counted in this room only (every room has its own bed).
+ */
+function bedPlaces(r = save.room) {
+  const sleepers = save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q);
+  const p = N.iso && isoLayout().placed.bed, style = bedStyle();
+  const key = [r, style, sleepers.join(","), p ? isoLayout().key : "front", N.isoW, N.base, N.bedX, N.bedY].join("|");
+  if (bedPlacesCache && bedPlacesCache.key === key) return bedPlacesCache.at;
+  const at = new Map();
+  if (!p) {
+    // seen straight on: side by side along the bed
+    sleepers.forEach((id, k) => at.set(id, [N.bedX + (k - (sleepers.length - 1) / 2) * N.base * 0.42, N.bedY + (k % 2) * N.base * 0.1]));
+    bedPlacesCache = { key, at };
+    return at;
+  }
+  const G = ISO_G, cu = p.i + p.fw / 2, cv = p.j + p.fd / 2, size = N.base * depth(0), top = isoBedTop();
+  const mB = bedMargin() * G, mF = isoMargin(0.42) * G, posts = gazeboPosts();
+  // on the floor nobody lies over another's face: a little apart from each other, well clear of the faces on the bed
+  const taken = [], inBed = [];
+  const roomy = (x, y) => taken.every(([tx, ty]) => ((x - tx) / (size * 0.76)) ** 2 + ((y - ty) / (size * 1.0)) ** 2 >= 1)
+    && inBed.every(([tx, ty]) => ((x - tx) / (size * 0.85)) ** 2 + ((y - ty) / (size * 1.15)) ** 2 >= 1);
+  const offPosts = (U, V) => posts.every(([pu, pv]) => Math.hypot(U - pu, V - pv) > BODY_R * 0.8 + 0.1);
+  // on the bed: the places for this many (or as many as it holds), each kept where keepInRoom lets a sleeper lie
+  const slots = BED_SLOTS[style] || BED_SLOTS.nest, onBed = [];
+  for (const [a0, b] of slots[Math.min(sleepers.length, slots.length) - 1] || []) {
+    const a = p.flip ? -a0 : a0, U = clamp(cu + (a + b) / 2, mB, G - mB), V = clamp(cv + (b - a) / 2, mB, G - mB), [x, y] = isoAt(U / G, V / G);
+    // (a place the room's walls squeeze onto another's is dropped: one more for the floor)
+    if (!isoOnBed(x, y) || !offPosts(U, V) || onBed.some(([ox, oy]) => Math.hypot(x - ox, y - oy) < size * 0.5)) continue;
+    inBed.push([x, y - top]); onBed.push([x, y]);
+  }
+  // beside it: free floor next to the bed (not behind it, where it would hide them, nor in a doorway), nearest first
+  const floor = [], doors = doorTiles();
+  for (let U = mF; U <= G - mF + 1e-6; U += 0.25) for (let V = mF; V <= G - mF + 1e-6; V += 0.25) {
+    const du = Math.max(p.i - U, 0, U - p.i - p.fw), dv = Math.max(p.j - V, 0, V - p.j - p.fd), out = Math.hypot(du, dv);
+    if (out < BODY_R + 0.12 || out > 2.6 || (U + V < cu + cv + 0.6 && Math.abs(U - cu - V + cv) < (p.fw + p.fd) / 2 + 0.7) || !offPosts(U, V)) continue;
+    if (doors.has(`${Math.floor(U)},${Math.floor(V)}`)) continue;
+    if (!cellFree(Math.floor(U * 2), Math.floor(V * 2)) || !walkClear(U, V, U, V)) continue;
+    const [x, y] = isoAt(U / G, V / G);
+    if (isoOnBed(x, y)) continue;
+    floor.push({ x, y, d: out + Math.abs((U - cu) - (V - cv)) * 0.12 });
+  }
+  floor.sort((m, n) => m.d - n.d);
+  sleepers.forEach((id, k) => {
+    if (k < onBed.length) { at.set(id, onBed[k]); return; }
+    const f = floor.find(f => roomy(f.x, f.y)) || floor[0];
+    if (!f) { at.set(id, onBed[k % Math.max(1, onBed.length)] || isoAt(cu / G, cv / G)); return; }
+    taken.push([f.x, f.y]); at.set(id, [f.x, f.y]);
+  });
+  bedPlacesCache = { key, at };
+  return at;
+}
+/** This sleeper's own place: on the bed when there's room, curled up on the floor beside it when there isn't. */
 function bedSpot(id) {
-  // (counted in this glowling's own room: every room has its own bed, and sleepers elsewhere don't take places in it)
   const me = save.creatures.find(c => c.id === id), r = me ? roomOf(me) : save.room;
-  const sleepers = save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q), k = Math.max(0, sleepers.indexOf(id)), n = sleepers.length;
-  const p = N.iso && isoLayout().placed.bed;
-  if (p && bedStyle() === "hammock") {
-    // side by side in the sling, spread along the wall it stands by (straight across it would push one into the wall,
-    // where nobody can stand): one end of the sling a little higher on screen than the other, both still inside it
-    const a = clamp((k % 3 - (Math.min(n, 3) - 1) / 2) * 0.6, -0.65, 0.65) + Math.floor(k / 3) * 0.25, m = isoMargin(0.45);
-    const [du, dv] = p.flip ? [0, a] : [a, 0];
-    return isoAt(clamp((p.i + p.fw / 2 + du) / ISO_G, m, 1 - m), clamp((p.j + p.fd / 2 + dv) / ISO_G, m, 1 - m));
-  }
-  if (p) {
-    // a 2×2 spread kept inside the bed (and away from the walls, where glowlings can't stand)
-    const ci = k % 2, ri = Math.floor(k / 2) % 2, extra = Math.floor(k / 4) * 0.12, m = isoMargin(0.45);
-    return isoAt(clamp((p.i + p.fw * (0.3 + 0.42 * ci + extra)) / ISO_G, m, 1 - m), clamp((p.j + p.fd * (0.32 + 0.4 * ri + extra)) / ISO_G, m, 1 - m));
-  }
-  return [N.bedX + (k - (n - 1) / 2) * N.base * 0.42, N.bedY + (k % 2) * N.base * 0.1];
+  return bedPlaces(r).get(id) || [N.bedX, N.bedY];
 }
 
 /** A piece's own pixel picture for the Decor list (the same drawing as in the room), or its emoji if it hangs on a wall. */

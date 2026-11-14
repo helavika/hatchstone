@@ -338,7 +338,8 @@ function keeperNative(id, blink = false, f = 0, S = 1) {
   const key = `native|${id}|${blink ? 1 : 0}|${f}|${S}`;
   if (keeperCache[key]) return keeperCache[key];
   const k = KEEPER_NATIVE[id], [pose, n] = String(f).split(":"), px = blink ? k.blink : k[pose] ? (Array.isArray(k[pose]) ? k[pose][+n || 0] : k[pose]) : k.frames[+f % k.frames.length || 0];
-  const c = document.createElement("canvas"); c.width = k.w * S; c.height = k.h * S; const g = c.getContext("2d");
+  // (the plain standing pose is read back pixel by pixel, for the dialog's portrait and the map's tiny keeper)
+  const c = document.createElement("canvas"); c.width = k.w * S; c.height = k.h * S; const g = c.getContext("2d", !blink && String(f) === "0" && S === 1 ? { willReadFrequently: true } : undefined);
   for (let i = 0; i < px.length; i++) { const ch = px[i]; if (ch === ".") continue; g.fillStyle = k.pal[ch]; g.fillRect((i % k.w) * S, Math.floor(i / k.w) * S, S, S); }
   return keeperCache[key] = c;
 }

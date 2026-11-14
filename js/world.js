@@ -60,7 +60,8 @@ let wmBase = null;
 function worldBase() {
   if (wmBase) return wmBase;
   const W = WM_W, H = WM_H, c = document.createElement("canvas"); c.width = W; c.height = H;
-  const g = c.getContext("2d"), im = g.createImageData(W, H), d = im.data, C = WM_COL;
+  // (read back pixel by pixel while it's painted: the flowers look at the ground, each peak at what's behind it)
+  const g = c.getContext("2d", { willReadFrequently: true }), im = g.createImageData(W, H), d = im.data, C = WM_COL;
   const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H || !col) return; const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
   // the height of the land: high in the north, falling to a sea in the south-west, with a hill for the lab
   const lab = wmAt("lab"), elev = new Float32Array(W * H);
