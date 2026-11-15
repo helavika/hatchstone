@@ -372,7 +372,8 @@ h3.chap small { display: block; font-size: 10px; letter-spacing: 2.5px; color: v
 }
 .plate > :first-child { display: block; background: rgba(8, 5, 26, .45); }
 #found .plate #foundImg { margin: 0; padding: 6px 14px; }
-#pixelGrotto { width: min(260px, 66vw); height: auto; aspect-ratio: 128 / 72; image-rendering: pixelated; }
+/* the plate is 128 art pixels across: shown at exactly twice that, so every pixel comes out the same size */
+#pixelGrotto { width: 256px; height: auto; aspect-ratio: 128 / 72; image-rendering: pixelated; }
 #start .plate { margin: 0 auto 14px; }
 
 /* storybook pass two: chapter banners, gold-edged buttons, a book-like glowpedia, calmer nest and results */
@@ -954,7 +955,6 @@ body:not(.scene-nest) #homePill { display: none; }
   .card { width: min(440px, 100%); font-size: 17px; }
   #start .card { width: min(420px, 100%); }
   .card.wide { width: min(700px, 100%); }
-  #pixelGrotto { width: 320px; }
   #libGrid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
   #libGrid .pg img { height: 84px; }
   #libGrid .pg img.lib-px { width: 96px; height: 96px; }
@@ -1042,7 +1042,6 @@ body.compact .overlay { padding: 14px 10px; }
 body.compact .card { padding: 18px 16px; }
 body.compact h2 { font-size: 34px; line-height: 1; }
 body.compact h1 { font-size: 60px; }
-body.compact #pixelGrotto { width: 220px; }
 body.compact .pill { height: 38px; }
 body.compact .pill.stack small { font-size: 9px; }
 body.compact #nestTop { top: calc(var(--top) + 44px); }

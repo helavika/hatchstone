@@ -627,9 +627,17 @@ function warmUp() {
     base[i] = col;
   }
 
-  // a returning player's glowling, pixelated like the postcards
+  // a returning player's glowling: its own pixel sprite, one art pixel to one pixel of the plate (shrinking the big picture smeared its face)
   let sprite = null;
-  if (pet) imgFrom(creatureImage(specOf(pet), { size: 240, level: pet.level, shiny: pet.shiny, mood: "happy" })).then(im => { sprite = pixelate(im, 44, 38); draw(t); });
+  if (pet) imgFrom(creatureImage(specOf(pet), { art: 40, level: pet.level, shiny: pet.shiny, mood: "happy", acc: pet.acc })).then(im => {
+    const c = document.createElement("canvas"); c.width = im.width; c.height = im.height;
+    const q = c.getContext("2d"); q.drawImage(im, 0, 0);
+    const d = q.getImageData(0, 0, c.width, c.height).data;
+    let x0 = c.width, x1 = -1, foot = 0;
+    for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) if (d[(y * c.width + x) * 4 + 3]) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); foot = y + 1; }
+    // it stands on the ledge by its own feet, whatever empty rows its picture has
+    sprite = { c, mid: (x0 + x1 + 1) / 2, foot }; draw(t);
+  });
 
   function draw(t) {
     const d = img.data, put = (x, y, col) => { if (x < 0 || y < 0 || x >= W || y >= H) return; const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
@@ -656,7 +664,7 @@ function warmUp() {
       if (life < .9) put(x, y, P.glow[life < .5 ? 2 : 1]);
     }
     g.putImageData(img, 0, 0);
-    if (sprite) g.drawImage(sprite, Math.round(egg.x - sprite.width / 2), Math.round(60 - sprite.height + (Math.sin(t * .3) > .6 ? -1 : 0)));
+    if (sprite) g.drawImage(sprite.c, Math.round(egg.x - sprite.mid), 61 - sprite.foot + (Math.sin(t * .3) > .6 ? -1 : 0));
   }
   let t = 0, last = 0;
   function loop(now) {
@@ -671,21 +679,15 @@ function warmUp() {
 (() => {
   const S = 14, ramp = hexes => hexes.map(pxHex);
   const stone = ramp(["#58526a", "#8a8396", "#b9b1bf", "#ddd6d8", "#f4f0f2"]), crys = ramp(["#2a1d63", "#5b3fb0", "#9a7ce6", "#c9b8ff", "#eef0ff"]);
-  const pink = ramp(["#7a3d68", "#d77fb0", "#ff9ecb", "#ffd0e6"]), gold = pxHex("#ffe9a8"), ink = [22, 14, 46];
+  const gold = pxHex("#ffe9a8"), ink = [22, 14, 46];
   const ICONS = {
     crack: (x, y) => { const dx = (x - 6.5) / (y < 7 ? 4.6 : 5.4), dy = (y - 7.5) / 6.5; if (dx * dx + dy * dy > 1) return null; if ([[6, 3], [7, 4], [7, 5], [6, 6], [6, 7], [7, 8], [8, 9], [8, 10]].some(([a, b]) => a === x && b === y)) return crys[1]; return pxPick(stone, .85 - (x + y) / 26, x, y); },
     geode: (x, y) => { const r = Math.hypot((x - 6.5) / 6.5, (y - 7) / 5.5); if (r > 1) return null; if (r > .72) return pxPick(stone, .7 - y / 20, x, y); return pxPick(crys, .95 - r * .9 + (((x * 3 + y * 5) % 4) === 0 ? .2 : 0), x, y); },
-    glowling: (x, y) => {
-      if ((x === 3 || x === 10) && y === 3) return pink[1];
-      if ((x === 3 || x === 4 || x === 9 || x === 10) && y === 4) return pink[1];
-      const r = Math.hypot((x - 6.5) / 5.6, (y - 8) / 4.8); if (r > 1) return null;
-      if ((x === 5 || x === 8) && y === 7) return ink;
-      if ((x === 4 || x === 9) && y === 9) return pink[1];
-      return pxPick(pink, 1 - r * .55 - y / 40, x, y);
-    },
     duo: (x, y) => { const star = (cx, cy, r) => { const a = Math.abs(x - cx), b = Math.abs(y - cy); return a + b <= 1 || (a === 0 && b <= r) || (b === 0 && a <= r); }; return star(4, 7, 3) || star(10, 5, 2) ? gold : null; },
   };
   for (const el of $$("[data-icon]")) {
+    // the glowling is a real one, at the icons' own size: a hand-made blob with ears didn't look like anyone you'd meet
+    if (el.dataset.icon === "glowling") { el.src = creatureImage(SP.blushbun, { art: S, mood: "happy" }); continue; }
     const fn = ICONS[el.dataset.icon], c = document.createElement("canvas"); c.width = c.height = S;
     const g = c.getContext("2d"), im = g.createImageData(S, S), d = im.data, solid = new Uint8Array(S * S);
     for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) { const col = fn(x, y); if (!col) continue; solid[y * S + x] = 1; const i = (y * S + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; }
