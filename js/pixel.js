@@ -644,5 +644,7 @@ function levelConf(n) {
     bands: !wander && cave === 2,
     // the Celestite's stone is silent: the weak spot doesn't glow, but every knock's ripple leans towards it (see rippleLean)
     silent: !wander && cave === 1,
+    // the Labradorite's weak spot shows only in a flash, right after a blow lands on it (see sheenGlow)
+    sheen: !wander && cave === 3,
   };
 }
