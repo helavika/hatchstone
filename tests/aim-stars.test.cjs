@@ -54,11 +54,13 @@ const page = {};
 vm.runInNewContext(src, page);
 const { EGG_R, AIM_FREE, AIM_STARS, aimShare, aimStars, hostHit, guestTake, openEgg } = page;
 
-/** An egg that took so many hits on the weak spot and so many misses. */
-const tapped = (crits, misses) => ({ taps: crits + misses, crits });
+/** An egg that took so many hits on the weak spot and so many misses, this many of them before the first hit. */
+const tapped = (crits, misses, search = 0) => ({ taps: crits + misses, crits, search });
+/** The same from a run of taps in order, h for a hit on the weak spot and m for a miss, counted the way crackHit counts. */
+const ran = run => { const first = run.indexOf('h'); return tapped(run.split('h').length - 1, run.split('m').length - 1, first < 0 ? run.length : first); };
 const plain = x => JSON.parse(JSON.stringify(x));
 
-test('the marks are the ones the game promises: two stars from 40%, three from 70%, and three misses forgiven', () => {
+test('the marks are the ones the game promises: two stars from 40%, three from 70%, and at least three misses forgiven', () => {
   assert.deepEqual(plain(AIM_STARS), [40, 70]);
   assert.equal(AIM_FREE, 3);
 });
@@ -74,17 +76,48 @@ test('aim is the share of taps that landed on the weak spot', () => {
   }
 });
 
-test('the first three misses of an egg are forgiven, and no more than three', () => {
+test('three misses of an egg are forgiven wherever they fall, and past the search no more than three', () => {
   for (const misses of [0, 1, 2, 3]) {
     assert.equal(aimShare(tapped(6, misses)), 100, `${misses} misses are all forgiven`);
     assert.equal(aimStars(tapped(6, misses)), 3);
   }
   assert.equal(aimShare(tapped(6, 4)), 85, 'the fourth miss counts: 6 of 7');
   assert.equal(aimShare(tapped(6, 9)), 50, '6 of the 12 taps that count');
-  // it is the number of misses that is forgiven, not their place in the run: a slip at the end weighs as one at the start
-  const count = run => ({ taps: run.length, crits: [...run].filter(c => c === 'h').length });
-  assert.equal(aimShare(count('mmmmhhhh')), aimShare(count('hhhhmmmm')));
-  assert.equal(aimShare(count('mhmhmhmh')), aimShare(count('mmmmhhhh')));
+  // a short search uses up some of the three, and the rest forgive slips after it
+  assert.equal(aimShare(ran('mhhhmmhh')), 100);
+  assert.equal(aimShare(ran('mhhhmmmhh')), 83, 'one before the hit and two after are forgiven, the fourth counts: 5 of 6');
+  assert.equal(aimShare(ran('hmmmhhhh')), aimShare(ran('mmmhhhhh')), 'three misses weigh the same before the first hit and after it');
+});
+
+test('the whole search is forgiven: every miss before the first hit on the weak spot, however many', () => {
+  assert.equal(aimShare(ran('mmmmmmmmhhhh')), 100, 'eight knocks to find it, then true aim');
+  assert.equal(aimStars(ran('mmmmmmmmhhhh')), 3);
+  assert.equal(aimShare(ran('m'.repeat(40) + 'h')), 100);
+  // once it is found, a long search leaves nothing over: the misses after it all count
+  assert.equal(aimShare(ran('mmmmmmmmhhhhm')), 80, '4 of 5');
+  assert.equal(aimShare(ran('mmmmmhmhmhmm')), 42, '3 of the 7 taps from the first hit on');
+  // so the order matters now: the same hits and the same misses read differently by where the first hit fell
+  const early = ran('hmmmmmmmhhh'), late = ran('mmmmmmmhhhh');
+  assert.deepEqual([early.taps, early.crits], [late.taps, late.crits]);
+  assert.equal(aimShare(late), 100);
+  assert.equal(aimShare(early), 50, '4 of the 8 taps left when three misses are forgiven');
+  assert.deepEqual([aimStars(late), aimStars(early)], [3, 2]);
+  // a longer search never costs anything, and never forgives more than the misses there were
+  for (let c = 0; c <= 12; c++) for (let m = 0; m <= 12; m++) for (let s = 0; s <= m; s++) {
+    const a = aimShare(tapped(c, m, s));
+    assert.ok(Number.isInteger(a) && a >= 0 && a <= 100, `${c} hits, ${m} misses, ${s} of them in the search read ${a}%`);
+    if (s < m) assert.ok(aimShare(tapped(c, m, s + 1)) >= a);
+    assert.equal(a, aimShare(tapped(c, m, Math.max(s, AIM_FREE))), 'a search of three misses or fewer is the plain three');
+  }
+});
+
+test('an egg that never counted its search falls back to the plain three misses, and reads a number', () => {
+  for (const search of [undefined, null, NaN]) {
+    const e = { taps: 13, crits: 5, search };
+    assert.equal(aimShare(e), 50, '5 of the 10 taps that count');
+    assert.equal(aimStars(e), 2);
+  }
+  assert.equal(aimShare({ taps: 0, crits: 0 }), 0);
 });
 
 test('an egg nobody has tapped, and one opened without a single hit on the weak spot, read 0% and one star', () => {
@@ -126,7 +159,7 @@ test('stars follow the aim and nothing else: every count of hits and misses agre
 const SPOT = [0.5, 0.6];   // the weak spot the way a co-op round carries it (height / EGG_R)
 const ON = [0.5, 0.6], NEAR = [0.56, 0.6], OFF = [0.3, 0.3];
 /** A whole egg on the table: nothing in it but what crackHit and the count need. */
-const egg = (hp, extra = {}) => ({ conf: { n: 5, coop: false }, hp, damage: 0, taps: 0, crits: 0, gems: 0, combo: 0, chain: 0, owed: 0,
+const egg = (hp, extra = {}) => ({ conf: { n: 5, coop: false }, hp, damage: 0, taps: 0, crits: 0, search: 0, gems: 0, combo: 0, chain: 0, owed: 0,
   hits: [], seed: 'seed-abcdef123456', net: { segs: [], tips: [] }, spot: [SPOT[0], SPOT[1] * EGG_R], ...extra });
 /** Crack it open with blows of one weight, each aimed where at(i) says; the blows are counted as hitEgg counts them. */
 function crackOpen(hp, at, power = 1) {
@@ -143,6 +176,17 @@ test('a hit on the weak spot is the one crackHit calls a crit: the count takes i
   assert.deepEqual([e.taps, e.crits], [3, 2]);
 });
 
+test('crackHit counts the search itself: the misses before the first hit on the weak spot, and none after it', () => {
+  const e = egg(1000);
+  for (const [p, search] of [[OFF, 1], [[0.7, 0.5], 2], [OFF, 3], [OFF, 4], [NEAR, 4], [OFF, 4], [ON, 4], [OFF, 4]]) {
+    hostHit(e, [...p, 1]);
+    assert.equal(e.search, search, `after tap ${e.taps}`);
+  }
+  assert.deepEqual([e.taps, e.crits, aimShare(e)], [8, 2, 50]);
+  // a new egg starts its search from nothing
+  assert.match(crack, /hp: conf\.hp, damage: 0, taps: 0, crits: 0, search: 0,/);
+});
+
 test('a heavier hammer earns no more stars for the same aim, where the old count by taps gave it all three', () => {
   // three misses, then one hit: a quarter of the taps on the spot, whatever the hammer
   const sloppy = i => (i % 4 === 3 ? ON : OFF);
@@ -154,6 +198,17 @@ test('a heavier hammer earns no more stars for the same aim, where the old count
   // and true aim earns all three with the plain hammer
   assert.equal(aimStars(crackOpen(120, () => ON, 1)), 3);
   assert.equal(aimStars(crackOpen(40, i => (i < 3 ? OFF : NEAR), 1)), 3, 'three knocks to find the spot cost nothing');
+});
+
+test('and no fewer: a long search in the dark costs the heavy hammer nothing, though few taps are left to make up for it', () => {
+  // eight knocks to find the spot, then every tap on it but one slip in five
+  const blind = i => (i < 8 ? OFF : i % 5 === 4 ? OFF : NEAR);
+  const light = crackOpen(48, blind, 1), heavy = crackOpen(48, blind, 2.19);
+  assert.ok(heavy.taps < light.taps && heavy.search === 8 && light.search === 8);
+  assert.deepEqual([aimStars(light), aimStars(heavy)], [3, 3]);
+  // by a plain three forgiven misses the search itself would have cost the heavy hammer its third star
+  const three = e => Math.floor(e.crits * 100 / (e.taps - Math.min(AIM_FREE, e.taps - e.crits)));
+  assert.ok(three(heavy) < AIM_STARS[1] && three(heavy) < three(light));
 });
 
 test('a level keeps the most stars it has ever had, and a wandering or shared egg writes none', () => {
@@ -188,6 +243,7 @@ test('co-op: host and guest read the same aim and the same stars off a shared eg
       gems: host.gems, damage: host.damage, hits: host.hits.map(h => h.slice()), matte: null };
     assert.ok(coopWire.validState(state, round), `the snapshot after tap ${host.taps} should pass the wire's check`);
     guestTake(guest, plain(state));
+    assert.equal(guest.search, host.search, `the search after tap ${host.taps}`);
     assert.equal(aimShare(guest), aimShare(host), `aim after tap ${host.taps}`);
     assert.equal(aimStars(guest), aimStars(host), `stars after tap ${host.taps}`);
     seen.add(aimStars(host));
@@ -198,8 +254,21 @@ test('co-op: host and guest read the same aim and the same stars off a shared eg
   // a guest who joins late and gets it all at once ends in the same place
   const late = shared();
   guestTake(late, { taps: host.taps, crits: host.crits, gems: host.gems, damage: host.damage, hits: host.hits.map(h => h.slice()) });
-  assert.equal(aimStars(late), aimStars(host));
-  // the shared hammer is the plain one, and the snapshot already carried both numbers the aim is read from
+  assert.deepEqual([late.search, aimShare(late), aimStars(late)], [host.search, aimShare(host), aimStars(host)]);
+  assert.equal(host.search, 4, 'the run searched for four knocks, more than the three always forgiven');
+  // the same taps in another order are another aim, and the guest follows the order it was sent
+  const other = shared(), mirror = shared();
+  for (const h of [...host.hits].reverse()) hostHit(other, h);
+  guestTake(mirror, { taps: other.taps, crits: other.crits, gems: other.gems, damage: other.damage, hits: other.hits.map(h => h.slice()) });
+  assert.deepEqual([other.taps, other.crits], [host.taps, host.crits]);
+  assert.notEqual(aimShare(other), aimShare(host));
+  assert.deepEqual([mirror.search, aimShare(mirror)], [other.search, aimShare(other)]);
+  // nothing new rides in the snapshot: the search is counted from the hits it always carried, so a host on the
+  // version before this rule and a guest on this one (or the other way round) still share a whole snapshot
+  const snap = cut(coop, 'function coopSnapshot(', '\n}\n', 'coopSnapshot should sit in coop.js');
+  assert.ok(!/search|found/.test(snap), 'the snapshot should carry no count of the search');
+  assert.match(snap, /hits: e\.hits\.map\(h => h\.slice\(\)\)/);
+  // the shared hammer is the plain one, and the snapshot already carried the taps and the hits on the spot
   assert.match(crack, /if \(game\.egg && game\.egg\.conf\.coop\) return \{ power: 1, echo: false \};/);
   assert.match(coop, /taps: e\.taps, crits: e\.crits,/);
 });
@@ -228,7 +297,7 @@ test('the card, the wallet, Mossa and the FAQ say what stars are for now, in bot
   vm.runInNewContext(read('i18n.js') + '\nObject.assign(this, { tr, UK });', uk);
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
   const said = [
-    line(found, /aim · \{0\}★\\u00a0from\\u00a0\{1\}%/, 'the card should name the aim and the mark of the next star').replace(/\\u00a0/g, '\u00a0'),
+    line(found, /\{0\}★\\u00a0from\\u00a0\{1\}%/, 'the card should give the mark of the next star').replace(/\\u00a0/g, '\u00a0'),
     line(html, /<span id="stAimFor">(aim)<\/span>/, 'the card should have a place for the aim').replace(/<[^>]*>/g, ''),
     line(html, /aria-label="Shards caught and aim"/, 'the counter should be named for what it shows').replace(/^aria-label=/, ''),
     line(crack, /Find the weak spot and keep your taps on it\. The truer your aim, the more stars\./, 'Mossa should say what stars are for'),
@@ -239,8 +308,11 @@ test('the card, the wallet, Mossa and the FAQ say what stars are for now, in bot
   const faq = said[said.length - 1], faqUk = uk.UK[faq];
   // the numbers in the answer are the rule's own
   assert.match(faq, new RegExp(`three when ${AIM_STARS[1]}% of your taps land on the weak spot, two from ${AIM_STARS[0]}%`));
-  assert.match(faq, /first three misses on each geode don't count/);
+  assert.match(faq, /search for the spot doesn't count: every miss before your first hit on it is left out, and at least three misses on each geode/);
   assert.match(faq, /can only add to them/);
-  assert.match(faqUk, new RegExp(`${AIM_STARS[1]}% ударів.*слабке місце.*від ${AIM_STARS[0]}%.*три промахи.*жеод`));
+  assert.match(faqUk, new RegExp(`${AIM_STARS[1]}% ударів.*слабке місце.*від ${AIM_STARS[0]}%.*всі промахи до першого влучання.*щонайменше три промахи.*жеод`));
+  // the card's label breaks after the word and nowhere else: the word, a new line, the mark held together
+  assert.match(found, /\$\("stAimFor"\)\.textContent = tr\("aim"\) \+ "\\n" \+ tr\(/);
+  assert.match(fs.readFileSync(path.join(__dirname, '../style.css'), 'utf8'), /#stAimFor \{ white-space: pre-line; \}/);
   assert.ok(!/Fewer taps, more stars|you'll need fewer taps|crack the egg in fewer taps|taps · ★ in/.test(ui + crack + main + html + read('i18n.js')), 'nothing should still promise stars for fewer taps');
 });

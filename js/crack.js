@@ -163,7 +163,7 @@ function newEgg(conf, animate = true) {
   game.egg = {
     conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04) + (conf.coop ? 0 : skill("luck") * 0.006) + (sun ? 0.3 : 0), stone: conf.gloom ? GLOOM_STONE : conf.moon ? moonStone() : pick(STONES),
     state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
-    hp: conf.hp, damage: 0, taps: 0, crits: 0, gems: 0, combo: 0, chain: 0, owed: 0, hits: [], seed: coopId(),
+    hp: conf.hp, damage: 0, taps: 0, crits: 0, search: 0, gems: 0, combo: 0, chain: 0, owed: 0, hits: [], seed: coopId(),
     net: { segs: [], tips: [] }, painted: 0,
   };
   const e = game.egg;
@@ -273,6 +273,8 @@ function crackHit(e, p, power, rng) {
   }
   net.tips = net.tips.filter(t => !t.dead);
   e.damage += dmg;
+  // the search for the weak spot lasts until the first blow that finds it, and its misses are counted apart (see aimShare)
+  if (crit) e.found = true; else if (!e.found) e.search++;
   return { dmg, crit, weak, grown };
 }
 
@@ -623,18 +625,19 @@ function blowPay(e, res, sack = 0) {
 // ---------- what aim earns ----------
 
 // Stars are for aim, not for the hammer: the share of an egg's taps that landed on the weak spot (crackHit's crit),
-// so a heavy hammer earns no more of them than the plain one. The first misses on an egg are the search for the spot
-// (deep in the grotto nothing shows it, you find it by knocking), so they are forgiven and left out of the count.
+// so a heavy hammer earns no more of them than the plain one, and no fewer. The search for the spot doesn't count
+// (deep in the grotto nothing shows it, you find it by knocking): every miss before the first hit on it is left out.
+// And never fewer than this many misses on an egg, so a slip or two after a lucky first knock is forgiven as well.
 const AIM_FREE = 3;
 // Two stars from this share of the taps, in percent, and three from that one. The first star is for opening the egg.
 const AIM_STARS = [40, 70];
 
 /**
  * Aim so far, in whole percent (rounded down, so the number never promises a star it doesn't give): hits on the weak
- * spot out of the taps that count. Only how many missed matters, not which came first, and both numbers ride in a
- * co-op snapshot, so host and guest read the same aim off a shared egg.
+ * spot out of the taps that count. crackHit counts the search (e.search) blow by blow, on every screen in the same
+ * order, and the taps and the hits ride in a co-op snapshot, so host and guest read the same aim off a shared egg.
  */
-const aimShare = e => Math.floor(e.crits * 100 / Math.max(1, e.taps - Math.min(AIM_FREE, e.taps - e.crits)));
+const aimShare = e => Math.floor(e.crits * 100 / Math.max(1, e.taps - Math.min(e.taps - e.crits, Math.max(AIM_FREE, e.search || 0))));
 /** One to three stars for that aim. */
 const aimStars = e => 1 + AIM_STARS.filter(p => aimShare(e) >= p).length;
 
@@ -900,9 +903,9 @@ function showFound() {
   $("foundFact").textContent = `💎 ${cry.fact}`;
   $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? moonNote() : "") + (rubble ? tr(" · {0} in the rubble", barName(rubble)) : "") + (cheer ? tr(" · cheered on by {0}: +{1} ✦", buddy.name, cheer) : "");
   $("stShine").textContent = Math.round(shine * 100) + "%";
-  // aim, and the mark of the next star up (of the third, once it is earned); the mark stays on one line of the narrow column
+  // aim, and on a line of its own the mark of the next star up (of the third, once it is earned)
   $("stAim").textContent = aimShare(e) + "%";
-  $("stAimFor").textContent = tr("aim · {0}★\u00a0from\u00a0{1}%", Math.min(stars + 1, 3), AIM_STARS[Math.min(stars, 2) - 1]);
+  $("stAimFor").textContent = tr("aim") + "\n" + tr("{0}★\u00a0from\u00a0{1}%", Math.min(stars + 1, 3), AIM_STARS[Math.min(stars, 2) - 1]);
   $("stCrits").textContent = e.crits;
   $("stShards").textContent = "+" + shards;
   $("foundMap").hidden = !!conf.moon;

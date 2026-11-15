@@ -198,6 +198,8 @@ h3 { margin: 18px 0 8px; font-size: 13px; letter-spacing: 2px; text-transform: u
 .stats div { border-radius: 14px; padding: 7px 2px; background: rgba(255, 255, 255, .08); }
 .stats b { display: block; font-size: 17px; }
 .stats span { font-size: 11px; color: var(--soft); }
+/* the aim's label is two lines: the word, and under it the mark of the next star */
+#stAimFor { white-space: pre-line; }
 #found .card { max-height: calc(100vh - 32px); overflow: auto; }
 
 /* nest */

@@ -7,7 +7,7 @@ what's glowing inside. 🎧 Best with headphones.
   egg's weak spot crack it much faster (crits, damage numbers, shards flying into your counter)
 - 24 levels in four caves (plus endless Wander): tougher stone, and a weak spot that glows
   less and less until you find it by the sound of your knocks; 1–3 stars for your aim
-  (the share of taps that land on the weak spot), whatever hammer you carry
+  (the share of taps that land on the weak spot, once you have found it), whatever hammer you carry
 - 17 real geodes (amethyst, celestite, agate, malachite, labradorite, lapis lazuli…),
   each drawn the way the mineral looks, with a real fact on the card
 - Every geode holds a glowling: 26 species built from wings, ears, horns, tails and
