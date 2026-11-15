@@ -165,6 +165,8 @@ function newEgg(conf, animate = true) {
     state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
     hp: conf.hp, damage: 0, taps: 0, crits: 0, search: 0, gems: 0, combo: 0, chain: 0, owed: 0, hits: [], seed: coopId(),
     net: { segs: [], tips: [] }, painted: 0,
+    // banded stone (the Malachite's levels; never a moon egg or a heart's): the bands still whole, and how many it had
+    bands: conf.bands && (!conf.wander || conf.coop) ? BANDS : 0, banded: conf.bands && (!conf.wander || conf.coop) ? BANDS : 0,
   };
   const e = game.egg;
   // Quarry Eye's pings, fresh for every egg (yours alone, even on a shared one: they change nothing the friend sees)
@@ -182,14 +184,14 @@ function newEgg(conf, animate = true) {
   updateDots();
   updateEye();
   $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
-  setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : "");
+  setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : conf.step === 13 && e.banded ? tr("banded stone: when a band breaks, the weak spot moves") : "");
 }
 
 /** Fresh shell and inside for the current layout, with every crack so far drawn back on. */
 function refitEgg(e) {
   e.shell = makeShell(e.stone);
   e.interior = makeInterior(e.crystal, e.stone);
-  e.painted = 0; e.dentsPainted = 0;
+  e.painted = 0; e.dentsPainted = 0; e.bandsPainted = -1;
   paintNet(e);
 }
 
@@ -209,6 +211,17 @@ function nearSeg(net, x, y, skip, r) {
     if (px * px + py * py < r * r) return [ax + dx * t, ay + dy * t];
   }
   return null;
+}
+
+// Banded stone: the egg gives way a band at a time, at each third of its stone, and with every band the weak spot
+// shifts to a new place on the face of the egg. Finding it again is a search like the first (see aimShare).
+const BANDS = 2;
+/** Where the weak spot goes when a band breaks: on the face, clear of the edge, and well away from where it was. */
+function bandSpot(R, from) {
+  for (let i = 0; ; i++) {
+    const p = [0.25 + R() * 0.5, 0.3 + R() * 0.7];
+    if (inside(EGG_UNIT, p) && (Math.hypot(p[0] - from[0], p[1] - from[1]) > 0.3 || i > 60)) return p;
+  }
 }
 
 /**
@@ -282,11 +295,20 @@ function crackHit(e, p, power, rng) {
   e.damage += dmg;
   // the search for the weak spot lasts until the first blow that finds it, and its misses are counted apart (see aimShare)
   if (crit) e.found = true; else if (!e.found) e.search++;
-  return { dmg, crit, weak, grown };
+  // a band gives way at each third (not on the blow that opens the egg): the spot moves, and the search starts over.
+  // The new place comes from the egg's seed and this blow's number, so host and guest move it to the same spot.
+  let band = 0;
+  while (e.bands > 0 && e.damage < e.hp && e.damage >= e.hp * (e.banded + 1 - e.bands) / (e.banded + 1)) {
+    e.bands--; band++;
+    e.spot = bandSpot(seeded(e.seed + ":" + (e.hits ? e.hits.length - 1 : 0) + ":band" + e.bands), e.spot);
+    e.found = false;
+  }
+  return { dmg, crit, weak, grown, band };
 }
 
 /** Draw what's new on the shell: crushed spots where blows landed, then the cracks (dark, with a pale lit lip). */
 function paintNet(e) {
+  if (e.banded) paintBands(e);
   const o = e.shell.ctx, k = L.k, scale = L.ew;
   const dents = (e.net.dents || []).slice(e.dentsPainted || 0);
   e.dentsPainted = (e.net.dents || []).length;
@@ -317,6 +339,63 @@ function paintNet(e) {
     }
   }
   o.restore();
+}
+
+/** A band's line across the face of the egg, in egg units: a ring round the stone, bowed a little the way it curves, and uneven. */
+function bandLine(e, i) {
+  const R = seeded(e.seed + ":bandline" + i), v0 = [0.44, 0.86][i] || 0.6, bow = 0.05 + R() * 0.03, tilt = (R() - 0.5) * 0.08, pts = [];
+  for (let u = -0.04; u <= 1.04; u += 0.04) pts.push([u, v0 + bow * (1 - ((u - 0.5) / 0.5) ** 2) + tilt * (u - 0.5) + (R() - 0.5) * 0.012]);
+  return pts;
+}
+
+/**
+ * The Malachite's bands on the shell: whole, each a soft stripe of greens like the stone's own banding; broken, a raw
+ * groove where it came away, cracked along both edges. Paints only what changed since last time (a fresh shell: all).
+ */
+function paintBands(e) {
+  const broke = e.banded - e.bands, from = e.bandsPainted ?? -1;
+  if (from === broke) return;
+  const o = e.shell.ctx, k = Math.max(1, L.k), at = ([u, v]) => toShell(...fromEgg(u, v));
+  const path = (pts, dv) => { o.beginPath(); pts.forEach(([u, v], j) => { const [x, y] = at([u, v + dv]); j ? o.lineTo(x, y) : o.moveTo(x, y); }); };
+  o.save();
+  tracePoly(o, eggPoly(L.ew / 2 + PAD, L.eh / 2 + PAD, L.ew, L.eh)); o.clip();
+  o.lineCap = "butt"; o.lineJoin = "round";
+  for (let i = 0; i < e.banded; i++) {
+    const pts = bandLine(e, i), whole = i >= broke;
+    if (whole && from >= 0) continue;
+    if (whole) {
+      // dark green, a lighter green inside it, and a pale thread: malachite's rings, faint enough to keep the stone's own colour
+      for (const [col, w, dv] of [["rgba(31,92,56,.55)", 9, 0], ["rgba(87,173,106,.6)", 5, -0.003], ["rgba(163,221,155,.7)", 1.5, 0.007]]) {
+        o.strokeStyle = col; o.lineWidth = w * k; path(pts, dv); o.stroke();
+      }
+    } else {
+      // the band has come away: the stone under it, a shade deeper, and a crack along each edge with a pale lip
+      o.strokeStyle = hexA(e.stone[1], 0.8); o.lineWidth = 8 * k; path(pts, 0); o.stroke();
+      for (const s of [-1, 1]) {
+        const edge = pts.map(([u, v], j) => [u, v + s * 4 * k / L.ew + (j % 3 === 1 ? s * 0.004 : 0)]);
+        o.strokeStyle = "rgba(255,250,240,.5)"; o.lineWidth = 1 * k; path(edge.map(([u, v]) => [u, v + 1.2 * k / L.ew]), 0); o.stroke();
+        o.strokeStyle = "rgba(40,22,28,.75)"; o.lineWidth = 1.2 * k; path(edge, 0); o.stroke();
+      }
+    }
+  }
+  o.restore();
+  e.bandsPainted = broke;
+}
+
+/** A band breaks (crackHit moved the weak spot): a crack runs round the band and it flakes away with a crunch and a ring. With less motion, only a soft flash. */
+function bandBreak(e) {
+  const calm = opts().calm, i = e.banded - e.bands - 1, pts = bandLine(e, i);
+  game.bandFx = { e, i, t: game.time, calm };
+  sfx.knot();
+  buzz(calm ? 10 : [12, 30, 18]);
+  floatText(tr("a band broke · the spot moved"), L.ecx, L.ey0 + 24 * L.k, "#c8f0c0");
+  if (calm) return;
+  game.shake = Math.min(14, game.shake + 6 * Math.max(0.5, L.k));
+  const greens = ["#a3dd9b", "#57ad6a", "#2f7d4a"];
+  for (let j = 2; j < pts.length - 2; j += 3) {
+    const [x, y] = fromEgg(...pts[j]);
+    if (inside(L.egg, [x, y])) spawnChips(x, y, 2, 1.2, greens);
+  }
 }
 
 function carveChip(x, y, r, sides = 0) {
@@ -714,6 +793,7 @@ const pingRim = () => Math.max(L.ew, L.eh) * 0.55;
 /** Everything you see and hear when a hit lands (also used when a co-op guest replays the host's hits). */
 function hitFeedback(e, x, y, res, gems, echo = false) {
   paintNet(e);
+  if (res.band) bandBreak(e);
   const prog = clamp(e.damage / e.hp, 0, 1);
   e.wob = 0.02 + prog * 0.04 + (res.crit ? 0.03 : 0); e.wobT = 0; e.squash = 1;
   game.shake = Math.min(14, game.shake + (res.crit ? 7 : 3) + prog * 3) * Math.max(0.5, L.k);
@@ -1079,7 +1159,8 @@ const TALKS = {
   firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
     [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it.", "#forgeList"]],
   ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])], [MOSSA, "The stone gets harder from here on. The Forge can help: it's on the map.", "#worldTab"]],
-  ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring deep and hollow."]],
+  ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring deep and hollow."],
+    [MOSSA, "The stone there grows in bands. When one breaks, the weak spot moves. Just find it again."]],
   ch3: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[3])], [MOSSA, "The oldest, toughest stone. And the rarest glowlings sleep in it."]],
   shiny: cr => [[glowVoice(cr), "✦ Pip! ✦"], [MOSSA, "Oh my. A shiny one! I've only seen a handful in all my years."]],
   legendary: cr => [[glowVoice(cr), "...Pip."], [MOSSA, tr("A legendary glowling... They say {0} only wakes for someone kind. Well done, you.", cr.name)]],

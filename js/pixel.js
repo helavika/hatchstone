@@ -640,5 +640,7 @@ function levelConf(n) {
     hp: Math.round(8 + step * 1.4 + cave * 2),
     spotGlow: step < 4 ? 1 : step < 10 ? 0.45 : step < 18 ? 0.2 : 0,
     rare: [0.08, 0.25, 0.45, 0.5][cave], legendary: [0, 0.03, 0.08, 0.15][cave],
+    // the Malachite's stone grows in bands, and the weak spot moves when one breaks (see crackHit)
+    bands: !wander && cave === 2,
   };
 }
