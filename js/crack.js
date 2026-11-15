@@ -167,6 +167,8 @@ function newEgg(conf, animate = true) {
     net: { segs: [], tips: [] }, painted: 0,
     // banded stone (the Malachite's levels; never a moon egg or a heart's): the bands still whole, and how many it had
     bands: conf.bands && (!conf.wander || conf.coop) ? BANDS : 0, banded: conf.bands && (!conf.wander || conf.coop) ? BANDS : 0,
+    // silent stone (the Celestite's levels, on the same terms): no glow, and the ripples lean towards the weak spot
+    silent: !!conf.silent && (!conf.wander || !!conf.coop),
   };
   const e = game.egg;
   // Quarry Eye's pings, fresh for every egg (yours alone, even on a shared one: they change nothing the friend sees)
@@ -184,7 +186,7 @@ function newEgg(conf, animate = true) {
   updateDots();
   updateEye();
   $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
-  setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : conf.step === 13 && e.banded ? tr("banded stone: when a band breaks, the weak spot moves") : "");
+  setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : conf.step === 7 && e.silent ? tr("silent stone: no glow here · watch which way the ripples lean") : conf.step === 13 && e.banded ? tr("banded stone: when a band breaks, the weak spot moves") : "");
 }
 
 /** Fresh shell and inside for the current layout, with every crack so far drawn back on. */
@@ -224,6 +226,19 @@ function bandSpot(R, from) {
   }
 }
 
+// Silent stone: the weak spot doesn't glow at all, but every knock sends a ripple that leans towards it, harder the
+// nearer it is. One ripple gives a way to go, not the place: its lean wanders a little off true (never more than
+// LEAN_SLOP), and how hard it leans only says near or far. Two or three knocks, and the ways cross at the spot.
+const LEAN_REACH = 0.6, LEAN_SLOP = 0.3;
+/**
+ * Which way a knock at (u, v) leans (an angle on the face of the egg, the same on screen) and how hard, from a little
+ * to 1. From the spot, the egg's seed and the blow's number alone, so a guest replaying the host's hit draws the same.
+ */
+function rippleLean(e, u, v, i) {
+  const R = seeded(e.seed + ":" + i + ":lean"), [sx, sy] = e.spot;
+  return { a: Math.atan2(sy - v, sx - u) + (R() * 2 - 1) * LEAN_SLOP, s: 0.15 + 0.85 * clamp(1 - Math.hypot(sx - u, sy - v) / LEAN_REACH, 0, 1) };
+}
+
 /**
  * One tap, the way a real eggshell breaks: where the blow lands the shell is crushed into a little cone, straight
  * cracks run out from it like spokes, and as the blows go on, rings of cracks join the spokes into a spider web.
@@ -236,6 +251,8 @@ function crackHit(e, p, power, rng) {
   net.impacts = net.impacts || []; net.dents = net.dents || [];
   const weak = clamp(1 - Math.hypot(u - e.spot[0], v - e.spot[1]) / 0.2, 0, 1);
   const crit = weak > 0.45, dmg = power * (1 + weak * 2.2);
+  // (on silent stone, which way this knock's ripple leans: from where the spot is before the blow)
+  const lean = e.silent ? rippleLean(e, u, v, e.hits ? e.hits.length - 1 : 0) : null;
   let budget = dmg * 0.2, grown = 0;
   let m = net.impacts.find(m => Math.hypot(m.x - u, m.y - v) < 0.1);
   if (!m) {
@@ -303,7 +320,7 @@ function crackHit(e, p, power, rng) {
     e.spot = bandSpot(seeded(e.seed + ":" + (e.hits ? e.hits.length - 1 : 0) + ":band" + e.bands), e.spot);
     e.found = false;
   }
-  return { dmg, crit, weak, grown, band };
+  return { dmg, crit, weak, grown, band, lean };
 }
 
 /** Draw what's new on the shell: crushed spots where blows landed, then the cracks (dark, with a pale lit lip). */
@@ -804,7 +821,7 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   if (echo) {
     // the bell echo: a second ring a beat later
     pop("ECHO", x - 34 * L.k, y - 30 * L.k, "#eec26a", 1.1);
-    setTimeout(() => { sfx.knock(res.weak * 0.6); game.ripples.push({ x, y, t: 0, r: 60 * L.k, h: 1 }); }, 110);
+    setTimeout(() => { sfx.knock(res.weak * 0.6); game.ripples.push(ripple(x, y, 60 * L.k, 1, res.lean)); }, 110);
   }
   if (Math.random() < 0.6) carveChip(x, y, rand(1.2, 2.4) * L.k, 3);
   spawnChips(x, y, 3 + Math.round(prog * 5) + (res.crit ? 4 : 0), 1 + prog);
@@ -816,10 +833,20 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   flyGems(x, y, gems);
   sfx.knock(res.weak, e.combo - 1);
   if (res.grown) sfx.crackle(Math.min(res.grown, 12));
-  game.ripples.push({ x, y, t: 0, r: (20 + res.weak * 50) * L.k, h: res.weak });
+  game.ripples.push(ripple(x, y, ((res.lean ? 46 : 20) + res.weak * 40) * L.k, res.weak, res.lean));
   buzz(res.crit ? 18 : 7);
-  if (byEar(e.conf) && res.weak > 0.2 && !res.crit) floatText("closer…", x, y - 30 * L.k, "#e6e0ff");
+  if (byEar(e.conf) && res.weak > 0.2 && !res.crit) floatText(tr("closer…"), x, y - 30 * L.k, "#e6e0ff");
   updateDots();
+}
+
+/**
+ * A knock's ripple on the shell. On silent stone it leans (see rippleLean and drawRipples), in the Celestite's pale
+ * blue, and with less motion it stands still as an arc pointing the way, a little longer, and fades.
+ */
+function ripple(x, y, r, h, lean) {
+  if (!lean) return { x, y, t: 0, r, h };
+  const calm = opts().calm;
+  return { x, y, t: 0, r, h, lean, tint: "#d8f1ff", calm, life: calm ? 1.4 : 0.9 };
 }
 
 /** Damage numbers that pop out and float up, with a dark outline so they read on any stone. */
@@ -1158,7 +1185,8 @@ const TALKS = {
   firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine.", spotEgg], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.", "#polishDone"]],
   firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
     [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it.", "#forgeList"]],
-  ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])], [MOSSA, "The stone gets harder from here on. The Forge can help: it's on the map.", "#worldTab"]],
+  ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])],
+    [MOSSA, "It's a quiet stone: no glow at all down there. But watch your ripples. They lean towards the weak spot."], [MOSSA, "The stone gets harder from here on. The Forge can help: it's on the map.", "#worldTab"]],
   ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring deep and hollow."],
     [MOSSA, "The stone there grows in bands. When one breaks, the weak spot moves. Just find it again."]],
   ch3: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[3])], [MOSSA, "The oldest, toughest stone. And the rarest glowlings sleep in it."]],

@@ -78,7 +78,7 @@ function update(dt) {
   const now = performance.now();
   game.trail = game.trail.filter(p => now - p.t < 220);
   for (const r of game.ripples) r.t += dt;
-  game.ripples = game.ripples.filter(r => r.t < 0.6);
+  game.ripples = game.ripples.filter(r => r.t < (r.life || 0.6));
   for (const p of game.pops) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 220 * dt; }
   game.pops = game.pops.filter(p => p.t < p.life);
   for (const g of game.gems) {
@@ -213,10 +213,13 @@ function drawCrackLight(e, prog) {
   ctx.restore();
 }
 
-/** The weak spot: a soft glow on easy stone, fainter on harder stone, and gone deep in the grotto (Quarry Eye only pings, see drawPing). */
+/**
+ * The weak spot: a soft glow on easy stone, fainter on harder stone, and gone deep in the grotto (Quarry Eye only pings,
+ * see drawPing). Silent stone never glows: the ripples lean the way instead (see drawRipples).
+ */
 function drawSpot(e) {
   const a = e.conf.spotGlow;
-  if (!a || e.state !== "cracking") return;
+  if (!a || e.silent || e.state !== "cracking") return;
   const [x, y] = fromEgg(...e.spot), k = 0.5 + 0.5 * Math.sin(game.time * 0.004), r = (18 + k * 6) * L.k;
   const g = ctx.createRadialGradient(x, y, 1, x, y, r);
   g.addColorStop(0, hexA(e.crystal.c[1], 0.9 * a));
@@ -316,14 +319,44 @@ function drawGleam(e, x, y, w, h) {
   ctx.restore();
 }
 
+/**
+ * Knocks' ripples: rings running out from the tap. On silent stone the ring leans: on the side facing the weak spot it
+ * reaches further, thicker and brighter, in a pale blue, the more the nearer (see rippleLean). With less
+ * motion it doesn't run: only that side stands, an arc bowed the way to go, and fades.
+ */
 function drawRipples() {
   for (const r of game.ripples) {
     if (r.t < 0) continue;
+    if (r.lean) { drawLean(r); continue; }
     const k = r.t / 0.6;
     ctx.strokeStyle = `rgba(255,255,255,${(1 - k) * (0.35 + r.h * 0.5)})`;
     ctx.lineWidth = 1.5 + r.h * 2;
     ctx.beginPath(); ctx.arc(r.x, r.y, r.r * k, 0, TAU); ctx.stroke();
   }
+}
+
+function drawLean(r) {
+  // even a far knock leans enough to read which way; a near one leans hard
+  const { a } = r.lean, s = 0.35 + 0.65 * r.lean.s, life = r.life || 0.9, k = r.t / life, N = 48, w = Math.max(1, L.k);
+  const R = r.calm ? r.r * 0.8 : r.r * (1 - (1 - clamp(k * 1.3, 0, 1)) ** 3), fade = r.calm ? 1 - k * k : 1 - k * k * k;
+  // how much a bit of the ring faces the spot: a soft lobe round the way to it, reaching further the harder it leans
+  const lobe = t => Math.max(0, Math.cos(t - a)) ** 2.5 * s, at = (t, f) => [r.x + Math.cos(t) * R * f * (1 + lobe(t)), r.y + Math.sin(t) * R * f * (1 + lobe(t))];
+  ctx.save();
+  ctx.lineCap = "round";
+  // the leaning side twice over, a wavefront and a fainter one behind it, each on a dark edge so it reads on pale stone
+  for (const [f, dim] of r.calm ? [[1, 1]] : [[1, 1], [0.78, 0.45]]) {
+    for (const pass of [0, 1]) {
+      for (let i = 0; i < N; i++) {
+        const t0 = a - Math.PI + i / N * TAU, t1 = t0 + TAU / N * 1.1, face = lobe((t0 + t1) / 2);
+        if ((r.calm || dim < 1) && face < 0.1) continue;
+        const lw = (1.5 + r.h * 1.5 + face * 4) * w;
+        if (pass === 0) { if (face < 0.1) continue; ctx.strokeStyle = `rgba(24,14,48,${0.45 * fade * dim * face})`; ctx.lineWidth = lw + 2.5 * w; }
+        else { ctx.strokeStyle = face > 0.05 ? hexA(r.tint, fade * dim * (0.35 + 0.65 * face)) : `rgba(255,255,255,${fade * (0.2 + r.h * 0.4)})`; ctx.lineWidth = lw; }
+        ctx.beginPath(); ctx.moveTo(...at(t0, f)); ctx.lineTo(...at(t1, f)); ctx.stroke();
+      }
+    }
+  }
+  ctx.restore();
 }
 
 function drawRays(e) {
