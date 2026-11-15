@@ -213,8 +213,43 @@ function giftParcelGo() {
   giftNow = null;
   if (game.scene === "nest") renderNest();
 }
-/** The chest's shelf of charms from friends, each with who sent it. */
-const giftCharmTiles = () => (save.charms || []).filter(c => CHARMS[c.c]).map(c => `<div class="tile owned">${giftImg("charm", c.c)}<b>${tr(CHARMS[c.c].name)}</b><small>${giftEsc(c.from ? tr("from {0}", c.from) : tr("from a friend"))}</small></div>`).join("");
+/** The friend's charm that hangs on the nest's wall, if one does (kept in save.hung, apart from the chest's list: see hungSaveOf). */
+const charmHung = () => save.hung && CHARMS[save.hung.c] ? save.hung : null;
+const charmSame = (a, b) => !!a && !!b && a.c === b.c && (a.from || "") === (b.from || "") && (a.at || 0) === (b.at || 0);
+/** The charms the chest shows: the ones friends sent, and the one on the wall if the chest's own list has since let it go. */
+function giftCharmList() {
+  const list = (save.charms || []).filter(c => CHARMS[c.c]), h = charmHung();
+  return h && !list.some(c => charmSame(c, h)) ? [h, ...list] : list;
+}
+/** The chest's shelf of charms from friends, each with who sent it: tap one to hang it on the nest's wall, tap it again to take it down. */
+function giftCharmTiles() {
+  const h = charmHung(), up = giftCharmList().findIndex(c => charmSame(c, h));
+  return giftCharmList().map((c, i) => `<button class="tile owned charm${i === up ? " placed on" : ""}" data-hang="${i}">${giftImg("charm", c.c)}<b>${tr(CHARMS[c.c].name)}</b><small>${giftEsc(c.from ? tr("from {0}", c.from) : tr("from a friend"))}</small><span class="hang">${tr(i === up ? "Take down" : "Hang on the wall")}</span></button>`).join("");
+}
+/** Hang a friend's charm on the nest's wall, or take down the one that hangs there. One hangs at a time: another takes its
+ *  place. It stays in the chest all the while: what's saved for the wall is its own copy. */
+function charmHang(i) {
+  const c = giftCharmList()[i], was = charmHung();
+  if (!c) return;
+  if (charmSame(c, was)) {
+    delete save.hung;
+    // (long on the wall, it may have dropped off the end of the chest's list: back in it goes)
+    if (!(save.charms || []).some(x => charmSame(x, was))) save.charms = [...(save.charms || []), was].slice(-30);
+    toast(tr("{0} is back in the chest", tr(CHARMS[c.c].name)));
+  } else {
+    save.hung = { c: c.c, from: c.from || "", at: c.at || 0 };
+    toast(tr("{0} hangs on the nest's wall now ✦", tr(CHARMS[c.c].name)));
+  }
+  persist(); sfx.setDown();
+  if (!$("shop").classList.contains("hidden")) openShop();
+}
+/** A tap on the charm on the wall: what it is and who it's from. */
+function charmTap() {
+  const h = charmHung();
+  if (!h) return;
+  sfx.tick();
+  toast(`${tr(CHARMS[h.c].name)} · ${h.from ? tr("from {0}", h.from) : tr("from a friend")}`);
+}
 
 function giftWire() {
   $("giftBtn").addEventListener("click", () => { setMenu(false); openGift(); });
@@ -227,6 +262,7 @@ function giftWire() {
   $("giftCopy").addEventListener("click", () => giftCopy($("giftLink").value));
   $("giftAgain").addEventListener("click", () => openGift());
   $("parcelGo").addEventListener("click", giftParcelGo);
+  $("shopList").addEventListener("click", ev => { const b = ev.target.closest("[data-hang]"); if (b) charmHang(Number(b.dataset.hang)); });
   addEventListener("hashchange", giftOpenLink);
   setTimeout(giftOpenLink);
   setInterval(giftArrive, 2500);
