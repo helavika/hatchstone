@@ -19,8 +19,8 @@ function renderNest(full) {
   const nr = save.rooms.filter((_, i) => roomOpen(i)).length;
   $("roomNav").hidden = nr < 2 || N.iso; $("roomLabel").hidden = nr < 2;
   $("roomName").textContent = roomName(save.room);
-  $("roomPrevName").textContent = roomName(stepRoom(-1));
-  $("roomNextName").textContent = roomName(stepRoom(1));
+  // the row of caves has two ends: no arrow past them
+  for (const [id, dir] of [["roomPrev", -1], ["roomNext", 1]]) { const to = stepRoom(dir); $(id).style.visibility = to === save.room ? "hidden" : ""; $(id + "Name").textContent = roomName(to); }
   $("nestLvl").textContent = tr("Lv {0}", cr.level) + (cr.level >= MAX_LEVEL ? tr(" · max") : "");
   $("nestTop").title = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name);
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
@@ -1062,10 +1062,11 @@ function ensurePlace(kind) {
 }
 /** Is this room one of the map's places (the shop, the forge, the camp, the lab) rather than a home for glowlings? */
 const isPlace = (i = save.room) => !!ROOM_KINDS.find(k => k.id === save.rooms[i]?.kind)?.place;
-/** Rooms the arrows step through: homes only, and the garden outside once the map shows it. */
+/** Rooms the arrows step through: homes only (the garden outside is one of the map's places). */
 const roomOpen = i => !isPlace(i) && (!isOutside(i) || placeOk("garden"));
+/** The next room along the row of caves that way (dir -1 or 1), the same one its tunnel leads to: none past either end. */
 function stepRoom(dir) {
-  for (let k = 1; k < save.rooms.length; k++) { const i = ((save.room + dir * k) % save.rooms.length + save.rooms.length) % save.rooms.length; if (roomOpen(i)) return i; }
+  for (let i = save.room + dir; i >= 0 && i < save.rooms.length; i += dir) if (roomOpen(i)) return i;
   return save.room;
 }
 // ---------- the places' keepers: each place on the map has someone who runs it ----------
@@ -1468,12 +1469,12 @@ function arriveAt(kind) {
     if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
   }
 }
-// ---------- passages between rooms: dark arches in the walls, like a real cave ----------
+// ---------- passages between rooms: tunnels cut through the rock from one cave to the next ----------
 
 /**
- * The home rooms stand in a row, west to east, in the order they were carved: each room's left (west) wall opens onto the
+ * The home rooms are a row of caves, west to east, in the order they were carved: each room's left (west) wall opens onto the
  * one before it and its right (east) wall onto the one after, so you come into a room through the wall facing the way you
- * came. The rooms at the ends have a door on their inner side only. New rooms come from the shop's Renovation, not from here.
+ * came. The rooms at the ends have a tunnel on their inner side only. New rooms come from the shop's Renovation, not from here.
  */
 function roomDoors(i = save.room) {
   const homes = save.rooms.map((_, k) => k).filter(k => roomOpen(k) && !isOutside(k)), at = homes.indexOf(i), out = [];
@@ -1488,36 +1489,82 @@ function passages() {
   return roomDoors();
 }
 let passageShapes = [];
-/** The arch's outline on its wall, near the front end, in screen pixels. */
+/**
+ * A tunnel's mouth on its wall, near the front end, in screen pixels: a rough round hole hacked through the rock, low and
+ * broad-shouldered, standing on the floor. Both ends of a passage are cut alike: the hole is laid out across the wall from
+ * its inner side to its outer one, so the left wall's is the right wall's in a mirror, the same size and the same nicks.
+ */
 function passageShape(wall) {
-  const c = DOOR_AT, w = DOOR_W, hgt = Math.min(N.isoWall * 0.62, N.base * 1.6);
-  const a = wall === "R" ? isoAt(c - w, 0) : isoAt(0, c - w), b = wall === "R" ? isoAt(c + w, 0) : isoAt(0, c + w);
-  const pts = [a];
-  for (let k = 0; k <= 10; k++) { const f = k / 10, x = a[0] + (b[0] - a[0]) * f, y = a[1] + (b[1] - a[1]) * f - hgt * (0.72 + 0.28 * Math.sin(f * Math.PI)); pts.push([x, y]); }
-  pts.push(b);
+  // (never much taller than it is wide, so on a narrow screen it doesn't turn into a slit)
+  const c = DOOR_AT, w = DOOR_W, span = 2 * w * Math.hypot(N.isoW, N.isoH), hgt = Math.min(N.isoWall * 0.5, N.base * 1.3, span * 1.3), n = 16;
+  const at = f => wall === "R" ? isoAt(c - w + 2 * w * f, 0) : isoAt(0, c - w + 2 * w * f);
+  const pts = [];
+  for (let k = 0; k <= n; k++) {
+    // a squared-off round: steep sides, a broad top, and here and there a chip out of the rock (the same chips at both ends)
+    const f = k / n, rise = (1 - Math.abs(2 * f - 1) ** 3) ** (1 / 3), nick = k && k < n ? 0.16 * (pxHash(k, 306) - 0.5) : 0;
+    const [x, y] = at(clamp(f + (k && k < n ? 0.05 * (pxHash(k, 307) - 0.5) : 0), 0, 1));
+    pts.push([x, y - hgt * rise * (1 + nick)]);
+  }
   return pts;
 }
+/** Which way is into the rock behind a wall, on screen: a tunnel's far end lies that way. */
+const intoWall = (wall, d) => { const [x0, y0] = isoAt(DOOR_AT, DOOR_AT), [x1, y1] = wall === "R" ? isoAt(DOOR_AT, DOOR_AT - d) : isoAt(DOOR_AT - d, DOOR_AT); return [x1 - x0, y1 - y0]; };
+/** A room's rock and its light: the cave it shows, as a wall ramp from dark to lit and the glow of its crystals. */
+function caveColours(i) {
+  const id = i === save.room ? currentTheme() : roomTheme(i, save.rooms[i].theme), t = THEME[id] || THEME.amethyst;
+  const art = CHAPTER_ART[t.art ?? 0];
+  return { wall: art.wall, glow: art.glow, crystal: art.crystal };
+}
+/** Where a label w wide is centred to stay whole on the screen: over x if it fits there, else pulled in from the edge. */
+const onScreen = (x, w, pad = 6) => clamp(x, pad + w / 2, W - pad - w / 2);
+/**
+ * Every tunnel mouth, by the one recipe, whichever end of the passage it is: the rim of this cave's own rock round a hole,
+ * the jamb going back into the wall, the floor running in over a worn threshold, and at the far end, round the bend, the
+ * light of the cave it leads to. Its name is written over it.
+ */
 function drawPassages() {
   passageShapes = [];
   for (const p of passages()) {
-    const pts = passageShape(p.wall), P = Math.max(1, Math.round(PX));
-    const path = (grow = 0) => { ctx.beginPath(); pts.forEach(([x, y], k) => { const cx = (pts[0][0] + pts[pts.length - 1][0]) / 2, cy = Math.min(...pts.map(q => q[1])); const dx = x - cx, dy = y - (pts[0][1] + cy) / 2; const X = x + Math.sign(dx) * grow, Y = y + (k > 0 && k < pts.length - 1 ? -grow : 0); k ? ctx.lineTo(X, Y) : ctx.moveTo(X, Y); }); ctx.closePath(); };
+    const pts = passageShape(p.wall), P = Math.max(1, Math.round(PX)), here = caveColours(save.room), there = caveColours(p.to);
+    const rock = here.wall, n = pts.length - 1, [dx, dy] = intoWall(p.wall, DOOR_W * 0.7);
+    const midX = (pts[0][0] + pts[n][0]) / 2, bot = (pts[0][1] + pts[n][1]) / 2, top = Math.min(...pts.map(q => q[1]));
+    // grown outward from the middle of its foot, for the rim (the foot stays on the floor)
+    const grown = g => pts.map(([x, y], k) => { const ux = x - midX, uy = y - bot, l = Math.hypot(ux, uy) || 1; return k === 0 || k === n ? [x + Math.sign(ux) * g, y] : [x + ux / l * g, y + uy / l * g]; });
+    // the far end: smaller (further off) and back into the rock
+    const far = pts.map(([x, y]) => [midX + (x - midX) * 0.72 + dx, bot + (y - bot) * 0.78 + dy]);
+    const trace = q => { ctx.beginPath(); q.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); };
     ctx.save();
-    // a frame of rough stones, then the dark inside with a faint light from the room beyond
-    ctx.fillStyle = "#3a3440"; path(P * 3); ctx.fill();
-    ctx.fillStyle = "#5d5666"; path(P * 1.5); ctx.fill();
-    ctx.fillStyle = "#0b0614"; path(0); ctx.fill();
-    const top = Math.min(...pts.map(q => q[1])), bot = pts[0][1], mid = (pts[0][0] + pts[pts.length - 1][0]) / 2;
-    const gr = ctx.createLinearGradient(0, bot, 0, top); gr.addColorStop(0, "rgba(255,226,150,.28)"); gr.addColorStop(1, "rgba(255,226,150,0)");
-    ctx.fillStyle = gr; path(-P * 2); ctx.fill();
-    for (let k = 0; k < 3; k++) { ctx.fillStyle = "#2a2148"; ctx.fillRect(Math.round(mid - P * 4 + k * P * 3), Math.round(bot - P * (2 + k)), P * 2, P); }
-    // where it goes, written over the arch
+    // the rim: a dark crack round the hole, then its lip of the wall's own rock catching the light
+    ctx.fillStyle = rock[0]; trace(grown(P * 3)); ctx.fill();
+    ctx.fillStyle = rock[3]; trace(grown(P * 1.5)); ctx.fill();
+    // the jamb: the tunnel's sides in the rock's shadow, darker the further in
+    trace(pts); ctx.fillStyle = rock[1]; ctx.fill();
+    ctx.save(); trace(pts); ctx.clip();
+    const farX = midX + dx, sh = ctx.createLinearGradient(midX, bot, farX, bot + dy);
+    sh.addColorStop(0, hexA(rock[2], 0.6)); sh.addColorStop(1, hexA(rock[0], 0.9));
+    ctx.fillStyle = sh; trace(pts); ctx.fill();
+    // the threshold: the floor going in, a worn step at the mouth catching the light
+    ctx.beginPath(); ctx.moveTo(pts[0][0], pts[0][1]); ctx.lineTo(pts[n][0], pts[n][1]); ctx.lineTo(far[n][0], far[n][1]); ctx.lineTo(far[0][0], far[0][1]); ctx.closePath();
+    ctx.fillStyle = rock[2]; ctx.fill();
+    ctx.fillStyle = rock[4];
+    for (let k = 0; k <= 8; k++) { const f = k / 8, x = pts[0][0] + (pts[n][0] - pts[0][0]) * f, y = pts[0][1] + (pts[n][1] - pts[0][1]) * f; ctx.fillRect(Math.round(x), Math.round(y - P * 2), P * 2, P); }
+    // the far end, round the bend: the dark, and the next cave's light spilling up it and out over the floor
+    trace(far); ctx.fillStyle = "#07040e"; ctx.fill();
+    const fb = (far[0][1] + far[n][1]) / 2, ft = Math.min(...far.map(q => q[1])), gl = ctx.createLinearGradient(0, fb, 0, ft);
+    gl.addColorStop(0, hexA(there.glow, 0.7)); gl.addColorStop(0.55, hexA(there.crystal[1], 0.3)); gl.addColorStop(1, hexA(there.crystal[0], 0));
+    ctx.fillStyle = gl; trace(far); ctx.fill();
+    const pool = ctx.createRadialGradient(farX, fb, 0, farX, fb, Math.abs(pts[n][0] - pts[0][0]) * 0.6);
+    pool.addColorStop(0, hexA(there.glow, 0.45)); pool.addColorStop(1, hexA(there.glow, 0));
+    ctx.fillStyle = pool; ctx.fillRect(midX - 200, top, 400, bot - top + P * 4);
+    ctx.restore();
+    // where it goes, written over the mouth, kept on the screen
     const label = roomName(p.to);
     fx.save(); fx.font = `400 ${Math.round(clamp(N.base * 0.2, 12, 16))}px ${PIXEL_FONT}`; fx.textAlign = "center";
-    fx.fillStyle = "#160c26"; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) fx.fillText(label, mid + dx, top - 6 + dy);
-    fx.fillStyle = "#ffe9a8"; fx.fillText(label, mid, top - 6); fx.restore();
+    const lw = fx.measureText(label).width, lx = onScreen(midX, lw), ly = top - P * 3 - 4;
+    fx.fillStyle = "#160c26"; for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) fx.fillText(label, lx + ox, ly + oy);
+    fx.fillStyle = "#ffe9a8"; fx.fillText(label, lx, ly); fx.restore();
     ctx.restore();
-    passageShapes.push({ p, pts });
+    passageShapes.push({ p, pts, label: { x: lx, w: lw } });
   }
 }
 /** Which passage (if any) is under a finger. */
@@ -1530,7 +1577,7 @@ function passageAt(x, y) {
   }
   return null;
 }
-/** Through an arch: out of this room's east wall is in at the next one's west wall, and back again. */
+/** Through a tunnel: out of this room's east wall is in at the next one's west wall, and back again. */
 function goPassage(p) {
   sfx.tick(); goRoom(p.to, p.wall === "R" ? "L" : "R");
 }
@@ -1592,7 +1639,7 @@ function litTabs() {
 /** The shop's renovation corner: build a new room at home, or make room for one more glowling. */
 function marketReno() {
   const next = nextRoomKind(), nu = save.nestUp || 0, cost = NEST_UP_COST[nu];
-  return `<p class="me-hint">${tr("Tansy's cousin carves new rooms into the rock: each opens off the last one at home, through a new arch in its wall.")}</p>`
+  return `<p class="me-hint">${tr("Tansy's cousin carves new rooms into the rock: each opens off the last one at home, through a new tunnel.")}</p>`
     + ROOM_KINDS.filter(k => k.cost).map(k => {
       const built = save.rooms.some(r => r.kind === k.id), soon = !built && next && next.id !== k.id;
       return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.cave || k.theme || "amethyst")}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small></span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${save.shards < k.cost ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;

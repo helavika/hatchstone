@@ -74,3 +74,80 @@ test('a meadow or a hall saved in a room at home shows a cave, and stays in the 
   assert.equal(home(['nest', 'yard', 'camp'], { room: 2, theme: 'glowcap', found: false }).currentTheme(), 'glowcap');
   assert.equal(home(['nest', 'yard'], { room: 1, theme: 'glowcap' }).currentTheme(), 'glowcap');
 });
+
+// the row of caves and the tunnels between them
+const core = read('core.js');
+const rowSrc = [
+  line(core, /^const clamp = .*$/m, 'clamp should be one line in core.js'),
+  line(pixel, /^const pxHash = .*$/m, 'pxHash should be one line in pixel.js'),
+  line(save, /^const isoAt = .*$/m, 'isoAt should be one line in save.js'),
+  line(iso, /^const DOOR_AT = .*$/m, 'DOOR_AT should be one line in iso.js'),
+  cut(nest, 'const ROOM_KINDS = [', '\n];', 'ROOM_KINDS should be one list in nest.js') + '\n];',
+  line(nest, /^const isOutside = .*$/m, 'isOutside should be one line in nest.js'),
+  line(nest, /^const isPlace = .*$/m, 'isPlace should be one line in nest.js'),
+  line(nest, /^const roomOpen = .*$/m, 'roomOpen should be one line in nest.js'),
+  cut(nest, 'function stepRoom(', '\n}\n', 'stepRoom should sit in nest.js') + '\n}',
+  cut(nest, 'function roomDoors(', '\n}\n', 'roomDoors should sit in nest.js') + '\n}',
+  cut(nest, 'function passageShape(', '\n}\n', 'passageShape should sit in nest.js') + '\n}',
+  line(nest, /^const intoWall = .*$/m, 'intoWall should be one line in nest.js'),
+  line(nest, /^const onScreen = .*$/m, 'onScreen should be one line in nest.js'),
+  'Object.assign(this, { stepRoom, roomDoors, passageShape, intoWall, onScreen });',
+].join('\n');
+/** The row at home on a screen this wide: the nest, the garden outside, the playroom, the shop, the garden room and the study. */
+function row(room, Wd = 390) {
+  const isoW = Math.min(Wd * 0.47, 400);
+  const page = { W: Wd, N: { cx: Wd / 2, isoTop: 200, isoW, isoH: isoW / 2, isoWall: isoW, base: 60 }, placeOk: () => true,
+    save: { room, rooms: ['nest', 'yard', 'play', 'shop', 'garden', 'study'].map(kind => ({ kind, on: [] })) } };
+  vm.runInNewContext(rowSrc, page);
+  return page;
+}
+
+test('the arrows stop at both ends of the row of caves, and go where the tunnels go', () => {
+  assert.equal(row(0).stepRoom(-1), 0, 'nothing before the nest');
+  assert.equal(row(5).stepRoom(1), 5, 'nothing past the study');
+  // through the rooms of home only, skipping the garden outside and the shop
+  assert.equal(row(0).stepRoom(1), 2);
+  assert.equal(row(2).stepRoom(1), 4);
+  assert.equal(row(4).stepRoom(-1), 2);
+  for (const r of [0, 2, 4, 5]) {
+    const p = row(r), doors = Object.fromEntries(p.roomDoors().map(d => [d.wall, d.to]));
+    assert.equal(doors.L ?? r, p.stepRoom(-1), 'the left tunnel and the back arrow lead to the same room');
+    assert.equal(doors.R ?? r, p.stepRoom(1), 'the right tunnel and the forward arrow lead to the same room');
+  }
+  // the straight-on view hides the arrow at an end
+  assert.match(nest, /\$\(id\)\.style\.visibility = to === save\.room \? "hidden" : ""/);
+});
+
+test('both ends of a tunnel are cut alike: the same size and outline, in a mirror', () => {
+  for (const Wd of [390, 1280]) {
+    const p = row(2, Wd), R = p.passageShape('R'), L = p.passageShape('L'), box = q => {
+      const xs = q.map(v => v[0]), ys = q.map(v => v[1]);
+      return { w: Math.max(...xs) - Math.min(...xs), h: Math.max(...ys) - Math.min(...ys) };
+    };
+    assert.equal(R.length, L.length);
+    const near = (a, b, what) => assert.ok(Math.abs(a - b) < 1e-9, `${what}: ${a} vs ${b}`);
+    near(box(R).w, box(L).w, 'width'); near(box(R).h, box(L).h, 'height');
+    // the right wall's mouth is the left wall's, mirrored across the middle of the room
+    R.forEach(([x, y], k) => { near(x, Wd - L[k][0], 'x of point ' + k); near(y, L[k][1], 'y of point ' + k); });
+    // a round mouth standing on the floor, lower than the room's wall, and the far end back into the rock on each side
+    assert.ok(box(R).h < p.N.isoWall * 0.55 && box(R).h > 0);
+    const [rx, ry] = p.intoWall('R', 0.05), [lx, ly] = p.intoWall('L', 0.05);
+    near(rx, -lx, 'into the wall, across'); near(ry, ly, 'into the wall, up'); assert.ok(ry < 0 && rx > 0);
+  }
+  // one function draws both ends, labelled with the room on the other side, in the colours of the cave it leads to
+  const draw = cut(nest, 'function drawPassages(', '\n}\n', 'drawPassages should sit in nest.js');
+  assert.match(draw, /passageShape\(p\.wall\)/);
+  assert.match(draw, /roomName\(p\.to\)/);
+  assert.match(draw, /caveColours\(p\.to\)/);
+  assert.match(draw, /caveColours\(save\.room\)/);
+});
+
+test('a tunnel\'s label stays whole on a phone screen', () => {
+  const p = row(2, 390);
+  // the longest room name, over a tunnel at either edge of a 390px screen
+  for (const x of [-20, 10, 195, 370, 410]) {
+    const w = 150, c = p.onScreen(x, w);
+    assert.ok(c - w / 2 >= 0 && c + w / 2 <= 390, `label at ${x} sits at ${c}`);
+  }
+  assert.equal(p.onScreen(195, 100), 195, 'a label that fits stays over its tunnel');
+});

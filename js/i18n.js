@@ -875,7 +875,7 @@ const UK = {
   "{0} went out exploring the grotto: each room fits {1} glowlings.": "Пішли досліджувати грот: {0}. У кожну кімнату вміщається глоулінгів: {1}.",
   "Carve a new room: {0}": "Вирізьбити нову кімнату: {0}",
   "Send someone on an expedition": "Відправити когось в експедицію",
-  "Tansy's cousin carves new rooms into the rock: each opens off the last one at home, through a new arch in its wall.": "Кузен Тенсі вирізьблює нові кімнати в скелі: кожна відкривається з останньої кімнати вдома, крізь нову арку в стіні.",
+  "Tansy's cousin carves new rooms into the rock: each opens off the last one at home, through a new tunnel.": "Кузен Тенсі вирубує в скелі нові кімнати: кожна відкривається з останньої кімнати вдома, крізь новий тунель.",
   "Eep! Too much poking!": "Ой! Забагато тицяння!",
   "One day I'll sell a hat. Just one. A very good hat.": "Колись я продаватиму капелюх. Один. Дуже гарний капелюх.",
   "I want to forge a bell that rings in every cave at once. One day.": "Хочу викувати дзвін, що дзвенітиме в усіх печерах одразу. Колись.",
