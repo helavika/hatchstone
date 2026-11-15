@@ -188,10 +188,10 @@ function drawEgg() {
     const k = e.state === "opening" ? clamp((e.t - 0.35) / 0.5, 0, 1) : 1;
     if (k > 0) drawSprite(L.ecx, L.ecy + L.eh * 0.04, L.ew * 0.34 * easeOutBack(k), e.species, { mood: "happy", hop: e.hop, shiny: e.shiny });
   } else {
-    drawBaked(cachedSprite(e, "shellSprite", `${size}|${e.painted}|${e.dentsPainted}|${e.chips || 0}|${e.shell.canvas.width}`, () => bakeSprite(L.ecx, L.ecy, half, () => ctx.drawImage(e.shell.canvas, x, y, w, h), box)));
+    drawBaked(cachedSprite(e, "shellSprite", `${size}|${e.painted}|${e.dentsPainted}|${e.chips || 0}|${e.bandsPainted ?? 0}|${e.shell.canvas.width}`, () => bakeSprite(L.ecx, L.ecy, half, () => ctx.drawImage(e.shell.canvas, x, y, w, h), box)));
     drawCrackLight(e, prog);
     drawGloss(ctx, L.ecx, L.ecy);
-    if (e.state !== "entering") { drawSpot(e); drawPing(e); }
+    if (e.state !== "entering") { drawSpot(e); drawPing(e); drawBandBreak(e); }
   }
   ctx.restore();
 }
@@ -228,6 +228,41 @@ function drawSpot(e) {
   const w = (game.time * 0.0008) % 1;
   ctx.strokeStyle = hexA(e.crystal.c[2], 0.7 * a * (1 - w)); ctx.lineWidth = 2 * Math.max(1, L.k);
   ctx.beginPath(); ctx.arc(x, y, (8 + w * 22) * L.k, 0, TAU); ctx.stroke();
+}
+
+/**
+ * A band of the Malachite's stone giving way (see bandBreak): a bright crack runs round the band, out from the middle,
+ * with little teeth along it, and fades. With less motion nothing runs: the egg just lights up green for a moment.
+ */
+function drawBandBreak(e) {
+  const f = game.bandFx;
+  if (!f || f.e !== e) return;
+  const a = (game.time - f.t) / 1000, life = f.calm ? 0.8 : 0.6;
+  if (a > life) { game.bandFx = null; return; }
+  ctx.save();
+  if (f.calm) {
+    const g = ctx.createRadialGradient(L.ecx, L.ecy, 4, L.ecx, L.ecy, L.ew * 0.8);
+    g.addColorStop(0, `rgba(163,221,155,${0.35 * Math.sin(Math.PI * a / life)})`); g.addColorStop(1, "rgba(163,221,155,0)");
+    tracePoly(ctx, L.egg); ctx.fillStyle = g; ctx.fill();
+    ctx.restore();
+    return;
+  }
+  const pts = bandLine(e, f.i).map(p => fromEgg(...p)), run = clamp(a / 0.22, 0, 1), fade = 1 - clamp((a - 0.22) / (life - 0.22), 0, 1);
+  const mid = (pts.length - 1) / 2, reach = mid * run, k = Math.max(1, L.k);
+  tracePoly(ctx, L.egg); ctx.clip();
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  ctx.shadowColor = "#a3dd9b"; ctx.shadowBlur = quality.low ? 0 : 10 * k;
+  ctx.strokeStyle = `rgba(232,255,216,${0.95 * fade})`; ctx.lineWidth = 2.2 * k;
+  ctx.beginPath();
+  let first = true;
+  pts.forEach(([x, y], j) => { if (Math.abs(j - mid) > reach + 0.5) return; first ? ctx.moveTo(x, y) : ctx.lineTo(x, y); first = false; });
+  ctx.stroke();
+  // teeth: short cracks off the band, every other point it has reached
+  ctx.lineWidth = 1.2 * k;
+  ctx.beginPath();
+  pts.forEach(([x, y], j) => { if (j % 2 || Math.abs(j - mid) > reach) return; const s = j % 4 ? 1 : -1; ctx.moveTo(x, y); ctx.lineTo(x + 2 * k, y + s * (5 + (j % 3) * 2) * k * fade); });
+  ctx.stroke();
+  ctx.restore();
 }
 
 /**
