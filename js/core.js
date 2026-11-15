@@ -368,13 +368,13 @@ const sfx = {
     this.grain(t, 0.06, 500, 1, 0.2, "lowpass");
   },
 
-  /** Knocking on stone: dull and short on solid rock, deep and ringing over the hollow. */
-  knock(h) {
+  /** Knocking on stone: dull and short on solid rock, deep and ringing over the hollow. In a chain of hits on the weak spot it climbs a note with each link (step), up to an octave. */
+  knock(h, step = 0) {
     if (!this.ready()) return;
-    const t = this.ac.currentTime;
-    this.tone(t, lerp(760, 210, h), 0.24, lerp(0.05, 0.4, h), "triangle", lerp(520, 160, h), h > 0.6);
+    const t = this.ac.currentTime, up = Math.pow(2, [0, 2, 4, 7, 9, 12][clamp(step, 0, 5)] / 12);
+    this.tone(t, lerp(760, 210, h) * up, 0.24, lerp(0.05, 0.4, h), "triangle", lerp(520, 160, h) * up, h > 0.6);
     this.grain(t, 0.015, lerp(4200, 1600, h), 1.5, 0.16);
-    if (h > 0.5) this.tone(t + 0.01, lerp(400, 140, h), 0.12 * h, 0.5, "sine");
+    if (h > 0.5) this.tone(t + 0.01, lerp(400, 140, h) * up, 0.12 * h, 0.5, "sine");
   },
 
   /** A soft cloth on stone: the squeak rises as the surface turns glossy. */

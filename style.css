@@ -372,7 +372,8 @@ h3.chap small { display: block; font-size: 10px; letter-spacing: 2.5px; color: v
 }
 .plate > :first-child { display: block; background: rgba(8, 5, 26, .45); }
 #found .plate #foundImg { margin: 0; padding: 6px 14px; }
-#pixelGrotto { width: min(260px, 66vw); height: auto; aspect-ratio: 128 / 72; image-rendering: pixelated; }
+/* the plate is 128 art pixels across: shown at exactly twice that, so every pixel comes out the same size */
+#pixelGrotto { width: 256px; height: auto; aspect-ratio: 128 / 72; image-rendering: pixelated; }
 #start .plate { margin: 0 auto 14px; }
 
 /* storybook pass two: chapter banners, gold-edged buttons, a book-like glowpedia, calmer nest and results */
@@ -674,9 +675,10 @@ body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; 
 #talk { position: fixed; inset: 0; z-index: 9; background: rgba(8, 5, 26, .35); cursor: pointer; touch-action: none; }
 #talk[hidden] { display: none; }
 .talk-box { position: absolute; left: 50%; bottom: calc(var(--bottom) + 18px); transform: translateX(-50%); width: min(520px, calc(100% - 32px));
-  display: grid; grid-template-columns: 72px 1fr; gap: 12px; align-items: start; padding: 14px 16px 18px; text-align: left; animation: pxPop .18s steps(3); }
-.talk-face { margin: 0; width: 72px; height: 72px; display: grid; place-items: center; background: var(--px-deep); box-shadow: 0 0 0 3px var(--px-gold), 0 0 0 6px var(--px-ink); }
-.talk-face img { width: 64px; height: 64px; image-rendering: pixelated; }
+  display: grid; grid-template-columns: 84px 1fr; gap: 12px; align-items: start; padding: 14px 16px 18px; text-align: left; animation: pxPop .18s steps(3); }
+.talk-face { margin: 0; width: 84px; height: 84px; display: grid; place-items: center; background: var(--px-deep); box-shadow: 0 0 0 3px var(--px-gold), 0 0 0 6px var(--px-ink); }
+/* faces are 26 art pixels across: shown only at whole multiples (78, 52), so every pixel comes out the same size */
+.talk-face img { width: 78px; height: 78px; image-rendering: pixelated; }
 .talk-name { display: block; color: var(--px-gold); font-size: 20px; letter-spacing: 1px; margin-bottom: 2px; }
 .talk-text { margin: 0; font-size: 21px; line-height: 1.25; min-height: 3.75em; white-space: pre-wrap; }
 .talk-more { position: absolute; right: 14px; bottom: 6px; font-style: normal; color: var(--px-gold); visibility: hidden; animation: pxBlink 1s steps(2) infinite; }
@@ -953,7 +955,6 @@ body:not(.scene-nest) #homePill { display: none; }
   .card { width: min(440px, 100%); font-size: 17px; }
   #start .card { width: min(420px, 100%); }
   .card.wide { width: min(700px, 100%); }
-  #pixelGrotto { width: 320px; }
   #libGrid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
   #libGrid .pg img { height: 84px; }
   #libGrid .pg img.lib-px { width: 96px; height: 96px; }
@@ -1023,6 +1024,8 @@ body.arranging #nestBottom { visibility: hidden; }
 .tile b { font-weight: 400; font-size: 15px; line-height: 1.1; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tile small { margin-top: auto; color: var(--px-gold); font-size: 14px; text-align: center; }
 .tile.placed small { color: #b9e88a; }
+.tile .hang { padding: 2px 7px; font-size: 13px; line-height: 1.15; text-align: center; color: var(--px-ink); background: #ffe9a8; box-shadow: 0 0 0 2px var(--px-ink); }
+.tile.placed .hang { color: var(--soft); background: rgba(255, 255, 255, .08); }
 .tile.dim, .tile:disabled { opacity: .45; }
 .tile.on { outline: 3px solid var(--px-gold); outline-offset: -3px; background: rgba(255, 233, 168, .16); }
 .tile.legend { background: linear-gradient(rgba(255, 210, 120, .2), rgba(255, 255, 255, .03)); }
@@ -1041,7 +1044,6 @@ body.compact .overlay { padding: 14px 10px; }
 body.compact .card { padding: 18px 16px; }
 body.compact h2 { font-size: 34px; line-height: 1; }
 body.compact h1 { font-size: 60px; }
-body.compact #pixelGrotto { width: 220px; }
 body.compact .pill { height: 38px; }
 body.compact .pill.stack small { font-size: 9px; }
 body.compact #nestTop { top: calc(var(--top) + 44px); }
@@ -1168,6 +1170,8 @@ body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigte
 .fb-details pre { max-height: none; overflow: visible; }
 .cat-chips button { flex: 1 1 auto; }
 /* closing is one small ✕ in the corner, the same in every popup; a big button is only for doing something (like saving) */
+/* the ✕ sits in its own card's corner on every kind of overlay, not only the modal ones (the Grotto's map is a screen: there it used to land under the top bar) */
+.overlay .card:has(> .x-close) { position: relative; }
 .overlay .card > .x-close { position: absolute; top: 10px; right: 10px; z-index: 4; width: 36px; height: 36px; min-height: 0; margin: 0; padding: 0; display: grid; place-items: center;
   font: 400 20px/1 system-ui, sans-serif; color: var(--soft); background: var(--px-deep, rgba(0, 0, 0, .3)); border: 0; border-radius: 0; box-shadow: var(--px-frame, none); cursor: pointer; text-decoration: none; }
 .overlay .card > .x-close:hover { color: #fff; }
@@ -1179,13 +1183,13 @@ body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigte
 #placeBar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) + 168px); width: min(100vw - 16px, 520px); z-index: 2; display: flex; flex-direction: column; gap: 8px; }
 #placeBar[hidden] { display: none; }
 .place-who { display: flex; align-items: center; gap: 10px; padding: 6px 10px; }
-.place-who img { width: 48px; height: 48px; image-rendering: pixelated; flex: none; }
+.place-who img { width: 52px; height: 52px; image-rendering: pixelated; flex: none; }
 .place-who b { display: block; font-weight: 400; font-size: 20px; color: var(--px-gold); line-height: 1; }
 .place-who small { font-size: 14px; color: var(--soft); }
 #placeActs { display: flex; gap: 8px; align-items: stretch; }
 #placeActs .act { flex: 1; justify-content: center; }
 body.compact #placeBar { bottom: calc(var(--bottom) + 124px); }
-body.compact .place-who img { width: 36px; height: 36px; }
+body.compact .place-who img { width: 39px; height: 39px; }
 /* errands: a keeper's marks by the name (lit once a wish is brought), the wish in one quiet line, one clear button when you have it;
    the bed's fourth plot; and the lines of a keeper's own story under their card in the Book */
 .place-who .marks { display: inline-flex; gap: 2px; margin-left: 8px; vertical-align: middle; }

@@ -189,8 +189,10 @@ function openShop() {
   const tabs = `<div class="shop-tabs">${TABS.map(([id, icon, name]) => `<button data-shoptab="${id}" class="${st.tab === id ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`;
   let body = "";
   if (st.tab === "look") {
-    const now = currentTheme(), view = roomView();
+    // away from home the switch shows what you chose for your rooms, not the diorama you're standing in
+    const now = currentTheme(), view = awayPlace() ? (save.view === "front" ? "front" : "iso") : roomView();
     body = `<h3>${tr("View")}</h3><div class="seg view-seg"><button data-view="front" class="${view === "front" ? "on" : ""}">${tr("Straight on")}</button><button data-view="iso" class="${view === "iso" ? "on" : ""}">${tr("Isometric")}</button></div>`
+      + (awayPlace() ? `<p class="sub">${tr("This is for your rooms. The garden and the places in the valley are always seen from the corner.")}</p>` : "")
       + `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : !save.room ? "The nest is always tucked away in a cave, a grotto or a hollow." : "This room can take any backdrop you've found.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
         const ok = t.ok();
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
@@ -264,8 +266,8 @@ const WORLD = [
   { id: "nest", name: "Nest", icon: "nest", at: [246, 64], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
   { id: "lab", name: "Laboratory", icon: "flask", at: [266, 172], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => arriveAt("lab") },
   { id: "shop", name: "Shop", icon: "stall", at: [250, 256], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: () => arriveAt("shop") },
-  { id: "garden", name: "Garden", icon: "sun", at: [172, 238], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : wickHere() ? tr("Wick is visiting today") : tr("grows what no shop sells"), call: () => ripePlots() > 0 || wickHere(), go: () => arriveAt("yard") },
-  { id: "trail", name: "Expeditions", icon: "compass", at: [276, 318], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: () => arriveAt("camp") },
+  { id: "garden", name: "Garden", icon: "sun", at: [172, 238], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : tr("grows what no shop sells"), call: () => ripePlots() > 0, go: () => arriveAt("yard") },
+  { id: "trail", name: "Expeditions", icon: "compass", at: [276, 318], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => wickHere() ? tr("Wick is visiting today") : onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), call: () => wickHere(), go: () => arriveAt("camp") },
 ];
 const placeOk = id => { const w = WORLD.find(x => x.id === id); return !w.ok || w.ok(); };
 /** A place that has just opened: noted once, with a toast and a "new" tag on the map until you've looked. */
@@ -501,7 +503,7 @@ function gardenHelp(cr) {
   if (i >= 0 && waterPlot(i, cr)) toast(tr("{0} watered the {1} 💧", cr.name, seedName(g.slots[i].seed).toLowerCase()));
 }
 
-// ---------- Wick, the travelling moth: every third day, outside, with a few wares from the deep and some gossip for free ----------
+// ---------- Wick, the travelling moth: every third day, at the explorers' camp, with a few wares from the deep and some gossip for free ----------
 
 const WICK_WARES = {
   biteleaf: { name: "Biteleaf seed", note: "the one that bites, no questions asked", cost: 50, icon: () => plantImage("biteleaf", 3), give: () => { garden().seeds.biteleaf = (garden().seeds.biteleaf || 0) + 1; } },
@@ -535,8 +537,10 @@ function wickToday() {
   if (!save.wick || save.wick.day !== day) save.wick = { day, sold: [] };
   return { wares: pickN, sold: save.wick.sold, gossip: WICK_GOSSIP[Math.floor(r() * WICK_GOSSIP.length)] };
 }
-/** Where Wick hovers outside: at the front right of the yard, lantern in hand. */
-const wickSpot = () => isoAt(0.86, 0.72);
+/** Wick stops where travellers do: at the explorers' camp, where the trail comes up from the deep (a moth, he keeps by the lamp). */
+const wickRoom = () => save.rooms[save.room]?.kind === "camp";
+/** Where Wick hovers there: by the camp's lamp, in front of the tent, a lantern of his own in hand. */
+const wickSpot = () => isoAt(0.95, 0.42);
 let wickImg = null;
 /**
  * Wick, drawn by hand at the room's own pixel size like the keepers (one of his pixels to one of the room's):
@@ -582,7 +586,7 @@ function drawWick() {
   ctx.imageSmoothingEnabled = false;
   ctx.drawImage(img, left, top + bob, wid, hgt);
 }
-const wickAt = (x, y) => { if (!(isOutside() && N.iso && wickHere())) return false; const [wx, wy] = wickSpot(); return Math.hypot(x - wx, y - (wy - N.base * 0.6)) < N.base * 0.55; };
+const wickAt = (x, y) => { if (!(wickRoom() && N.iso && wickHere())) return false; const [wx, wy] = wickSpot(); return Math.hypot(x - wx, y - (wy - N.base * 0.6)) < N.base * 0.55; };
 function openWick() {
   sfx.voice(WICK.voice); sfx.tick();
   const t = wickToday(), end = new Date(); end.setHours(24, 0, 0, 0);
@@ -946,10 +950,10 @@ const HEROES = {
     lines: ["Hot today. It's always hot today.", "I want to forge a bell that rings in every cave at once. One day.", "The deeper caves have stubborn stone. Sharpen up!", "I once forged a hammer so light it floated off. Never again.", "Tap where it glows. That's the weak spot. Everyone forgets."] },
   camp: { who: PIP, eyes: [[5, 6, 1, 1, "#3d2866"], [10, 6, 1, 1, "#3d2866"]], quirk: "startle", icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
     hello: ["Oh! Hello! I'm Pip, I map the tunnels. Well, I try.", "Send me a glowling and we'll go exploring for a few hours.", "We always come back with something: seeds, shards, the odd geode."],
-    lines: ["I've drawn this map three times. The tunnels keep moving.", "Do you think the Gloom has a map? I'd like to see it. From far away.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it."] },
+    lines: ["I've drawn this map three times. The tunnels keep moving.", "Do you think the Gloom has a map? I'd like to see it. From far away.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it.", "Wick lands by my lamp every third day. Moths love a lantern."] },
   yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "curl", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sprout", "Garden bed", () => openGarden()], ["walk", "A walk", () => openWalk()]],
     hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
-    lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick visits every third day. Moths love a lantern."],
+    lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick brings seeds up from the deep. Odd ones. I plant them anyway."],
     // his wishes, one at a time and in this order (see the errands below); the thanks for the last is the bed's fourth plot (see gardenSlots)
     mark: "leaf", thanks: "From Fennel: {0}", calm: "A harebell, a pond one pebble deep, and company. I don't need a thing. Stay a while, if you like.",
     asks: [

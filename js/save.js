@@ -47,6 +47,11 @@ function moonSaveOf(m, d) {
  *  A save from before the niches has cracked none, so whichever its stars already reach are simply open. */
 const cacheSaveOf = c => Object.fromEntries(Object.entries(c && typeof c === "object" && !Array.isArray(c) ? c : {}).filter(([k, v]) => /^\d$/.test(k) && Array.isArray(v)).map(([k, v]) => [k, [v[0] === true, v[1] === true]]));
 
+/** The friend's charm hung on the nest's wall (see gifts.js), kept apart from the chest's list of charms so it stays when
+ *  that list is trimmed: what kind, who it's from and when it came. Anything else there is dropped. */
+const hungSaveOf = h => h && typeof h === "object" && !Array.isArray(h) && typeof h.c === "string" && /^[a-z]{1,16}$/.test(h.c)
+  ? { c: h.c, from: typeof h.from === "string" ? [...h.from.replace(/[\u0000-\u001f\u007f]/g, "").trim()].slice(0, 24).join("") : "", at: Number.isFinite(h.at) ? h.at : 0 } : null;
+
 /** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
 function migrate(d) {
   d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {}; d.forge = d.forge || {};
@@ -91,6 +96,9 @@ function migrate(d) {
   d.wards = wardSaveOf(d.wards);
   // star niches (see scenes.js): which heart geodes have been cracked
   d.caches = cacheSaveOf(d.caches);
+  // a friend's charm on the wall, if one hangs there
+  const hung = hungSaveOf(d.hung);
+  if (hung) d.hung = hung; else delete d.hung;
   d.v = SAVE_VERSION;
   return d;
 }
@@ -363,7 +371,8 @@ function computeLayout() {
 /** Which way the room is seen: isometric (the default) or straight on. ?view=front tries it without saving. */
 function roomView() {
   const q = /[?&]view=(iso|front)\b/.exec(location.search);
-  if (save.rooms && isOutside()) return "iso";
+  // the garden and the valley's places are built only as dioramas: straight on they'd be an empty room with the nest's bed in it
+  if (save.rooms && (isOutside() || isPlace())) return "iso";
   return q ? q[1] : save.view === "front" ? "front" : "iso";
 }
 /** Isometric floor coordinates: u runs from the back corner to the right corner, v from the back corner to the left one. */
