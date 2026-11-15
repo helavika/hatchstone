@@ -819,10 +819,10 @@ const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1
   furnace: { fw: 2, fd: 2, at: [1, 0] }, bellows: { fw: 1, fd: 1, at: [3, 0] }, anvil: { fw: 1, fd: 1, at: [3, 3] }, coalbin: { fw: 1, fd: 1, at: [0, 3] }, rack: { fw: 2, fd: 1, at: [4, 0] }, barrel2: { fw: 1, fd: 1, at: [2, 3] },
   tent: { fw: 2, fd: 2, at: [3, 0] }, campfire: { fw: 1, fd: 1, at: [2, 3] }, logs: { fw: 2, fd: 1, at: [0, 4] }, packs: { fw: 1, fd: 1, at: [1, 1] }, camplamp: { fw: 1, fd: 1, at: [5, 3] }, maptable: { fw: 1, fd: 1, at: [1, 2] },
   greenhouse: { fw: 2, fd: 2, at: [0, 0] }, skep: { fw: 1, fd: 1, at: [0, 5] }, coldframe: { fw: 2, fd: 1, at: [3, 5] }, potting: { fw: 1, fd: 2, at: [0, 2] }, sunflowers: { fw: 1, fd: 1, at: [5, 3] }, barrow: { fw: 1, fd: 1, at: [3, 0] },
-  tunnel: { fw: 2, fd: 1, at: [2, 0] }, wallmap: { fw: 1, fd: 2, at: [0, 1] }, altar: { fw: 1, fd: 1, at: [2, 3] }, shrine: { fw: 1, fd: 1, at: [4, 3] },
+  tunnel: { fw: 2, fd: 1, at: [2, 0] }, wallmap: { fw: 1, fd: 2, at: [0, 1] }, altar: { fw: 1, fd: 1, at: [2, 3] }, shrine: { fw: 1, fd: 1, at: [4, 3] }, wickbench: { fw: 1, fd: 2, at: [0, 3] }, halllamp: { fw: 1, fd: 1, at: [5, 0] },
   labdesk: { fw: 2, fd: 1, at: [2, 0] }, jars: { fw: 1, fd: 1, at: [0, 1] }, scope: { fw: 1, fd: 1, at: [4, 4] }, books: { fw: 1, fd: 1, at: [5, 0] } };
 /** What each kind of room comes with (anything not listed has just its bed). */
-const ROOM_FIXED = { grotto: ["tunnel", "wallmap", "altar", "shrine"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow", "skep", "coldframe"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "bellows", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp", "maptable"] };
+const ROOM_FIXED = { grotto: ["tunnel", "wallmap", "altar", "shrine", "wickbench", "halllamp"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow", "skep", "coldframe"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "bellows", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp", "maptable"] };
 /** The places' own furniture: not decorations to play with. */
 const PLACE_PROPS = new Set(Object.values(ROOM_FIXED).flat().filter(id => !["bed", "garden", "incubator"].includes(id)));
 
@@ -947,6 +947,11 @@ function isoKit(T, x0, y0) {
     ring: (u, v, z, r, col) => { const [x, y] = P(u, v, z), rx = r * 2.83; for (let dx = -Math.floor(rx) + 1; dx < rx; dx++) T.px(x + dx, y + rx / 2 * Math.sqrt(Math.max(0, 1 - (dx / rx) ** 2)), col); },
   };
   return K;
+}
+/** A small brass lantern, lit, like the ones Wick carries (see WICK_NATIVE.lamp): 6 wide and 9 tall, its top left at (x, y). */
+function isoLantern(T, x, y) {
+  const col = { o: IC.w1, g: IC.y1, h: IC.y0, W: IC.white, f: pxHex("#ffb54a"), b: IC.w2 };
+  ["..oo..", ".o..o.", ".ggoo.", "ggoooo", "ohhhho", "ohWWho", "ofWWfo", "offffo", "ooobbb"].forEach((r, j) => [...r].forEach((ch, i) => { if (ch !== ".") T.px(Math.round(x) + i, Math.round(y) + j, col[ch]); }));
 }
 /** A cask of upright staves: bellied in the middle, the lit side to the left, a seam between each stave, iron hoops with a
  *  glint, and on top a lid of boards with a bung (or whatever fills it). (x, y) is the middle of its foot, rx its radius. */
@@ -1532,6 +1537,21 @@ const ISO_ART = {
       T.glow(cx, cyy - hh - 2, t * 0.55, IC.y0, 0.4);
       T.px(cx, cyy - hh - 1, IC.y1); T.px(cx, cyy - hh - 2, IC.y0); T.px(cx, cyy - hh - 3, IC.white); T.px(cx + 1, cyy - hh - 1, IC.r1);
     }
+  },
+  wickbench(t, T, ax, ay) {
+    // the bench by the wall where Wick sits to tend the hall's lanterns: a worn plank on two trestles, set a little down the
+    // wall from the map (it stops short of the crystal in the corner), and on a nail in the rock beyond it one of the
+    // lanterns he keeps. He and the row of lanterns on the seat are drawn over it: see drawWick.
+    const U = t / 2, K = isoKit(T, ax, ay), du = 0.5 * U, u0 = WICK_SEAT.u * U - du / 2, v0 = WICK_SEAT.v0 * U, dv = WICK_SEAT.len * U, hz = Math.round(t * WICK_SEAT.z);
+    { const [x, y] = K.P(0.04 * U, 2.05 * U, Math.round(t * 2.05)); T.glow(x, y + 5, t * 0.6, IC.y0, 0.3); T.line(x, y - 2, x, y - 1, IC.m3); isoLantern(T, x - 3, y); }
+    for (const v of [v0 + 0.18 * U, v0 + dv - 0.3 * U]) K.box(u0 + 0.06 * U, v, 0, du - 0.12 * U, 0.12 * U, hz - 2, IC.w2, IC.w2, IC.w3);
+    K.box(u0, v0, hz - 2, du, dv, 2, IC.w1, IC.w2, IC.w3);
+    K.seg([u0 + du / 2, v0 + 1, hz], [u0 + du / 2, v0 + dv - 1, hz], IC.w2);
+  },
+  halllamp(t, T, ax, ay) {
+    // one of the hall's lanterns, hung on a nail in the rock of the right wall, about head height
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.04 * U, Math.round(t * 2.05));
+    T.glow(x, y + 5, t * 0.6, IC.y0, 0.3); T.line(x, y - 2, x, y - 1, IC.m3); isoLantern(T, x - 3, y);
   },
   wallmap(t, T, ax, ay) {
     // the map of the levels pinned high on the wall: aged parchment darker at its edges with a curling corner, four caverns
@@ -4217,7 +4237,7 @@ function drawRoomIso() {
   // each piece casts a soft shadow on the floor, away from the light (top left), before anything is drawn on it
   ctx.save(); ctx.fillStyle = "rgba(10,4,24,.36)";
   for (const p of Object.values(isoLayout().placed)) {
-    if (["rack", "wallmap", "swing", "shelves", "shelves2", "jars", "bed"].includes(p.id)) continue;
+    if (["rack", "wallmap", "halllamp", "swing", "shelves", "shelves2", "jars", "bed"].includes(p.id)) continue;
     const g0 = ISO_G, k = 0.28, pts = [[p.i + k, p.j], [p.i + p.fw + k, p.j], [p.i + p.fw + k, p.j + p.fd], [p.i + k, p.j + p.fd]].map(([u, v]) => isoAt(u / g0, v / g0));
     ctx.beginPath(); pts.forEach(([x, y], n) => n ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill();
   }
