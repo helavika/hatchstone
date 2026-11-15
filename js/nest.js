@@ -801,10 +801,55 @@ function tellTrips() {
 
 // ---------- a glowling's own card: its best friend, and a diary of what it has lived through ----------
 
+/** A glowling's diary keeps this many lines. */
+const DIARY_MAX = 40;
+/** The lines a full diary never lets go of: how it came to be, each time it grew up, its first friend, its first stroke
+ *  and its first game. (Everything else, the oldest first, makes room for what's new.) */
+const diaryKeeps = (mem, i) => /^(Hatched|Freed from|Grew up|First )/.test(mem[i].k) || (/^Became friends/.test(mem[i].k) && mem.findIndex(m => /^Became friends/.test(m.k)) === i);
+/** The same wish come true again isn't a new line: it joins the one before, which counts the times (n) and moves up to the
+ *  newest. (An older diary with the same wish many times over folds up the same way.) */
+function diaryFold(mem) {
+  const out = [];
+  for (const m of mem) {
+    if (!m || typeof m.k !== "string") continue;
+    const j = /^Wished/.test(m.k) ? out.findIndex(o => o.k === m.k) : -1;
+    if (j < 0) { out.push(m); continue; }
+    const was = out.splice(j, 1)[0];
+    out.push({ ...m, n: (was.n || 1) + (m.n || 1) });
+  }
+  return out;
+}
 /** Keep a moment in a glowling's diary (the words are translated when shown, so they follow the language). */
 function remember(cr, text, ...args) {
   if (!cr) return;
-  cr.mem = [...(cr.mem || []), { t: Date.now(), k: text, a: args }].slice(-40);
+  const mem = diaryFold([...(cr.mem || []), { t: Date.now(), k: text, a: args }]);
+  while (mem.length > DIARY_MAX) { const i = mem.findIndex((_, i) => !diaryKeeps(mem, i)); mem.splice(Math.max(0, i), 1); }
+  cr.mem = mem;
+}
+/** A first worth a line of its own (a stroke, a game), written once. Only for a glowling born since the diary began to
+ *  keep firsts (see diaryFrom in migrate): an older one's real first was long ago, and the diary won't make one up. */
+function rememberFirst(cr, text, ...args) {
+  if (cr && (cr.born || 0) >= (save.diaryFrom || 0) && !(cr.mem || []).some(m => m && m.k === text)) remember(cr, text, ...args);
+}
+/** A wish's diary line (see FANCIES in save.js) once it has come true more than once: {0} is how many times. */
+const DIARY_MANY = {
+  "Wished for rain and got it": "Wished for rain {0}, and got it every time",
+  "Wished for a splash and got one": "Wished for a splash {0}, and got one every time",
+  "Wished for a song and got one": "Wished for a song {0}, and got one every time",
+  "Wished for a walk and got one": "Wished for a walk {0}, and got one every time",
+  "Wished for a new picture and got one": "Wished for a new picture {0}, and got one every time",
+  "Wished for a look at the stars and got one": "Wished for a look at the stars {0}, and got one every time",
+  "Wished for a push on the swing and got one": "Wished for a push on the swing {0}, and got one every time",
+  "Wished for the lamp turned off, and it was": "Wished for the lamp turned off {0}, and it was every time",
+  "Wished to catch sparkles, and did": "Wished to catch sparkles {0}, and did every time",
+  "Wished for a bounce on the mushrooms and got one": "Wished for a bounce on the mushrooms {0}, and got one every time",
+  "Wished for twinkling lights and got them": "Wished for twinkling lights {0}, and got them every time",
+  "Wished for snow and got it": "Wished for snow {0}, and got it every time",
+};
+/** One line of the diary in words: a wish that came true several times says how many. */
+function diaryLine(m) {
+  const many = m.n > 1 && DIARY_MANY[m.k];
+  return many ? tr(many, m.n + " " + pl(m.n, "time", "times")) : tr(m.k, ...(m.a || []).map(x => typeof x === "string" ? tr(x) : x));
 }
 /** Its best friend: whoever it has met most often, if they still live with you. */
 function bestFriend(cr) {
@@ -824,7 +869,7 @@ function openGlowling(cr) {
       : `<p class="me-hint">${tr("No best friend yet. Glowlings who live in the same room meet and make friends by themselves.")}</p>`)
     + `<h3>${tr("Diary")}</h3>`
     // newest first; the day it hatched closes the list (unless the diary already tells how)
-    + `<ul class="diary">${(cr.mem || []).slice().reverse().map(m => `<li><b>${day(m.t)}</b><span>${tr(m.k, ...m.a.map(x => typeof x === "string" ? tr(x) : x))}</span></li>`).join("")}${(cr.mem || []).some(m => /^Hatched/.test(m.k)) ? "" : `<li><b>${day(cr.born)}</b><span>${tr("Hatched and moved in ✦")}</span></li>`}</ul>`;
+    + `<ul class="diary">${diaryFold(cr.mem || []).reverse().map(m => `<li><b>${day(m.t)}</b><span>${diaryLine(m)}</span></li>`).join("")}${(cr.mem || []).some(m => /^Hatched/.test(m.k)) ? "" : `<li><b>${day(cr.born)}</b><span>${tr("Hatched and moved in ✦")}</span></li>`}</ul>`;
   show("glowCard", true);
 }
 
@@ -1624,8 +1669,9 @@ const homeCap = () => (N.iso ? (W < 520 ? 5 : 8) : H < 700 ? 6 : W < 520 ? ROOM_
 /** Making the nest roomier: each step is one more place at home. */
 const NEST_UP_COST = [150, 300, 500];
 /**
- * Too many for the room: whoever has been home longest goes exploring (never the one you picked, and not a sleeper
- * if it can be helped). Room to spare: the longest-gone explorer comes back. Returns who just left.
+ * Too many for the room: whoever came home last goes exploring (never the one you picked, never your very first
+ * glowling, and not a sleeper if it can be helped), so the ones who've lived here longest stay. Room to spare: the
+ * longest-gone explorer comes back. Returns who just left.
  */
 function settleHome() {
   const cap = homeCap(), sent = [], homes = save.rooms.map((_, i) => i).filter(i => !isPlace(i));
@@ -1634,8 +1680,8 @@ function settleHome() {
   for (const r of homes) {
     let home = residents(r);
     while (home.length > cap) {
-      const free = home.filter(c => c.id !== save.active), awake = free.filter(c => !c.sleeping);
-      const c = (awake.length ? awake : free).sort((p, q) => (p.homeAt || p.born || 0) - (q.homeAt || q.born || 0))[0];
+      const others = home.filter(c => c.id !== save.active), free = others.filter(c => c !== save.creatures[0]), awake = free.filter(c => !c.sleeping);
+      const c = (awake.length ? awake : free.length ? free : others).sort((p, q) => (q.homeAt || q.born || 0) - (p.homeAt || p.born || 0))[0];
       if (!c) break;
       c.out = true; c.outAt = Date.now(); c.sleeping = false; c.selfSlept = false;
       home = home.filter(h => h !== c); sent.push(c);

@@ -92,6 +92,8 @@ function migrate(d) {
     const o = d.wardrobe[t.id];
     if (o && !(o.ks && Array.isArray(o.ks) && o.ks.length && o.ks.every(k => KS[k] && KS[k].kind === t.kind))) d.wardrobe[t.id] = { ks: [t.kind === "feather" ? "jay" : "daisy"], at: Date.now() };
   }
+  // the diary keeps a glowling's first stroke and first game from now on (see rememberFirst): older ones' were long ago
+  if (!Number.isFinite(d.diaryFrom)) d.diaryFrom = Date.now();
   // the postcard's border of pressed flowers and feathers: on unless you've turned it off
   if (typeof d.cardBorder !== "boolean") d.cardBorder = true;
   // wardstones (see wards.js): the ones in hand and the ones set on the map
