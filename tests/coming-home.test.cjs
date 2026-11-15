@@ -233,7 +233,8 @@ test('home after 25 hours or three days: the whole welcome, as before, and no to
     assert.equal(said[0][1], LOOKED_IN);
     assert.equal(toasts.length, 0);
     assert.equal(glad.length, 1);
-    assert.deepEqual([cr.tummy, cr.joy, cr.energy], [page.KEPT, page.KEPT, page.KEPT]);
+    // (a few milliseconds pass between Mossa's visit and the check, and the needs drift by a hair)
+    for (const v of [cr.tummy, cr.joy, cr.energy]) assert.ok(Math.abs(v - page.KEPT) < 0.01, String(v));
     assert.equal(page.xp, 30);
   }
 });
