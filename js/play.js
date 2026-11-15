@@ -1616,6 +1616,7 @@ function endCatch() {
   cr.joy = clamp(cr.joy + joy, 0, 100);
   save.shards += shards;
   addXP(cr, xp);
+  rememberFirst(cr, "First game with you: {0}", "Sparkle catch");
   fancyDone("catch", [cr.id]);
   persist();
   $("catchTitle").textContent = g.score >= 25 ? tr("Sparkle storm! ✦") : g.score >= 12 ? tr("Great catch!") : tr("Fun!");
@@ -1741,6 +1742,7 @@ function endEcho() {
   cr.joy = clamp(cr.joy + joy, 0, 100);
   save.shards += shards;
   addXP(cr, xp);
+  rememberFirst(cr, "First game with you: {0}", "Echo song");
   fancyDone("song", [cr.id]);
   persist();
   $("catchTitle").textContent = g.score >= 10 ? tr("Perfect pitch! ✦") : g.score >= 5 ? tr("Lovely song!") : tr("Fun!");

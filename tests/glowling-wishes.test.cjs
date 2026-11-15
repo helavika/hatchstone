@@ -19,7 +19,7 @@ const fancySrc = [
   cut(nestJs, 'const BEHAVIOR = {', '\n};', 'the kinds of glowling should be one list in nest.js') + '\n};',
   line(nestJs, /^const kindOf = .*$/m, 'kindOf should be one line in nest.js'),
   line(nestJs, /^const hasDecor = .*$/m, 'hasDecor should be one line in nest.js'),
-  cut(nestJs, '/** Keep a moment in a glowling\'s diary', '/** Its best friend', 'the diary should sit in nest.js, before bestFriend'),
+  cut(nestJs, '/** A glowling\'s diary keeps', '/** Its best friend', 'the diary should sit in nest.js, before bestFriend'),
   callsSrc,
   line(isoJs, /^const content = .*$/m, 'content should be one line in iso.js'),
   cut(saveJs, '// ---------- glowling fancies', '// ---------- layout ----------', 'the daydreams should sit in save.js, before the layout'),

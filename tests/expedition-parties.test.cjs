@@ -14,7 +14,7 @@ const tripsSrc = [
   cut(nestJs, 'const BEHAVIOR = {', '\n};', 'the kinds of glowling should be one list in nest.js') + '\n};',
   cut(nestJs, 'const TRIP_PLACES = [', '/** The send-off sheet', 'the expeditions should sit in nest.js, before their sheet'),
   cut(nestJs, '/** Off they go', '/** Coming back to the nest', 'sendTrip should sit in nest.js, before tellTrips'),
-  cut(nestJs, '/** Keep a moment in a glowling\'s diary', '/** Its best friend', 'the diary should sit in nest.js, before bestFriend'),
+  cut(nestJs, '/** A glowling\'s diary keeps', '/** Its best friend', 'the diary should sit in nest.js, before bestFriend'),
 ].join('\n');
 
 const H = 3600e3, KINDS = ['flutter', 'hop', 'nap', 'dance', 'curious', 'swim'];

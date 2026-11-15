@@ -15,7 +15,7 @@ const line = (src, re, what) => { const m = src.match(re); assert.ok(m, what); r
 const playJs = read('play.js'), nestJs = read('nest.js'), i18n = read('i18n.js'), giftsJs = read('gifts.js'), saveJs = read('save.js');
 const visitSrc = [
   line(nestJs, /^const areFriends = .*$/m, 'areFriends should be one line in nest.js'),
-  cut(nestJs, 'function remember(', '\n}\n', 'remember should sit in nest.js') + '\n}',
+  cut(nestJs, '/** A glowling\'s diary keeps', '/** A first worth', 'the diary and its remember should sit in nest.js'),
   line(giftsJs, /^const CHARMS = .*$/m, 'the charms should be one line in gifts.js'),
   line(giftsJs, /^const charmHung = .*$/m, 'charmHung should be one line in gifts.js'),
   line(saveJs, /^const wallAt = .*$/m, 'wallAt should be one line in save.js'),

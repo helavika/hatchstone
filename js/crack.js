@@ -456,7 +456,7 @@ function renderTaskPill() {
   const t = todayTasks(), n = t.ids.filter(i => t.done[i]).length;
   $("taskCount").innerHTML = `${ic("tasks")}${n}/${t.ids.length}`;
   $("taskPill").title = tasksName(true);
-  // (new tasks can wait out the first minute home after a day or more: see homeQuiet)
+  // (new tasks can wait out the first minute home after Mossa looked in: see homeQuiet)
   $("taskPill").classList.toggle("fresh", n === 0 && !t.seen && !homeQuiet());
 }
 
@@ -854,7 +854,8 @@ function adopt(e) {
     save.creatures.push(mine);
     adopt.sibling = false;
     note = e.shiny ? tr("A shiny one! It sparkles in your nest now ✦") : tr("{0} moved into your nest", sp.name);
-    if (!e.conf.coop) remember(mine, e.conf.gloom ? "Freed from the Gloom's seal at the end of the {0}" : e.conf.moon ? "Hatched from a moon egg 🌙" : "Hatched from a {0} geode", e.conf.gloom ? CAVES[e.conf.gloom - 1] : e.crystal.name);
+    if (e.conf.coop) remember(mine, "Hatched from a {0} geode, cracked together with a friend ♥", e.crystal.name);
+    else remember(mine, e.conf.gloom ? "Freed from the Gloom's seal at the end of the {0}" : e.conf.moon ? "Hatched from a moon egg 🌙" : "Hatched from a {0} geode", e.conf.gloom ? CAVES[e.conf.gloom - 1] : e.crystal.name);
   }
   save.active = mine.id;
   return { isNew, note, mine };
