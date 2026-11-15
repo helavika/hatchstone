@@ -511,7 +511,6 @@ function tapWard(key) {
   sfx.thud(); setTimeout(() => sfx.shimmer(), 700); buzz([10, 40, 20]);
   bump("warded");
   persist();
-  if (coreAdd("ward")) setTimeout(() => worldOpen() && toast(tr("You stood guard. Your core grew a little ✦")), 3400);
   if (wardDone(id)) wm.lifting = id;
   wmWardButtons(); wardHand();
   if (wardDone(id)) setTimeout(() => {

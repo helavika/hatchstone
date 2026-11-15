@@ -449,8 +449,8 @@ function drawChain() {
 function drawSwings() {
   game.swings = game.swings.filter(w => game.time - w.t < 320);
   if (game.scene !== "crack") return;
-  // the tool grows with each Granite fist level
-  const u = Math.max(PX, Math.round(3.2 * L.k / PX) * PX) * (1 + Math.min(5, forgeLvl("heft")) * 0.08);
+  // the tool grows with each point of Strength
+  const u = Math.max(PX, Math.round(3.2 * L.k / PX) * PX) * (1 + Math.min(SKILL_MAX, skill("str")) * 0.08);
   ctx.imageSmoothingEnabled = false;
   for (const w of game.swings) {
     const a = (game.time - w.t) / 1000, ang = a < 0.07 ? -1.1 * (1 - a / 0.07) : 0;
@@ -518,7 +518,7 @@ function frame(now) {
     if (game.shake > 0.3 && !opts().calm) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     drawCushion(L.ecx, L.floor + 4, L.ew * 0.62);
     const cx = Math.min(L.ew * 0.66, W / 2 - 8 * PX);
-    drawCandle(L.ecx - cx, L.floor + 8, 12, 0); (coreGift("lantern") ? drawCoreLantern : drawCandle)(L.ecx + cx, L.floor + 10, 8, 2.1);
+    drawCandle(L.ecx - cx, L.floor + 8, 12, 0); (keeperGift("lantern") ? drawEggLantern : drawCandle)(L.ecx + cx, L.floor + 10, 8, 2.1);
     drawEgg();
     drawPieces();
     ctx.restore();
@@ -781,6 +781,5 @@ if (/[#&?]tgWebApp/.test(location.hash + location.search)) {
 
 // ---------- once every script has loaded: timers that reach across them ----------
 game.actors = actors;
-Object.assign(TALKS, CORE_TALKS);
 giftWire();
 setInterval(() => { if (game.scene !== "menu" && !talkNow) checkAwards(); }, 1500);

@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { sparkSaveOf } = require('../js/sparks.js');
-const { coreSaveOf } = require('../js/inner.js');
+const { keeperMigrate } = require('../js/inner.js');
 const { KEEPSAKES, KEEP_WEAR, WALK_FINDS, walkSaveOf, keepsakePick, jarOf, keepjarView } = require('../js/walk.js');
 const { wardSaveOf } = require('../js/wards.js');
 
@@ -45,7 +45,7 @@ function nest(save = {}, rnd = () => 0.5) {
 function load(d) {
   const page = {
     SAVE_KEY: 'k', BAK_KEY: 'k.bak', localStorage: { getItem: k => k === 'k' && d ? JSON.stringify(d) : null, setItem: () => {} },
-    sparkSaveOf, coreSaveOf, walkSaveOf, wardSaveOf, KEEP_WEAR, KS,
+    sparkSaveOf, keeperMigrate, walkSaveOf, wardSaveOf, KEEP_WEAR, KS,
   };
   vm.runInNewContext(saveSrc + '\nthis.loaded = loadSave();', page);
   // (through JSON, as it would be written: what isn't there isn't kept)

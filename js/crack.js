@@ -353,14 +353,14 @@ function burst(x, y, n, colors, speed = 1) {
 }
 
 // ---------- the forge: shards buy hammer upgrades that last forever ----------
+// (how hard a tap hits is the keeper's Strength alone: the Forge's Granite Fist went into it, see keeperMigrate in inner.js)
 const FORGE = [
-  { id: "heft", name: "Granite Fist", icon: "hammer", cost: [25, 50, 90, 140, 200], what: l => tr("taps hit {0}% harder", l * 15) },
   { id: "eye", name: "Quarry Eye", icon: "eye", cost: [40, 90, 160], what: l => ["", tr("a faint glow shows the weak spot on hard stone"), tr("the weak spot glows brighter"), tr("the weak spot glows even in the deepest caves")][l] },
   { id: "echo", name: "Thunder Echo", icon: "bell", cost: [60, 120, 200], what: l => tr("{0}% of taps ring twice, for 60% more", l * 10) },
   { id: "magpie", name: "Finder's Sack", icon: "pouch", cost: [30, 70, 120, 180], what: l => tr("stone broken at the weak spot pays {0}% more", Math.round(l * SACK_PAY * 100)) },
 ];
 const forgeLvl = id => (save.forge && save.forge[id]) || 0;
-/** Hammer looks: each shows when you tap the stone (the tool swings, bigger with Granite fist upgrades) and changes the sparks. */
+/** Hammer looks: each shows when you tap the stone (the tool swings, bigger with each point of Strength) and changes the sparks. */
 // brutal tools for a cute game: sledges, thorns, picks and cleavers, each drawn as its own pixel silhouette (H h d head, L l handle, S spikes, r g G trim and glow)
 const TOOL_SKINS = [
   { id: "classic", name: "Rusty Sledge", cost: 0, note: "old, heavy and honest", head: ["#e4dfe8", "#b9b3c0", "#5d5666"], handle: ["#c98f3a", "#5e3a1c"], r: "#b8603a", g: "#ffffff", G: "#ffffff",
@@ -483,11 +483,11 @@ function flashButton(id) {
   setTimeout(() => el.classList.remove("point"), 4000);
 }
 
-/** How hard a tap hits: the hammer plus its upgrades. Shared eggs use the plain hammer, so both friends are even. */
+/** How hard a tap hits: your Strength, and now and then Thunder Echo. Shared eggs use the plain hammer, so both friends are even. */
 function tapPower() {
   if (game.egg && game.egg.conf.coop) return { power: 1, echo: false };
   const echo = Math.random() < forgeLvl("echo") * 0.1;
-  return { power: Math.round((1 + forgeLvl("heft") * 0.15) * (1 + skill("str") * 0.05) * (echo ? 1.6 : 1) * 100) / 100, echo };
+  return { power: Math.round((1 + skill("str") * STR_STEP) * (echo ? 1.6 : 1) * 100) / 100, echo };
 }
 
 function openForge() {
@@ -889,7 +889,7 @@ function showFound() {
   checkThemes();
   taskDone("crack");
   if (shine >= 0.8) taskDone("polish");
-  if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); coreTried(); }
+  if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); habitTried(); }
 
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
@@ -1333,7 +1333,7 @@ document.addEventListener("keydown", ev => { if (talkNow && (ev.key === " " || e
 const talkLater = [];
 function talkMoments(scene) {
   if (!["nest", "map", "lib"].includes(scene) || !$("found").classList.contains("hidden")) return;
-  coreMoments(scene);
+  habitMoments(scene);
   while (talkLater.length) talk(...talkLater.shift());
   if (scene === "nest" && save.creatures.length) talk("firstPet");
   if (scene === "nest") tellTrips();

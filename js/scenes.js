@@ -134,8 +134,8 @@ function setScene(scene) {
   if (scene !== "nest" && arrange.on) stopArrange();
   // into or out of cracking: the pixel size changes (finer everywhere else), so everything is laid out again
   const wasCrack = game.scene === "crack";
-  // an egg left before it opened: no harm done, but going back to the stone after it counts (see coreTried)
-  if (wasCrack && scene !== "crack" && game.egg?.state === "cracking" && game.egg.taps > 0 && !game.egg.conf.coop) coreFell();
+  // an egg left before it opened: no harm done, but going back to the stone after it counts (see habitTried)
+  if (wasCrack && scene !== "crack" && game.egg?.state === "cracking" && game.egg.taps > 0 && !game.egg.conf.coop) habitFell();
   if (game.scene === "nest" && scene !== "nest") sfx.purrOff();
   game.scene = scene;
   if (wasCrack !== (scene === "crack") && W) refit();
@@ -222,28 +222,25 @@ function openOpts() {
 // ---------- you, the keeper: your name, how Mossa speaks to you, and a keeper level with skills to grow ----------
 
 /** How the Ukrainian lines address you: she, he, or neither (the default). */
-const me = () => (save.me = save.me || { name: "", form: "n", xp: 0, pts: 0, skill: { str: 0, care: 0, luck: 0 } });
+const me = () => (save.me = save.me || meFresh());
 const myName = () => me().name || tr("friend");
 /** Pick the right ending for you in Ukrainian: gform("знайшла", "знайшов", "знайшли"). English has one form. */
 const gform = (f, m, n) => LANG !== "uk" ? f : me().form === "f" ? f : me().form === "m" ? m : n;
 const KEEPER_TITLES = [[1, "Pebble finder"], [3, "Stone tapper"], [5, "Keeper's apprentice"], [8, "Lamp carrier"], [12, "Keeper of sparks"], [16, "Heartlight keeper"], [20, "Legend of the grotto"]];
 const SKILLS = [
-  { id: "str", name: "Strength", icon: "hammer", what: l => tr("taps hit {0}% harder", l * 5) },
+  { id: "str", name: "Strength", icon: "hammer", what: l => tr("taps hit {0}% harder", Math.round(l * STR_STEP * 100)) },
   { id: "care", name: "Care", icon: "heart", what: l => tr("glowlings grow {0}% faster", l * 10) },
   { id: "luck", name: "Luck", icon: "sparkle", what: l => tr("+{0}% shiny chance, bars in the rubble {1}% more often", (l * 0.6).toFixed(1), l * 25) },
 ];
-const SKILL_MAX = 5;
-const keeperNeed = l => 60 + l * 40;
-/** Your keeper level and how far into the next one you are. */
-function keeperLevel() {
-  let xp = me().xp, l = 1;
-  while (xp >= keeperNeed(l)) { xp -= keeperNeed(l); l++; }
-  return { l, xp, need: keeperNeed(l) };
-}
+/** Your keeper level and how far into the next one you are (the rules and its gifts are in inner.js). */
+const keeperLevel = () => keeperLevelOf(me().xp);
 const keeperTitle = l => tr(KEEPER_TITLES.filter(([at]) => l >= at).pop()[1]);
 const skill = id => (save.me && save.me.skill && save.me.skill[id]) || 0;
 /** Keeper XP for the things you do; each level brings a skill point. */
-const KEEPER_XP = { trips: 5, cracked: 12, harvested: 6, fed: 2, petted: 1, played: 4, taskDays: 15, wickBought: 3, rescued: 40, lamplit: 10 };
+/** The newest keeper gift a climb from one level to another brings (not one an older save's core already gave). */
+const keeperGiftNew = (from, to) => keeperGiftsBetween(from, to).filter(g => !(me().gifts || []).includes(g.id)).pop();
+/** Keeper XP for the things you do; each level brings a skill point, and a few a gift (see KEEPER_GIFTS). The habits are in inner.js (HABIT_XP). */
+const KEEPER_XP = { trips: 5, cracked: 12, harvested: 6, fed: 2, petted: 1, played: 4, taskDays: 15, wickBought: 3, rescued: 40, lamplit: 10, warded: 10 };
 function keeperXP(n) {
   if (!n || coopSession || game.coopTouched) return;
   const before = keeperLevel().l;
@@ -251,7 +248,7 @@ function keeperXP(n) {
   const after = keeperLevel().l;
   if (after > before) {
     me().pts += after - before;
-    queueAwards({ keeper: true, level: after });
+    queueAwards({ keeper: true, level: after, pts: true, gift: keeperGiftNew(before, after)?.id });
   }
 }
 function openMe(first) {
@@ -261,12 +258,14 @@ function openMe(first) {
   $("meSave").hidden = !first; $("meSave").dataset.first = first ? "1" : "";
   $("meForm").hidden = LANG !== "uk";
   $$("#meForm [data-form]").forEach(b => b.classList.toggle("on", b.dataset.form === m.form));
-  const nextTitle = KEEPER_TITLES.find(([at]) => at > k.l);
+  const nextTitle = KEEPER_TITLES.find(([at]) => at > k.l), gifts = KEEPER_GIFTS.filter(g => keeperGift(g.id)), nextGift = KEEPER_GIFTS.find(g => !keeperGift(g.id));
   $("meLevel").innerHTML = `<h3>${tr("Your level")}<button class="q" data-q="lvl" aria-label="?">?</button></h3>`
-    + `<b>${tr("Level {0}", k.l)} · ${keeperTitle(k.l)}</b>${coreGift("title") ? `<small class="me-title">✦ ${tr("Steady heart")}</small>` : ""}<i class="aw-bar" style="--k:${k.xp / k.need}"><u>${tr("{0} of {1} XP", k.xp, k.need)}</u></i>`
-    + `<p class="me-hint">${tr("You earn XP for everything you do in the game. Every new level gives you a skill point.")}${nextTitle ? " " + tr("Next title at level {0}: {1}.", nextTitle[0], tr(nextTitle[1])) : ""}</p>`
+    + `<b>${tr("Level {0}", k.l)} · ${keeperTitle(k.l)}</b>${keeperGift("title") ? `<small class="me-title">✦ ${tr("Steady heart")}</small>` : ""}<i class="aw-bar" style="--k:${k.xp / k.need}"><u>${tr("{0} of {1} XP", k.xp, k.need)}</u></i>`
+    + (gifts.length ? `<ul class="me-gifts">${gifts.map(g => `<li>${ic(g.icon)}<span>${tr(g.what)}</span></li>`).join("")}</ul>` : "")
+    + `<p class="me-hint">${tr("You earn XP for everything you do in the game. Every new level gives you a skill point.")}${nextTitle ? " " + tr("Next title at level {0}: {1}.", nextTitle[0], tr(nextTitle[1])) : ""}${nextGift ? " " + tr("Next gift at level {0}: {1}.", nextGift.at, tr(nextGift.name)) : ""}</p>`
     + `<div class="me-more" data-more="lvl" hidden><p>${tr("Where XP comes from:")}</p><ul>${[
       [tr("cracking an egg"), KEEPER_XP.cracked], [tr("freeing a spark from the Gloom"), KEEPER_XP.rescued], [tr("pushing the Gloom's shadows back"), KEEPER_XP.lamplit], [tr("finishing all of a day's tasks"), KEEPER_XP.taskDays],
+      [tr("coming home after a day or more"), HABIT_XP.back], [tr("going back to the stone after one that didn't open"), HABIT_XP.retry], [tr("a small ritual a day: the moon egg, the garden or a walk"), HABIT_XP.ritual], [tr("setting a wardstone"), KEEPER_XP.warded],
       [tr("picking a harvest"), KEEPER_XP.harvested], [tr("playing a mini-game"), KEEPER_XP.played], [tr("buying from Wick"), KEEPER_XP.wickBought],
       [tr("giving a snack"), KEEPER_XP.fed], [tr("petting a glowling"), KEEPER_XP.petted], [tr("an award"), "20–250"]].map(([w, n]) => `<li><span>${w}</span><b>+${n}</b></li>`).join("")}</ul></div>`;
   $("meSkills").innerHTML = `<h3>${tr("Skills")}<button class="q" data-q="sk" aria-label="?">?</button></h3>`
@@ -276,7 +275,6 @@ function openMe(first) {
       const l = skill(sk.id);
       return `<div class="forge skill">${ic(sk.icon, "big")}<span class="txt"><b>${tr(sk.name)} <em>${l}/${SKILL_MAX}</em></b><span class="pips">${Array.from({ length: SKILL_MAX }, (_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l ? tr("now: {0}", sk.what(l)) : tr("not yet")}${l < SKILL_MAX ? ` · ${tr("next: ")}${sk.what(l + 1)}` : ""}</small></span><button class="act" data-skill="${sk.id}" ${!m.pts || l >= SKILL_MAX ? "disabled" : ""} aria-label="+1 ${tr(sk.name)}">+1</button></div>`;
     }).join("");
-  $("meCore").innerHTML = coreHtml();
   $$("#meSheet .q").forEach(b => b.addEventListener("click", () => { const m2 = document.querySelector(`#meSheet [data-more="${b.dataset.q}"]`); m2.hidden = !m2.hidden; b.classList.toggle("on", !m2.hidden); sfx.tick(); }));
   $("meFirst").hidden = !first;
   $$("#meSkills [data-skill]").forEach(b => b.addEventListener("click", () => {
@@ -301,7 +299,7 @@ const AWARD_TIERS = [
 const AWARD_TIER = Object.fromEntries(AWARD_TIERS.map(t => [t.id, t]));
 /** Counters for the things the save didn't count before: eggs cracked, snacks, pets, games, finished days. */
 const cnt = k => (save.counts && save.counts[k]) || 0;
-function bump(k, n = 1) { save.counts = { ...save.counts, [k]: cnt(k) + n }; keeperXP((KEEPER_XP[k] || 0) * n); coreBump(k); }
+function bump(k, n = 1) { save.counts = { ...save.counts, [k]: cnt(k) + n }; keeperXP((KEEPER_XP[k] || 0) * n); }
 const stat = {
   // older nests counted every hatch in the glowpedia, so cracking starts from there
   cracked: () => Math.max(cnt("cracked"), Object.values(save.seen).reduce((a, v) => a + (v.count || 0), 0)),
@@ -359,7 +357,7 @@ const AWARDS = [
 function checkAwards(quiet) {
   // like the dialogs, awards wait while (and after) you play together, so a shared egg never changes your own save behind its back
   if (coopSession || game.coopTouched) return;
-  const first = !save.awards, earned = save.awards || {};
+  const first = !save.awards, earned = save.awards || {}, level = keeperLevel().l;
   const got = [];
   for (const a of AWARDS) {
     if (earned[a.id]) continue;
@@ -374,18 +372,19 @@ function checkAwards(quiet) {
   if (!got.length) return;
   save.awards = earned;
   persist(); updateTopbar();
+  // an award's XP brings no skill point, but a keeper gift it reaches is still announced
+  const gift = keeperGiftNew(level, keeperLevel().l);
+  if (gift) queueAwards({ keeper: true, level: keeperLevel().l, gift: gift.id });
   if (first || quiet) { toast(`${got.length} ${pl(got.length, "award earned", "awards earned")} ✦ ${tr("see them in the Book")}`); return; }
   queueAwards(...got);
 }
 /** A trophy slides down from the top, like a console achievement (in its turn: see nextBanner). */
 function paintAward(el, a) {
-  if (a.core) {
-    // a new facet of the core: its picture, and its name
-    el.className = "glass on legendary core";
-    el.innerHTML = `<i class="ic big" style="background-image:url(${coreArt(CORE_FACETS[a.core - 1].at)})" aria-hidden="true"></i><span><small>${tr("A new facet of your core")}</small><b>${tr(CORE_FACETS[a.core - 1].name)}</b></span>`;
-  } else if (a.keeper) {
+  if (a.keeper) {
+    // a new keeper level: its title, or the gift it brings
+    const g = KEEPER_GIFT[a.gift];
     el.className = "glass on legendary";
-    el.innerHTML = `${ic("star", "big")}<span><small>${tr("Keeper level {0}", a.level)} · ${tr("+1 skill point")}</small><b>${keeperTitle(a.level)}</b></span>`;
+    el.innerHTML = `${ic(g ? g.icon : "star", "big")}<span><small>${tr("Keeper level {0}", a.level)}${a.pts ? " · " + tr("+1 skill point") : ""}</small><b>${g ? tr(g.name) : keeperTitle(a.level)}</b></span>`;
   } else if (a.many) {
     // a line of trophies in one: the rarest one's cup, and the shards of them all
     const n = a.many.length, top = AWARD_TIERS.filter(t => a.many.some(x => x.tier === t.id)).pop().id, shards = a.many.reduce((sum, x) => sum + AWARD_TIER[x.tier].shards, 0);
@@ -499,7 +498,7 @@ function finishMoon() {
   // every moon egg brings a firefly square; every third night kept, a star bar
   giveBar(nights % 3 ? "firefly" : "star");
   taskDone("moon");
-  coreAdd("ritual");
+  habitXP("ritual");
   return 25 + Math.min(50, (nights - 1) * 5);
 }
 
@@ -511,8 +510,8 @@ function untilTomorrow() {
 // ---------- the lantern: oil for trips into the grotto, and snack bars that top it up ----------
 
 const OIL_EVERY = 20 * 60e3;
-/** The lantern holds 5 drops, one more once Ember has deepened it (the core's second facet, see inner.js). */
-const oilMax = () => 5 + (coreGift("oil") ? 1 : 0);
+/** The lantern holds 5 drops, one more from keeper level 6 (see KEEPER_GIFTS). */
+const oilMax = () => 5 + (keeperGift("oil") ? 1 : 0);
 const BARS = {
   firefly: { name: "Firefly square", oil: 1, icon: "barFirefly" },
   nut: { name: "Nut bar", oil: 3, icon: "barNut" },
@@ -584,7 +583,7 @@ function openLantern(needed) {
   // the rules in three small labels, and the whole story behind the ?
   $("oilFacts").textContent = [tr("1 per trip"), tr("+1 every {0} min", OIL_EVERY / 60e3), tr("★★★ levels free")].join(" · ");
   $("lanternFree").innerHTML = [
-    tr("Each trip into the Grotto burns 1 drop of oil. The lantern holds {0}.", oilMax()) + (coreGift("oil") ? " " + tr("Ember deepened it for you: one more drop fits.") : ""),
+    tr("Each trip into the Grotto burns 1 drop of oil. The lantern holds {0}.", oilMax()),
     tr("A drop comes back every {0} minutes on its own, until the lantern is full again: from empty to full takes {1}.", OIL_EVERY / 60e3, fmtLeft(oilMax() * OIL_EVERY)),
     tr("Bars fill it at once, even past the brim. They come from daily tasks, level-ups, moon eggs and sometimes the rubble of a geode."),
     tr("Free, always: moon eggs, playing together, and levels you already have ★★★ on. Quit before the first tap and you get the drop back."),
@@ -626,7 +625,7 @@ function caveShell(k) {
 function startLevel(n) {
   // a trip into the grotto takes a drop of lantern oil
   const paid = tripCosts(n);
-  if (paid && !burnOil()) { sfx.tick(); openLantern(true); coreFell(); return; }
+  if (paid && !burnOil()) { sfx.tick(); openLantern(true); habitFell(); return; }
   sfx.tick();
   game.chips = []; game.sparks = [];
   setScene("crack");

@@ -41,7 +41,7 @@ function visit({ friends = [], at = { 1: [300, 300], 2: [500, 300], 3: [400, 380
     sfx: { ready: () => false }, opts: () => ({ calm }), document: { hidden: false }, setTimeout: () => 0, $$: () => [],
     talkNow: null, talkQueue: [], giftNow: null, coopSession: null, pointer: null, arrange: { on: false }, startedEmpty: false,
     emote: (a, text) => did.emotes.push([a.id, text]), toast: t => did.toasts.push(t), tr: fill, persist: () => did.saved++,
-    nestRoom: () => 0, hasDecor: id => !!decor[id], residents: () => creatures, cnt: () => 1, bump: () => {}, tipDone: () => true, dayKey: () => 'today', coreGift: () => false,
+    nestRoom: () => 0, hasDecor: id => !!decor[id], residents: () => creatures, cnt: () => 1, bump: () => {}, tipDone: () => true, dayKey: () => 'today', keeperGift: () => false,
     setHint: () => {}, nestHint: () => '', renderNest: () => {}, updateTopbar: () => {}, checkAwards: () => {}, floatText: () => {}, buzz: () => {}, talk: () => {},
   };
   vm.runInNewContext(visitSrc, page);
@@ -268,10 +268,10 @@ const plain = v => JSON.parse(JSON.stringify(v));
 const OLD = { v: 1, stars: { 1: 3 }, creatures: [], seen: {} }; // a nest from before charms could hang
 /** A save as it comes through the door: written to a pretend storage, then loaded the way the game loads it. */
 function load(d) {
-  const { sparkSaveOf } = require('../js/sparks.js'), { coreSaveOf } = require('../js/inner.js'), { KEEPSAKES, KEEP_WEAR, walkSaveOf } = require('../js/walk.js'), { wardSaveOf } = require('../js/wards.js');
+  const { sparkSaveOf } = require('../js/sparks.js'), { keeperMigrate } = require('../js/inner.js'), { KEEPSAKES, KEEP_WEAR, walkSaveOf } = require('../js/walk.js'), { wardSaveOf } = require('../js/wards.js');
   const page = {
     SAVE_KEY: 'k', BAK_KEY: 'k.bak', localStorage: { getItem: k => k === 'k' && d ? JSON.stringify(d) : null, setItem: () => {} },
-    sparkSaveOf, coreSaveOf, walkSaveOf, wardSaveOf, KEEP_WEAR, KS: Object.fromEntries(KEEPSAKES.map(k => [k.id, k])),
+    sparkSaveOf, keeperMigrate, walkSaveOf, wardSaveOf, KEEP_WEAR, KS: Object.fromEntries(KEEPSAKES.map(k => [k.id, k])),
   };
   vm.runInNewContext(cut(saveJs, 'const SAVE_VERSION', 'const save = loadSave();', 'the save\'s way in should sit at the top of save.js') + '\nthis.loaded = loadSave(); this.migrate = migrate; this.freshSave = freshSave; this.hungSaveOf = hungSaveOf;', page);
   return { save: plain(page.loaded), migrate: page.migrate, freshSave: page.freshSave, hungSaveOf: h => plain(page.hungSaveOf(h)) };
