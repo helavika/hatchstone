@@ -132,7 +132,9 @@ test('the save learns when the diary began keeping firsts, once', () => {
   const load = d => {
     const page = { SAVE_KEY: 'k', BAK_KEY: 'k.bak', localStorage: { getItem: k => k === 'k' && d ? JSON.stringify(d) : null, setItem: () => {} },
       sparkSaveOf, keeperMigrate, walkSaveOf, wardSaveOf, KEEP_WEAR, KS: Object.fromEntries(KEEPSAKES.map(k => [k.id, k])) };
-    vm.runInNewContext(cut(saveJs, 'const SAVE_VERSION', 'const save = loadSave();', 'the save\'s way in should sit at the top of save.js') + '\nthis.loaded = loadSave();', page);
+    // (with the habits from data.js beside it: an older glowling gets one on the way in)
+    const habits = cut(fs.readFileSync(path.join(__dirname, '../js/data.js'), 'utf8'), 'const HABITS = [', 'const STAGES', 'the habits should sit in data.js, before the stages');
+    vm.runInNewContext(habits + cut(saveJs, 'const SAVE_VERSION', 'const save = loadSave();', 'the save\'s way in should sit at the top of save.js') + '\nthis.loaded = loadSave();', page);
     return JSON.parse(JSON.stringify(page.loaded));
   };
   const before = Date.now();

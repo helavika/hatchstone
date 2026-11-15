@@ -856,6 +856,28 @@ function bestFriend(cr) {
   const best = Object.entries(cr.pals || {}).map(([id, n]) => [save.creatures.find(c => c.id === Number(id)), n]).filter(([c]) => c).sort((p, q) => q[1] - p[1])[0];
   return best ? { c: best[0], n: best[1] } : null;
 }
+/** Its habit (see HABITS): the one it hatched with, or for one from before habits, its own from its id. */
+const habitOf = cr => HABIT[cr.habit] ? cr.habit : seededHabit(cr.id);
+/**
+ * A habit for one just hatched: one its own kind in the nest doesn't have yet, so a twin lives differently from its relative
+ * (and hiding from the rain only once there's a cloud cushion to rain from).
+ */
+function newHabit(sp) {
+  const taken = new Set(save.creatures.filter(c => c.sp === sp).map(habitOf));
+  if (!(save.decor && save.decor.cushion)) taken.add("rain");
+  const free = HABITS.filter(h => !taken.has(h.id));
+  return pick(free.length ? free : HABITS).id;
+}
+/** The piece it likes best among those out in its room: each glowling ranks them all its own way, so it stays the same one. */
+function favePiece(cr) {
+  const rank = d => idHash(cr.id, [...d.id].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7));
+  return DECOR.filter(d => hasDecor(d.id)).sort((p, q) => rank(p) - rank(q))[0] || null;
+}
+/** Its habit in one short line, for its card. */
+function habitLine(cr) {
+  const h = HABIT[habitOf(cr)], d = h.id === "fave" && favePiece(cr);
+  return h.id !== "fave" ? tr(h.line) : d ? tr(h.line, d.name.charAt(0).toLowerCase() + d.name.slice(1)) : tr(h.bare);
+}
 function openGlowling(cr) {
   if (!cr) return;
   sfx.tick(); sfx.chirp(specOf(cr).voice);
@@ -864,7 +886,7 @@ function openGlowling(cr) {
   $("glowName").textContent = cr.name;
   $("glowInfo").textContent = `${sp.name} · ${tr("Level {0}", cr.level)} · ${STAGES[stageOf(cr.level)]} · ${tr(mood)}`;
   const LOC = LANG === "uk" ? "uk-UA" : "en-US", day = t => new Date(t).toLocaleDateString(LOC, { day: "numeric", month: "short" });
-  $("glowMore").innerHTML = `<h3>${tr("Best friend")}</h3>`
+  $("glowMore").innerHTML = `<p class="habit">${habitLine(cr)}</p><h3>${tr("Best friend")}</h3>`
     + (bf ? `<div class="trip-away"><img src="${creatureImage(specOf(bf.c), { art: 20, level: bf.c.level, shiny: bf.c.shiny, acc: bf.c.acc })}" alt=""><span><b>${bf.c.name}</b><small>${tr("met {0} times: hugs, tag, duets and naps", bf.n)}</small></span></div>`
       : `<p class="me-hint">${tr("No best friend yet. Glowlings who live in the same room meet and make friends by themselves.")}</p>`)
     + `<h3>${tr("Diary")}</h3>`
@@ -1660,6 +1682,9 @@ const BEHAVIOR = {
   veilfin: "swim", melonpip: "hop", embermote: "flutter",
   hearthling: "nap", pippom: "hop", tigrell: "curious", gladewing: "flutter",
   petalpuff: "dance", rosettle: "dance", sunnub: "dance", glassling: "dance", prismpip: "dance", swirlhorn: "dance",
+  // the moon's and the holidays' own, each by its season and its story (no longer all dancers by default)
+  emberleaf: "curious", acornet: "curious", bloomkit: "hop", petalpup: "hop", frostpuff: "flutter", glimmerbug: "flutter",
+  sunsplash: "swim", rimeling: "swim", gourdlet: "nap", twinklet: "dance",
 };
 const ROOM_MAX = 12, ROOM_MAX_PHONE = 8;
 const actors = new Map();

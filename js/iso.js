@@ -157,7 +157,7 @@ function syncActors() {
   for (const cr of list) {
     if (actors.has(cr.id)) continue;
     const [x, y] = roomPoint();
-    actors.set(cr.id, { id: cr.id, x, y, tx: x, ty: y, alt: 0, state: "idle", t: rand(0.5, 2.5), hop: 0, ph: rand(0, TAU), emote: null, friend: null, beh: specOf(cr).beh || BEHAVIOR[cr.sp] || "dance" });
+    actors.set(cr.id, { id: cr.id, x, y, tx: x, ty: y, alt: 0, state: "idle", t: rand(0.5, 2.5), hop: 0, ph: rand(0, TAU), emote: null, friend: null, beh: kindOf(cr) });
   }
 }
 
@@ -206,6 +206,8 @@ function wakeRested(cr, a) {
   cr.sleeping = false; cr.selfSlept = false;
   a.hop = 1; a.state = "idle"; a.t = 1.5; emote(a, "☀", 1.6);
   sfx.stretch(specOf(cr).voice);
+  // (one with the habit has a second, longer stretch before it goes anywhere)
+  if (habitOf(cr) === "stretch") { a.t = 3.5; setTimeout(() => { if (a.state === "idle") { a.hop = 1; emote(a, "🥱", 1.6); } }, 1300); }
   if (a.id === save.active) { const v = actorView(a); floatText(tr("all rested!"), v.x, v.y - v.size * 0.8, "#fff0b5"); renderNest(); }
   persist();
 }
@@ -224,12 +226,16 @@ const content = cr => !callOf(cr) && cr.tummy >= 40;
 /** How long it lingers before the next thing: a content one takes its time, and the older, the longer. */
 const linger = cr => calmOf(cr.level).rest * (content(cr) ? 2.3 : 1);
 
-/** Pick what to do next: nap, dance, visit a friend, or wander (flutterers chase the light motes). */
+/** Pick what to do next: nap, dance, visit a friend, or wander (flutterers chase the light motes); its own habit now and then first. */
 function chooseNext(a, list) {
+  const cr = save.creatures.find(c => c.id === a.id), was = a.state;
+  a.plan = null;
+  // up from a doze: one with the habit has a long stretch first
+  if (cr && was === "nap" && habitOf(cr) === "stretch") { stretchOut(a, cr); return; }
+  if (cr && habitNext(a, cr, list)) return;
   // content: as often as not it stays where it is and looks about (or, a bit tired, dozes off); a hungry one perks up instead
-  const cr = save.creatures.find(c => c.id === a.id);
   if (cr && content(cr) && Math.random() < 0.55) {
-    if (cr.energy < 60 && Math.random() < 0.3) { a.state = "nap"; a.t = rand(5, 9) * calmOf(cr.level).rest; return; }
+    if (cr.energy < 60 && Math.random() < 0.3) { dozeOff(a, cr, list, rand(5, 9) * calmOf(cr.level).rest, false); return; }
     a.state = "idle"; a.t = rand(3, 6) * linger(cr); return;
   }
   // outside, hoppers and swimmers like the garden best: they walk over and water a thirsty plant
@@ -243,23 +249,17 @@ function chooseNext(a, list) {
   if (weatherOn() && Math.random() < 0.8) { playInWeather(a); return; }
   const r = Math.random(), b = a.beh;
   const loved = DECOR.filter(d => hasDecor(d.id) && d.lovers.includes(b));
-  if (loved.length && Math.random() < 0.4) {
-    const d = pick(loved), [x, y] = decorSpot(d.id);
-    a.goal = d.id; a.state = "walk";
-    if (d.id === "rug") { const an = rand(0, TAU), r = Math.sqrt(Math.random()), [rx, ry] = rugSize(); [a.tx, a.ty] = standSpot(x + Math.cos(an) * r * rx * 0.8, y + Math.sin(an) * r * ry * 0.75); return; }
-    [a.tx, a.ty] = standSpot(x + rand(-0.25, 0.25) * N.base, clamp(y + rand(-0.1, 0.1) * N.base, N.y0, N.y1));
-    return;
-  }
+  if (loved.length && Math.random() < 0.4) { goVisit(a, pick(loved)); return; }
   // hoppers like bouncing on the bed now and then
   if (N.iso && b === "hop" && r < 0.15 && isoLayout().placed.bed) {
     const p = isoLayout().placed.bed; [a.tx, a.ty] = isoAt((p.i + p.fw * rand(0.3, 0.7)) / ISO_G, (p.j + p.fd * rand(0.3, 0.7)) / ISO_G);
     a.state = "walk"; emote(a, "♪", 1.2); return;
   }
-  if (b === "nap" && r < 0.35) { a.state = "nap"; a.t = rand(5, 10); emote(a, "zz", 2.5); return; }
+  if (b === "nap" && r < 0.35) { dozeOff(a, cr, list, rand(5, 10), true); return; }
   if (b === "dance" && r < 0.3) { a.state = "dance"; a.t = rand(1.6, 2.8); emote(a, "♪", 1.6); return; }
   const others = list.filter(o => o !== a);
   if (others.length && r < (b === "curious" ? 0.5 : 0.18)) {
-    const f = pick(others);
+    const f = visitWho(cr, others);
     a.friend = f.id; a.state = "walk";
     a.tx = clamp(f.x + (a.x < f.x ? -1 : 1) * N.base * 1.0, N.x0, N.x1); a.ty = f.y;
     return;
@@ -267,6 +267,87 @@ function chooseNext(a, list) {
   [a.tx, a.ty] = roomPoint();
   a.state = "walk";
   if (b === "flutter" && Math.random() < 0.4) emote(a, "✦", 1);
+}
+/** Off to a piece of furniture, to play with it (what it does there: see the arrival in updateActors). */
+function goVisit(a, d) {
+  const [x, y] = decorSpot(d.id);
+  a.goal = d.id; a.state = "walk";
+  if (d.id === "rug") { const an = rand(0, TAU), r = Math.sqrt(Math.random()), [rx, ry] = rugSize(); [a.tx, a.ty] = standSpot(x + Math.cos(an) * r * rx * 0.8, y + Math.sin(an) * r * ry * 0.75); return; }
+  [a.tx, a.ty] = standSpot(x + rand(-0.25, 0.25) * N.base, clamp(y + rand(-0.1, 0.1) * N.base, N.y0, N.y1));
+}
+/** Who to go and see: its best friend about half the time, when that one's in the room; anyone else otherwise. */
+function visitWho(cr, others) {
+  const bf = cr && bestFriend(cr), f = bf && others.find(o => o.id === bf.c.id);
+  return f && Math.random() < 0.5 ? f : pick(others);
+}
+/** Time for a doze: beside its best friend if that one is dozing in the room too, or right where it is. */
+function dozeOff(a, cr, list, t, sleepy) {
+  const bf = cr && bestFriend(cr), f = bf && list.find(o => o.id === bf.c.id && o.state === "nap");
+  if (f && Math.hypot(f.x - a.x, f.y - a.y) > N.base * 1.4) {
+    a.tx = clamp(f.x + (a.x < f.x ? -1 : 1) * N.base * 0.8, N.x0, N.x1); a.ty = f.y;
+    a.state = "walk"; a.plan = "napby"; a.napT = t; return;
+  }
+  a.state = "nap"; a.t = t;
+  if (sleepy) emote(a, "zz", 2.5);
+}
+
+// ---------- habits: each glowling's own little way (see HABITS), on top of what its kind likes ----------
+
+/** Now and then its habit decides where it goes next: its favourite piece or spot, after whoever's nearest, a pebble hunt, the corners. */
+function habitNext(a, cr, list) {
+  const h = habitOf(cr), r = Math.random();
+  if (h === "fave" && r < 0.4) { const d = favePiece(cr); if (d) { goVisit(a, d); return true; } }
+  if (h === "spot" && r < 0.4) { [a.tx, a.ty] = faveSpot(cr); a.state = "walk"; a.plan = "spot"; return true; }
+  if (h === "follow" && r < 0.55) {
+    const f = list.filter(o => o !== a && o.state !== "sleep" && o.state !== "toBed").sort((p, q) => Math.hypot(p.x - a.x, p.y - a.y) - Math.hypot(q.x - a.x, q.y - a.y))[0];
+    if (f) { a.tx = clamp(f.x + (a.x < f.x ? -1 : 1) * N.base * 0.85, N.x0, N.x1); a.ty = f.y; a.state = "walk"; a.plan = "follow"; return true; }
+  }
+  if (h === "collect" && r < 0.3) { [a.tx, a.ty] = roomPoint(); a.state = "walk"; a.plan = "collect"; return true; }
+  if (h === "corners" && r < 0.45) { [a.tx, a.ty] = cornerPoint(); a.state = "walk"; a.plan = "corner"; return true; }
+  return false;
+}
+/** Got where its habit took it: what it does there. */
+function habitArrive(a, cr) {
+  const plan = a.plan;
+  a.plan = null; a.state = "idle"; a.t = rand(1.2, 3) * linger(cr);
+  if (plan === "spot") { a.t = rand(5, 9) * linger(cr); emote(a, "♥", 1.4); }
+  else if (plan === "follow") a.t = rand(0.5, 1.2);
+  else if (plan === "corner") { a.face = { kind: "look", t: 0, life: 2, side: Math.random() < 0.5 ? -1 : 1 }; emote(a, "?", 1.2); }
+  else if (plan === "hide") { a.t = rand(3, 5); emote(a, "☂", 2.2); a.shake = 0.5; }
+  else if (plan === "napby") { a.state = "nap"; a.t = a.napT || rand(5, 8); emote(a, "zz", 2.5); }
+  else if (plan === "collect") {
+    // a pebble found: picked up, and carried off to bed
+    emote(a, "💎", 2.6); a.hop = 1;
+    const p = N.iso && isoLayout().placed.bed;
+    [a.tx, a.ty] = p ? standSpot(...isoPieceAt(p, rand(0.9, 1.3))) : [clamp(N.bedX + rand(-0.6, 0.6) * N.base, N.x0, N.x1), N.bedY];
+    a.state = "walk"; a.plan = "carry";
+  } else if (plan === "carry") { emote(a, "♥", 1.4); a.hop = 1; }
+}
+/** Its own favourite spot on the floor, the same one every time (moved off any piece standing there now). */
+function faveSpot(cr) {
+  const u = 0.2 + (idHash(cr.id, 1) % 1000) / 1000 * 0.6, v = 0.2 + (idHash(cr.id, 2) % 1000) / 1000 * 0.6;
+  if (!N.iso) return floorAt(u, v);
+  const m = isoMargin(0.42), [x, y] = isoAt(lerp(m, 1 - m, u), lerp(m, 1 - m, v));
+  return standSpot(x + rand(-0.06, 0.06) * N.base, y + rand(-0.03, 0.03) * N.base);
+}
+/** A free spot near the room's edge: the farthest from the middle of a few tries. */
+function cornerPoint(from = N.iso ? isoAt(0.5, 0.5) : floorAt(0.5, 0.5)) {
+  let best = null, far = -1;
+  for (let k = 0; k < 6; k++) { const p = roomPoint(), d = Math.hypot(p[0] - from[0], (p[1] - from[1]) * 2); if (d > far) { far = d; best = p; } }
+  return best;
+}
+/** A long stretch, up on its toes twice, before anything else. */
+function stretchOut(a, cr) {
+  a.state = "idle"; a.t = 3.2; a.hop = 1; emote(a, "🥱", 1.4); sfx.stretch(specOf(cr).voice);
+  setTimeout(() => { if (a.state === "idle") { a.hop = 1; emote(a, "☀", 1.4); } }, 1100);
+}
+/** Standing about with nothing going on, a hummer hums: a note over its head every few seconds (and softly, if it's yours). */
+function humAlong(a, cr, dt) {
+  if (a.state !== "idle" || cr.sleeping || a.emote) return;
+  if ((a.humT = (a.humT ?? rand(1, 3)) - dt) > 0) return;
+  a.humT = rand(3.5, 6);
+  emote(a, Math.random() < 0.5 ? "♪" : "♫", 1.5); a.hop = Math.max(a.hop, 0.3);
+  if (a.id === save.active && sfx.ready()) { const f = 330 * (specOf(cr).voice || 1), t = sfx.ac.currentTime; sfx.tone(t, f, 0.012, 0.25, "sine", f * 1.06); sfx.tone(t + 0.28, f * 1.12, 0.01, 0.3, "sine", f * 1.06); }
 }
 
 /** Two glowlings meet: a hug, a high five, a game of tag, a little duet, or (if both are tired) a nap side by side. It cheers them both up. */
@@ -379,7 +460,7 @@ function updateActors(dt) {
     }
     if (a.id === save.active && game.nest.petting) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
     else if (target) { a.tx = target[0]; a.ty = target[1]; }
-    else if (a.state === "eat") { if ((a.t -= dt) <= 0) { a.state = "idle"; a.t = rand(1, 2) * linger(cr); } }
+    else if (a.state === "eat") { if ((a.t -= dt) <= 0) { if (habitOf(cr) === "meal") { a.state = "nap"; a.t = rand(5, 8) * calm.rest; emote(a, "zz", 2.5); } else { a.state = "idle"; a.t = rand(1, 2) * linger(cr); } } }
     else if (a.state === "idle" || a.state === "nap" || a.state === "dance" || a.state === "visit") { if ((a.t -= dt) <= 0) { a.decor = null; chooseNext(a, list); } }
 
     // a little personal space: glowlings gently push apart instead of piling up
@@ -442,7 +523,8 @@ function updateActors(dt) {
       // under the cloud: a little dance in the rain (or snow)
       a.rain = false; a.state = "dance"; a.t = rand(0.9, 1.6); a.hop = 1;
       emote(a, weather.kind === "snow" ? "❄" : "💧", 1.2);
-    } else if (a.state === "walk" && a.garden) {
+    } else if (a.state === "walk" && a.plan) habitArrive(a, cr);
+    else if (a.state === "walk" && a.garden) {
       a.garden = false; a.state = "idle"; a.t = rand(1.5, 3) * linger(cr); emote(a, "💧", 1.6); gardenHelp(cr);
     } else if (a.state === "walk") {
       a.state = "idle"; a.t = rand(1.2, 3.5) * linger(cr);
@@ -503,6 +585,7 @@ function updateActors(dt) {
       }
     } else a.from = null;
     faceMoments(a, cr, dt);
+    if (habitOf(cr) === "hum") humAlong(a, cr, dt);
     // needs show up as little thought bubbles now and then
     const wants = callOf(cr);
     if (!a.emote && a.state !== "sleep" && Math.random() < dt * (wants ? 0.4 : 0.07)) {
@@ -3421,6 +3504,9 @@ const WEATHER_MS = 2800;
 const weatherOn = () => N.iso && hasDecor("cushion") && game.time < weather.until + 600;
 /** Off to a spot under the cloud, hurrying. */
 function playInWeather(a) {
+  // (except one with the habit: it runs off to the far side of the room, away from the cloud)
+  const cr = save.creatures.find(c => c.id === a.id);
+  if (cr && habitOf(cr) === "rain") { [a.tx, a.ty] = cornerPoint([cloudSpot().x, cloudSpot().y]); a.state = "walk"; a.goal = a.friend = null; a.rain = false; a.plan = "hide"; emote(a, "!", 0.9); return; }
   const c = cloudSpot(), an = rand(0, TAU), r = Math.sqrt(Math.random()) * N.isoW / ISO_G * 0.9;
   a.tx = c.x + Math.cos(an) * r; a.ty = c.y + Math.sin(an) * r / 2;
   a.state = "walk"; a.goal = a.friend = null; a.rain = true;
@@ -3519,7 +3605,7 @@ let bedPlacesCache = null;
  * spaced so nobody's face is hidden behind another. Counted in this room only (every room has its own bed).
  */
 function bedPlaces(r = save.room) {
-  const sleepers = save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q);
+  const sleepers = sleepOrder(save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q));
   const p = N.iso && isoLayout().placed.bed, style = bedStyle();
   const key = [r, style, sleepers.join(","), p ? isoLayout().key : "front", N.isoW, N.base, N.bedX, N.bedY, PX].join("|");
   if (bedPlacesCache && bedPlacesCache.key === key) return bedPlacesCache.at;
@@ -3573,6 +3659,17 @@ function bedPlaces(r = save.room) {
   });
   bedPlacesCache = { key, at };
   return at;
+}
+/** The order they lie down in: by who came first, but best friends side by side. */
+function sleepOrder(ids) {
+  const out = [], left = new Set(ids);
+  for (const id of ids) {
+    if (!left.has(id)) continue;
+    out.push(id); left.delete(id);
+    const cr = save.creatures.find(c => c.id === id), bf = cr && bestFriend(cr);
+    if (bf && left.has(bf.c.id)) { out.push(bf.c.id); left.delete(bf.c.id); }
+  }
+  return out;
 }
 /** This sleeper's own place: on the bed when there's room, curled up on the floor beside it when there isn't. */
 function bedSpot(id) {

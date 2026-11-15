@@ -21,7 +21,9 @@ const moonSrc = [
   cut(pixel, 'function levelConf(', '\n}\n', 'levelConf should sit in pixel.js') + '\n}',
   cut(scenes, 'const moonDone = ', 'function untilTomorrow()', 'the moon egg should sit in scenes.js, before untilTomorrow'),
 ].join('\n');
-const saveSrc = cut(saveJs, 'const SAVE_VERSION', 'const save = loadSave();', 'the save\'s way in should sit at the top of save.js');
+// (with the habits from data.js beside it: an older glowling gets one on the way in)
+const saveSrc = cut(read('data.js'), 'const HABITS = [', 'const STAGES', 'the habits should sit in data.js, before the stages')
+  + cut(saveJs, 'const SAVE_VERSION', 'const save = loadSave();', 'the save\'s way in should sit at the top of save.js');
 const awardsSrc = cut(scenes, 'const AWARDS = [', '\n];', 'the awards should be one list in scenes.js') + '\n];';
 
 const DAY = 864e5, NOON = new Date(2026, 10, 14, 12).getTime();

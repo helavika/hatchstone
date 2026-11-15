@@ -827,7 +827,11 @@ function geodeImage(withCreature = true, width = 0) {
   return c.toDataURL("image/png");
 }
 
-/** Hatch: the glowling joins your nest (or, if you already have one, its sibling visit gives XP). */
+/**
+ * Hatch: the glowling joins your nest. If you already have one of its kind (just as shiny), you choose on the found card:
+ * it moves in as a glowling of its own, or it only visits its relative, who gets XP (see chooseTwin). A shared egg keeps
+ * the visit, as both nests get the card at once.
+ */
 function adopt(e) {
   if (navigator.storage && navigator.storage.persist) navigator.storage.persist().catch(() => {});
   const sp = e.species;
@@ -843,22 +847,63 @@ function adopt(e) {
   save.geodes[e.crystal.id] = geo;
   let mine = save.creatures.find(c => c.sp === sp.id && !!c.shiny === e.shiny);
   let note = "";
-  if (mine) {
-    applyTime(mine);
-    addXP(mine, 40);
-    mine.joy = clamp(mine.joy + 20, 0, 100);
-    note = tr("Your {0} met a sibling: +40 XP and lots of joy ✦", mine.name);
-    adopt.sibling = true;
-  } else {
-    mine = { id: save.nextId++, sp: sp.id, name: (e.shiny ? "✦ " : "") + sp.name, shiny: e.shiny, level: 1, xp: 0, tummy: 70, joy: 80, energy: 80, sleeping: false, last: Date.now(), born: Date.now() };
-    save.creatures.push(mine);
-    adopt.sibling = false;
+  adopt.sibling = false; adopt.twin = null;
+  if (mine && !e.conf.coop) {
+    adopt.twin = { e, kin: mine, name: twinName(sp, e.shiny) };
+    note = tr("Another {0}! It can move in as a glowling of its own, or just visit its relative.", sp.name);
+  } else if (mine) note = kinVisit(mine);
+  else {
+    mine = moveIn(e, (e.shiny ? "✦ " : "") + sp.name);
     note = e.shiny ? tr("A shiny one! It sparkles in your nest now ✦") : tr("{0} moved into your nest", sp.name);
-    if (e.conf.coop) remember(mine, "Hatched from a {0} geode, cracked together with a friend ♥", e.crystal.name);
-    else remember(mine, e.conf.gloom ? "Freed from the Gloom's seal at the end of the {0}" : e.conf.moon ? "Hatched from a moon egg 🌙" : "Hatched from a {0} geode", e.conf.gloom ? CAVES[e.conf.gloom - 1] : e.crystal.name);
   }
   save.active = mine.id;
   return { isNew, note, mine };
+}
+/** A new glowling moves into the nest, with a habit of its own (and if the room's full, someone goes exploring, see settleHome). */
+function moveIn(e, name) {
+  const sp = e.species;
+  const mine = { id: save.nextId++, sp: sp.id, name, shiny: e.shiny, habit: newHabit(sp.id), level: 1, xp: 0, tummy: 70, joy: 80, energy: 80, sleeping: false, last: Date.now(), born: Date.now() };
+  save.creatures.push(mine);
+  if (e.conf.coop) remember(mine, "Hatched from a {0} geode, cracked together with a friend ♥", e.crystal.name);
+  else remember(mine, e.conf.gloom ? "Freed from the Gloom's seal at the end of the {0}" : e.conf.moon ? "Hatched from a moon egg 🌙" : "Hatched from a {0} geode", e.conf.gloom ? CAVES[e.conf.gloom - 1] : e.crystal.name);
+  return mine;
+}
+/** Only a visit: the one you have meets its relative, and grows from it. */
+function kinVisit(kin) {
+  applyTime(kin);
+  addXP(kin, 40);
+  kin.joy = clamp(kin.joy + 20, 0, 100);
+  adopt.sibling = true;
+  return tr("Your {0} met a sibling: +40 XP and lots of joy ✦", kin.name);
+}
+/** A twin's own name, so it's not mixed up with its relative: a little one nobody in the nest has yet. */
+const TWIN_NAMES = ["Bean", "Button", "Pebble", "Puddle", "Tuft", "Mote", "Sprig", "Crumb", "Bramble", "Dot", "Fig", "Wren", "Nutmeg", "Clover", "Acorn", "Mitten"];
+function twinName(sp, shiny) {
+  const pre = shiny ? "✦ " : "", taken = new Set(save.creatures.map(c => c.name));
+  const free = TWIN_NAMES.map(n => pre + tr(n)).filter(n => !taken.has(n));
+  return free.length ? pick(free) : `${pre}${sp.name} ${save.creatures.filter(c => c.sp === sp.id).length + 1}`;
+}
+/** The choice on the found card for a repeat: welcome it home (home = true), or let it visit its relative. Leaving the card without choosing is a visit, as it always was. */
+function chooseTwin(home) {
+  const t = adopt.twin;
+  if (!t) return;
+  adopt.twin = null;
+  $("foundTwin").hidden = true;
+  let note, who;
+  if (home) {
+    who = moveIn(t.e, t.name);
+    note = tr("{0} moved into your nest", who.name);
+    $("foundNestSub").textContent = tr("{0} is waiting for you", who.name);
+    sfx.chirp(t.e.species.voice || 1);
+  } else {
+    who = t.kin;
+    note = kinVisit(who);
+    $("foundNestSub").textContent = tr("{0} met a sibling: +40 XP", who.name);
+  }
+  save.active = who.id;
+  $("foundNote").textContent = $("foundNote").textContent.replace(t.note, note);
+  persist(); updateTopbar();
+  if (!$("found").classList.contains("hidden")) $("foundNest").focus({ preventScroll: true });
 }
 
 function showFound() {
@@ -913,11 +958,21 @@ function showFound() {
   // the nest is the other half of the game: say who's waiting there, so it's not just egg after egg
   $("foundNestLabel").textContent = tr("Go to the nest");
   $("foundNestSub").textContent = adopt.sibling ? tr("{0} met a sibling: +40 XP", mine.name) : tr("{0} is waiting for you", mine.name);
+  // one of a kind you already have: two choices, one tap each; welcoming it home comes first
+  const twin = adopt.twin;
+  $("foundTwin").hidden = !twin;
+  if (twin) {
+    twin.note = note;
+    $("twinHomeSub").textContent = tr("a new glowling: {0}", twin.name);
+    $("twinVisitSub").textContent = tr("{0} gets +40 XP", mine.name);
+  }
   $("nextLvl").textContent = conf.coop ? (coopIsHost() ? tr("Another shared egg") : tr("Waiting for host")) : conf.moon ? tr("Back to the grotto") : conf.wander ? tr("Another egg") : conf.n >= LEVELS ? tr("Wander on") : tr("Next level");
   $("nextLvl").disabled = !!conf.coop && !coopIsHost();
   if (conf.heart) heartFound(conf);
   updateTopbar();
   show("found", true);
+  // (once the card has faded in: a hidden one can't take it)
+  if (twin) setTimeout(() => { if (adopt.twin === twin) $("twinHome").focus({ preventScroll: true }); }, 480);
   if (conf.coop) coopBroadcast(true); // deliver the result before a host can send the next egg
 }
 

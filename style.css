@@ -261,6 +261,12 @@ body.scene-nest #nestShare { pointer-events: auto; }
 #foundNest { padding-left: 26px; padding-right: 26px; text-align: left; }
 #foundNest small { display: block; font-size: 15px; line-height: 1; opacity: .8; }
 #found .plate { display: table; }
+/* a repeat glowling: welcome it home, or let it visit its relative (the card's other buttons wait for the choice) */
+.found-twin { display: flex; flex-direction: column; align-items: center; gap: 10px; margin: 10px 0 2px; }
+.found-twin[hidden], .found-twin:not([hidden]) ~ .found-actions { display: none; }
+#twinHome, #twinVisit { display: inline-flex; align-items: center; gap: 8px; min-width: 230px; text-align: left; }
+#twinHome { padding-left: 26px; padding-right: 26px; }
+#twinHome small, #twinVisit small { display: block; font-size: 15px; line-height: 1; opacity: .8; }
 
 #snackList .forge-h:first-child { margin-top: 0; }
 .snack { display: flex; align-items: center; gap: 12px; width: 100%; border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .08); border-radius: 16px; padding: 10px 14px; margin-top: 8px; cursor: pointer; text-align: left; }
@@ -759,6 +765,7 @@ body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; 
 #glowRename { width: 32px; height: 32px; padding: 0; font-size: 16px; }
 #glowMore { text-align: left; min-height: 0; }
 #glowMore h3 { margin: 12px 0 6px; }
+#glowMore .habit { margin: 2px 2px 0; font-size: 16px; line-height: 1.3; color: var(--soft); text-align: center; }
 .diary { list-style: none; margin: 0; padding: 0; }
 .diary li { display: flex; gap: 10px; padding: 5px 2px; border-bottom: 1px dashed rgba(255, 233, 168, .15); font-size: 15px; line-height: 1.3; }
 .diary b { flex: none; width: 56px; color: var(--px-gold); font-weight: 400; font-size: 13px; padding-top: 2px; }
