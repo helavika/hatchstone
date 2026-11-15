@@ -140,23 +140,32 @@ function coreBump(k) {
   if (k === "harvested") coreRest();
 }
 
-/** Mossa's welcome when you come back after a day or more, and her one word for an older nest. Runs in a calm scene. */
+/** Mossa's welcome when you come back after a day or more (her one word, after a night, see MOSSA_KEPT), and her one word
+ *  for an older nest. Runs in a calm scene. */
 function coreMoments(scene) {
   if (!["nest", "map", "lib"].includes(scene) || coopSession || game.coopTouched || !save.creatures.length) return;
   const seen = coreLastSeen;
   coreLastSeen = 0;
   if (save.core.old) talk("coreOld");
+  // time away is caught up first, so the welcome is true: only if Mossa looked in does she say so
+  // (seen is to the hour: the nest was open until some time in the hour after it)
+  let kept = false;
   if (coreBack(save.core, seen)) {
-    // time away is caught up first, so the welcome is true: only if Mossa looked in does she say so
-    // (seen is to the hour: the nest was open until some time in the hour after it)
-    const kept = comeHome(seen + 36e5), id = "back-" + coreDay();
+    kept = comeHome(seen + 36e5);
+    const id = "back-" + coreDay();
     TALKS[id] = () => CORE_BACK(kept);
     talk(id);
     coreLit();
     persist();
-    game.nest.glad = kept;
+  } else if (seen > 0 && (kept = comeHome(seen + 36e5))) {
+    // home after a night or a day at work: she looked in, and says so in passing, without stopping you
+    toast(mossaKept());
+    persist();
+  }
+  if (kept) {
+    game.nest.glad = true;
     // the dots that ask for something wait out the quiet minute (see homeQuiet), and are back the moment it's over
-    if (kept) { updateTopbar(); setTimeout(updateTopbar, KEPT_QUIET + 100); }
+    updateTopbar(); setTimeout(updateTopbar, KEPT_QUIET + 100);
   }
   // and the little ones are glad to see you, as soon as you're in the nest to see it
   if (scene === "nest" && game.nest.glad) gladHome();
@@ -177,6 +186,11 @@ const CORE_BACK = kept => {
     ...(kept ? [[MOSSA, "I looked in at dusk. They're not hungry. They're just glad."]] : []),
     [MOSSA, "Coming back is strength too. Your core grew a little."]];
 };
+/** After a night or a working day away (six hours or more, under a day): Mossa looked in, and says so in one short line,
+ *  a different one each time (they turn every six hours), as a toast that doesn't wait for a tap. */
+const MOSSA_KEPT = ["Mossa: I looked in on them. Everyone's fed and rested.", "Mossa: The nest stayed warm. I kept watch.",
+  "Mossa: All well here. They missed you.", "Mossa: They ate with me. Now they want you.", "Mossa: I tidied up a little. Go and say hello."];
+const mossaKept = (now = Date.now()) => tr(MOSSA_KEPT[Math.floor(now / 216e5) % MOSSA_KEPT.length]);
 /** The facets' words: Mossa for the first, Ember for the lantern she deepens, Mossa again for the title and the last. */
 const CORE_TALKS = {
   core1: () => [[MOSSA, "Look at you. There's something steady in you now, like a stone that won't roll."],

@@ -456,7 +456,7 @@ function renderTaskPill() {
   const t = todayTasks(), n = t.ids.filter(i => t.done[i]).length;
   $("taskCount").innerHTML = `${ic("tasks")}${n}/${t.ids.length}`;
   $("taskPill").title = tasksName(true);
-  // (new tasks can wait out the first minute home after a day or more: see homeQuiet)
+  // (new tasks can wait out the first minute home after Mossa looked in: see homeQuiet)
   $("taskPill").classList.toggle("fresh", n === 0 && !t.seen && !homeQuiet());
 }
 

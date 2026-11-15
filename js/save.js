@@ -106,7 +106,7 @@ function migrate(d) {
 }
 
 const save = loadSave();
-coreLastSeen = save.core.seen; // when this nest was last open: a day or more ago, and Mossa says welcome back
+coreLastSeen = save.core.seen; // when this nest was last open: a night or a day or more ago, and Mossa says welcome back
 let lastBak = 0, saveWarned = false;
 
 function persist() {
@@ -163,10 +163,14 @@ const activeCreature = () => save.creatures.find(c => c.id === save.active) || s
 const totalStars = () => Object.values(save.stars).reduce((s, v) => s + v, 0);
 const unlocked = n => n === 1 || (save.stars[n - 1] || 0) > 0;
 
-// Away a day or more, and nobody comes home to hungry, lonely or worn-out little ones: Mossa looked in. She leaves every
-// need at three icons of four: well clear of what makes a glowling call or look sad (tummy and joy under 25, energy
-// under 20), enough for a happy face (joy over 70, tummy over 50), and not full, so there's still something kind to do.
-const AWAY_MIN = 24 * 60, KEPT = 75;
+// Away for a night or more (six hours), and nobody comes home to hungry, lonely or worn-out little ones: Mossa looked in.
+// Six hours is about where time alone has emptied every need anyway, and a night's sleep or a working day is longer: so
+// the keeper who comes back every morning or evening finds the nest as cared for as one who was gone for a week. Under
+// six hours the needs drift down as ever: that's a short break, and looking after them yourself is the game.
+// She leaves every need at three icons of four at least (what is higher stays): well clear of what makes a glowling call
+// or look sad (tummy and joy under 25, energy under 20), enough for a happy face (joy over 70, tummy over 50), and not
+// full, so there's still something kind to do.
+const AWAY_MIN = 6 * 60, KEPT = 75;
 const KEPT_QUIET = 60e3; // and for the first minute home nobody calls for anything: the welcome comes first
 /** Just home to a glowling Mossa looked in on: it's glad, and asks for nothing yet. */
 const keptQuiet = (cr, now = Date.now()) => cr.keptAt > 0 && Math.abs(now - cr.keptAt) < KEPT_QUIET;
@@ -192,7 +196,7 @@ function applyTime(cr, now = Date.now()) {
     cr.energy = clamp(cr.energy - min * 0.25, 0, 100);
     cr.messT = (cr.messT || 0) + min;
   }
-  // a day or more: Mossa looked in (see KEPT), and her visit leaves no mess behind
+  // six hours or more: Mossa looked in (see KEPT), and her visit leaves no mess behind
   if (min >= AWAY_MIN) {
     for (const k of ["tummy", "joy", "energy"]) cr[k] = Math.max(cr[k], KEPT);
     cr.messT = 0;
@@ -210,7 +214,7 @@ function applyTime(cr, now = Date.now()) {
 //    their "!" bubbles and the hint, which shows only in the nest).
 // 5. A tap sweeps it (sweepDust): a puff, +1 ✦, the nearest glowling cheers ♥, everyone in the nest gets joy back.
 //    A full nest's clock stops at half, so a swept nest stays tidy for a while.
-// 6. Home after a day or more, Mossa has swept too (see KEPT): all but one bunny, and one alone makes nobody call.
+// 6. Home after six hours or more, Mossa has swept too (see KEPT): all but one bunny, and one alone makes nobody call.
 const MESS_MIN = 45;
 const nestRoom = () => save.rooms.findIndex(r => r.kind === "nest");
 
@@ -229,7 +233,7 @@ function gatherDust() {
   return d;
 }
 
-/** Home after a day or more (see coreMoments): everyone's time is caught up, and if Mossa looked in while you were away
+/** Home after a while (see coreMoments): everyone's time is caught up, and if Mossa looked in while you were away
  *  (since: a moment the nest was already closed), the quiet minute starts now, when you're really here. Returns whether she did. */
 function comeHome(since, now = Date.now()) {
   for (const cr of save.creatures) applyTime(cr, now);
@@ -258,7 +262,7 @@ function updateCalls() {
   const n = save.creatures.filter(c => { const p = { ...c }; applyTime(p); return callOf(p); }).length;
   t.classList.toggle("call", n > 0 && game.scene !== "nest");
   checkPlaces();
-  // (the first minute home after a day or more, the valley's dot waits too)
+  // (the first minute home after Mossa looked in, the valley's dot waits too)
   $("worldTab")?.classList.toggle("call", !homeQuiet() && ((!moonDone() && game.scene !== "map") || (placeOk("forge") && canForge()) || (placeOk("garden") && ripePlots() > 0) || (save.mapFresh || []).length > 0 || (!!save.incubator && Date.now() >= save.incubator.due && !incHere())));
 }
 

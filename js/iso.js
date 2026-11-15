@@ -188,7 +188,7 @@ function selectCreature(id) {
   renderNest(true);
 }
 
-/** Home after a day or more: everyone awake in the room hops with a heart, one after another, glad to see you. */
+/** Home to a nest Mossa looked in on: everyone awake in the room hops with a heart, one after another, glad to see you. */
 function gladHome() {
   game.nest.glad = false;
   [...actors.values()].forEach((a, i) => setTimeout(() => {
@@ -511,7 +511,7 @@ function updateActors(dt) {
       else if (m === "hungry") emote(a, SNACKS[specOf(cr).snack].emoji, 2.2);
       else if (m === "sleepy") emote(a, "zz", 2.2);
       else if (m === "sad") emote(a, "…", 2.2);
-      // (just home after a day or more: still glad)
+      // (just home to a nest Mossa looked in on: still glad)
       else if (keptQuiet(cr)) emote(a, "♥", 1.6);
       // the one you're looking after beeps for you now and then
       if (wants && a.id === save.active && Math.random() < 0.3) sfx.chirp(specOf(cr).voice * 1.2);
