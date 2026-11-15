@@ -326,7 +326,8 @@ const AWARDS = [
   { id: "hybrid", tier: "rare", name: "Matchmaker", how: "Hatch a hybrid", test: () => [save.creatures.some(c => c.mix) ? 1 : 0, 1] },
   { id: "forge5", tier: "rare", name: "Blacksmith", how: "Buy 5 upgrades at the Forge", test: () => [Object.values(save.forge || {}).reduce((a, b) => a + b, 0), 5] },
   { id: "streak3", tier: "rare", name: "Night owl", how: "Open the moon egg on any 3 nights", test: () => [stat.nights(), 3] },
-  { id: "room2", tier: "rare", name: "More room", how: "Add a room to your home", test: () => [(save.rooms || []).length, 2] },
+  // (a room carved at the shop: the garden outside comes with every nest, and the map's places are not rooms of your home)
+  { id: "room2", tier: "rare", name: "More room", how: "Add a room to your home", test: () => [(save.rooms || []).filter(r => ROOM_KINDS.find(k => k.id === r.kind)?.cost).length, 1] },
   { id: "echo5", tier: "rare", name: "Good ear", how: "Sing back 5 tunes in Echo song", test: () => [save.echoBest || 0, 5] },
   { id: "wick3", tier: "rare", name: "A good customer", how: "Buy 3 things from Wick", test: () => [cnt("wickBought"), 3] },
   { id: "trips5", tier: "rare", name: "Explorer's map", how: "Send glowlings on 5 expeditions", test: () => [cnt("trips"), 5] },
@@ -357,7 +358,8 @@ const AWARDS = [
 function checkAwards(quiet) {
   // like the dialogs, awards wait while (and after) you play together, so a shared egg never changes your own save behind its back
   if (coopSession || game.coopTouched) return;
-  const first = !save.awards, earned = save.awards || {}, level = keeperLevel().l;
+  // (a brand-new nest has nothing to catch up on: its very first awards come one by one, like everyone's after)
+  const first = !save.awards && stat.cracked() > 1, earned = save.awards || {}, level = keeperLevel().l;
   const got = [];
   for (const a of AWARDS) {
     if (earned[a.id]) continue;
@@ -527,8 +529,9 @@ function oilNow() {
   return o.n;
 }
 const oilNext = () => Math.max(0, save.oil.t + OIL_EVERY - Date.now());
-/** Moon eggs, co-op and levels you already have three stars on don't need oil. */
-const tripCosts = n => !(n > 0 && save.stars[n] >= 3);
+/** Moon eggs, co-op, levels you already have three stars on and the first time through the first cave's six don't need oil
+ *  (so the Gloom's first seal, at the end of it, never meets an empty lantern). */
+const tripCosts = n => !(n > 0 && (save.stars[n] >= 3 || (n <= 6 && !save.stars[n])));
 function burnOil() {
   if (oilNow() < 1) return false;
   // the 20 minutes start counting from the first drop used
@@ -545,7 +548,10 @@ function giveBar(id, n = 1) {
   if (!$("lantern").classList.contains("hidden")) openLantern();
 }
 const barName = id => tr(BARS[id].name);
-function useBar(id) {
+/** The smallest bar in your pocket, if any: the one a trip eats by itself when the lantern is out (see startLevel). */
+const barFor = () => Object.keys(BARS).filter(id => save.bars?.[id] > 0).sort((a, b) => BARS[a].oil - BARS[b].oil)[0];
+/** auto: a trip needed the drop, so the bar goes in by itself with a word in the corner, and no sheet. */
+function useBar(id, auto) {
   if (!(save.bars?.[id] > 0)) return;
   oilNow();
   save.bars[id]--;
@@ -554,26 +560,42 @@ function useBar(id) {
   persist();
   sfx.munch(); setTimeout(() => sfx.shimmer(), 250);
   updateTopbar();
-  openLantern();
+  if (auto) toast(tr("{0} into the lantern ✦ +{1} oil", barName(id), BARS[id].oil));
+  else openLantern();
 }
 function renderOilPill() {
   const n = oilNow();
   const drops = Array.from({ length: oilMax() }, (_, i) => `<i${i < n ? ' class="on"' : ""}></i>`).join("");
   $("oilCount").innerHTML = `${ic("lantern", n ? "" : "off")}<span class="drops" aria-label="${n}/${oilMax()}">${drops}</span>${n > oilMax() ? `<em>+${n - oilMax()}</em>` : n < oilMax() ? `<em>${fmtClock(oilNext())}</em>` : ""}`;
-  // the Crack button says so when the lantern is out
-  const next = nextLevel(), dry = !n && tripCosts(next);
+  // the Crack button says so when the lantern is out (a bar in the pocket goes in by itself, so that isn't out)
+  const next = nextLevel(), dry = !n && tripCosts(next) && !barFor();
   $("crackTab").classList.toggle("dry", !!dry);
   $("crackLvl").textContent = dry ? `⏳ ${fmtClock(oilNext())}` : next ? tr("Lv {0}", next) : tr("Wander");
   $("oilWhen").textContent = n >= oilMax() ? tr("lantern") : fmtClock(oilNext());
   $("oilPill").classList.toggle("empty", !n);
 }
 const fmtClock = ms => { const s = Math.ceil(ms / 1000); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
-/** The lantern sheet: how much oil, when the next drop comes, and the bars you have. needed: opened because a trip needs oil. */
+/** A level that's free to crack again: one with ★★★, the deepest whose cave still hides a crystal the Book lacks, else the deepest. */
+function freeReplay() {
+  const done = Array.from({ length: LEVELS }, (_, i) => LEVELS - i).filter(n => save.stars[n] >= 3);
+  return done.find(n => CRYSTALS.some(c => c.cave === levelConf(n).cave && !save.geodes[c.id])) || done[0] || 0;
+}
+/** The lantern sheet: how much oil, when the next drop comes, and the bars you have. needed: opened because a trip needs oil.
+ *  Out of oil, it shows the ways to play that are free right now: today's moon egg and a ★★★ level. */
 function openLantern(needed) {
-  const n = oilNow();
+  const n = oilNow(), ways = [];
+  if (!n && !moonDone()) ways.push(`<button class="pillbtn" data-free="moon">${ic("moon")}${tr("Today's moon egg")}</button>`);
+  const again = !n && freeReplay();
+  if (again) ways.push(`<button class="pillbtn" data-free="${again}">${ic("star")}${tr("Level {0} ★★★", again)}</button>`);
   $("lanternTitle").textContent = needed && !n ? tr("The lantern is out") : tr("Lantern");
   $("lanternSub").textContent = (n >= oilMax() ? tr("Full: {0} trips into the grotto.", n) : tr("{0} of {1} drops of oil · the next one in {2}", n, oilMax(), fmtLeft(oilNext())))
-    + (needed && !n ? ". " + tr("Have a bar, or come back a little later.") : "");
+    + (ways.length ? ". " + tr("Come back a little later, or play one of these for free:") : needed && !n ? ". " + tr("Have a bar, or come back a little later.") : "");
+  $("lanternGo").innerHTML = ways.join("");
+  $("lanternGo").hidden = !ways.length;
+  $$("#lanternGo [data-free]").forEach(b => b.addEventListener("click", () => {
+    show("lantern", false);
+    if (b.dataset.free === "moon") startMoon(); else startLevel(Number(b.dataset.free));
+  }));
   $("lanternMeter").innerHTML = Array.from({ length: Math.max(oilMax(), n) }, (_, i) => ic("lantern", i < n ? "" : "off")).join("");
   $("barList").innerHTML = Object.entries(BARS).map(([id, b]) => {
     const have = save.bars?.[id] || 0;
@@ -587,6 +609,7 @@ function openLantern(needed) {
     tr("A drop comes back every {0} minutes on its own, until the lantern is full again: from empty to full takes {1}.", OIL_EVERY / 60e3, fmtLeft(oilMax() * OIL_EVERY)),
     tr("Bars fill it at once, even past the brim. They come from daily tasks, level-ups, moon eggs and sometimes the rubble of a geode."),
     tr("Free, always: moon eggs, playing together, and levels you already have ★★★ on. Quit before the first tap and you get the drop back."),
+    tr("The first time through the first cave, its six geodes need no oil at all."),
   ].map(t => `<p>${t}</p>`).join("");
   show("lantern", true);
 }
@@ -625,6 +648,8 @@ function caveShell(k) {
 function startLevel(n) {
   // a trip into the grotto takes a drop of lantern oil
   const paid = tripCosts(n);
+  // out of oil with a bar in the pocket: the smallest goes in by itself, and on you go
+  if (paid && oilNow() < 1 && barFor()) useBar(barFor(), true);
   if (paid && !burnOil()) { sfx.tick(); openLantern(true); habitFell(); return; }
   sfx.tick();
   game.chips = []; game.sparks = [];
