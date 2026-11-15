@@ -1059,7 +1059,7 @@ function walkThorn() {
   setHint(""); toast(tr("The thorns loosen in the light. The short way is open ✦"));
   // the light it had caught drifts to the glowling you lead: a little joy
   g.fx.push({ kind: "free", x: hl.ax, y: gy - th / 2, t: 0, life: 1.6 });
-  coreAdd("lamplit");
+  habitXP("thorns");
 }
 const walkRing = (x, y, col, life) => game.walk.fx.push({ kind: "ring", x, y, col, t: 0, life });
 
@@ -1081,7 +1081,7 @@ function finishWalk() {
   if (n > (w.best[p.id] || 0)) w.best[p.id] = n;
   let opened = null;
   if (g.reached && g.path === w.open - 1 && w.open < WALKS.length) { w.open++; opened = WALKS[g.path + 1]; }
-  bump("walked"); keeperXP(4); coreAdd("ritual");
+  bump("walked"); keeperXP(4); habitXP("ritual");
   persist(); updateTopbar();
   $("walkTitle").textContent = tr(g.reached ? "A lovely walk" : "A short walk");
   $("walkPics").innerHTML = crs.map(c => `<img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc, mood: "happy" })}" alt="">`).join("");

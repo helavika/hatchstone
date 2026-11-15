@@ -42,7 +42,7 @@ function grotto(save = {}, random = stream()) {
     tr: s => s, sfx: { tick: () => {} },
     persist: () => {}, talk: () => {}, setHint: s => did.hints.push(s),
     burnOil: () => page.save.oil.n >= 1 ? (page.save.oil.n--, did.burnt++, true) : false,
-    openLantern: () => { did.lantern++; }, coreFell: () => { did.fell++; },
+    openLantern: () => { did.lantern++; }, habitFell: () => { did.fell++; },
     setScene: s => did.scenes.push(s),
     makeShell: stone => ({ canvas: stone }), pixelate: stone => ({ toDataURL: () => 'shell ' + stone[0] }),
   };

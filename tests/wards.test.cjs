@@ -1,7 +1,8 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { WARD_LANDS, WARD_LAND, WARD_SPOTS, WARD_COST, wardSaveOf, wardsUp, wardFull, wardLeft, wardOpenIn, wardRoom, wardPlace } = require('../js/wards.js');
-const { CORE_GAIN, CORE_FACETS, coreGrow } = require('../js/inner.js');
+const fs = require('node:fs');
+const path = require('node:path');
 const { SPARK_LANDS } = require('../js/sparks.js');
 
 const allSet = (...ids) => Object.fromEntries(ids.flatMap(id => WARD_LAND[id].spots.map((_, i) => [id + '.' + i, 'amethyst'])));
@@ -72,11 +73,8 @@ test('setting stones: oldest in hand first, one per spot, each thins the veil a 
   assert.deepEqual(wardSaveOf(JSON.parse(JSON.stringify(ws))), { have: [], set: { 'frost.0': 'aqua', 'frost.1': 'quartz' } });
 });
 
-test('a stone set grows the keeper\'s core a little, once a day', () => {
-  assert.ok(CORE_GAIN.ward > 0 && CORE_GAIN.ward < CORE_FACETS[0].at);
-  const c = { n: 0, day: {} }, NOON = new Date(2026, 10, 14, 12).getTime();
-  assert.equal(coreGrow(c, 'ward', NOON), CORE_GAIN.ward);
-  assert.equal(coreGrow(c, 'ward', NOON + 3600e3), 0);
-  assert.equal(coreGrow(c, 'ward', NOON + 864e5), CORE_GAIN.ward);
-  assert.equal(c.n, 2 * CORE_GAIN.ward);
+test('a stone set brings keeper XP, like the other things that stand up for the little ones', () => {
+  const read = f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8');
+  assert.match(read('world.js'), /bump\("warded"\)/);
+  assert.match(read('scenes.js'), /^const KEEPER_XP = \{.*\bwarded: \d+/m);
 });

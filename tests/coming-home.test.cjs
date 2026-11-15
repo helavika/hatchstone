@@ -5,7 +5,7 @@ const path = require('node:path');
 const vm = require('node:vm');
 
 // save.js needs the whole game around it, so only the nest's clock is run here (time away, dust, calls, moods),
-// together with the keeper's core (inner.js), which says the welcome, over a pretend nest
+// together with the keeper's habits (inner.js), which say the welcome, over a pretend nest
 const read = f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8');
 const src = read('save.js');
 const from = src.indexOf('// Away for a night or more'), to = src.indexOf('function addXP(');
@@ -21,17 +21,18 @@ function nest(creatures, dust = []) {
   const page = {
     DUST_MAX: 3, MOSSA: 'Mossa', EMBER: 'Ember', TALKS: {}, coopSession: null,
     clamp: (v, a, b) => Math.max(a, Math.min(b, v)),
-    save: { creatures, dust, dustT: 0, rooms: [{ kind: 'nest' }], core: { n: 0, seen: 0, day: {}, fell: false, rest: 0, told: 0, old: false } },
+    save: { creatures, dust, dustT: 0, rooms: [{ kind: 'nest' }], habit: { seen: 0, day: {}, fell: false } },
     game: { scene: 'nest', coopTouched: false, nest: { glad: false } },
     roomOf: () => 0, persist: () => {}, updateTopbar: () => {}, setTimeout: (f, ms) => { later.push(ms); },
     tr: s => s, toast: t => { toasts.push(t); },
     gladHome: () => { page.game.nest.glad = false; glad.push(1); },
+    keeperXP: n => { page.xp += n; }, xp: 0,
   };
   page.residents = r => page.save.creatures.filter(c => !c.out && r === 0);
   page.talk = id => { said.push(page.TALKS[id]().map(l => l[1])); return true; };
   vm.createContext(page);
   vm.runInContext(read('inner.js'), page);
-  vm.runInContext(src.slice(from, to) + '\nObject.assign(this, { AWAY_MIN, KEPT, KEPT_QUIET, MOSSA_KEPT, mossaKept, applyTime, gatherDust, comeHome, callOf, moodOf, keptQuiet, homeQuiet, coreMoments, CORE_BACK, back: t => { coreLastSeen = t; } });', page);
+  vm.runInContext(src.slice(from, to) + '\nObject.assign(this, { AWAY_MIN, KEPT, KEPT_QUIET, MOSSA_KEPT, mossaKept, applyTime, gatherDust, comeHome, callOf, moodOf, keptQuiet, homeQuiet, habitMoments, BACK_TALK, back: t => { habitLastSeen = t; } });', page);
   return { page, said, glad, later, toasts };
 }
 const glowling = (away, o = {}) => ({ id: 1, tummy: 60, joy: 60, energy: 60, last: Date.now() - away, ...o });
@@ -126,12 +127,14 @@ test('home after three days: Mossa says she looked in, and the glowlings are gla
   const cr = glowling(3 * DAY), { page, said, glad, later } = nest([cr]);
   page.applyTime(cr, Date.now() - 20e3); // the page opened twenty seconds before Continue was tapped
   page.back(Math.floor((Date.now() - 3 * DAY) / H) * H);
-  page.coreMoments('nest');
+  page.habitMoments('nest');
   assert.equal(said.length, 1);
   assert.equal(said[0].length, 3);
   assert.equal(said[0][1], LOOKED_IN);
-  assert.equal(said[0][2], 'Coming back is strength too. Your core grew a little.');
+  assert.equal(said[0][2], 'Coming back is strength too.');
   assert.equal(glad.length, 1);
+  // coming back grows you as a keeper: a little keeper XP, once that day
+  assert.equal(page.xp, 30);
   // the quiet minute starts with the welcome, not when the page opened
   assert.ok(Date.now() - cr.keptAt < 1000);
   assert.equal(page.callOf(cr), '');
@@ -141,7 +144,7 @@ test('home after three days: Mossa says she looked in, and the glowlings are gla
   cr.keptAt -= page.KEPT_QUIET;
   assert.equal(page.homeQuiet(), false);
   // said once: the next look at the nest is an ordinary one
-  page.coreMoments('nest');
+  page.habitMoments('nest');
   assert.equal(said.length, 1);
   assert.equal(glad.length, 1);
 });
@@ -149,21 +152,21 @@ test('home after three days: Mossa says she looked in, and the glowlings are gla
 test('the welcome said on the map: the glowlings are glad when you reach the nest', () => {
   const cr = glowling(3 * DAY), { page, said, glad } = nest([cr]);
   page.back(Date.now() - 3 * DAY);
-  page.coreMoments('map');
+  page.habitMoments('map');
   assert.equal(said[0][1], LOOKED_IN);
   assert.equal(glad.length, 0);
-  page.coreMoments('nest');
+  page.habitMoments('nest');
   assert.equal(glad.length, 1);
   assert.equal(said.length, 1);
 });
 
 test('the warm words are only said when they are true', () => {
-  assert.ok(w.CORE_BACK(true).some(l => l[1] === LOOKED_IN));
-  for (const l of w.CORE_BACK(false)) assert.ok(l[1] !== LOOKED_IN && l[1] !== WARM);
+  assert.ok(w.BACK_TALK(true).some(l => l[1] === LOOKED_IN));
+  for (const l of w.BACK_TALK(false)) assert.ok(l[1] !== LOOKED_IN && l[1] !== WARM);
   // three days away, but everyone was out exploring the whole time: nobody needed looking in on, so she doesn't say she did
   const cr = glowling(3 * DAY, { out: true }), { page, said, glad, toasts } = nest([cr]);
   page.back(Date.now() - 3 * DAY);
-  page.coreMoments('nest');
+  page.habitMoments('nest');
   assert.equal(said.length, 1);
   assert.equal(said[0].length, 2);
   assert.ok(!said[0].includes(LOOKED_IN) && !said[0].includes(WARM));
@@ -175,7 +178,7 @@ test('the warm words are only said when they are true', () => {
   // (not even with a look-in from the visit before, in that same hour)
   c.keptAt = Date.now() - 6 * H - 15 * MIN;
   near.page.back(Date.now() - 6 * H - 20 * MIN);
-  near.page.coreMoments('nest');
+  near.page.habitMoments('nest');
   assert.deepEqual([near.said.length, near.toasts.length, near.glad.length], [0, 0, 0]);
   assert.equal(c.tummy, 0);
 });
@@ -184,7 +187,7 @@ test('back after an hour or five: no word from Mossa, and they want looking afte
   for (const away of [H, 5 * H]) {
     const cr = glowling(away), { page, said, glad, toasts } = nest([cr]);
     page.back(Math.floor((Date.now() - away) / H) * H);
-    page.coreMoments('nest');
+    page.habitMoments('nest');
     assert.deepEqual([said.length, toasts.length, glad.length], [0, 0, 0], 'away ' + away / H + ' h');
     assert.equal(cr.keptAt, undefined);
     assert.equal(page.homeQuiet(), false);
@@ -199,12 +202,12 @@ test('home after a night or a day at work: one short word from Mossa, not the wh
     const cr = glowling(away), { page, said, glad, later, toasts } = nest([cr], [[0.1, 0.1], [0.5, 0.5], [0.9, 0.9]]);
     page.applyTime(cr, Date.now() - 20e3); // the page opened twenty seconds before Continue was tapped
     page.back(Math.floor((Date.now() - away) / H) * H);
-    page.coreMoments('nest');
-    // no talk to tap through: one toast, one of hers, and the core doesn't count it as a day away
+    page.habitMoments('nest');
+    // no talk to tap through: one toast, one of hers, and it isn't counted as a day away (no keeper XP for it)
     assert.equal(said.length, 0, 'away ' + away / H + ' h');
     assert.equal(toasts.length, 1);
     assert.ok(page.MOSSA_KEPT.includes(toasts[0]), toasts[0]);
-    assert.equal(page.save.core.n, 0);
+    assert.equal(page.xp, 0);
     // everything she does after a day, she did tonight too: fed and rested (less the twenty seconds since the page
     // opened), swept, a quiet minute, and glad faces
     for (const k of ['tummy', 'joy', 'energy']) assert.ok(cr[k] > page.KEPT - 1 && cr[k] <= page.KEPT, k);
@@ -215,7 +218,7 @@ test('home after a night or a day at work: one short word from Mossa, not the wh
     assert.equal(page.homeQuiet(), true);
     assert.ok(later.length === 1 && later[0] >= page.KEPT_QUIET);
     // said once
-    page.coreMoments('nest');
+    page.habitMoments('nest');
     assert.deepEqual([toasts.length, glad.length], [1, 1]);
   }
 });
@@ -224,14 +227,14 @@ test('home after 25 hours or three days: the whole welcome, as before, and no to
   for (const away of [25 * H, 72 * H]) {
     const cr = glowling(away), { page, said, glad, toasts } = nest([cr]);
     page.back(Math.floor((Date.now() - away) / H) * H);
-    page.coreMoments('nest');
+    page.habitMoments('nest');
     assert.equal(said.length, 1, 'away ' + away / H + ' h');
     assert.equal(said[0].length, 3);
     assert.equal(said[0][1], LOOKED_IN);
     assert.equal(toasts.length, 0);
     assert.equal(glad.length, 1);
     assert.deepEqual([cr.tummy, cr.joy, cr.energy], [page.KEPT, page.KEPT, page.KEPT]);
-    assert.ok(page.save.core.n > 0);
+    assert.equal(page.xp, 30);
   }
 });
 
@@ -246,5 +249,5 @@ test('her short words differ from one time to the next, and are short', () => {
 
 test('every line of the welcome has its Ukrainian', () => {
   const uk = read('i18n.js');
-  for (const l of [...w.CORE_BACK(true), ...w.CORE_BACK(false), [0, WARM], ...w.MOSSA_KEPT.map(t => [0, t])]) assert.ok(uk.includes(`  ${JSON.stringify(l[1])}: "`), l[1]);
+  for (const l of [...w.BACK_TALK(true), ...w.BACK_TALK(false), [0, WARM], ...w.MOSSA_KEPT.map(t => [0, t])]) assert.ok(uk.includes(`  ${JSON.stringify(l[1])}: "`), l[1]);
 });

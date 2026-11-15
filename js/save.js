@@ -78,9 +78,10 @@ function migrate(d) {
   if (!Number.isFinite(d.dustT)) d.dustT = 0;
   // sparks of inspiration from exploring (see sparks.js): found ones, Pip's news, the scarf dye
   d.sparks = sparkSaveOf(d.sparks);
-  // the keeper's core (see inner.js): an older nest starts part-way, from what it's already been through
-  d.core = coreSaveOf(d.core, d);
-  // the moon egg: nights kept, where there was a streak (after the core, which starts an older nest from that streak)
+  // how you grow as a keeper (see inner.js): the habits' day, and an older save's core and Granite Fist turned into
+  // keeper XP, gifts and Strength, once
+  keeperMigrate(d);
+  // the moon egg: nights kept, where there was a streak
   const moon = moonSaveOf(d.moon, d);
   if (moon) d.moon = moon; else delete d.moon;
   // walks outside (see walk.js): how far the paths are open, the best hauls, the keepsakes
@@ -108,7 +109,7 @@ function migrate(d) {
 }
 
 const save = loadSave();
-coreLastSeen = save.core.seen; // when this nest was last open: a night or a day or more ago, and Mossa says welcome back
+habitLastSeen = save.habit.seen; // when this nest was last open: a night or a day or more ago, and Mossa says welcome back
 let lastBak = 0, saveWarned = false;
 
 function persist() {
@@ -119,7 +120,7 @@ function persist() {
     if (theirs && validSave(theirs) && ((theirs.rev || 0) > save.rev || (startedEmpty && !save.rev && theirs.creatures.length))) { adoptSave(theirs); return; }
   } catch {}
   save.rev = (save.rev || 0) + 1;
-  if (!document.hidden) save.core.seen = coreSeenNow();
+  if (!document.hidden) save.habit.seen = habitSeenNow();
   if (!store.set(SAVE_KEY, save)) {
     // storage is full: geode pictures can be redrawn, progress can't
     for (const g of Object.values(save.geodes)) delete g.img;
@@ -235,7 +236,7 @@ function gatherDust() {
   return d;
 }
 
-/** Home after a while (see coreMoments): everyone's time is caught up, and if Mossa looked in while you were away
+/** Home after a while (see habitMoments): everyone's time is caught up, and if Mossa looked in while you were away
  *  (since: a moment the nest was already closed), the quiet minute starts now, when you're really here. Returns whether she did. */
 function comeHome(since, now = Date.now()) {
   for (const cr of save.creatures) applyTime(cr, now);

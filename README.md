@@ -18,8 +18,9 @@ what's glowing inside. 🎧 Best with headphones.
 - Seven pixel-art backdrops: each cave chapter has its own, and a moonlit churchyard, a
   glowcap mushroom wood and a starfall abbey unlock as you play (pick one in Decor); each
   backdrop has its own quiet generative tune
-- The Forge: spend shards on hammer upgrades that last forever (heavier taps, a keener
-  eye for the weak spot, echoing knocks, more shards from weak-spot hits)
+- The Forge: spend shards on hammer upgrades that last forever (a keener eye for the weak
+  spot, echoing knocks, more shards from weak-spot hits); how hard you hit is your keeper
+  Strength
 - Like an old handheld pet, glowlings call for you when they're hungry, sleepy or lonely,
   and dust bunnies gather in the nest until you tap them away
 - Knock on the stone to find its hollow spot, and polish each opened geode to a shine

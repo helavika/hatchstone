@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 const { sparkSaveOf } = require('../js/sparks.js');
-const { coreSaveOf } = require('../js/inner.js');
+const { keeperMigrate } = require('../js/inner.js');
 const { KEEPSAKES, KEEP_WEAR, walkSaveOf } = require('../js/walk.js');
 const { wardSaveOf } = require('../js/wards.js');
 
@@ -35,7 +35,7 @@ function moon(save = {}, words = {}) {
   const page = {
     Date: Clock, LEVELS: 24, save: { stars: {}, seen: {}, counts: {}, ...save },
     tr: words.tr || fill, pl: words.pl || ((n, one, many) => n === 1 ? one : many),
-    giveBar: id => bars.push(id), taskDone: () => {}, coreAdd: () => {}, setScene: () => {}, sfx: { tick: () => {} }, game: {},
+    giveBar: id => bars.push(id), taskDone: () => {}, habitXP: () => {}, setScene: () => {}, sfx: { tick: () => {} }, game: {},
     setHint: s => hints.push(s), newEgg: conf => eggs.push(conf), CRYSTAL: { moonstone: { id: 'moonstone' } },
     // today's glowling: a plain rare one, already met
     moonToday: () => ({ id: 'ambercub' }), rar: r => r, rarityOf: () => 'rare', untilTomorrow: () => '5h',
@@ -48,7 +48,7 @@ function moon(save = {}, words = {}) {
 function load(d) {
   const page = {
     SAVE_KEY: 'k', BAK_KEY: 'k.bak', localStorage: { getItem: k => k === 'k' && d ? JSON.stringify(d) : null, setItem: () => {} },
-    sparkSaveOf, coreSaveOf, walkSaveOf, wardSaveOf, KEEP_WEAR, KS: Object.fromEntries(KEEPSAKES.map(k => [k.id, k])),
+    sparkSaveOf, keeperMigrate, walkSaveOf, wardSaveOf, KEEP_WEAR, KS: Object.fromEntries(KEEPSAKES.map(k => [k.id, k])),
   };
   vm.runInNewContext(saveSrc + '\nthis.loaded = loadSave(); this.migrate = migrate;', page);
   // (through JSON, as it would be written: what isn't there isn't kept)
@@ -218,13 +218,6 @@ test('an older game that opens a newer save finds numbers, and takes no nights a
   // the older game, after a gap: its streak begins again at 1 and it knows nothing of nights
   const older = { v: 1, stars: {}, creatures: [], counts: m.save.counts, moon: { last: '2026-12-20', streak: 1 } };
   assert.deepEqual(load(older).save.moon, { last: '2026-12-20', nights: 8, streak: 8 });
-});
-
-test('the keeper\'s core still starts an older nest from its moon nights', () => {
-  const now = Date.now();
-  const born = [{ id: 1, sp: 'ambercub', born: now, last: now }];
-  const plain = load(oldNest(null, 0, {}, born)).save, kept = load(oldNest({ last: '2026-11-13', streak: 4 }, 4, {}, born)).save;
-  assert.equal(kept.core.n - plain.core.n, 4);
 });
 
 test('in Ukrainian: the count in its three forms, and the moon\'s hello', () => {
