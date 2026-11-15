@@ -125,7 +125,9 @@ function coopReplayHits(e, hits, feedback) {
     const [u, nv, power] = hits[i], p = [u, nv * EGG_R];
     e.hits.push(hits[i].slice());
     const res = crackHit(e, p, power, seeded(e.seed + ":" + i));
-    if (feedback) { const [x, y] = fromEgg(...p); hitFeedback(e, x, y, res, 1 + (res.crit ? 2 : 0)); }
+    // (the pay is counted even when nothing is shown, so the chain is where the host's is)
+    const gems = blowPay(e, res);
+    if (feedback) { const [x, y] = fromEgg(...p); hitFeedback(e, x, y, res, gems); }
   }
   paintNet(e);
 }
