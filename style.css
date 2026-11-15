@@ -1169,6 +1169,8 @@ body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigte
 .fb-details pre { max-height: none; overflow: visible; }
 .cat-chips button { flex: 1 1 auto; }
 /* closing is one small ✕ in the corner, the same in every popup; a big button is only for doing something (like saving) */
+/* the ✕ sits in its own card's corner on every kind of overlay, not only the modal ones (the Grotto's map is a screen: there it used to land under the top bar) */
+.overlay .card:has(> .x-close) { position: relative; }
 .overlay .card > .x-close { position: absolute; top: 10px; right: 10px; z-index: 4; width: 36px; height: 36px; min-height: 0; margin: 0; padding: 0; display: grid; place-items: center;
   font: 400 20px/1 system-ui, sans-serif; color: var(--soft); background: var(--px-deep, rgba(0, 0, 0, .3)); border: 0; border-radius: 0; box-shadow: var(--px-frame, none); cursor: pointer; text-decoration: none; }
 .overlay .card > .x-close:hover { color: #fff; }
