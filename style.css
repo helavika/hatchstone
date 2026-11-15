@@ -1023,6 +1023,8 @@ body.arranging #nestBottom { visibility: hidden; }
 .tile b { font-weight: 400; font-size: 15px; line-height: 1.1; text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .tile small { margin-top: auto; color: var(--px-gold); font-size: 14px; text-align: center; }
 .tile.placed small { color: #b9e88a; }
+.tile .hang { padding: 2px 7px; font-size: 13px; line-height: 1.15; text-align: center; color: var(--px-ink); background: #ffe9a8; box-shadow: 0 0 0 2px var(--px-ink); }
+.tile.placed .hang { color: var(--soft); background: rgba(255, 255, 255, .08); }
 .tile.dim, .tile:disabled { opacity: .45; }
 .tile.on { outline: 3px solid var(--px-gold); outline-offset: -3px; background: rgba(255, 233, 168, .16); }
 .tile.legend { background: linear-gradient(rgba(255, 210, 120, .2), rgba(255, 255, 255, .03)); }

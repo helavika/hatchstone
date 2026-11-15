@@ -10,13 +10,17 @@ const line = (src, re, what) => { const m = src.match(re); assert.ok(m, what); r
 
 // play.js needs the whole game around it, so only the Gloom's visit is run here, over a pretend nest seen straight on (a
 // floor 800 wide and 400 deep, a glowling 100 across): the visit from its numbers down to the end of gloomEnd, with
-// areFriends and the diary's remember as they stand in nest.js
-const playJs = read('play.js'), nestJs = read('nest.js'), i18n = read('i18n.js');
+// areFriends and the diary's remember as they stand in nest.js, the charms and the one hung on the wall as gifts.js has them,
+// and the back wall as save.js measures it
+const playJs = read('play.js'), nestJs = read('nest.js'), i18n = read('i18n.js'), giftsJs = read('gifts.js'), saveJs = read('save.js');
 const visitSrc = [
   line(nestJs, /^const areFriends = .*$/m, 'areFriends should be one line in nest.js'),
   cut(nestJs, 'function remember(', '\n}\n', 'remember should sit in nest.js') + '\n}',
+  line(giftsJs, /^const CHARMS = .*$/m, 'the charms should be one line in gifts.js'),
+  line(giftsJs, /^const charmHung = .*$/m, 'charmHung should be one line in gifts.js'),
+  line(saveJs, /^const wallAt = .*$/m, 'wallAt should be one line in save.js'),
   cut(playJs, 'const GLOOM_WAIT = ', '/** Where the huddle is for a glowling', 'the Gloom\'s visit should sit together in play.js, down to gloomEnd'),
-  'Object.assign(this, { GLOOM_HELP, GLOOM_TIE, GLOOM_TIE_R, gloomNow, gloomArt, gloomCome, updateGloom, gloomEnd, gloomSegDist, gloomOnThread, areFriends });',
+  'Object.assign(this, { GLOOM_HELP, GLOOM_TIE, GLOOM_TIE_R, gloomNow, gloomArt, gloomCome, updateGloom, gloomEnd, gloomSegDist, gloomOnThread, areFriends, GLOOM_CHARM, GLOOM_CHARM_R, GLOOM_CHARM_LOW, charmSpot, charmAt, gloomInCharm });',
 ].join('\n');
 const B = 100, DT = 1 / 60;
 const fill = (s, ...a) => a.length ? s.replace(/\{(\d)\}/g, (_, i) => a[i]) : s;
@@ -24,20 +28,20 @@ const fill = (s, ...a) => a.length ? s.replace(/\{(\d)\}/g, (_, i) => a[i]) : s;
 /** A pretend nest with the Gloom's shadows already in it: `friends` lists the pairs who are friends, `at` where each glowling
  *  stands on the floor. No wisp is out until a test puts one somewhere; one is still on its way in from the crack, so the
  *  visit goes on (`last: true` for a visit that ends with the wisps the test puts out). */
-function visit({ friends = [], at = { 1: [300, 300], 2: [500, 300], 3: [400, 380] }, save = {}, calm = false, last = false } = {}) {
+function visit({ friends = [], at = { 1: [300, 300], 2: [500, 300], 3: [400, 380] }, save = {}, calm = false, last = false, decor = {}, wall = {} } = {}) {
   const did = { toasts: [], emotes: [], saved: 0, sparks: [] };
   const names = { 1: 'Dozeling', 2: 'Mossmew', 3: 'Smudgekin', 4: 'Pippom' };
   const creatures = Object.keys(at).map(Number).map(id => ({ id, name: names[id], sleeping: false, joy: 50, pals: {} }));
   for (const [p, q, n = 5] of friends) creatures.find(c => c.id === p).pals[q] = n;
   const actors = new Map(creatures.map(c => [c.id, { id: c.id, x: at[c.id][0], y: at[c.id][1] }]));
   const page = {
-    Math, Date, TAU: Math.PI * 2, W: 800, H: 600, N: { iso: false, base: B, x0: 0, x1: 800, y0: 0, y1: 400 },
+    Math, Date, TAU: Math.PI * 2, W: 800, H: 600, N: { iso: false, base: B, x0: 0, x1: 800, y0: 0, y1: 400, cx: 400, hb: 400, back: 0, wallTop: -300, win: { x: 400, y: -150, r: 90 }, dk: 1, ...wall },
     save: { creatures, shards: 0, room: 0, dust: [], ...save }, actors, game: { scene: 'nest', sparks: did.sparks, time: 0 },
     clamp: (v, a, b) => Math.max(a, Math.min(b, v)), lerp: (a, b, t) => a + (b - a) * t, rand: (a, b) => (a + b) / 2, pick: arr => arr[0],
     sfx: { ready: () => false }, opts: () => ({ calm }), document: { hidden: false }, setTimeout: () => 0, $$: () => [],
     talkNow: null, talkQueue: [], giftNow: null, coopSession: null, pointer: null, arrange: { on: false }, startedEmpty: false,
     emote: (a, text) => did.emotes.push([a.id, text]), toast: t => did.toasts.push(t), tr: fill, persist: () => did.saved++,
-    nestRoom: () => 0, residents: () => creatures, cnt: () => 1, bump: () => {}, tipDone: () => true, dayKey: () => 'today', coreGift: () => false,
+    nestRoom: () => 0, hasDecor: id => !!decor[id], residents: () => creatures, cnt: () => 1, bump: () => {}, tipDone: () => true, dayKey: () => 'today', coreGift: () => false,
     setHint: () => {}, nestHint: () => '', renderNest: () => {}, updateTopbar: () => {}, checkAwards: () => {}, floatText: () => {}, buzz: () => {}, talk: () => {},
   };
   vm.runInNewContext(visitSrc, page);
@@ -256,4 +260,246 @@ test('every new word has its Ukrainian', () => {
     assert.ok(playJs.includes(`"${key}"`), `play.js should say: ${key}`);
     assert.match(i18n, new RegExp(`^  "${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}": "[^"]*[а-яіїє][^"]*",$`, 'm'), `no Ukrainian for: ${key}`);
   }
+});
+
+// ---------- a friend's charm on the wall ----------
+
+const plain = v => JSON.parse(JSON.stringify(v));
+const OLD = { v: 1, stars: { 1: 3 }, creatures: [], seen: {} }; // a nest from before charms could hang
+/** A save as it comes through the door: written to a pretend storage, then loaded the way the game loads it. */
+function load(d) {
+  const { sparkSaveOf } = require('../js/sparks.js'), { coreSaveOf } = require('../js/inner.js'), { KEEPSAKES, KEEP_WEAR, walkSaveOf } = require('../js/walk.js'), { wardSaveOf } = require('../js/wards.js');
+  const page = {
+    SAVE_KEY: 'k', BAK_KEY: 'k.bak', localStorage: { getItem: k => k === 'k' && d ? JSON.stringify(d) : null, setItem: () => {} },
+    sparkSaveOf, coreSaveOf, walkSaveOf, wardSaveOf, KEEP_WEAR, KS: Object.fromEntries(KEEPSAKES.map(k => [k.id, k])),
+  };
+  vm.runInNewContext(cut(saveJs, 'const SAVE_VERSION', 'const save = loadSave();', 'the save\'s way in should sit at the top of save.js') + '\nthis.loaded = loadSave(); this.migrate = migrate; this.freshSave = freshSave; this.hungSaveOf = hungSaveOf;', page);
+  return { save: plain(page.loaded), migrate: page.migrate, freshSave: page.freshSave, hungSaveOf: h => plain(page.hungSaveOf(h)) };
+}
+/** The chest's charms over a pretend save: the charms and the hanging of them as they stand in gifts.js. */
+function chest(save = {}) {
+  const did = { toasts: [], saved: 0, opened: 0 };
+  const page = {
+    save, tr: fill, toast: t => did.toasts.push(t), persist: () => did.saved++, sfx: { setDown: () => {}, tick: () => {} },
+    $: () => ({ classList: { contains: () => false } }), openShop: () => did.opened++, giftImg: (k, i) => `[${i}]`,
+  };
+  vm.runInNewContext([
+    line(giftsJs, /^const CHARMS = .*$/m, 'the charms should be one line in gifts.js'),
+    line(giftsJs, /^const giftEsc = .*$/m, 'giftEsc should be one line in gifts.js'),
+    cut(giftsJs, 'const charmHung = ', '\nfunction charmTap(', 'the hanging of charms should sit together in gifts.js'),
+    cut(giftsJs, 'function charmTap(', '\n}\n', 'charmTap should sit in gifts.js') + '\n}',
+    'Object.assign(this, { CHARMS, charmHung, giftCharmList, giftCharmTiles, charmHang, charmTap });',
+  ].join('\n'), page);
+  return { page, did, save };
+}
+
+test('the charm on the wall is kept apart from the chest\'s list, so it stays when the list is trimmed', () => {
+  // forty charms came, one a day; the first of them is hung
+  const charms = Array.from({ length: 40 }, (_, i) => ({ c: ['heart', 'star', 'moon'][i % 3], from: 'Friend ' + i, at: 1000 + i }));
+  const c = chest({ charms: charms.slice(0, 30) });
+  c.page.charmHang(0);
+  assert.deepEqual(plain(c.save.hung), { c: 'heart', from: 'Friend 0', at: 1000 });
+  assert.equal(c.did.saved, 1);
+  assert.deepEqual(c.did.toasts, ['Heart charm hangs on the nest\'s wall now ✦']);
+  // ten more come, and the chest keeps the last thirty, as acceptGift does
+  c.save.charms = [...c.save.charms, ...charms.slice(30)].slice(-30);
+  assert.ok(!c.save.charms.some(x => x.from === 'Friend 0'), 'the chest\'s own list has let it go');
+  assert.deepEqual(plain(c.page.charmHung()), { c: 'heart', from: 'Friend 0', at: 1000 }, 'the wall has not');
+  // through the door and back: still there, and the chest still shows it, first and marked as hung
+  const { save } = load({ ...OLD, charms: c.save.charms, hung: c.save.hung });
+  assert.deepEqual(save.hung, { c: 'heart', from: 'Friend 0', at: 1000 });
+  assert.equal(save.charms.length, 30);
+  const again = chest(save);
+  assert.equal(again.page.giftCharmList().length, 31);
+  assert.match(again.page.giftCharmTiles(), /^<button class="tile owned charm placed on" data-hang="0">\[heart\]<b>Heart charm<\/b><small>from Friend 0<\/small><span class="hang">Take down<\/span>/);
+  // taken down, it goes back into the chest's list rather than being lost
+  again.page.charmHang(0);
+  assert.equal(again.save.hung, undefined);
+  assert.equal(again.save.charms.length, 30);
+  assert.deepEqual(plain(again.save.charms[29]), { c: 'heart', from: 'Friend 0', at: 1000 });
+  assert.deepEqual(again.did.toasts, ['Heart charm is back in the chest']);
+});
+
+test('one charm hangs at a time: another takes its place, the same one again takes it down', () => {
+  const c = chest({ charms: [{ c: 'heart', from: 'Vika', at: 1 }, { c: 'moon', from: '', at: 2 }, { c: 'star', from: 'Vika', at: 3 }] });
+  const marks = () => (c.page.giftCharmTiles().match(/<span class="hang">[^<]*/g) || []).map(s => s.slice(19));
+  assert.deepEqual(marks(), ['Hang on the wall', 'Hang on the wall', 'Hang on the wall']);
+  c.page.charmHang(1);
+  assert.deepEqual(plain(c.save.hung), { c: 'moon', from: '', at: 2 });
+  assert.deepEqual(marks(), ['Hang on the wall', 'Take down', 'Hang on the wall']);
+  c.page.charmHang(2);
+  assert.deepEqual(plain(c.save.hung), { c: 'star', from: 'Vika', at: 3 });
+  assert.deepEqual(marks(), ['Hang on the wall', 'Hang on the wall', 'Take down']);
+  assert.equal(c.save.charms.length, 3, 'they all stay in the chest');
+  c.page.charmHang(2);
+  assert.equal(c.save.hung, undefined);
+  assert.equal(c.save.charms.length, 3);
+  assert.deepEqual(marks(), ['Hang on the wall', 'Hang on the wall', 'Hang on the wall']);
+  // a tile that isn't there: nothing
+  c.page.charmHang(7); c.page.charmHang(-1); c.page.charmHang(NaN);
+  assert.equal(c.save.hung, undefined);
+  assert.equal(c.did.saved, 3);
+  // no charms at all: no tiles, nothing hung, a tap says nothing
+  const none = chest({});
+  assert.equal(none.page.giftCharmTiles(), ''); assert.equal(none.page.charmHung(), null);
+  none.page.charmTap();
+  assert.deepEqual(none.did.toasts, []);
+});
+
+test('a tap on the hung charm says what it is and who it is from; a name is only ever text', () => {
+  const c = chest({ charms: [{ c: 'star', from: '<b>Vi&ka</b>', at: 1 }, { c: 'moon', from: '', at: 2 }] });
+  assert.match(c.page.giftCharmTiles(), /<small>from &lt;b&gt;Vi&amp;ka&lt;\/b&gt;<\/small>/);
+  assert.doesNotMatch(c.page.giftCharmTiles(), /<b>Vi/);
+  c.page.charmHang(0); c.page.charmTap();
+  // (a toast is written as text, never as markup)
+  assert.equal(c.did.toasts[1], 'Star charm · from <b>Vi&ka</b>');
+  c.page.charmHang(1); c.page.charmTap();
+  assert.equal(c.did.toasts[3], 'Moon charm · from a friend');
+});
+
+test('old saves, and whatever else turns up where the hung charm is kept', () => {
+  // a save from before charms could hang: nothing there, and nothing put there
+  const old = load({ ...OLD, charms: [{ c: 'heart', from: 'Vika', at: 5 }] }).save;
+  assert.equal('hung' in old, false); assert.equal(old.charms.length, 1);
+  assert.equal('hung' in load(null).save, false);
+  const { hungSaveOf, migrate, freshSave } = load(null);
+  for (const bad of [null, undefined, 0, 1, 'heart', true, [], ['heart'], {}, { c: 5 }, { c: '' }, { c: 'Heart' }, { c: '<img>' }, { c: 'a'.repeat(17) }, { from: 'Vika' }, { c: ['heart'] }, { c: { c: 'heart' } }]) {
+    assert.equal(hungSaveOf(bad), null, `not a charm: ${JSON.stringify(bad)}`);
+    assert.equal('hung' in migrate(Object.assign(freshSave(), { hung: bad })), false);
+  }
+  // what's kept: its kind, who it's from and when it came, and nothing else
+  assert.deepEqual(hungSaveOf({ c: 'moon', from: 'Vika', at: 7, x: 1, name: 'no' }), { c: 'moon', from: 'Vika', at: 7 });
+  assert.deepEqual(hungSaveOf({ c: 'moon' }), { c: 'moon', from: '', at: 0 });
+  assert.deepEqual(hungSaveOf({ c: 'moon', from: 5, at: 'now' }), { c: 'moon', from: '', at: 0 });
+  assert.deepEqual(hungSaveOf({ c: 'moon', from: null, at: Infinity }), { c: 'moon', from: '', at: 0 });
+  // a name is trimmed, cleared of line breaks and cut to 24 letters (whole ones)
+  assert.equal(hungSaveOf({ c: 'star', from: '  Vi\nka\t ' }).from, 'Vika');
+  assert.equal(hungSaveOf({ c: 'star', from: 'я'.repeat(40) }).from, 'я'.repeat(24));
+  assert.equal(hungSaveOf({ c: 'star', from: '🌙'.repeat(40) }).from, '🌙'.repeat(24));
+  // a kind of charm this game doesn't know (a save from a newer one) is kept in the save, and simply not hung
+  assert.deepEqual(plain(migrate(Object.assign(freshSave(), { hung: { c: 'comet', from: 'Vika', at: 3 } })).hung), { c: 'comet', from: 'Vika', at: 3 });
+  const c = chest({ hung: { c: 'comet', from: 'Vika', at: 3 } });
+  assert.equal(c.page.charmHung(), null); assert.equal(c.page.giftCharmTiles(), '');
+  assert.equal(visit({ save: { hung: { c: 'comet', from: 'Vika', at: 3 } } }).page.charmSpot(), null);
+  // the same way in for a backup code and a nest adopted from another tab: through migrate
+  assert.match(cut(saveJs, 'function migrate(', '\n}\n', 'migrate should sit in save.js'), /const hung = hungSaveOf\(d\.hung\);\n\s*if \(hung\) d\.hung = hung; else delete d\.hung;/);
+});
+
+/** A visit in a nest with a charm on its wall: seen straight on, the charm's light falls on the floor at (580, 10), and a
+ *  glowling stands close by, so a wisp there doesn't drift off after someone further away. */
+const HUNG = { c: 'heart', from: 'Vika', at: 1 }, LIGHT = [580, 10];
+const charmVisit = (o = {}) => { const v = visit({ at: { 1: [580, 100] }, ...o, save: { hung: HUNG, ...o.save } }); v.page.gloomArt.R = 10; v.page.gloomArt.P = 2; return v; };
+
+test('the charm\'s light wears a wisp thin, slowly, with no lantern on it; and only within its reach', () => {
+  const v = charmVisit(), g = v.g, reach = B * v.page.GLOOM_CHARM_R;
+  const at = v.page.charmSpot();
+  assert.deepEqual([Math.round(at.fx), Math.round(at.fy)], LIGHT);
+  assert.ok(at.y < 0 && at.x > 400 + B && at.x < 800 - B * 0.5, 'it hangs up on the back wall, to the right of the window');
+  // one in the light, one a good way out of it
+  v.wisp(0, LIGHT[0], LIGHT[1] + 20); v.wisp(1, 150, 300);
+  v.run(1);
+  assert.ok(Math.abs(1 - g.wisps[0].hp - v.page.GLOOM_CHARM) < 1e-6, `a second in its light: ${1 - g.wisps[0].hp}`);
+  assert.equal(g.wisps[1].hp, 1);
+  assert.equal(g.wisps[0].lit, 0); assert.equal(g.wisps[0].tie, 0);
+  // gentle: a good deal slower than your lantern alone (0.28 a second), and far slower than a thread
+  assert.ok(v.page.GLOOM_CHARM <= 0.28 / 2 && v.page.GLOOM_CHARM < v.page.GLOOM_TIE / 5);
+  // its reach: so far over the floor to a wisp's edge, a step toward the back counting for 1.4
+  const w = g.wisps[1], within = (x, y, k = 1) => v.page.gloomInCharm(Object.assign(w, { x, y, k }), at);
+  assert.ok(within(LIGHT[0] + reach + 19, LIGHT[1]) && !within(LIGHT[0] + reach + 21, LIGHT[1]));
+  assert.ok(within(LIGHT[0] - reach - 19, LIGHT[1]) && !within(LIGHT[0] - reach - 21, LIGHT[1]));
+  assert.ok(within(LIGHT[0], LIGHT[1] + (reach + 19) / 1.4) && !within(LIGHT[0], LIGHT[1] + (reach + 21) / 1.4));
+  assert.ok(within(LIGHT[0] + reach + 9, LIGHT[1], 0.5) && !within(LIGHT[0] + reach + 11, LIGHT[1], 0.5), 'a faded one from closer');
+  assert.ok(reach < B, 'a small pool of light: less than a glowling across to either side');
+});
+
+test('the charm never frees a wisp: it leaves that to your lantern, so nothing is won by waiting', () => {
+  const v = charmVisit({ last: true }), g = v.g, low = v.page.GLOOM_CHARM_LOW;
+  v.wisp(0, LIGHT[0], LIGHT[1] + 20);
+  v.run(20);
+  assert.equal(g.wisps[0].on, true);
+  assert.equal(g.wisps[0].hp, low, 'worn down to what the charm leaves, and no further');
+  assert.ok(low >= 0.3 && low <= 0.6);
+  assert.equal(g.freed, 0); assert.equal(v.page.save.shards, 0); assert.deepEqual(v.did.toasts, []);
+  assert.equal(g.on, true, 'the visit goes on');
+  // left alone, it drifts off by itself like any other, and nothing is given for it
+  g.wisps[0].life = g.wisps[0].t + 1;
+  v.run(12);
+  assert.equal(g.on, false);
+  assert.equal(v.page.save.shards, 0); assert.deepEqual(v.did.toasts, []);
+  // your lantern on one the charm has worn thin: it lets go sooner than a whole one would
+  const worn = charmVisit({ last: true }), whole = visit({ at: { 1: [580, 100] }, last: true });
+  worn.wisp(0, LIGHT[0], LIGHT[1] + 20); worn.run(8);
+  assert.equal(worn.g.wisps[0].hp, low);
+  let tw = 0, th = 0;
+  whole.wisp(0, LIGHT[0], LIGHT[1] + 20);
+  worn.lamp(LIGHT[0], LIGHT[1] + 20); worn.run(6, () => { if (worn.g.wisps[0].on) tw++; });
+  whole.lamp(LIGHT[0], LIGHT[1] + 20); whole.run(6, () => { if (whole.g.wisps[0].on) th++; });
+  assert.equal(worn.page.save.shards, 1, 'one shard, as for any wisp'); assert.equal(whole.page.save.shards, 1);
+  assert.ok(tw < th * 0.55, `worn thin: ${tw} frames; whole: ${th}`);
+});
+
+test('under your lantern in the charm\'s light: both count, until the charm has done its part', () => {
+  const v = charmVisit({ at: { 1: [150, 350] } }), plainV = visit({ at: { 1: [150, 350] } });
+  for (const x of [v, plainV]) { x.wisp(0, LIGHT[0], LIGHT[1] + 20); x.lamp(LIGHT[0], LIGHT[1] + 20); x.run(1); }
+  // (nobody is close enough to shine with you: your lantern alone, 0.28 a second once it has taken hold)
+  assert.equal(v.g.helpers, 0);
+  const lantern = 1 - plainV.g.wisps[0].hp;
+  assert.ok(Math.abs(lantern - 0.28 * (1 - 10 * DT)) < 0.28 * DT * 1.5, `your lantern alone: ${lantern}`);
+  assert.ok(Math.abs(1 - v.g.wisps[0].hp - lantern - v.page.GLOOM_CHARM) < 1e-6, `and the charm on top: ${1 - v.g.wisps[0].hp}`);
+});
+
+test('no charm on the wall, or not in this room: the same visit, frame for frame', () => {
+  const tell = v => JSON.stringify([v.g.wisps.map(w => [w.on, w.x, w.y, w.hp, w.lit, w.tie, w.k]), v.g.freed, v.page.save.shards, v.did.sparks.length, v.did.toasts]);
+  const go = v => { v.lamp(420, 310); v.wisp(0, LIGHT[0], LIGHT[1] + 20); v.wisp(1, 700, 100); v.wisp(2, 100, 350); v.run(4, k => { if (k === 90) v.lamp(650, 150); }); return tell(v); };
+  const bare = go(visit());
+  // charms in the chest but none hung; one this game doesn't know; rubbish where it's kept
+  assert.equal(go(visit({ save: { charms: [HUNG, { c: 'moon', from: '', at: 2 }] } })), bare);
+  assert.equal(go(visit({ save: { hung: { c: 'comet', from: 'Vika', at: 3 } } })), bare);
+  assert.equal(go(visit({ save: { hung: 'heart' } })), bare);
+  // and with one hung it is not the same: the wisp in its light has worn thinner
+  assert.notEqual(go(visit({ save: { hung: HUNG } })), bare);
+  // no charm: no place for one, nothing under a finger
+  const v = visit();
+  assert.equal(v.page.charmSpot(), null); assert.equal(v.page.charmAt(580, -180), false);
+  // hung, it is there in the nest and under a finger, and nowhere in another room
+  const h = visit({ save: { hung: HUNG } }), at = h.page.charmSpot();
+  assert.equal(h.page.charmAt(at.x + 5, at.y - 5), true); assert.equal(h.page.charmAt(at.x + B, at.y), false);
+  h.page.save.room = 1;
+  assert.equal(h.page.charmSpot(), null); assert.equal(h.page.charmAt(at.x, at.y), false);
+});
+
+test('seen straight on, the charm finds a clear patch of wall: right of the window, else left, else over the shelf', () => {
+  const spot = o => { const at = visit({ save: { hung: HUNG }, ...o }).page.charmSpot(); return [Math.round(at.x), Math.round(at.y)]; };
+  // a wide wall: right of the window, a little closer to it when the swing's ropes hang there
+  assert.deepEqual(spot({}), [580, -180]);
+  assert.deepEqual(spot({ decor: { swing: 1 } }), [561, -180]);
+  // a narrow one with the swing up: no room on the right, so left of the window
+  assert.deepEqual(spot({ decor: { swing: 1 }, wall: { hb: 250 } }), [245, -180]);
+  // the shelf up as well and the wall tall: over the shelf, a little higher
+  assert.deepEqual(spot({ decor: { swing: 1, shelf: 1 }, wall: { hb: 250 } }), [252, -210]);
+  // and on a short wall it keeps to the wider gap by the window
+  assert.deepEqual(spot({ decor: { swing: 1, shelf: 1 }, wall: { hb: 250, wallTop: -200 } }), [501, -120]);
+});
+
+test('the charm glows while the shadows are in, and settles again after', () => {
+  const v = charmVisit({ last: true }), g = v.g;
+  assert.equal(g.glow, 0);
+  v.run(1);
+  assert.equal(g.glow, 1);
+  // the last wisp drifts off: the visit ends, and the glow goes down by itself
+  v.wisp(0, 150, 300); g.wisps[0].life = g.wisps[0].t + 0.5;
+  v.run(12);
+  assert.equal(g.on, false);
+  for (let k = 0; k < 60; k++) v.page.updateGloom(DT);
+  assert.equal(g.glow, 0);
+});
+
+test('every new word about the charm has its Ukrainian', () => {
+  const uk = key => assert.match(i18n, new RegExp(`^  "${key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}": "[^"]*[а-яіїє][^"]*",$`, 'm'), `no Ukrainian for: ${key}`);
+  for (const key of ['Hang on the wall', 'Take down', '{0} hangs on the nest\'s wall now ✦', '{0} is back in the chest']) {
+    assert.ok(giftsJs.includes(`"${key}"`), `gifts.js should say: ${key}`);
+    uk(key);
+  }
+  // who it's from, by the charm while it glows: the words the chest already has
+  for (const key of ['from {0}', 'from a friend']) { assert.ok(playJs.includes(`tr("${key}"`), `play.js should say: ${key}`); uk(key); }
 });

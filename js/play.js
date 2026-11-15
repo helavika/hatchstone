@@ -347,12 +347,18 @@ function sweepDust(x, y) {
 //    floats up. Glowlings near your light shine with you (a ring each, three at most), and each one makes it go faster.
 //    Two friends who both shine with you hold a thread of light between them: a wisp that drifts onto it fades fast,
 //    even one your lantern isn't on. Friends together glow stronger.
+//    A charm from a friend, hung on the wall (see gifts.js), glows too: a wisp in its small pool of light wears thin,
+//    slowly, though it's still your lantern that frees it. A friend's light is here too.
 // 4. All gone by your light: everyone perks up, "It's lighter now. Together.", a shard a wisp, keeper XP, Lamplighter.
 // 5. Left alone, they thin out and drift off after a minute or so. Nothing is lost: the little ones just brighten again.
 const GLOOM_WAIT = 40, GLOOM_LIFE = 60, GLOOM_SEEP = 1.8, GLOOM_FADE = 2.5, GLOOM_HELP = 3, GLOOM_RISE = 2.4;
 // the friends' thread: how fast a wisp on it fades (a whole one in about a second, three times your lantern alone), and how
 // close to it a wisp's edge has to come (in glowling sizes: half the reach of your lantern's pool)
 const GLOOM_TIE = 0.9, GLOOM_TIE_R = 0.45;
+// a friend's charm on the wall: how fast a wisp in its light wears thin (about a third of your lantern's pace), how far its
+// light reaches over the floor under it (in glowling sizes, to a wisp's edge), and how much of a wisp it leaves: the charm
+// never frees one, your lantern has to
+const GLOOM_CHARM = 0.1, GLOOM_CHARM_R = 0.8, GLOOM_CHARM_LOW = 0.4;
 const GLOOM_STEPS = [1, 0.84, 0.68, 0.52, 0.36], GLOOM_FRAMES = 6;
 const gloomNow = {
   on: false, count: 0, calm: 0, tick: 0, held: false, heldT: 0, endT: 0, freed: 0, W: 0, H: 0, gx: 0, gy: 0, helpers: 0, chime: 0,
@@ -360,6 +366,7 @@ const gloomNow = {
   // who shines with you this moment, the threads between the friends among them, and what this visit has seen of them:
   // the pairs that have held one, the glowlings whose diaries know, and the pair whose thread a wisp let go on
   team: [null, null, null], threads: [0, 1, 2].map(() => ({ on: false, live: false, a: null, b: null, k: 0, hot: 0 })), tied: [], told: [], pair: null,
+  glow: 0, // how brightly the friend's charm on the wall glows: up while the shadows are in, down again after
   lights: [0, 1, 2].map(() => ({ on: false, x: 0, y: 0, t: 0 })),
   lamp: { on: false, x: 0, y: 0, k: 0 }, crack: { x: 0, y: 0, t: -1 }, spot: [0, 0],
 };
@@ -431,6 +438,7 @@ function gloomCome() {
 function updateGloom(dt) {
   const g = gloomNow, b = N.base, lamp = g.lamp, alt = gloomAlt();
   for (const l of g.lights) if (l.on && (l.t += dt) > GLOOM_RISE) l.on = false;
+  g.glow = clamp(g.glow + (g.on ? dt : -dt) * 2, 0, 1);
   if (!g.on) {
     // the little ones' light comes back by itself
     for (const a of actors.values()) if (a.gloomK > 0.001 || a.gloomLit > 0.001) { a.gloomK *= Math.exp(-dt * 1.5); a.gloomLit *= Math.exp(-dt * 3); }
@@ -465,7 +473,7 @@ function updateGloom(dt) {
   gloomTie(dt);
   // the wisps: seep in, drift toward the little ones, give way to the light
   // (a whole core makes your light a little stronger: see inner.js)
-  const drain = (0.28 + 0.2 * helpers) * (coreGift("shine") ? 1.25 : 1);
+  const drain = (0.28 + 0.2 * helpers) * (coreGift("shine") ? 1.25 : 1), charm = charmSpot();
   let left = 0, lit = false;
   for (const w of g.wisps) {
     if (!w.on) continue;
@@ -484,6 +492,11 @@ function updateGloom(dt) {
       if ((w.spk -= dt) <= 0 && !opts().calm) { w.spk = 0.14; game.sparks.push({ x: w.x + rand(-0.2, 0.2) * b, y: w.y - alt + rand(-0.15, 0.15) * b, vx: rand(-30, 30), vy: rand(-80, -30), t: 0, life: rand(0.4, 0.7), s: rand(2, 3), color: pick(["#fff0b5", "#eec26a", "#ffe9a8"]) }); }
     }
     if (w.lit > 0.5) { lit = true; w.hp -= drain * dt; }
+    // in the light of a friend's charm: it wears thin, slowly, down to what the charm leaves of it
+    if (charm && w.hp > GLOOM_CHARM_LOW && gloomInCharm(w, charm)) {
+      w.hp = Math.max(GLOOM_CHARM_LOW, w.hp - GLOOM_CHARM * dt);
+      if ((w.spk -= dt) <= 0 && !opts().calm) { w.spk = 0.5; game.sparks.push({ x: w.x + rand(-0.2, 0.2) * b, y: w.y - alt + rand(-0.15, 0.15) * b, vx: rand(-20, 20), vy: rand(-60, -25), t: 0, life: rand(0.5, 0.8), s: 2, color: pick(["#fff0b5", "#eec26a"]) }); }
+    }
     if (w.hp <= 0) { if (th && w.tie > 0.5 && !g.pair) g.pair = [th.a.id, th.b.id]; gloomFree(w); continue; }
     if (w.lit > 0.5) {
       // it gives way, backing off from the light
@@ -546,6 +559,48 @@ function gloomTie(dt) {
 }
 
 /** A wisp lets go: the light hidden in it floats up, a shard for you, and the nearest little one cheers. */
+/** The places on the nest's walls a friend's charm may hang, best first: the right wall has no window in it. */
+const CHARM_SLOTS = [["R", 3], ["R", 2], ["R", 1], ["L", 4.3], ["R", 0], ["L", 5], ["L", 0]];
+const CHARM_HIDES = { bookcase: 1, swing: 1, lamppost: 1, telescope: 1 }; // what stands tall enough to hide a charm hung high
+const charmPlace = { key: "", wall: "R", s: 3, x: 0, y: 0, fx: 0, fy: 0 };
+/** Where the friend's charm hangs on the nest's wall (x, y) and the middle of its light on the floor under it (fx, fy); null
+ *  when none is hung, or this room isn't the nest. It takes the first place clear of the window, the arches, the shelf and
+ *  the painting, one with no furniture standing in front of it if there is one. */
+function charmSpot() {
+  if (!charmHung() || save.room !== nestRoom()) return null;
+  const o = charmPlace, b = N.base;
+  if (!N.iso) {
+    // seen straight on: on the back wall beside the window, right of it if there's room before the swing's ropes, else left of
+    // it before the shelf; with no room either side, over the shelf where the wall is tall, or in the wider gap where it isn't
+    const wr = N.win.x + N.win.r, wl = N.win.x - N.win.r, need = b * 0.62;
+    const R = hasDecor("swing") ? wallAt(0.9, 0)[0] - b * 0.45 : N.cx + N.hb - b * 0.3, L = hasDecor("shelf") ? wallAt(0.12, 0)[0] + b * 0.7 * N.dk : N.cx - N.hb + b * 0.3;
+    const right = Math.min((wr + R) / 2, wr + b * 0.9), left = Math.max((wl + L) / 2, wl - b * 0.9), over = R - wr < need && wl - L < need && N.back - N.wallTop > b * 2.6;
+    o.x = over ? wallAt(0.12, 0)[0] : R - wr >= need || R - wr >= wl - L ? right : left;
+    o.y = lerp(N.back, N.wallTop, over ? 0.7 : 0.6); o.fx = o.x; o.fy = N.y0 + b * 0.1;
+    return o;
+  }
+  // half-way up the wall, or lower where the wall is short, to hang clear of a string of lights
+  const lift = Math.min(N.isoWall * 0.55, N.isoWall - b * 0.8), lay = isoLayout(), key = lay.key + "|" + Object.keys(WALL_ITEMS).filter(hasDecor).join() + "|" + Math.round(lift / b * 10);
+  if (o.key !== key) {
+    // (hung high on a tall wall it shows over all but the tallest things standing in front; on a short wall, over nothing)
+    const pieces = Object.entries(lay.placed).filter(([id]) => lift < b * 1.5 || CHARM_HIDES[id]).map(([, p]) => p);
+    const behind = (wall, s) => pieces.some(p => wall === "R" ? p.j < 2 && p.i <= s && s < p.i + p.fw : p.i < 2 && p.j <= s && s < p.j + p.fd);
+    // (the shelf runs on from its slot toward the front of the room, the painting hangs in the middle of its own)
+    const clear = (wall, s) => !wallInDoor(wall, s) && Object.keys(WALL_ITEMS).every(id => { const m = wallSlot(id), d = s - m.s; return !hasDecor(id) || m.wall !== wall || (id === "shelf" ? d > 2.1 || d < -1.2 : Math.abs(d) >= 1.3); });
+    const at = CHARM_SLOTS.find(([wall, s]) => clear(wall, s) && !behind(wall, s)) || CHARM_SLOTS.find(([wall, s]) => clear(wall, s)) || CHARM_SLOTS[0];
+    Object.assign(o, { key, wall: at[0], s: at[1] });
+  }
+  const c = (o.s + 0.5) / ISO_G, [x, y] = o.wall === "R" ? isoAt(c, 0) : isoAt(0, c), [fx, fy] = o.wall === "R" ? isoAt(c, 0.1) : isoAt(0.1, c);
+  return Object.assign(o, { x, y: y - lift, fx, fy });
+}
+/** Is a wisp in the light of the friend's charm? (over the floor, a step toward the back counting for 1.4 across, as ever) */
+const gloomInCharm = (w, at) => Math.hypot(w.x - at.fx, (w.y - at.fy) * 1.4) < N.base * GLOOM_CHARM_R + gloomR(w);
+/** Is the charm on the wall under a finger? */
+function charmAt(x, y) {
+  const at = charmSpot(), r = Math.max(22, N.base * 0.34);
+  return !!at && Math.abs(x - at.x) < r && Math.abs(y - at.y) < r;
+}
+
 function gloomFree(w) {
   const g = gloomNow, x = w.x, y = w.y - gloomAlt(), r = Math.max(gloomR(w), 8);
   w.on = false; g.freed++;
@@ -743,8 +798,72 @@ function gloomArtNow() {
 }
 const gloomStep = k => { let s = 0; for (let i = 1; i < GLOOM_STEPS.length; i++) if (Math.abs(GLOOM_STEPS[i] - k) < Math.abs(GLOOM_STEPS[s] - k)) s = i; return s; };
 
-/** Under everything in the room: the crack in the wall, the wisps' shadows on the floor, the rings of those who shine with you. */
+/** A charm's little picture for the wall: the chest's own icon of it, with a dark outline. */
+function bakeCharm(id) {
+  const map = PX_ICON_MAPS[CHARMS[id].icon], S = map.length + 2, c = document.createElement("canvas"); c.width = c.height = S;
+  const g = c.getContext("2d"), col = (x, y) => (y >= 0 && y < map.length && PX_ICON_COLORS[map[y][x]]) || null;
+  for (let y = -1; y <= map.length; y++) for (let x = -1; x <= map.length; x++) {
+    const own = col(x, y), ink = !own && (col(x - 1, y) || col(x + 1, y) || col(x, y - 1) || col(x, y + 1));
+    if (own || ink) { g.fillStyle = own || "#160c26"; g.fillRect(x + 1, y + 1, 1, 1); }
+  }
+  return { id, c, s: S };
+}
+/** A soft round of warm light in dithered art pixels, brightest in the middle (rx across, ry down from it). */
+function bakeCharmGlow(rx, ry) {
+  const w = rx * 2 + 1, h = ry * 2 + 1, c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d");
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const I = 1 - ((x - rx) / rx) ** 2 - ((y - ry) / ry) ** 2;
+    if (I > PX_BAYER[(y & 3) * 4 + (x & 3)] * 0.9 + 0.04) { g.fillStyle = I > 0.7 ? "#fff0b5" : I > 0.4 ? "#eec26a" : "#c98f3a"; g.fillRect(x, y, 1, 1); }
+  }
+  return { c, w, h, rx, ry };
+}
+/** The friend's charm on the nest's wall: its little picture, hanging by a thread from a nail. While the shadows are in it
+ *  glows: a halo round it, a pool of warm light on the floor under it (as far as its light reaches), and by it who it's from. */
+function drawCharm() {
+  const at = charmSpot();
+  if (!at) return;
+  const A = gloomArtNow(), P = A.P, h = charmHung(), k = gloomNow.glow, calm = opts().calm, was = ctx.imageSmoothingEnabled;
+  if (!A.charm || A.charm.id !== h.c) A.charm = bakeCharm(h.c);
+  const C = A.charm, m = Math.max(1, Math.round(N.base * 0.42 / (C.s * P))), half = Math.floor(C.s * m / 2), cx = Math.round(at.x / P), cy = Math.round(at.y / P);
+  ctx.imageSmoothingEnabled = false;
+  if (k > 0) {
+    const rx = Math.round(N.base * GLOOM_CHARM_R / P), ry = Math.round(rx / 1.4), beat = calm ? 0.85 : 0.85 + 0.15 * Math.sin(game.time * 0.004);
+    if (!A.pool || A.pool.rx !== rx) A.pool = bakeCharmGlow(rx, ry);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.globalAlpha = k * 0.5 * beat;
+    ctx.drawImage(A.pool.c, (Math.round(at.fx / P) - rx) * P, (Math.round(at.fy / P) - ry) * P, A.pool.w * P, A.pool.h * P);
+    ctx.globalCompositeOperation = "source-over";
+    // little rays of light round it: long ones up, down and to the sides, a dot on each slant, changing places as it twinkles
+    const turn = calm ? 0 : Math.floor(game.time * 0.0016) % 2, r0 = half + m, ray = (dx, dy, len, col) => { ctx.fillStyle = col; for (let i = 0; i < len; i++) ctx.fillRect(Math.round(cx + dx * (r0 + i * m) - (m - 1) / 2) * P, Math.round(cy + dy * (r0 + i * m) - (m - 1) / 2) * P, m * P, m * P); };
+    ctx.globalAlpha = k;
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1]]) ray(dx, dy, turn ? 1 : 2, "#fff0b5");
+    for (const [dx, dy] of [[0.7, 0.7], [-0.7, 0.7], [0.7, -0.7], [-0.7, -0.7]]) ray(dx, dy, turn ? 2 : 1, "#eec26a");
+  }
+  ctx.globalAlpha = 1;
+  // the nail and the thread it hangs by
+  ctx.fillStyle = "#c98f3a"; ctx.fillRect(cx * P, (cy - half - 3 * m) * P, P, 3 * m * P);
+  ctx.fillStyle = "#fff0b5"; ctx.fillRect(cx * P, (cy - half - 3 * m - 1) * P, P, P);
+  ctx.drawImage(C.c, (cx - half) * P, (cy - half) * P, C.s * m * P, C.s * m * P);
+  if (k > 0) { ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = k * 0.35; ctx.drawImage(C.c, (cx - half) * P, (cy - half) * P, C.s * m * P, C.s * m * P); ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = 1; }
+  ctx.imageSmoothingEnabled = was;
+  if (k > 0.05) {
+    // who it's from, in small pixel type under it (a long name is cut short)
+    const name = [...(h.from || "")], text = name.length ? tr("from {0}", name.length > 10 ? name.slice(0, 9).join("") + "…" : h.from) : tr("from a friend"), size = Math.max(11, Math.round(N.base * 0.2));
+    fx.save();
+    fx.globalAlpha = k;
+    fx.font = `400 ${size}px ${PIXEL_FONT}`; fx.textAlign = "center"; fx.textBaseline = "top";
+    const ty = (cy + half + 1) * P + 2, tw = fx.measureText(text).width / 2 + 4, tx = Math.round(clamp(at.x, tw, Math.max(tw, W - tw)));
+    fx.fillStyle = "#160c26"; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [1, 1]]) fx.fillText(text, tx + dx, ty + dy);
+    fx.fillStyle = "#fff0b5"; fx.fillText(text, tx, ty);
+    fx.restore();
+  }
+}
+
+/** Under everything in the room: a friend's charm on the wall, the crack in it, the wisps' shadows on the floor, the rings of
+ *  those who shine with you. */
 function drawGloomUnder() {
+  drawCharm();
   const g = gloomNow;
   if (!g.on && !actors.size) return;
   let any = false;
