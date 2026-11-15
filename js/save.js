@@ -73,6 +73,8 @@ function migrate(d) {
   const dust = [d.dust, ...(d.creatures || []).map(c => c.dust)].flatMap(a => Array.isArray(a) ? a : []);
   d.dust = dust.filter(p => Array.isArray(p) && p.length === 2 && p.every(Number.isFinite)).slice(0, DUST_MAX);
   for (const cr of d.creatures || []) delete cr.dust;
+  // the three geodes to choose from are gone: a replay hands you its geode like a first visit
+  delete d.offers;
   if (!Number.isFinite(d.dustT)) d.dustT = 0;
   // sparks of inspiration from exploring (see sparks.js): found ones, Pip's news, the scarf dye
   d.sparks = sparkSaveOf(d.sparks);
