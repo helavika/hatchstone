@@ -63,6 +63,8 @@ function migrate(d) {
     if (cr.mix && cr.mix.parents) cr.mix.parents = cr.mix.parents.map(renamed);
   }
   for (const h of d.hybrids || []) if (h.parents) h.parents = h.parents.map(renamed);
+  // every glowling has a habit of its own (see HABITS): one from before them gets its own quietly, the same each time
+  for (const cr of d.creatures || []) if (!HABIT[cr.habit]) cr.habit = seededHabit(cr.id);
   if (!Array.isArray(d.rooms) || !d.rooms.length) { d.rooms = [{ kind: "nest", on: [] }]; d.room = 0; }
   if (!(d.room >= 0 && d.room < d.rooms.length)) d.room = 0;
   // everyone has a way outside, to the garden

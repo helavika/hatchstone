@@ -246,6 +246,26 @@ if (LANG === "uk") for (const d of DECOR) if (d.iso) { d.name = tr(d.name); d.ve
 const legendOk = () => Object.keys(save.seen).some(id => SP[id] && rarityOf(SP[id]) === "legendary") || save.creatures.some(c => SP[c.sp] && rarityOf(SP[c.sp]) === "legendary");
 const DECO = Object.fromEntries(DECOR.map(d => [d.id, d]));
 const BEHAVIOR_NAMES = { flutter: "flutterers", hop: "hoppers", nap: "nappers", dance: "dancers", curious: "curious ones", swim: "swimmers" };
+/**
+ * Habits: one small way of its own for each glowling, on top of its kind, so two of the same kind still live differently
+ * (what each one does in the room: see habitNext in iso.js). The line is what its card says about it.
+ */
+const HABITS = [
+  { id: "fave", line: "Its favourite thing: {0}", bare: "Looking for a favourite thing in the room" },
+  { id: "spot", line: "Has a favourite spot in the room, and sits there" },
+  { id: "meal", line: "Takes a nap after every meal" },
+  { id: "hum", line: "Hums to itself when nothing's going on" },
+  { id: "rain", line: "Hides from the rain" },
+  { id: "follow", line: "Tags along after whoever is nearest" },
+  { id: "collect", line: "Collects pebbles and carries them to bed" },
+  { id: "stretch", line: "Has a long stretch after every nap" },
+  { id: "corners", line: "Pokes about in every corner" },
+];
+const HABIT = Object.fromEntries(HABITS.map(h => [h.id, h]));
+/** A number of its own for each glowling (and each thing it might like), always the same for the same id. */
+const idHash = (id, salt = 0) => { let h = (Number(id) * 2654435761 + salt * 40503) >>> 0; h = Math.imul(h ^ (h >>> 15), 2246822519) >>> 0; return (h ^ (h >>> 13)) >>> 0; };
+/** The habit an older glowling gets quietly, from its id: the same one every time the nest is opened. */
+const seededHabit = id => HABITS[idHash(id) % HABITS.length].id;
 
 const STAGES = ["Baby", "Young", "Grown", "Radiant"];
 const stageOf = level => level < 5 ? 0 : level < 10 ? 1 : level < 15 ? 2 : 3;

@@ -1319,6 +1319,7 @@ function tapIncubator() {
   // it hatches!
   const now = Date.now();
   const cr = { mem: [{ t: Date.now(), k: "Hatched in the incubator: a mix of {0}", a: [inc.mix.parents.join(" × ")] }], id: save.nextId++, sp: "hybrid", mix: inc.mix, name: (inc.shiny ? "✦ " : "") + inc.mix.name, shiny: inc.shiny, level: 1, xp: 0, tummy: 70, joy: 90, energy: 80, sleeping: false, last: now, born: now };
+  cr.habit = newHabit("hybrid");
   save.creatures.push(cr);
   save.hybrids = save.hybrids || [];
   save.hybrids.push({ id: cr.id, name: inc.mix.name, parents: inc.mix.parents, date: now });

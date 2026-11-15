@@ -131,6 +131,8 @@ function placeBanner(el) {
 const bannerClash = el => { el.style.top = ""; const s = sheetTitle(), top = parseFloat(getComputedStyle(el).top) || 0; return !!s && s.sheet && top < s.bottom && top + (el.offsetHeight || 64) > s.top; };
 
 function setScene(scene) {
+  // a repeat glowling left on the found card without a choice: it visits its relative, as it always did
+  if (adopt.twin) chooseTwin(false);
   if (scene !== "nest" && arrange.on) stopArrange();
   // into or out of cracking: the pixel size changes (finer everywhere else), so everything is laid out again
   const wasCrack = game.scene === "crack";

@@ -439,6 +439,8 @@ $("nextLvl").addEventListener("click", () => {
 });
 $("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
 $("foundShare").addEventListener("click", shareFound);
+$("twinHome").addEventListener("click", () => { sfx.tick(); chooseTwin(true); });
+$("twinVisit").addEventListener("click", () => { sfx.tick(); chooseTwin(false); });
 $("switcher").addEventListener("scroll", switchArrows, { passive: true });
 addEventListener("resize", () => requestAnimationFrame(() => { switchArrows(); fitTopbar(); }));
 for (const [id, dir] of [["swPrev", -1], ["swNext", 1]]) $(id).addEventListener("click", () => { sfx.tick(); const sw = $("switcher"); sw.scrollBy({ left: dir * sw.clientWidth * 0.8, behavior: "smooth" }); });
