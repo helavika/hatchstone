@@ -642,5 +642,7 @@ function levelConf(n) {
     rare: [0.08, 0.25, 0.45, 0.5][cave], legendary: [0, 0.03, 0.08, 0.15][cave],
     // the Malachite's stone grows in bands, and the weak spot moves when one breaks (see crackHit)
     bands: !wander && cave === 2,
+    // the Celestite's stone is silent: the weak spot doesn't glow, but every knock's ripple leans towards it (see rippleLean)
+    silent: !wander && cave === 1,
   };
 }
