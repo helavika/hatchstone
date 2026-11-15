@@ -1050,10 +1050,9 @@ function drawNest() {
     const [hx, hy] = heroSpot(), [u, v] = isoFrom(hx, hy);
     items.push({ y: hy, draw: drawHero, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } });
   }
-  if (wickRoom() && N.iso && wickHere()) {
-    const [wx, wy] = wickSpot(), [u, v] = isoFrom(wx, wy);
-    items.push({ y: wy, draw: drawWick, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } });
-  }
+  // Wick's bench in the grotto's hall: its lanterns, and on his days Wick himself, go right over the bench
+  const wb = wickRoom() && N.iso && isoLayout().placed.wickbench;
+  if (wb) items.push({ y: 0, after: "wickbench", draw: drawWick, box: { u0: wb.i, u1: wb.i + wb.fw, v0: wb.j, v1: wb.j + wb.fd } });
   const order = N.iso ? isoOrder(items) : items.sort((p, q) => p.y - q.y);
   order.forEach(it => it.draw());
   if (N.iso) ghostBehind(order);

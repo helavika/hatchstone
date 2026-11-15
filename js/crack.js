@@ -954,6 +954,9 @@ const TALKS = {
   legendary: cr => [[glowVoice(cr), "...Pip."], [MOSSA, tr("A legendary glowling... They say {0} only wakes for someone kind. Well done, you.", cr.name)]],
   allClear: () => [[MOSSA, "Every geode in the grotto, opened. I'm so proud of you."],
     [MOSSA, "But the deep caves never end. Wander down whenever you like. I'll keep the moss warm.", "#mapList .wander"]],
+  // Wick, on his bench in the hall, once the isle and its lighthouse are found: it is he who keeps that light (see talkMoments)
+  wickLight: () => [[WICK, "So you've found the isle. And the light on it."], [WICK, "Somebody has to trim that wick every night. I'm only saying."],
+    [WICK, "Not a word to Pip. He'd like to meet the keeper one day, and I do like being a mystery."]],
 };
 
 // ---------- the Gloom: a cold dark from the deep that seals the sparks in dead stone; at the end of each cave, one to rescue ----------
@@ -1323,11 +1326,13 @@ function talkMoments(scene) {
     TALKS[id] = () => [[MOSSA, ev.line], [MOSSA, tr("For {0} days a limited glowling, {1}, sleeps in the moon egg. It comes round again every year.", eventDaysLeft(ev), SP[ev.sp].name), scene === "map" ? "#moonBtn" : null]];
     talk(id);
   }
-  // Wick lands at the explorers' camp every third day and lets you know
+  // Wick comes to the grotto's hall every third day to top up its lanterns, and lets you know
   if (scene === "nest" && save.creatures.length && wickHere()) {
     const id = `wick-${dayNo()}`;
-    TALKS[id] = () => [[WICK, wickRoom() ? "Psst! Over here, by the lamp. I've brought a few things from the deep." : "Psst! I'm at the explorers' camp today, by the lamp, with a few things from the deep. Here till midnight!", wickRoom() ? null : "#worldTab"]];
+    TALKS[id] = () => [[WICK, wickRoom() ? "Psst! Over here, on the bench. I'm topping up the hall's lanterns, and I've brought a few things to sell." : "Psst! I'm in the grotto today, on the bench, topping up the lanterns. I've a few things for sale, too. Here till midnight!", wickRoom() ? null : "#worldTab"]];
     talk(id);
+    // on his bench, once you've found the isle, he lets slip whose light that is out at sea (Pip is not to know)
+    if (wickRoom() && wardFound("isle")) talk("wickLight");
   }
   // one part of the story per visit, so a long-time player catches up gently
   const part = STORY.find(s => !s.gloom && unlocked(s.at) && !talkSeen(s.id));
