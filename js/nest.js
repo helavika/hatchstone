@@ -522,7 +522,7 @@ const WICK_GOSSIP = [
   "Dorma's library has a book that reads itself. It's very boring.",
   "The deeper the cave, the rarer the stone. And the grumpier.",
   "A biteleaf only bites the ones it likes. Or so I'm told.",
-  "Hear a knock that rings higher? Hit there. Trust a moth.",
+  "Hear a knock that rings deep? Hit there. Trust a moth.",
   "The moon drops more eggs for nests that glow. Keep yours bright.",
 ];
 /** One more, for those who have found the isle and its lighthouse (where he lives, though he'd rather not say so outright). */
