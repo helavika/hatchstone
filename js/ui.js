@@ -487,7 +487,7 @@ function tapWallet(ev) {
   if (!open) return;
   const n = totalStars(), max = LEVELS * 3;
   tip.innerHTML = `<p>${ic("shard")}<span><b>${tr("{0} shards", save.shards)}</b>${tr("Spend them on snacks, decor and the Forge. They come from geodes, daily tasks and the moon egg.")}</span></p>`
-    + `<p>${ic("star")}<span><b>${tr("{0} of {1} stars", n, max)}</b>${tr("Up to three for each level of the Grotto: hit the weak spot to crack the egg in fewer taps.")}</span></p>`;
+    + `<p>${ic("star")}<span><b>${tr("{0} of {1} stars", n, max)}</b>${tr("Up to three for each level of the Grotto: the more of your taps land on the weak spot, the more stars.")}</span></p>`;
   tip.style.left = `${Math.max(8, box.left)}px`; tip.style.top = `${box.bottom + 8}px`;
   clearTimeout(tapWallet.t);
   tapWallet.t = setTimeout(() => { tip.hidden = true; pill.setAttribute("aria-expanded", "false"); }, 6000);
@@ -535,7 +535,7 @@ const FAQ_SECTIONS = [
 ];
 const FAQ = [
   ["What do I do in this game?", "Crack stone eggs, meet the glowling inside, and look after it at home. Cracking earns shards and stars. The deeper you go, the more of the valley opens up around the grotto: a shop, a garden, a forge, an explorers' camp and a lab, each with someone who looks after it."],
-  ["How do I get three stars?", "Find the weak spot: aim for the glow, or from level 4 listen for the knock that rings higher. Hitting it cracks the egg in fewer taps, and fewer taps means more stars. Stars also open the star niches on the map: 12 stars in a cave open its first niche and 18 the second, each with a heart geode that holds a crystal your Book doesn't have yet (or a rare one, once it has them all)."],
+  ["How do I get three stars?", "Find the weak spot and keep your taps on it: aim for the glow, or from level 4 listen for the knock that rings higher. Stars are for aim, not for a heavy hammer: three when 70% of your taps land on the weak spot, two from 40%, and one for opening the geode at all. The search for the spot doesn't count: every miss before your first hit on it is left out, and at least three misses on each geode. The bar under your shards shows your aim as you go, with a notch where each star begins. A level keeps the most stars it has ever had, so another try can only add to them. Stars also open the star niches on the map: 12 stars in a cave open its first niche and 18 the second, each with a heart geode that holds a crystal your Book doesn't have yet (or a rare one, once it has them all)."],
   ["What is the lantern?", "Every trip into the Grotto takes a drop of lantern oil. The lantern holds 5 drops (6 once your core is steadier), and one comes back every 20 minutes. Bars fill it right away: a firefly square gives 1 drop, a nut bar 3, and a star bar fills it to the brim. Moon eggs, playing together and levels you already have ★★★ on don't use oil."],
   ["Where do I get bars?", "From daily tasks (finish them all for a nut bar), when a glowling reaches a new level, from moon eggs (every third night kept brings a star bar), from a new best in Echo song, from expeditions, and now and then from the rubble of a geode. Wick sells them too, and the workbench at the Forge makes them from spare geodes. Tap the lantern at the top to use one."],
   ["What are daily tasks?", "A few small things to do each day: tap the tasks counter at the top. Each one gives 10 shards, and finishing them all gives 15 more and a nut bar."],

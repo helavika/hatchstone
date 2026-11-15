@@ -138,7 +138,7 @@ function installCoopRound(r, state) {
   newEgg(conf, false);
   const e = game.egg;
   e.conf = conf; e.crystal = CRYSTAL[r.crystal]; e.species = SP[r.species]; e.shiny = r.shiny; e.stone = STONES[r.stone];
-  e.hp = r.hp; e.spot = [r.spot[0], r.spot[1] * EGG_R]; e.seed = r.seed; e.par = Math.ceil(e.hp / 2.6); e.coopBlueprint = r;
+  e.hp = r.hp; e.spot = [r.spot[0], r.spot[1] * EGG_R]; e.seed = r.seed; e.coopBlueprint = r;
   e.hits = []; e.net = { segs: [], tips: [] }; e.damage = 0;
   refitEgg(e); game.pieces = [];
   return coopApplySnapshot(state, true);
