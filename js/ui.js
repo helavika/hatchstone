@@ -575,6 +575,7 @@ const FAQ = [
   ["Can I install it like an app?", "Yes, and then it works offline too (playing together still needs the internet). On iPhone, in Safari tap Share → Add to Home Screen. On Android, in Chrome open the ⋮ menu → Add to Home screen or Install app. It opens full screen, and Safari is far less likely to clear your nest."],
   ["How do I turn the sound off, or change the language?", "Menu (⚙) → Settings has music and sounds, each with its own volume, and Sound on/off in the menu mutes everything at once. The flag button switches between English and Ukrainian. Headphones make the cracks sound best."],
   ["Can the game move less, or the text be bigger?", "Yes: menu (⚙) → Settings. Less motion means no shaking or bouncing and gentler effects (it's already on if your device asks for less motion). Bigger text makes the cards, dialogs and hints easier to read."],
+  ["A message is in my way. Can I hide it?", "Yes: tap it, or swipe it aside. That works for the messages at the top of the screen, for award banners and for the hints at home. A hint you wave off keeps quiet for ten minutes."],
   ["What are Classic, Glow and Spirit?", "Three ways your glowlings can shine: Settings → How glowlings shine. Classic is plain pixel art. Glow, the default, adds a soft halo and twinkling sparkles in each glowling's own colour. Spirit glows brighter and fades see-through toward the feet, as if made of light."],
   ["How do I send an idea or report a bug?", "Menu (⚙) → Feedback. Write it in your own words, then tap Send an idea or Report a bug: GitHub opens with your words and a few details about your device, and nothing is sent until you send it there. No GitHub account? Copy it and send it any way you like."],
   ["What is Hatchstone about?", "Care, and the quiet strength it takes. The Gloom hides glowlings away in stone, and every kind thing you do lets a little light back in. The nest isn't a place to hide: it's where you rest and gather strength before the next trip into the dark."],
@@ -625,7 +626,32 @@ $("meName").addEventListener("input", () => { $("meSave").hidden = !$("meSave").
 $("meSave").addEventListener("click", () => { const first = !!$("meSave").dataset.first; saveMe(); sfx.tick(); if (first) $("meClose").click(); else { $("meSave").hidden = true; toast(tr("Saved ✓")); } });
 $("meName").addEventListener("change", saveMe);
 $$("#meForm [data-form]").forEach(b => b.addEventListener("click", () => { me().form = b.dataset.form; persist(); sfx.tick(); $$("#meForm [data-form]").forEach(x => x.classList.toggle("on", x === b)); }));
-$("award").addEventListener("click", () => { if ($("award").classList.contains("legendary") && bannerNow) openMe(); });
+// a banner or a hint in the way can be waved off: tap it, or swipe it aside (it follows the finger and goes the way it was thrown);
+// a tap on a new level or a new facet also opens "About you" (a swipe only sends it away)
+for (const el of [$("toast"), $("award"), $("hint")]) {
+  let from = null;
+  const hint = el.id === "hint";
+  const up = () => hint ? el.classList.contains("on") : bannerUp() && bannerEl(bannerNow) === el;
+  const hold = held => { if (!hint) holdBanner(held); };
+  const off = () => hint ? waveHint() : dismissBanner();
+  const back = () => { from = null; el.style.transition = ""; el.style.translate = ""; };
+  el.addEventListener("pointerdown", e => {
+    if (!up()) return;
+    from = [e.clientX, e.clientY]; hold(true); el.style.transition = "none";
+    try { el.setPointerCapture(e.pointerId); } catch {}
+  });
+  el.addEventListener("pointermove", e => { if (from) el.style.translate = `${Math.round(e.clientX - from[0])}px ${Math.round(e.clientY - from[1])}px`; });
+  el.addEventListener("pointerup", e => {
+    if (!from) return;
+    const dx = e.clientX - from[0], dy = e.clientY - from[1], d = Math.hypot(dx, dy);
+    back();
+    // a tap or a real swipe sends it off; a small nudge lets it settle back for a moment more
+    if (d < 8) { if (!hint && up() && el.classList.contains("legendary")) openMe(); off(); }
+    else if (d > 36) { el.style.translate = `${Math.round(dx * 4)}px ${Math.round(dy * 4)}px`; off(); }
+    else hold(false);
+  });
+  el.addEventListener("pointercancel", () => { if (from) { back(); hold(false); } });
+}
 // a sheet opening or closing while a banner shows: the banner moves out of the sheet's title (or back to its place)
 new MutationObserver(() => {
   if (bannerNow) placeBanner(bannerEl(bannerNow));
