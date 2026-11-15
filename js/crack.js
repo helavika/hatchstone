@@ -163,7 +163,7 @@ function newEgg(conf, animate = true) {
   game.egg = {
     conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04) + (conf.coop ? 0 : skill("luck") * 0.006) + (sun ? 0.3 : 0), stone: conf.gloom ? GLOOM_STONE : conf.moon ? moonStone() : pick(STONES),
     state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
-    hp: conf.hp, damage: 0, taps: 0, crits: 0, gems: 0, combo: 0, lastTap: -9, hits: [], seed: coopId(),
+    hp: conf.hp, damage: 0, taps: 0, crits: 0, gems: 0, combo: 0, chain: 0, owed: 0, hits: [], seed: coopId(),
     net: { segs: [], tips: [] }, painted: 0,
   };
   const e = game.egg;
@@ -356,7 +356,7 @@ const FORGE = [
   { id: "heft", name: "Granite Fist", icon: "hammer", cost: [25, 50, 90, 140, 200], what: l => tr("taps hit {0}% harder", l * 15) },
   { id: "eye", name: "Quarry Eye", icon: "eye", cost: [40, 90, 160], what: l => ["", tr("a faint glow shows the weak spot on hard stone"), tr("the weak spot glows brighter"), tr("the weak spot glows even in the deepest caves")][l] },
   { id: "echo", name: "Thunder Echo", icon: "bell", cost: [60, 120, 200], what: l => tr("{0}% of taps ring twice, for 60% more", l * 10) },
-  { id: "magpie", name: "Looter's Sack", icon: "pouch", cost: [30, 70, 120, 180], what: l => tr("+{0} {1} from every weak-spot hit", l, pl(l, "shard", "shards")) },
+  { id: "magpie", name: "Looter's Sack", icon: "pouch", cost: [30, 70, 120, 180], what: l => tr("stone broken at the weak spot pays {0}% more", Math.round(l * SACK_PAY * 100)) },
 ];
 const forgeLvl = id => (save.forge && save.forge[id]) || 0;
 /** Hammer looks: each shows when you tap the stone (the tool swings, bigger with Granite fist upgrades) and changes the sparks. */
@@ -587,6 +587,35 @@ function buyForge(id) {
   if (card) card.classList.add("forged");
 }
 
+// ---------- what a blow pays ----------
+
+// The stone pays for itself: shards for every point of it broken off, however many blows that takes, so a heavier
+// hammer is never the poorer one. A fair blow of the plain hammer on the weak spot breaks about 2.4 points, and a
+// tap like that used to pay 3.
+const STONE_PAY = 1.25;
+// A chain is hits on the weak spot in a row, and a miss ends it: aim pays, speed doesn't. It fills with the stone it
+// breaks (about four of those fair blows), and a full one doubles what the stone pays: 3 more for a fair blow.
+const CHAIN_FULL = 9.6;
+// Looter's Sack: a third more for stone broken at the weak spot, per level (one more shard for a fair blow).
+const SACK_PAY = 1 / 3;
+
+/**
+ * Whole shards for the blow that just landed (res is what crackHit gave back); the part of a shard left over rides on
+ * to the next blow. It keeps the chain as it goes. Host, guest and solo all count this way, blow by blow in the same
+ * order, so a shared egg pays the same on both screens.
+ */
+function blowPay(e, res, sack = 0) {
+  // the last blow is paid for the stone that was left, not for how hard it fell
+  const broke = Math.min(res.dmg, e.hp - (e.damage - res.dmg));
+  e.lost = res.crit ? 0 : e.combo;
+  e.combo = res.crit ? e.combo + 1 : 0;
+  e.chain = res.crit ? e.chain + broke : 0;
+  e.owed += broke * STONE_PAY * (1 + (res.crit ? Math.min(1, e.chain / CHAIN_FULL) + sack * SACK_PAY : 0));
+  const gems = Math.floor(e.owed + 1e-9);
+  e.owed -= gems;
+  return gems;
+}
+
 /** A tap on the egg: crack it, pop numbers and shards, shake. Hosts and solo players run this; guests replay it. */
 function hitEgg(x, y) {
   const e = game.egg;
@@ -596,9 +625,7 @@ function hitEgg(x, y) {
   const res = crackHit(e, [hit[0], hit[1] * EGG_R], power, seeded(e.seed + ":" + (e.hits.length - 1)));
   e.taps++;
   if (res.crit) e.crits++;
-  e.combo = game.time - e.lastTap < 700 ? e.combo + 1 : 1;
-  e.lastTap = game.time;
-  const gems = 1 + (res.crit ? 2 + (e.conf.coop ? 0 : forgeLvl("magpie")) : 0) + Math.floor(e.combo / 4);
+  const gems = blowPay(e, res, e.conf.coop ? 0 : forgeLvl("magpie"));
   e.gems += gems;
   markTip("tap");
   if (e.taps === 3 && e.conf.step === 1) setHint("");
@@ -614,7 +641,8 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   game.shake = Math.min(14, game.shake + (res.crit ? 7 : 3) + prog * 3) * Math.max(0.5, L.k);
   if (res.crit && !opts().calm) game.freeze = 0.06;
   pop(res.crit ? tr("CRIT {0}", res.dmg.toFixed(1)) : res.dmg.toFixed(1), x, y - 14 * L.k, res.crit ? "#ffe9a8" : "#ffffff", res.crit ? 1.5 : 1);
-  if (e.combo >= 3) pop(`×${e.combo}`, x + 34 * L.k, y - 40 * L.k, "#8fd8ef", 0.9);
+  // the chain is a ring round the hammer that grows with every link; a miss breaks the ring it had
+  if (e.combo || e.lost > 1) e.ring = { x, y, n: e.combo || e.lost, from: e.combo && e.ring && !e.ring.broken ? e.ring.n : 0, broken: !e.combo, t: game.time };
   if (echo) {
     // the bell echo: a second ring a beat later
     pop("ECHO", x - 34 * L.k, y - 30 * L.k, "#eec26a", 1.1);
@@ -628,7 +656,7 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   if (skin.sparks) burst(x, y, res.crit ? 8 : 5, skin.sparks, 0.9);
   if (skin.chime && sfx.ready()) sfx.tone(sfx.ac.currentTime + 0.02, 1568 + res.weak * 400, 0.02, 0.5, "sine", null, true);
   flyGems(x, y, gems);
-  sfx.knock(res.weak);
+  sfx.knock(res.weak, e.combo - 1);
   if (res.grown) sfx.crackle(Math.min(res.grown, 12));
   game.ripples.push({ x, y, t: 0, r: (20 + res.weak * 50) * L.k, h: res.weak });
   buzz(res.crit ? 18 : 7);
@@ -649,9 +677,10 @@ function pop(text, x, y, color, size = 1) {
 /** Shards burst out of the hit, hang for a moment, then fly up into the counter. */
 function flyGems(x, y, n) {
   const box = $("clock").getBoundingClientRect(), tx = box.left + box.width / 2, ty = box.top + box.height / 2;
-  for (let i = 0; i < n; i++) {
+  // a heavy hammer can knock out dozens at a blow: a dozen fly, each carrying its share
+  for (let i = 0, many = Math.min(n, 12); i < many; i++) {
     const a = rand(-Math.PI, 0), v = rand(80, 200);
-    game.gems.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: -i * 0.04, tx, ty, color: pick(game.egg.crystal.c) });
+    game.gems.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v, t: -i * 0.04, tx, ty, color: pick(game.egg.crystal.c), worth: Math.floor(n / many) + (i < n % many ? 1 : 0) });
   }
 }
 
@@ -815,7 +844,7 @@ function showFound() {
   const firstClear = !conf.wander && !save.stars[conf.n];
   const shine = e.matte ? e.matte.shine : 0;
   const moonBonus = conf.moon ? finishMoon() : 0;
-  let shards = 8 + stars * 4 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + e.gems + Math.round(shine * 10) + moonBonus;
+  let shards = 8 + stars * 10 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + e.gems + Math.round(shine * 10) + moonBonus;
   // a well-rested, happy glowling cheers you on: a few more shards (the one you'd picked before this egg)
   const buddy = !conf.coop && activeCreature();
   let cheer = 0;

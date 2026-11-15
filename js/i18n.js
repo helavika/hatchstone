@@ -332,12 +332,7 @@ const UK = {
   "Lv {0}": "Рів. {0}",
   "taps hit {0}% harder": "удари на {0}% сильніші",
   "{0}% of taps ring twice, for 60% more": "{0}% ударів дзвенять двічі, на 60% сильніше",
-  "+{0} {1} from every weak-spot hit": "+{0} {1} за кожне влучання в слабке місце",
-  "shard|shards": [
-  "осколок",
-  "осколки",
-  "осколків"
-],
+  "stone broken at the weak spot pays {0}% more": "камінь, відбитий у слабкому місці, дає на {0}% більше осколків",
   "All of today's tasks done! +{0} ✦": "Усі завдання на сьогодні виконано! +{0} ✦",
   "Task done: {0} · +{1} ✦": "Виконано: {0} · +{1} ✦",
   "Each one gives {0} shards, and all three another {1}. New ones tomorrow.": "За кожне — {0} осколків, а за всі три ще {1}. Нові будуть завтра.",
