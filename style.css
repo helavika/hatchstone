@@ -820,6 +820,8 @@ body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; 
 #oilHelp[aria-expanded="true"] { background: #ffe9a8; }
 .oil-more { text-align: left; margin: 0 0 10px; padding: 10px 12px; background: var(--px-deep); box-shadow: 0 0 0 2px var(--px-ink); }
 .oil-more[hidden] { display: none; }
+.lantern-go { flex-wrap: wrap; gap: 8px; margin: 0 0 12px; }
+.lantern-go[hidden] { display: none; }
 .oil-more p { margin: 0 0 6px; font-size: 15px; line-height: 1.35; }
 /* one cell for everyone: the glowling you look after, its mood, and the room's count */
 #nestBottom .switch-wrap, #homePill { display: none !important; }

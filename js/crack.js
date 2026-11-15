@@ -1330,34 +1330,52 @@ document.addEventListener("keydown", ev => { if (talkNow && (ev.key === " " || e
 
 /** The big moments that are waiting for a calm scene (the nest, the grotto or the book) to be told. */
 const talkLater = [];
+/** No more lines than this in a row at one calm moment: the rest wait their turn for the next one (see talkMoments). */
+const TALK_RUN = 5;
+/** Lines already waiting or still to come on screen. */
+const talkLines = () => talkQueue.reduce((a, l) => a + l.length, 0) + (talkNow ? talkNow.lines.length - Math.max(0, talkNow.i) : 0);
+/** The day this nest began: its first glowling met (an older nest that never noted it began long ago). */
+const nestBegan = () => Math.min(Date.now(), ...Object.values(save.seen).map(v => Number.isFinite(v.first) ? v.first : 0));
+/** An event is told about once the first cave has been tasted (level 3) and not on the nest's first day or in its first session. */
+const eventToldOk = () => !!save.stars[3] && !startedEmpty && dayKey(new Date(nestBegan())) !== dayKey();
 function talkMoments(scene) {
   if (!["nest", "map", "lib"].includes(scene) || !$("found").classList.contains("hidden")) return;
   coreMoments(scene);
-  while (talkLater.length) talk(...talkLater.shift());
-  if (scene === "nest" && save.creatures.length) talk("firstPet");
+  // one by one, in their order, while there's room in this run; the first that doesn't fit waits, and so does all after it
+  let full = false;
+  const say = (id, ...args) => {
+    if (full || !TALKS[id] || talkSeen(id) || game.coopTouched || coopSession) return false;
+    const n = TALKS[id](...args).length, now = talkLines();
+    if (now && now + n > TALK_RUN) { full = true; return false; }
+    return talk(id, ...args);
+  };
+  const waiting = talkLater.splice(0);
+  for (const a of waiting) if (!say(...a) && full) talkLater.push(a);
+  if (scene === "nest" && save.creatures.length) say("firstPet");
   if (scene === "nest") tellTrips();
+  // (the question that opens the sheet about you: it comes when it's asked, it's one line)
   if (scene === "nest" && save.creatures.length && !(save.me && save.me.name) && !talkSeen("meet") && talk("meet")) afterTalk = () => openMe(true);
-  if (scene === "map") talk("firstGrotto");
-  for (const k of [1, 2, 3]) if (unlocked(k * 6 + 1)) talk("ch" + k);
-  if (unlocked(LEVELS + 1)) talk("allClear");
+  if (scene === "map") say("firstGrotto");
+  for (const k of [1, 2, 3]) if (unlocked(k * 6 + 1)) say("ch" + k);
+  if (unlocked(LEVELS + 1)) say("allClear");
   // Mossa tells you when an event starts, once each year
   const ev = eventNow();
-  if (ev && save.creatures.length) {
+  if (ev && save.creatures.length && eventToldOk()) {
     const id = `ev-${ev.id}-${new Date().getFullYear()}`;
     TALKS[id] = () => [[MOSSA, ev.line], [MOSSA, tr("For {0} days a limited glowling, {1}, sleeps in the moon egg. It comes round again every year.", eventDaysLeft(ev), SP[ev.sp].name)]];
-    talk(id);
+    say(id);
   }
   // Wick comes to the grotto's hall every third day to top up its lanterns, and lets you know
   if (scene === "nest" && save.creatures.length && wickHere()) {
     const id = `wick-${dayNo()}`;
     TALKS[id] = () => [[WICK, wickRoom() ? "Psst! Over here, on the bench. I'm topping up the hall's lanterns, and I've brought a few things to sell." : "Psst! I'm in the grotto today, on the bench, topping up the lanterns. I've a few things for sale, too. Here till midnight!", wickRoom() ? null : "#worldTab"]];
-    talk(id);
+    say(id);
     // on his bench, once you've found the isle, he lets slip whose light that is out at sea (Pip is not to know)
-    if (wickRoom() && wardFound("isle")) talk("wickLight");
+    if (wickRoom() && wardFound("isle")) say("wickLight");
   }
   // one part of the story per visit, so a long-time player catches up gently
   const part = STORY.find(s => !s.gloom && unlocked(s.at) && !talkSeen(s.id));
-  if (part) talk(part.id);
+  if (part) say(part.id);
 }
 
 function nestHint() {

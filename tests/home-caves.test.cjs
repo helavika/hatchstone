@@ -23,7 +23,7 @@ const src = [
   line(crack, /^  const crystal = .*$/m, 'newEgg should choose its crystal in one line'),
   '  eggs.push(game.egg = { conf, crystal, stone: "plain" });',
   '}',
-  'Object.assign(this, { CRYSTALS, CRYSTAL, SPECIES, CAVES, CAVE_STONES, HOME_WEIGHT, levelConf, rollCrystal, replays, bookCrystal, startLevel, newEgg });',
+  'Object.assign(this, { CRYSTALS, CRYSTAL, SPECIES, CAVES, CAVE_STONES, HOME_WEIGHT, levelConf, rollCrystal, replays, bookCrystal, startLevel, newEgg, tripCosts });',
 ].join('\n');
 
 /** A stream of numbers that is the same every time, for rolls that have to be told apart from luck. */
@@ -34,7 +34,7 @@ function stream(seed = 1) {
 
 /** The grotto over a pretend nest: a lantern with drops to count, and the eggs that get started. */
 function grotto(save = {}, random = stream()) {
-  const did = { rolls: 0, burnt: 0, lantern: 0, fell: 0, scenes: [], eggs: [], hints: [] };
+  const did = { rolls: 0, burnt: 0, lantern: 0, fell: 0, scenes: [], eggs: [], hints: [], ate: [] };
   const page = {
     LANG: 'en', LEVELS: 24, eggs: did.eggs,
     Math: Object.assign(Object.create(Math), { random: () => { did.rolls++; return random(); } }),
@@ -43,6 +43,9 @@ function grotto(save = {}, random = stream()) {
     persist: () => {}, talk: () => {}, setHint: s => did.hints.push(s),
     burnOil: () => page.save.oil.n >= 1 ? (page.save.oil.n--, did.burnt++, true) : false,
     openLantern: () => { did.lantern++; }, coreFell: () => { did.fell++; },
+    // a pocket of bars: the smallest goes first (the real ones are tried in tests/first-session.test.cjs)
+    oilNow: () => page.save.oil.n, barFor: () => ['firefly', 'nut', 'star'].find(id => page.save.bars?.[id] > 0),
+    useBar: (id, auto) => { page.save.bars[id]--; page.save.oil.n += { firefly: 1, nut: 3, star: 5 }[id]; did.ate.push([id, auto]); },
     setScene: s => did.scenes.push(s),
     makeShell: stone => ({ canvas: stone }), pixelate: stone => ({ toDataURL: () => 'shell ' + stone[0] }),
   };
@@ -130,7 +133,9 @@ test('a first visit and a sealed geode roll as ever: no second look', () => {
     assert.equal(l.did.eggs.length, 1);
     assert.equal(l.did.eggs[0].conf.chosen, undefined);
     assert.equal(l.did.eggs[0].conf.gloom, n % 6 ? undefined : n / 6);
-    assert.deepEqual([l.save.oil.n, l.did.burnt], [4, 1]);
+    // the first cave's six are free the first time through, so its seal never meets an empty lantern
+    assert.deepEqual([l.save.oil.n, l.did.burnt], n <= 6 ? [5, 0] : [4, 1]);
+    assert.equal(l.did.eggs[0].paid, n > 6);
   }
 });
 
@@ -156,6 +161,27 @@ test('a three-star level is free, and a dry lantern opens the lantern', () => {
   const dry = grotto({ ...cleared(24), oil: { n: 0 } });
   dry.page.startLevel(8);
   assert.deepEqual([dry.did.eggs.length, dry.did.lantern, dry.did.fell], [0, 1, 1]);
+});
+
+test('out of oil, a bar in the pocket goes in by itself: no sheet, straight into the egg', () => {
+  const l = grotto({ ...cleared(10), oil: { n: 0 }, bars: { nut: 1, firefly: 2 } });
+  l.page.startLevel(11);
+  assert.deepEqual(l.did.ate, [['firefly', true]], 'the smallest bar, eaten by itself');
+  assert.deepEqual([l.did.eggs.length, l.did.burnt, l.did.lantern, l.did.fell, l.save.oil.n, l.save.bars.firefly], [1, 1, 0, 0, 0, 1]);
+  // oil left, or a free trip: the bars stay in the pocket
+  for (const [save, n] of [[{ ...cleared(10), oil: { n: 1 }, bars: { firefly: 1 } }, 11], [{ ...cleared(10, 3), oil: { n: 0 }, bars: { firefly: 1 } }, 4], [{ oil: { n: 0 }, bars: { firefly: 1 } }, 1]]) {
+    const k = grotto(save);
+    k.page.startLevel(n);
+    assert.deepEqual([k.did.ate.length, k.did.eggs.length, k.save.bars.firefly], [0, 1, 1], 'level ' + n);
+  }
+});
+
+test('the first cave costs oil only once it has been cleared: replays and later levels as ever', () => {
+  const l = grotto({ oil: { n: 0 } });
+  assert.deepEqual([1, 2, 3, 4, 5, 6, 7].map(n => l.page.tripCosts(n)), [false, false, false, false, false, false, true]);
+  l.save.stars = { 1: 1, 2: 2, 3: 3 };
+  assert.deepEqual([1, 2, 3, 4].map(n => l.page.tripCosts(n)), [true, true, false, false], 'a replay on 1 or 2 stars costs a drop, ★★★ is free');
+  assert.equal(l.page.tripCosts(0), true, 'Wander costs a drop');
 });
 
 test('the second look keeps the rarity and favours a crystal the Book lacks', () => {
