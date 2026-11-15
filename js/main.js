@@ -191,7 +191,7 @@ function drawEgg() {
     drawBaked(cachedSprite(e, "shellSprite", `${size}|${e.painted}|${e.dentsPainted}|${e.chips || 0}|${e.shell.canvas.width}`, () => bakeSprite(L.ecx, L.ecy, half, () => ctx.drawImage(e.shell.canvas, x, y, w, h), box)));
     drawCrackLight(e, prog);
     drawGloss(ctx, L.ecx, L.ecy);
-    if (e.state !== "entering") drawSpot(e);
+    if (e.state !== "entering") { drawSpot(e); drawPing(e); }
   }
   ctx.restore();
 }
@@ -213,9 +213,9 @@ function drawCrackLight(e, prog) {
   ctx.restore();
 }
 
-/** The weak spot: a soft glow on easy stone, fainter on harder stone, and gone deep in the grotto. */
+/** The weak spot: a soft glow on easy stone, fainter on harder stone, and gone deep in the grotto (Quarry Eye only pings, see drawPing). */
 function drawSpot(e) {
-  const a = Math.max(e.conf.spotGlow, e.conf.coop ? 0 : [0, 0.15, 0.25, 0.35][forgeLvl("eye")]);
+  const a = e.conf.spotGlow;
   if (!a || e.state !== "cracking") return;
   const [x, y] = fromEgg(...e.spot), k = 0.5 + 0.5 * Math.sin(game.time * 0.004), r = (18 + k * 6) * L.k;
   const g = ctx.createRadialGradient(x, y, 1, x, y, r);
@@ -228,6 +228,43 @@ function drawSpot(e) {
   const w = (game.time * 0.0008) % 1;
   ctx.strokeStyle = hexA(e.crystal.c[2], 0.7 * a * (1 - w)); ctx.lineWidth = 2 * Math.max(1, L.k);
   ctx.beginPath(); ctx.arc(x, y, (8 + w * 22) * L.k, 0, TAU); ctx.stroke();
+}
+
+/**
+ * Quarry Eye's ping (see eyePing): a ring running out from the middle of the egg over the shell, faint where the stone
+ * is solid and bright where it passes the weak spot, fading as it goes. With less motion it doesn't run: the ring
+ * stands where it would cross the spot, and just fades.
+ */
+function drawPing(e) {
+  const p = game.ping;
+  if (!p || p.e !== e || e.state !== "cracking") return;
+  const a = (game.time - p.t) / 1000;
+  if (a >= PING_LIFE) { game.ping = null; return; }
+  const calm = opts().calm, rim = pingRim(), r = calm ? pingReach(e) * rim : Math.max(1, a / PING_RUN * rim);
+  const fade = calm ? 1 - a / PING_LIFE : clamp((PING_LIFE - a) / (PING_LIFE - PING_RUN * 0.6), 0, 1);
+  const light = e.crystal.c[1], N = 64;
+  ctx.save();
+  tracePoly(ctx, L.egg);
+  ctx.clip();
+  ctx.lineCap = "butt";
+  // the ring is drawn in short arcs, each as bright as the weak spot is near: a solid knock answers dull, a hollow one sings
+  for (let i = 0; i < N; i++) {
+    const t0 = i / N * TAU, t1 = (i + 1.05) / N * TAU, m = (t0 + t1) / 2;
+    const [u, v] = toEgg(L.ecx + Math.cos(m) * r, L.ecy + Math.sin(m) * r);
+    const near = clamp(1 - Math.hypot(u - e.spot[0], v - e.spot[1]) / 0.3, 0, 1) ** 1.5;
+    ctx.strokeStyle = near > 0.05 ? hexA(light, fade * (0.35 + 0.65 * near)) : `rgba(255,255,255,${0.2 * fade})`;
+    ctx.lineWidth = (2 + near * 5) * Math.max(1, L.k);
+    ctx.beginPath(); ctx.arc(L.ecx, L.ecy, r, t0, t1); ctx.stroke();
+  }
+  // and where it crosses the spot, the stone rings: a bloom of light that swells and dies with the ring's passing
+  const [sx, sy] = fromEgg(...e.spot), rs = Math.hypot(sx - L.ecx, sy - L.ecy), k = Math.exp(-(((r - rs) / (14 * L.k)) ** 2)) * fade;
+  if (k > 0.02) {
+    const R = 26 * L.k, g = ctx.createRadialGradient(sx, sy, 1, sx, sy, R);
+    g.addColorStop(0, hexA(light, 0.7 * k)); g.addColorStop(1, hexA(light, 0));
+    ctx.fillStyle = g;
+    ctx.beginPath(); ctx.arc(sx, sy, R, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
 }
 
 /** A band of light sweeping across the freshly polished face. */
