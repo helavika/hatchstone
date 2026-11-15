@@ -477,7 +477,7 @@ const UK = {
   "Glowlings grow when they're loved. Keep it up, and one day it will be Radiant.": "Глоулінги ростуть від любові. Так тримати, і колись малюк стане Сяйливим.",
   "This is the Grotto. Every level is a geode, each a little harder than the last.": "Це Грот. Кожен рівень — жеода, і кожна трохи міцніша за попередню.",
   "Find the weak spot and keep your taps on it. The truer your aim, the more stars.": "Знайди слабке місце й бий саме туди. Що влучніші удари, то більше зірок.",
-  "And look up: once a day a moon egg appears. Something special sleeps in it.": "А ще глянь угору: раз на день з'являється місячне яйце. У ньому спить хтось особливий.",
+  "And on the altar in the hall, a moon egg appears once a day. Something special sleeps in it.": "А на вівтарі в залі раз на день з'являється місячне яйце. У ньому спить хтось особливий.",
   "Ah, the Forge. My old hammer is still here somewhere.": "О, Кузня. Десь тут досі лежить мій старий молот.",
   "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it.": "Витрачай тут осколки, і удари стануть сильнішими, а око гострішим. Глибокий камінь цього вимагатиме.",
   "Did you feel that? The {0} has opened up.": "Відчуваєш? Відкрилося нове місце: {0}.",
