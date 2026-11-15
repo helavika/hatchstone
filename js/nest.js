@@ -193,8 +193,8 @@ function openShop() {
     const now = currentTheme(), view = awayPlace() ? (save.view === "front" ? "front" : "iso") : roomView();
     body = `<h3>${tr("View")}</h3><div class="seg view-seg"><button data-view="front" class="${view === "front" ? "on" : ""}">${tr("Straight on")}</button><button data-view="iso" class="${view === "iso" ? "on" : ""}">${tr("Isometric")}</button></div>`
       + (awayPlace() ? `<p class="sub">${tr("This is for your rooms. The garden and the places in the valley are always seen from the corner.")}</p>` : "")
-      + `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : !save.room ? "The nest is always tucked away in a cave, a grotto or a hollow." : "This room can take any backdrop you've found.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
-        const ok = t.ok();
+      + `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : isPlace() ? "This room can take any backdrop you've found." : "Every room at home is a cave: pick its mood.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
+        const ok = t.ok() || t.id === ownTheme();
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
       }).join("")}</div>`
       + `<h3>${tr("The bed in the {0}", roomName(save.room).toLowerCase())}</h3><div class="tiles">${BEDS.map(bd => `<button class="tile${bedStyle() === bd.id ? " on placed" : ""}" data-bed="${bd.id}"><img class="em" src="${bedThumb(bd.id)}" alt=""><b>${tr(bd.name)}</b><small>${bedStyle() === bd.id ? tr("placed ✓") : tr("free")}</small></button>`).join("")}</div>`
@@ -1024,12 +1024,13 @@ function setView(v) {
 
 // ---------- rooms: the nest plus rooms you add, each with its own furniture, layout and backdrop ----------
 
-/** The rooms you can add, in order: each starts on its own backdrop if you have it. */
+/** The rooms you can add, in order: each starts on its own backdrop if you have it. Every room at home is a cave: the garden
+ *  room keeps its glowcaps in the save, but shows its green cave (cave) instead. */
 const ROOM_KINDS = [
   { id: "nest", name: "Nest" },
   { id: "yard", name: "Garden", outdoor: true, place: true },
   { id: "play", name: "Playroom", cost: 250, note: "a bright room for toys and games" },
-  { id: "garden", name: "Garden room", cost: 500, theme: "glowcap", note: "moss underfoot, glowcaps overhead" },
+  { id: "garden", name: "Garden room", cost: 500, theme: "glowcap", cave: "malachite", note: "moss underfoot, glowcaps overhead" },
   { id: "study", name: "Crystal study", cost: 900, theme: "celestite", note: "quiet, blue and full of crystals" },
   { id: "lab", name: "Laboratory", place: true, theme: "abbey" },
   { id: "shop", name: "Shop", place: true, theme: "smithy" },
@@ -1594,7 +1595,7 @@ function marketReno() {
   return `<p class="me-hint">${tr("Tansy's cousin carves new rooms into the rock: each opens off the last one at home, through a new arch in its wall.")}</p>`
     + ROOM_KINDS.filter(k => k.cost).map(k => {
       const built = save.rooms.some(r => r.kind === k.id), soon = !built && next && next.id !== k.id;
-      return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.theme || "amethyst")}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small></span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${save.shards < k.cost ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;
+      return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.cave || k.theme || "amethyst")}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small></span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${save.shards < k.cost ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;
     }).join("")
     + `<h3 class="forge-h">${tr("Space at home")}</h3><div class="snack seed reno"><span class="em">${ic("nest", "big")}</span><span><b>${tr("Room for one more")}</b><small>${tr("each room fits {0} glowlings now", homeCap())}</small></span><span class="seed-btns">${cost ? `<button class="act buy" id="nestUp" ${save.shards < cost ? "disabled" : ""}>✦ ${cost}</button>` : `<small class="only">${tr("as roomy as it gets ✦")}</small>`}</span></div>`;
 }
@@ -1604,7 +1605,7 @@ function buildRoom(id, quiet = false) {
   save.shards -= kind.cost;
   save.rooms.push({ kind: kind.id, on: [], theme: kind.theme && THEME[kind.theme].ok() ? kind.theme : null });
   sfx.levelUp(); buzz([12, 30, 12]);
-  toast(tr("A new room: {0} ✦ find it at home with the arrows", tr(kind.name)));
+  toast(tr("A new room: {0} ✦ it opens off the last room at home", tr(kind.name)));
   persist(); updateTopbar();
   if (!quiet) openShop();
 }

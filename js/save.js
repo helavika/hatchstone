@@ -717,16 +717,26 @@ function makeBackground() { bgCache.clear(); }
 function currentTheme() {
   const c = game.scene === "crack" && game.egg && game.egg.conf;
   if (c) return c.moon ? "churchyard" : c.wander && !c.heart ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
-  const fits = roomThemes();
-  return THEME[save.theme] && (THEME[save.theme].ok() || isPlace()) && fits.includes(save.theme) ? save.theme : fits[0];
+  return roomTheme(save.room, save.theme);
 }
-/** Which backdrops suit the room you're in: the nest is always in a cave, outside is always under the sky, the other rooms take any. */
+/** The backdrop room i shows for the one picked for it: a pick that doesn't suit the room (a meadow saved in a room at
+ *  home, from before every room there was a cave) is kept in the save but not shown, and the room shows its own instead. */
+function roomTheme(i, id) {
+  const fits = roomThemes(i), own = ownTheme(i);
+  return THEME[id] && (THEME[id].ok() || isPlace(i) || id === own) && fits.includes(id) ? id : own;
+}
+/** A room's own backdrop, there even before it's found: the moss room's green cave, the study's blue one, else the first that suits. */
+function ownTheme(i = save.room) {
+  const kind = save.rooms && save.rooms[i] && ROOM_KINDS.find(k => k.id === save.rooms[i].kind), fits = roomThemes(i);
+  return kind && !kind.place && fits.includes(kind.cave || kind.theme) ? kind.cave || kind.theme : fits[0];
+}
+/** Which backdrops suit the room you're in: every room at home is a cave, outside is always under the sky, the map's places take any. */
 function roomThemes(i = save.room) {
   const kind = save.rooms && save.rooms[i] && save.rooms[i].kind, k = id => ROOM_KIND[id] || "cave";
   const ids = THEMES.map(t => t.id);
   if (kind === "yard") return ids.filter(id => k(id) === "wood" || k(id) === "yard");
-  if (!kind || kind === "nest") return ids.filter(id => k(id) === "cave");
-  return ids;
+  if (kind && isPlace(i)) return ids;
+  return ids.filter(id => k(id) === "cave");
 }
 
 // ---------- gothic little things: candles by the egg, bats in the dark ----------
