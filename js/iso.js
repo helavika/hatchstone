@@ -4003,7 +4003,9 @@ function paintRoomIso(id) {
     const sky = (night ? night.sky : ["#0d0a2a", "#160c33", "#2d2468", "#463592"]).map(pxHex);
     const white = pxHex("#ffffff"), moon = pxHex("#fff8d6");
     const glazed = kind === "timber", sillC = kind === "timber" ? [oak[1], oak[4]] : [wallC[1], wallC[Math.min(6, wallC.length - 1)]];
-    if (kind === "hall") {
+    // (the grotto's hall is deep under the rock: no window there, and no moonlight on its floor)
+    if (roomKindNow === "grotto") {}
+    else if (kind === "hall") {
       // the abbey's window is Gothic: a pointed arch cut deep through the wall and splayed, so both its sides show, with a
       // broad stone seat; four tall lancets with trefoil heads under a net of lozenges (three, two, one), all on the wall's
       // slant. Behind the glass a cold violet night with a moon and stars, and an iron lantern on a curled bracket either side

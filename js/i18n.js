@@ -506,6 +506,8 @@ const UK = {
   "Where is my progress saved?": "Де зберігається мій прогрес?",
   "Is it free? Are there ads?": "Це безкоштовно? Є реклама?",
   "Free, with no ads, no account and no purchases. Everything stays on your device.": "Безкоштовно, без реклами, без акаунта й без покупок. Усе лишається на твоєму пристрої.",
+  "A message is in my way. Can I hide it?": "Повідомлення заважає. Чи можна його прибрати?",
+  "Yes: tap it, or swipe it aside. That works for the messages at the top of the screen, for award banners and for the hints at home. A hint you wave off keeps quiet for ten minutes.": "Так: торкнись його або змахни вбік. Так прибираються повідомлення вгорі екрана, плашки нагород і підказки вдома. Підказка, яку змахнуто, помовчить десять хвилин.",
   "How do I turn the sound off, or change the language?": "Як вимкнути звук або змінити мову?",
   "asleep": "спить",
   "needs joy": "бракує радості",
