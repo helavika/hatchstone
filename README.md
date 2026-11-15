@@ -8,9 +8,9 @@ what's glowing inside. 🎧 Best with headphones.
 - 24 levels in four caves (plus endless Wander): tougher stone, and a weak spot that glows
   less and less until you find it by the sound of your knocks; 1–3 stars for your aim
   (the share of taps that land on the weak spot, once you have found it), whatever hammer you carry
-- 17 real geodes (amethyst, celestite, agate, malachite, labradorite, lapis lazuli…),
+- 32 real geodes (amethyst, celestite, agate, malachite, labradorite, lapis lazuli…),
   each drawn the way the mineral looks, with a real fact on the card
-- Every geode holds a glowling: 26 species built from wings, ears, horns, tails and
+- Every geode holds a glowling: 52 species (10 of them only in moon eggs) built from wings, ears, horns, tails and
   patterns, each with its own lore, voice and favorite snack, plus rare shiny ones
 - The nest: feed, pet, play a sparkle-catch mini-game and put them to sleep; needs drift
   in real time (nobody ever dies), and glowlings level up to 20 and grow Baby → Young →

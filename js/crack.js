@@ -963,7 +963,7 @@ const TALKS = {
     [MOSSA, "Glowlings grow when they're loved. Keep it up, and one day it will be Radiant.", "#xpBar"]],
   firstGrotto: () => [[MOSSA, "This is the Grotto. Every level is a geode, each a little harder than the last.", "#mapList .lvl.next"],
     [MOSSA, "Find the weak spot and keep your taps on it. The truer your aim, the more stars.", "#mapList .lvl.next"],
-    [MOSSA, "And look up: once a day a moon egg appears. Something special sleeps in it.", "#moonBtn"]],
+    [MOSSA, "And on the altar in the hall, a moon egg appears once a day. Something special sleeps in it."]],
   firstExplore: cap => [[MOSSA, tr("The nest is cozy, but small: {0} glowlings fit at home at once.", cap)], [MOSSA, "The others are out exploring the grotto, having a lovely time. Tap the glowlings button below to see who lives where, and call them home.", "#residentsBtn"]],
   firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine.", spotEgg], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.", "#polishDone"]],
   firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
@@ -1215,7 +1215,7 @@ const STORY = [
     [DORMA, "Mm? Oh... a reader. How lovely. I'm Dorma. I keep the grotto's library."],
     [DORMA, "Most of the books are asleep. So am I, mostly."],
     [DORMA, "But here's a page about the moon eggs. The moon was the Heartlight's oldest friend."],
-    [DORMA, "Every night she leaves an egg by a nest that glows, hoping it holds a spark she knows.", "#moonBtn"]] },
+    [DORMA, "Every night she leaves an egg by a nest that glows, hoping it holds a spark she knows."]] },
   { id: "s5", at: 16, title: "A gift", who: DORMA, lines: () => [
     [DORMA, "I found another page. It was under my pillow, of all places."],
     [DORMA, "It says the Heartlight didn't break by accident. It gave itself away."],
@@ -1344,7 +1344,7 @@ function talkMoments(scene) {
   const ev = eventNow();
   if (ev && save.creatures.length) {
     const id = `ev-${ev.id}-${new Date().getFullYear()}`;
-    TALKS[id] = () => [[MOSSA, ev.line], [MOSSA, tr("For {0} days a limited glowling, {1}, sleeps in the moon egg. It comes round again every year.", eventDaysLeft(ev), SP[ev.sp].name), scene === "map" ? "#moonBtn" : null]];
+    TALKS[id] = () => [[MOSSA, ev.line], [MOSSA, tr("For {0} days a limited glowling, {1}, sleeps in the moon egg. It comes round again every year.", eventDaysLeft(ev), SP[ev.sp].name)]];
     talk(id);
   }
   // Wick comes to the grotto's hall every third day to top up its lanterns, and lets you know
