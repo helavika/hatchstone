@@ -901,17 +901,17 @@ function showFound() {
 
 // ---------- dialogs: Mossa, the old stone who keeps the grotto, talks you through the big moments ----------
 
-// Mossa's portrait: one big round pale stone, worn smooth, under a cap of moss that creeps down her brow and temple;
-// happy closed eyes with a warm glow along the lids, rosy lichen on the cheeks, the pale flower of her old icon.
-// Drawn by designs/mossa/portrait/mossa_portrait.py.
-PX_PORTRAITS.mossa = { pal: { k: "#160c26", j: "#2c1d47", a: "#fbf7f0", b: "#e4dfe8", c: "#b9b1c9", d: "#857b9f", e: "#544970", M: "#cbe98b", m: "#82c66a", n: "#57ad6a", o: "#2f6d57", p: "#1d4449", w: "#fff6cf", y: "#ffc94a", g: "#e08f35", r: "#e88bb1" }, rows: [
-  "..........................", ".................w........", "....M...pppp....wgw.......", "...nm.ppMMMmpp...w........",
-  "..pppMMmmmmmnnopppppp.....", ".pMMmnmmmmnnnoopMMmmnp....", ".pmmnonmmnnnooonmmmnnopk..", ".pmnnooppoopccccpoonnoopk.",
-  ".pMmnopaaaaabbbbaaaaonopk.", ".pmmnocbbbbbbbbbbbbbbcopk.", ".pmnoccccccccbbccccccccpk.", ".pnoccbjjjbbbbbcbjjbcccdk.",
-  ".pocbbjgygjbbbbcjygjbccdk.", ".ecbbbjaaajbbabcjaajbccdk.", ".ecbrrrbbbbbbaabcbbrrccdk.", ".ecbrrbbbbbbcdddcbbrcccdk.",
-  ".ecbbbbbbbbebbbbbebbcccdk.", ".ecdbbbbbbbbjjjjjbbccccdk.", ".eccddbbbbbbbaaabbcccccdk.", ".edccbddbbbbbbbbccMccddck.",
-  ".pmncccbdbbbbbbccMMcddop..", "pMmmnoccccccccccccddonop..", "pmmnnopddddddddddddonnnop.", "pmmnnnoopppppppppponnnoopk",
-  "pmnnnooopoonnnoopnnnnooopk", "pnnnooooppooooooppnnooooop",
+// Mossa's portrait: one big round pale stone under a cap of mossy clumps that creeps down her brow,
+// two happy closed eyes exactly alike with a warm glow under the lids, rosy lichen cheeks, a small pale flower.
+// Drawn by designs/mossa/portrait-v2/mossa_v2.py: a symmetric core, then the flower and a lichen patch to one side.
+PX_PORTRAITS.mossa = { pal: { k: "#160c26", a: "#fbf7f0", b: "#e4dfe8", c: "#b9b1c9", d: "#857b9f", M: "#cbe98b", m: "#82c66a", n: "#57ad6a", o: "#2f6d57", p: "#1d4449", w: "#fff6cf", g: "#e08f35", s: "#ffdf9c", r: "#e88bb1" }, rows: [
+  "..........................", ".................w........", "..........kkkkkkwgw.......", ".......kkkMMMMmmkwk.......",
+  "......kMnMMMMmmmnnmk......", "....kkMMnnMMmmmmnnmmkk....", "...kMMMmmnmmmmmnnmmmmnk...", "...kmmmmmmmmmmnnnmmmnnk...",
+  "..knnmmmmpmmnnnnpmmnnnnk..", "..kmpmmmpcppppppcpnnnpnk..", ".kmpcpppcbccccccbcpppcpnk.", ".kmcbcccbbbbbbbbbbcccbbnk.",
+  "..kaabbkkkbbbbbbkkkbbbck..", "..kaabkssskbbbbkssskbbck..", "..kaabbcccbbbbbbcccbbcck..", "..karrrbbbbbccbbbbbrrrck..",
+  "..karrrbbbbbbbbbbbbrrrck..", "...kabbbbbkbbbbkbbcccck...", "...kabbbbbbkkkkbbccccdk...", "....kcbbbbbbcccccMMddk....",
+  "..kkmkccccccccccccmmknkk..", ".kmmnmkcccccccccdddknnnnk.", ".knnnnmkkkddddddkkknnonnk.", ".knnonnmmmkkkkkknnnnooook.",
+  ".koooonnnnmmmnnnnnnoooook.", ".kooooonnnnnnnnnooooooook.",
 ] };
 const MOSSA = { name: "Mossa", face: () => pxPortrait("mossa"), voice: { f: 190, wave: "triangle", spread: 0.22, glide: 0.92, gain: 0.07, len: 0.07 } };
 const glowVoice = cr => ({ name: cr.name, face: () => creatureImage(specOf(cr), { art: 32, level: cr.level, shiny: cr.shiny }),
@@ -1136,33 +1136,36 @@ PX_PORTRAITS.wick = { pal: { h: "#fff0b5", g: "#eec26a", o: "#c98f3a", b: "#9460
   ".....BgBBBggBBBooBd.......",
   "......BBBBooBBBBBd........",
 ] };
+// Dorma's portrait: the sleepy owl seen from the front, one round lilac head under her teal nightcap,
+// two heavy lids exactly alike, the gold beak on the centre line, the book she dozed off over.
+// Drawn by designs/dorma/portrait-v2/dorma_v2.py: a symmetric core, then the cap's tip and pompom to one side.
 PX_PORTRAITS.dorma = { pal: { h: "#efe6ff", L: "#d2bfff", l: "#ad91e6", m: "#8a6bc8", p: "#6b4fa8", D: "#3d2866", k: "#160c26", S: "#b9aed0", W: "#ffffff", c: "#a5dcec", t: "#69b7d6", T: "#3383a8", U: "#1f5578", g: "#eec26a", o: "#c98f3a", r: "#e88bb1" }, rows: [
-  "..............TTTTTTT.....",
-  "..........TTTccttttttTT...",
-  ".......TTTccttttttTUcttT..",
-  "....TTTccttttttttTUUcttTU.",
-  "...TccttttttttttTTUUtttTU.",
-  "..TcttttttttttttTTTUUWWU..",
-  "..TcccccccccccctttTUWWWS..",
-  ".TctttttttttttTTTTUUWWSS..",
-  ".TttTmmmpppppppppDUUkSS...",
-  "...pLLLLLLLLllmlllmmpDk...",
-  "..pLLLSSSSSlllmmlSSSmmk...",
-  ".pLLSShhhhhSllmlShhhSmmk..",
-  ".pLhhhLLLLhhhllmhLLhhmpk..",
-  "pLlhhLLlllmhhllmhLlmhmpk..",
-  "pLlhhllllmmhhggmhlmmhmpk..",
-  "pllhhkDWkkkhhgomhkWkhppk..",
-  "pllhhhkkkkhhhlomhkkhhpDk..",
-  ".plrrhhhhhhhlmmlhhhhrpDk..",
-  "..pllhhhhhhllmmmmhhSpDk...",
-  "..plllllllmmmmppppppDk....",
-  "...plllllmmmmppppppDk.....",
-  "..pllmSSSSSSSSSSpppppDk...",
-  ".pLlmooooooooDoooooooopmDk",
-  "plllmghhhhhhhDhhhhhhSompDk",
-  "pllmmghSSSShhDhSSSShSompDk",
-  "plmmpghhhhhhSDShhhhhSoppDk",
+  "..........................",
+  "...............kkkkk......",
+  "........kkkkkkkccccck.....",
+  "......kkccctttUtttttck....",
+  ".....ktccccttttUUtttttk...",
+  "....ktcccctttttttUUtttTk..",
+  "....kttttttttttttttUttTk..",
+  "....kcccccccccccccccUWWk..",
+  "....kttttttttttttttUWWWWk.",
+  "...kmmppppmmmmmmpppDWWWSk.",
+  "...klmLLLLmllllmLLLLDWSk..",
+  "..klmLLLLLLmllmLLLLLLDDk..",
+  "..kmLLLLLLLLmmLLLLLLLLmk..",
+  "..kmLLLLLLLLmmLLLLLLLLmk..",
+  "..klhkkkkkkhgghkkkkkkhmk..",
+  "..klhhkkkkhhgghhkkkkhhmk..",
+  "..klrrhhhhhloolhhhhhrrmk..",
+  "..klllhhhhllllllhhhhmmmk..",
+  "...kllllmmllmmllmmlmmmk...",
+  "...kllllllmmllmmllmmmmk...",
+  "....kllmmlllmmllmppmmk....",
+  ".....kmmmmmmmmppppppk.....",
+  "...kkloooooooooooooolkk...",
+  "...kllghhhhSDDShhhhollk...",
+  "...kkkghSShSDDShSShokkk...",
+  "......khhhhSDDShhhhk......",
 ] };
 const WICK = { name: "Wick", face: () => pxPortrait("wick"), voice: { f: 420, wave: "sawtooth", spread: 0.3, glide: 1.1, gain: 0.025, len: 0.05 } };
 const DORMA = { name: "Dorma", face: () => pxPortrait("dorma"), voice: { f: 260, wave: "sine", spread: 0.15, glide: 0.85, gain: 0.08, len: 0.09 } };
