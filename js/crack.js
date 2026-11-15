@@ -175,7 +175,7 @@ function newEgg(conf, animate = true) {
   game.pieces = [];
   updateDots();
   $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
-  setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound higher near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : "");
+  setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : "");
 }
 
 /** Fresh shell and inside for the current layout, with every crack so far drawn back on. */
@@ -969,7 +969,7 @@ const TALKS = {
   firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
     [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it.", "#forgeList"]],
   ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])], [MOSSA, "The stone gets harder from here on. The Forge can help: it's on the map.", "#worldTab"]],
-  ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring higher."]],
+  ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring deep and hollow."]],
   ch3: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[3])], [MOSSA, "The oldest, toughest stone. And the rarest glowlings sleep in it."]],
   shiny: cr => [[glowVoice(cr), "✦ Pip! ✦"], [MOSSA, "Oh my. A shiny one! I've only seen a handful in all my years."]],
   legendary: cr => [[glowVoice(cr), "...Pip."], [MOSSA, tr("A legendary glowling... They say {0} only wakes for someone kind. Well done, you.", cr.name)]],
