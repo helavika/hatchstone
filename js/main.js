@@ -191,7 +191,7 @@ function drawEgg() {
     drawBaked(cachedSprite(e, "shellSprite", `${size}|${e.painted}|${e.dentsPainted}|${e.chips || 0}|${e.bandsPainted ?? 0}|${e.shell.canvas.width}`, () => bakeSprite(L.ecx, L.ecy, half, () => ctx.drawImage(e.shell.canvas, x, y, w, h), box)));
     drawCrackLight(e, prog);
     drawGloss(ctx, L.ecx, L.ecy);
-    if (e.state !== "entering") { drawSpot(e); drawPing(e); drawBandBreak(e); }
+    if (e.state !== "entering") { drawSpot(e); drawSheen(e); drawPing(e); drawBandBreak(e); }
   }
   ctx.restore();
 }
@@ -265,6 +265,37 @@ function drawBandBreak(e) {
   ctx.beginPath();
   pts.forEach(([x, y], j) => { if (j % 2 || Math.abs(j - mid) > reach) return; const s = j % 4 ? 1 : -1; ctx.moveTo(x, y); ctx.lineTo(x + 2 * k, y + s * (5 + (j % 3) * 2) * k * fade); });
   ctx.stroke();
+  ctx.restore();
+}
+
+// labradorite's play of colour: blue, green and gold, each a patch of light along a slant across the spot
+const SHEEN = [[79, 179, 255], [95, 240, 192], [255, 213, 106]];
+
+/**
+ * The Labradorite's flash (see sheenGlow): right after a blow on the weak spot, the stone round it lights up in its
+ * sheen, a slanting streak of blue, green and gold wider than the hammer and its ring, sliding along as it shines, on a
+ * dark halo so it reads on pale stone, with a bright heart and a thin rim as wide as the place a blow counts. A miss
+ * puts it out at once. With less motion the colours stand still, soft.
+ */
+function drawSheen(e) {
+  const f = game.sheen;
+  if (!f || f.e !== e || e.state !== "cracking") return;
+  const a = (game.time - f.t) / 1000, k = sheenGlow(a, f.calm);
+  if (!k) { if (a >= SHEEN_LIFE) game.sheen = null; return; }
+  const [x, y] = fromEgg(...e.spot), r = 0.11 * L.ew, tilt = -0.6, dx = Math.cos(tilt), dy = Math.sin(tilt);
+  const slide = f.calm ? 0 : (a / SHEEN_LIFE - 0.5) * 0.9;
+  const blob = (cx, cy, rr, rgb, alpha) => {
+    const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, rr);
+    g.addColorStop(0, `rgba(${rgb},${alpha})`); g.addColorStop(0.5, `rgba(${rgb},${alpha * 0.75})`); g.addColorStop(1, `rgba(${rgb},0)`);
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rr, 0, TAU); ctx.fill();
+  };
+  ctx.save();
+  tracePoly(ctx, L.egg); ctx.clip();
+  blob(x, y, r * 3, "14,8,30", 0.5 * k);
+  SHEEN.forEach((c, i) => { const o = (i - 1 + slide) * r; blob(x + dx * o, y + dy * o, r * 1.5, c.join(","), 0.85 * k); });
+  blob(x, y, r * 0.45, "240,255,248", 0.75 * k);
+  ctx.strokeStyle = `rgba(214,255,236,${0.8 * k})`; ctx.lineWidth = 1.5 * Math.max(1, L.k);
+  ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.stroke();
   ctx.restore();
 }
 

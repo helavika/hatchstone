@@ -169,10 +169,12 @@ function newEgg(conf, animate = true) {
     bands: conf.bands && (!conf.wander || conf.coop) ? BANDS : 0, banded: conf.bands && (!conf.wander || conf.coop) ? BANDS : 0,
     // silent stone (the Celestite's levels, on the same terms): no glow, and the ripples lean towards the weak spot
     silent: !!conf.silent && (!conf.wander || !!conf.coop),
+    // the Labradorite's stone (on the same terms again): the weak spot shows only in a flash, right after a blow lands on it
+    sheen: !!conf.sheen && (!conf.wander || !!conf.coop),
   };
   const e = game.egg;
   // Quarry Eye's pings, fresh for every egg (yours alone, even on a shared one: they change nothing the friend sees)
-  e.eyeLeft = eyeCharges(); game.ping = null;
+  e.eyeLeft = eyeCharges(); game.ping = null; game.sheen = null;
   if (e.eyeLeft && save.eyeNote && animate) {
     delete save.eyeNote; persist();
     setTimeout(() => toast(save.eyeThanks ? tr("Quarry Eye listens now: tap the eye for a ring that shows where to listen. One more ping per geode, as thanks ✦") : tr("Quarry Eye listens now: tap the eye for a ring that shows where to listen ✦")), 1400);
@@ -186,7 +188,7 @@ function newEgg(conf, animate = true) {
   updateDots();
   updateEye();
   $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
-  setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : conf.step === 7 && e.silent ? tr("silent stone: no glow here · watch which way the ripples lean") : conf.step === 13 && e.banded ? tr("banded stone: when a band breaks, the weak spot moves") : "");
+  setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : conf.step === 7 && e.silent ? tr("silent stone: no glow here · watch which way the ripples lean") : conf.step === 13 && e.banded ? tr("banded stone: when a band breaks, the weak spot moves") : conf.step === 19 && e.sheen ? tr("this stone shows its weak spot only as you hit it · keep the chain") : "");
 }
 
 /** Fresh shell and inside for the current layout, with every crack so far drawn back on. */
@@ -237,6 +239,19 @@ const LEAN_REACH = 0.6, LEAN_SLOP = 0.3;
 function rippleLean(e, u, v, i) {
   const R = seeded(e.seed + ":" + i + ":lean"), [sx, sy] = e.spot;
   return { a: Math.atan2(sy - v, sx - u) + (R() * 2 - 1) * LEAN_SLOP, s: 0.15 + 0.85 * clamp(1 - Math.hypot(sx - u, sy - v) / LEAN_REACH, 0, 1) };
+}
+
+// The Labradorite's stone: the weak spot never shows by itself (you find it by ear, as deep in the grotto as ever), but
+// a blow that lands on it lights it up for a moment in the stone's blue-green-gold sheen. Hit it again before the flash
+// is gone and it lights up again, so a chain keeps you on it; a miss puts it out.
+const SHEEN_LIFE = 0.55;
+/**
+ * How bright the flash is (0 to 1), `a` seconds after the blow that lit it: up at once, at full while the hammer is still
+ * over it, then gone by SHEEN_LIFE. With less motion it doesn't flare: a soft, even light for the same time.
+ */
+function sheenGlow(a, calm) {
+  if (!(a >= 0 && a < SHEEN_LIFE)) return 0;
+  return calm ? 0.8 : Math.min(1, a / 0.04) * (1 - clamp((a - 0.3) / (SHEEN_LIFE - 0.3), 0, 1) ** 2);
 }
 
 /**
@@ -320,7 +335,9 @@ function crackHit(e, p, power, rng) {
     e.spot = bandSpot(seeded(e.seed + ":" + (e.hits ? e.hits.length - 1 : 0) + ":band" + e.bands), e.spot);
     e.found = false;
   }
-  return { dmg, crit, weak, grown, band, lean };
+  // on the Labradorite's stone a blow on the weak spot lights it up: the hit decides, so host and guest flash alike
+  const flash = !!e.sheen && crit;
+  return { dmg, crit, weak, grown, band, lean, flash };
 }
 
 /** Draw what's new on the shell: crushed spots where blows landed, then the cracks (dark, with a pale lit lip). */
@@ -811,6 +828,8 @@ const pingRim = () => Math.max(L.ew, L.eh) * 0.55;
 function hitFeedback(e, x, y, res, gems, echo = false) {
   paintNet(e);
   if (res.band) bandBreak(e);
+  // the Labradorite's flash: lit by a blow on the weak spot, put out by a miss (see drawSheen)
+  if (e.sheen) game.sheen = res.flash ? { e, t: game.time, calm: opts().calm } : null;
   const prog = clamp(e.damage / e.hp, 0, 1);
   e.wob = 0.02 + prog * 0.04 + (res.crit ? 0.03 : 0); e.wobT = 0; e.squash = 1;
   game.shake = Math.min(14, game.shake + (res.crit ? 7 : 3) + prog * 3) * Math.max(0.5, L.k);
@@ -1189,7 +1208,8 @@ const TALKS = {
     [MOSSA, "It's a quiet stone: no glow at all down there. But watch your ripples. They lean towards the weak spot."], [MOSSA, "The stone gets harder from here on. The Forge can help: it's on the map.", "#worldTab"]],
   ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring deep and hollow."],
     [MOSSA, "The stone there grows in bands. When one breaks, the weak spot moves. Just find it again."]],
-  ch3: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[3])], [MOSSA, "The oldest, toughest stone. And the rarest glowlings sleep in it."]],
+  ch3: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[3])], [MOSSA, "The oldest, toughest stone. And the rarest glowlings sleep in it."],
+    [MOSSA, "Its weak spot only flashes when you hit it. Keep hitting, and you won't lose it."]],
   shiny: cr => [[glowVoice(cr), "✦ Pip! ✦"], [MOSSA, "Oh my. A shiny one! I've only seen a handful in all my years."]],
   legendary: cr => [[glowVoice(cr), "...Pip."], [MOSSA, tr("A legendary glowling... They say {0} only wakes for someone kind. Well done, you.", cr.name)]],
   allClear: () => [[MOSSA, "Every geode in the grotto, opened. I'm so proud of you."],
