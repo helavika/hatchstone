@@ -280,6 +280,109 @@ function addXP(cr, n) {
   if (cr.level >= MAX_LEVEL) cr.xp = 0;
 }
 
+// ---------- glowling fancies: now and then a content glowling daydreams of something particular ----------
+// (in the code a glowling's wish is a "fancy": "wish" already belongs to the keepers and their errands, see nest.js)
+
+/** The little pictures in the daydream bubbles (the rest are icons the game already has). */
+Object.assign(PX_ICON_MAPS, {
+  fRain: ["............", "....sss.....", "..sssssssss.", ".sWsssssssss", ".sssssssssss", "..SSSSSSSSS.", "............", "............", "............", "..t...t...t.", "..T...T...T.", "............"],
+  fSnow: ["............", "....sss.....", "..sssssssss.", ".sWsssssssss", ".sssssssssss", "..SSSSSSSSS.", "............", "............", "..W.......W.", "......W.....", "..........W.", "..W........."],
+  fDrop: ["............", ".....t......", ".....t......", "....tTt.....", "....tTt.....", "...tWTTt....", "...tWTTt....", "...tTTTt....", "....ttt.....", "............", ".tt......tt.", "...tttttt..."],
+  fNote: ["............", "....pppppp..", "....plllpp..", "....p....p..", "....p....p..", "....p....p..", "....p....p..", "..ppp..ppp..", ".plpp.plpp..", ".ppp..ppp...", "............", "............"],
+  fShroom: ["............", "....rrrr....", "..rrRRRRrr..", ".rRRWRRRRRr.", ".rRRRRRWWRr.", ".rRWRRRWWRr.", "..rrrrrrrr..", "....wwww....", "....wssw....", "....wssw....", "...wwwwww...", "............"],
+  fSwing: [".bbbbbbbbbb.", ".b.z....z.b.", ".b.z....z.b.", ".b.z....z.b.", ".b.z....z.b.", ".b.GGGGGG.b.", ".b..gggg..b.", ".b........b.", ".b........b.", "bb........bb", "............", "............"],
+  fFrame: ["............", ".oooooooooo.", ".oddddddddo.", ".odddddGGdo.", ".odddddGGdo.", ".oddddddddo.", ".oddmdddddo.", ".odmmmdmmdo.", ".ommmmmmmmo.", ".oooooooooo.", "............", "............"],
+  fLights: ["............", "............", "z..........z", ".zz......zz.", ".g.zzzzzz.r.", "gGg..t...rRr", "gWg.tTt..rWr", ".g..tWt...r.", ".....t......", "............", "............", "............"],
+});
+/** How long a daydream stays up (seconds of looking at the nest), what it gives when it comes true, and how long until the first and the next one. */
+const FANCY_LIFE = 100, FANCY_JOY = 20, FANCY_XP = 20, FANCY_FIRST = [70, 120], FANCY_GAP = [240, 420];
+/** Can this piece be tapped in the room you're looking at? (The cloud floats by itself: see the two showers below.) */
+const fancyPiece = id => !!hasDecor(id) && (N.iso ? !!isoLayout().placed[id] || !!DECO[id].wall || id === "lights" : !DECO[id].iso);
+/**
+ * What each kind daydreams of: the picture in its bubble, the line it says when tapped, the diary line, whether it can come
+ * true here and now, and what makes it come true (by: a tap on a piece, a shower from the cloud, a finished game or walk).
+ */
+const FANCIES = [
+  { id: "rain", kinds: ["swim"], icon: "fRain", dream: "{0} is dreaming of rain", mem: "Wished for rain and got it", by: ["weather:rain"], can: () => !!N.iso && !!hasDecor("cushion") },
+  { id: "splash", kinds: ["swim"], icon: "fDrop", dream: "{0} is dreaming of a splash in the water", mem: "Wished for a splash and got one", by: ["tap:spring", "tap:birdbath"], can: () => fancyPiece("spring") || fancyPiece("birdbath") },
+  { id: "song", kinds: ["dance"], icon: "fNote", dream: "{0} is dreaming of a song", mem: "Wished for a song and got one", by: ["song", "tap:drum"], can: () => true },
+  { id: "walk", kinds: ["curious"], icon: "walk", dream: "{0} is dreaming of a walk", mem: "Wished for a walk and got one", by: ["walk"], can: () => true },
+  { id: "picture", kinds: ["curious"], icon: "fFrame", dream: "{0} is dreaming of a new picture on the wall", mem: "Wished for a new picture and got one", by: ["tap:painting"], can: () => fancyPiece("painting") },
+  { id: "stars", kinds: ["curious"], icon: "star", dream: "{0} is dreaming of a look at the stars", mem: "Wished for a look at the stars and got one", by: ["tap:telescope"], can: () => fancyPiece("telescope") },
+  { id: "swing", kinds: ["nap"], icon: "fSwing", dream: "{0} is dreaming of a push on the swing", mem: "Wished for a push on the swing and got one", by: ["tap:swing"], can: () => fancyPiece("swing") },
+  { id: "dark", kinds: ["nap"], icon: "moon", dream: "{0} is dreaming of the lamp turned off", mem: "Wished for the lamp turned off, and it was", by: ["lamp:off"], can: () => fancyPiece("lamp") && !save.decor.lamp.off },
+  { id: "catch", kinds: ["hop"], icon: "sparkle", dream: "{0} is dreaming of catching sparkles", mem: "Wished to catch sparkles, and did", by: ["catch"], can: () => true },
+  { id: "bounce", kinds: ["hop"], icon: "fShroom", dream: "{0} is dreaming of a bounce on the mushrooms", mem: "Wished for a bounce on the mushrooms and got one", by: ["tap:mushrooms"], can: () => fancyPiece("mushrooms") },
+  { id: "twinkle", kinds: ["flutter"], icon: "fLights", dream: "{0} is dreaming of twinkling lights", mem: "Wished for twinkling lights and got them", by: ["tap:lights", "tap:lamppost"], can: () => fancyPiece("lights") || fancyPiece("lamppost") },
+  { id: "snow", kinds: ["flutter"], icon: "fSnow", dream: "{0} is dreaming of snow", mem: "Wished for snow and got it", by: ["weather:snow"], can: () => !!N.iso && !!hasDecor("cushion") },
+];
+/** The one daydream in the nest (there is never a second): whose, of what, how long it has been up. Kept in memory only, so one that fades leaves nothing behind. */
+const fancy = { on: null, wait: rand(...FANCY_FIRST), acc: 0, last: "" };
+/** What this glowling is daydreaming of right now, if anything. */
+const fancyOf = id => fancy.on && fancy.on.id === id ? FANCIES.find(f => f.id === fancy.on.what) : null;
+/** Who may daydream: awake, at home, fed and wanting nothing (see content). */
+const fancyFit = cr => !cr.sleeping && !cr.out && !cr.trip && content(cr);
+/** What this glowling could daydream of here and now: only what can really come true. */
+const fanciesFor = cr => fancyFit(cr) ? FANCIES.filter(f => f.kinds.includes(kindOf(cr)) && f.can(cr)) : [];
+/** A nest old enough for daydreams: you've stroked a glowling, and at least two live here. */
+const fancyReady = () => tipDone("pet") && save.creatures.length >= 2;
+/** Not a moment for daydreams: you're not in a room of the nest, someone is talking, a window is open, the Gloom is visiting, a friend shares an egg, the furniture is being moved. */
+const fancyBusy = () => game.scene !== "nest" || isPlace() || arrange.on || gloomNow.on || !!talkNow || talkQueue.length > 0 || !!coopSession || $$(".overlay").some(o => !o.classList.contains("hidden"));
+/** Is the daydream about this very thing, and its glowling in the room you're looking at? */
+const fancyHere = what => { const w = fancy.on, cr = w && w.what === what && save.creatures.find(c => c.id === w.id); return !!cr && !cr.out && roomOf(cr) === save.room; };
+/** The daydream is over (it came true, or it just faded): the next one is a good few minutes away. */
+function fancyFade() { fancy.on = null; fancy.wait = rand(...FANCY_GAP); }
+/** Every frame the nest is on screen: a daydream fades when its time is up, and now and then a content glowling in this room starts one. */
+function fancyTick(dt) {
+  if ((fancy.acc += dt) < 0.5) return;
+  const step = fancy.acc, w = fancy.on; fancy.acc = 0;
+  // (time stands still while something else is going on; but when the Gloom comes, nobody is daydreaming any more)
+  if (fancyBusy()) { if (w && gloomNow.on) fancyFade(); return; }
+  if (w) {
+    // it fades by itself after a while, or sooner if its glowling now needs something or the thing is gone: no counter, nothing lost
+    const cr = save.creatures.find(c => c.id === w.id);
+    if (!cr || !fancyFit(cr) || (roomOf(cr) === save.room && !fancyOf(cr.id).can(cr)) || (w.t += step) >= FANCY_LIFE) fancyFade();
+    return;
+  }
+  if (!fancyReady() || (fancy.wait -= step) > 0) return;
+  const who = residents(save.room).filter(c => fanciesFor(c).length && !["nap", "sleep", "toBed"].includes(actors.get(c.id)?.state));
+  if (!who.length) { fancy.wait = 20; return; }
+  const cr = pick(who), all = fanciesFor(cr), fresh = all.filter(f => f.id !== fancy.last);
+  fancy.on = { id: cr.id, what: fancy.last = pick(fresh.length ? fresh : all).id, t: 0 };
+}
+/**
+ * Something just happened that a daydream may have been about (a piece tapped, a shower, a song, a game, a walk). If it was,
+ * the wish comes true, once: joy, a good bite of XP and a line in the diary. `who` took part (a game, a walk); without it,
+ * it happened in the room you're looking at. Gives back the glowling whose wish it was, or null.
+ */
+function fancyDone(what, who) {
+  const w = fancy.on, f = w && FANCIES.find(x => x.id === w.what), cr = f && f.by.includes(what) && save.creatures.find(c => c.id === w.id);
+  if (!cr || (who ? !who.includes(cr.id) : !fancyHere(f.id))) return null;
+  fancyFade();
+  cr.joy = clamp(cr.joy + FANCY_JOY, 0, 100);
+  addXP(cr, FANCY_XP);
+  remember(cr, f.mem);
+  persist();
+  toast(tr("{0}: a wish come true ✦", cr.name));
+  const a = actors.get(cr.id);
+  if (game.scene === "nest" && a) {
+    const v = actorView(a);
+    a.hop = 1; emote(a, "♥", 2.4); sfx.chirp(specOf(cr).voice);
+    burst(v.x, v.y - v.size * 0.5, 14, ["#ffffff", "#fff0b5", "#ffc4da"], 0.8);
+    for (let i = 0; i < 3; i++) heart(v.x + rand(-14, 14), v.y - v.size * 0.4);
+    renderNest();
+  }
+  return cr;
+}
+/** Tapped while it daydreams (the glowling or its bubble): one line about what it's dreaming of. */
+function fancyTell(id = fancy.on?.id) {
+  const f = fancyOf(id), cr = f && save.creatures.find(c => c.id === id);
+  if (cr) toast(tr(f.dream, cr.name));
+  return !!cr;
+}
+/** Is the finger on the daydream's bubble (where it was last drawn)? */
+const fancyAt = (x, y) => { const p = fancy.on?.at; return !!p && game.scene === "nest" && game.time - p.t < 200 && Math.hypot(x - p.x, y - p.y) < p.r; };
+
 // ---------- layout ----------
 
 const cvs = $("c");

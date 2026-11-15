@@ -781,8 +781,8 @@ function openJukebox() {
   $("jukeList").innerHTML = `<h3>${tr("Songs")}</h3>` + song("", `<span class="em">🏞️</span>`, tr("The backdrop's own song"), tr("changes with the backdrop"), true)
     + THEMES.map(t => song(t.id, `<img class="em" src="${themeThumb(t.id)}" alt="">`, t.name, t.ok() ? tr("song") : t.how, t.ok())).join("")
     + `<h3>${tr("Sounds")}</h3><div class="juke-sounds">${JUKE_SOUNDS.map((x, i) => `<button class="pillbtn" data-sound="${i}">${x.emoji} ${tr(x.name)}</button>`).join("")}</div>`;
-  $$("#jukeList [data-song]").forEach(b => b.addEventListener("click", () => { save.jukebox = b.dataset.song || null; persist(); openJukebox(); }));
-  $$("#jukeList [data-sound]").forEach(b => b.addEventListener("click", () => JUKE_SOUNDS[b.dataset.sound].play()));
+  $$("#jukeList [data-song]").forEach(b => b.addEventListener("click", () => { save.jukebox = b.dataset.song || null; persist(); openJukebox(); fancyDone("song"); }));
+  $$("#jukeList [data-sound]").forEach(b => b.addEventListener("click", () => { JUKE_SOUNDS[b.dataset.sound].play(); fancyDone("song"); }));
   show("jukebox", true);
 }
 /** While the music box is out, little notes float up from it now and then. */

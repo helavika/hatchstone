@@ -517,6 +517,8 @@ function updateActors(dt) {
       if (wants && a.id === save.active && Math.random() < 0.3) sfx.chirp(specOf(cr).voice * 1.2);
     }
   }
+  // and a content one daydreams now and then
+  fancyTick(dt);
 }
 
 /** What the room's walls and floor are painted from: when it changes, they're painted again. */
@@ -3383,11 +3385,12 @@ function moveCloud(x, y) {
 const weather = { kind: null, last: null, until: 0, acc: 0, drops: [], ground: [] };
 const COLD_THEMES = ["frost", "summit", "celestite"];
 function startWeather() {
-  // rain and snow take turns; the cold backdrops start with snow
-  weather.kind = weather.last ? (weather.last === "rain" ? "snow" : "rain") : COLD_THEMES.includes(currentTheme()) ? "snow" : "rain";
+  // rain and snow take turns; the cold backdrops start with snow (and if someone here is dreaming of one of them, that's the one that comes)
+  weather.kind = fancyHere("rain") ? "rain" : fancyHere("snow") ? "snow" : weather.last ? (weather.last === "rain" ? "snow" : "rain") : COLD_THEMES.includes(currentTheme()) ? "snow" : "rain";
   weather.last = weather.kind; weather.t0 = game.time; weather.until = game.time + WEATHER_MS;
   // everyone awake and free runs over to play under it
   for (const a of actors.values()) if (["idle", "walk", "dance"].includes(a.state) && !a.goal) playInWeather(a);
+  fancyDone("weather:" + weather.kind);
   if (!sfx.ready()) return;
   const t = sfx.ac.currentTime, n = 9;
   // softly in, softly out, like the shower itself

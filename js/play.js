@@ -149,6 +149,8 @@ function playDecor(hit) {
       break;
     }
   }
+  // was someone here dreaming of just this? Then the wish comes true
+  const glad = fancyDone(hit.id === "lamp" ? "lamp:" + (save.decor.lamp.off ? "off" : "on") : "tap:" + hit.id);
   if (hit.id === "lights" && Math.random() > 0.3) return;
   // the glowlings who love it come running (two at most)
   const fans = [...actors.values()].filter(a => {
@@ -158,7 +160,7 @@ function playDecor(hit) {
   for (const a of fans) {
     a.goal = d.id; a.state = "walk"; a.friend = null;
     [a.tx, a.ty] = standSpot(clamp(x + rand(-0.25, 0.25) * b, N.x0, N.x1), clamp(y + rand(-0.1, 0.1) * b, N.y0, N.y1));
-    emote(a, "!", 0.9);
+    if (!glad || a.id !== glad.id) emote(a, "!", 0.9);
   }
 }
 
@@ -181,6 +183,33 @@ function drawEmote(a, v) {
   fx.textAlign = "center"; fx.textBaseline = "middle";
   fx.fillText(e.text, bx, by + 1);
   fx.restore();
+}
+
+/** The pictures for the daydream bubbles, each made once. */
+const fancyPics = {};
+/**
+ * A daydream: a little cloud over its head with a picture of what it's dreaming of, two dots trailing down to it.
+ * It stays, bobbing gently (a call for help is the small round bubble that pops up at its side with a sign, and is gone).
+ */
+function drawFancy(a, v) {
+  const w = fancy.on, f = fancyOf(a.id), im = fancyPics[f.icon] || (fancyPics[f.icon] = Object.assign(new Image(), { src: pxIcon(f.icon) }));
+  // the picture keeps to whole art pixels, one or two for each of its own
+  const P = PX * Math.max(1, Math.round(v.size * 0.5 / (14 * PX))), sz = 14 * P, R = Math.round(sz * 0.7);
+  // softly in, softly out when its time is nearly up
+  const k = clamp(Math.min(w.t / 0.5, (FANCY_LIFE - w.t) / 4), 0, 1), bob = opts().calm ? 0 : Math.round(Math.sin(game.time * 0.0025 + (a.ph || 0))) * PX;
+  // just over its own head (a grown one's is higher up) and a little to the left, so the last of its dots lands on the top of that head
+  const cr = save.creatures.find(c => c.id === a.id), head = v.size * 0.72 * [0.82, 1, 1.12, 1.22][stageOf(cr ? cr.level : 1)];
+  const bx = clamp(v.x + v.size * 0.1 - R * 1.12, R * 1.4, W - R * 1.4), by = Math.max(R * 1.3, v.y - head - R * 1.55) + bob;
+  w.at = { x: bx, y: by, r: R * 1.35, t: game.time };
+  ctx.save();
+  ctx.globalAlpha = k;
+  drawBaked(cachedSprite(roomSprites, "fancy" + R, `${R}|${PX}`, () => bakeSprite(0, 0, R, () => {
+    ctx.fillStyle = "#efe6ff";
+    for (const [x, y, r] of [[0, 0, 1], [-0.62, 0.18, 0.62], [0.62, 0.18, 0.62], [-0.3, -0.5, 0.62], [0.36, -0.46, 0.66], [0, 0.42, 0.7], [0.82, 1.02, 0.2], [1.12, 1.4, 0.12]]) { ctx.beginPath(); ctx.arc(x * R, y * R, r * R, 0, TAU); ctx.fill(); }
+  }, { up: 1.3, down: 1.7, side: 1.45, soft: false })), bx, by);
+  ctx.imageSmoothingEnabled = false;
+  if (im.complete) ctx.drawImage(im, Math.round((bx - sz / 2) / PX) * PX, Math.round((by - sz / 2) / PX) * PX, sz, sz);
+  ctx.restore();
 }
 
 /** Dust bunnies: little fluffy puffs with ears and eyes on the nest floor, until you sweep them (the order of it all: see gatherDust). */
@@ -810,6 +839,9 @@ function drawNest() {
     fx.fillText(sn.emoji, sn.x, sn.y);
     fx.textAlign = "start";
   }
+  // a daydream floats over everything in the room, so nobody stands in front of it
+  const dreamer = fancy.on && actors.get(fancy.on.id);
+  if (dreamer) drawFancy(dreamer, actorView(dreamer));
 }
 /**
  * Back-to-front order for the isometric room, the way isometric games sort: compare places on the floor grid, not screen height.
@@ -916,7 +948,7 @@ function drawActor(a) {
       }
       fx.globalAlpha = 1;
     } else if (a.emote) drawEmote(a, v);
-    else if (a.face && a.face.kind === "think") {
+    else if (a.face && a.face.kind === "think" && !fancyOf(a.id)) {
       // thinking: little dots rising one by one beside its head, on the side it's looking
       ctx.fillStyle = "#efe6ff";
       for (let i = 0; i < Math.min(3, Math.floor(a.face.t / 0.4) + 1); i++) {
@@ -1359,6 +1391,7 @@ function endCatch() {
   cr.joy = clamp(cr.joy + joy, 0, 100);
   save.shards += shards;
   addXP(cr, xp);
+  fancyDone("catch", [cr.id]);
   persist();
   $("catchTitle").textContent = g.score >= 25 ? tr("Sparkle storm! ✦") : g.score >= 12 ? tr("Great catch!") : tr("Fun!");
   $("catchSub").textContent = tr("{0} caught {1} {2}.", cr.name, g.score, pl(g.score, "sparkle", "sparkles"));
@@ -1483,6 +1516,7 @@ function endEcho() {
   cr.joy = clamp(cr.joy + joy, 0, 100);
   save.shards += shards;
   addXP(cr, xp);
+  fancyDone("song", [cr.id]);
   persist();
   $("catchTitle").textContent = g.score >= 10 ? tr("Perfect pitch! ✦") : g.score >= 5 ? tr("Lovely song!") : tr("Fun!");
   $("catchSub").textContent = tr("Tunes sung back with {0}: {1}", cr.name, g.score) + (best && g.score ? tr(" · a new best!") + (g.score >= 3 ? " " + tr("{0} +1", barName("nut")) : "") : "");
