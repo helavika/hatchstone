@@ -1021,7 +1021,7 @@ function drawNest() {
     const [hx, hy] = heroSpot(), [u, v] = isoFrom(hx, hy);
     items.push({ y: hy, draw: drawHero, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } });
   }
-  if (isOutside() && N.iso && wickHere()) {
+  if (wickRoom() && N.iso && wickHere()) {
     const [wx, wy] = wickSpot(), [u, v] = isoFrom(wx, wy);
     items.push({ y: wy, draw: drawWick, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } });
   }

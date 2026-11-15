@@ -1107,7 +1107,7 @@ function drawGloom() {
 
 // ---------- the story: why the glowlings sleep in stone, told a little at a time as you go deeper ----------
 
-// Dialog portraits of Wick and Dorma, hand-pixelled 26x26 (see pxPortrait in pixel.js); the garden still draws Wick from his small icon.
+// Dialog portraits of Wick and Dorma, hand-pixelled 26x26 (see pxPortrait in pixel.js); the camp still draws Wick from his small icon.
 PX_PORTRAITS.wick = { pal: { h: "#fff0b5", g: "#eec26a", o: "#c98f3a", b: "#946027", B: "#5e3a1c", d: "#3a2238", k: "#160c26", W: "#ffffff", r: "#e88bb1", z: "#5d5666", S: "#8a8494", f: "#ffb54a" }, rows: [
   "..gggggg.......gggg.......",
   ".goooooog.....goooog......",
@@ -1319,10 +1319,10 @@ function talkMoments(scene) {
     TALKS[id] = () => [[MOSSA, ev.line], [MOSSA, tr("For {0} days a limited glowling, {1}, sleeps in the moon egg. It comes round again every year.", eventDaysLeft(ev), SP[ev.sp].name), scene === "map" ? "#moonBtn" : null]];
     talk(id);
   }
-  // Wick lands outside every third day and lets you know
+  // Wick lands at the explorers' camp every third day and lets you know
   if (scene === "nest" && save.creatures.length && wickHere()) {
     const id = `wick-${dayNo()}`;
-    TALKS[id] = () => [[WICK, isOutside() ? "Psst! Over here, by the garden. I've brought a few things from the deep." : "Psst! I'm outside today, by the garden, with a few things from the deep. Here till midnight!", isOutside() ? null : "#roomNav"]];
+    TALKS[id] = () => [[WICK, wickRoom() ? "Psst! Over here, by the lamp. I've brought a few things from the deep." : "Psst! I'm at the explorers' camp today, by the lamp, with a few things from the deep. Here till midnight!", wickRoom() ? null : "#worldTab"]];
     talk(id);
   }
   // one part of the story per visit, so a long-time player catches up gently
