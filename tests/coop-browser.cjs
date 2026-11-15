@@ -284,8 +284,7 @@ test("two isolated devices share a real WebRTC egg without replacing solo saves"
     });
 
     await stage("solo play still works and the new local scripts are cached for offline reload", async () => {
-      // a cave already cleared offers three geodes first; taking one is how a replay begins
-      await host.eval("setScene('map'); startLevel(1); if (picking) takeGeode(0)");
+      await host.eval("setScene('map'); startLevel(1)");
       await waitFor("solo egg", () => host.eval("window.__game.scene==='crack' && !window.__game.egg.conf.coop && window.__game.egg.state==='cracking'"));
       await tapEgg(host);
       assert.equal(await host.eval("window.__game.egg.taps > 0 && window.__game.egg.net.segs.length > 0"),true);

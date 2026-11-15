@@ -415,16 +415,6 @@ $("worldTab").addEventListener("click", () => {
 $("worldClose").addEventListener("click", () => { sfx.tick(); closeWorld(); });
 $("spaceClose").addEventListener("click", () => show("spaceSheet", false));
 $("thingClose").addEventListener("click", () => show("thingSheet", false));
-$("pickClose").addEventListener("click", closePick);
-// the arrow keys walk along the three geodes, round and round; Escape puts the sheet away
-$("pickSheet").addEventListener("keydown", e => {
-  if (e.key === "Escape") { e.preventDefault(); closePick(); return; }
-  const three = [...$$("#pickRow button")], i = three.indexOf(document.activeElement), n = three.length;
-  const to = { ArrowRight: (i + 1) % n, ArrowLeft: (i + n - 1) % n, Home: 0, End: n - 1 }[e.key];
-  if (i < 0 || to === undefined) return;
-  e.preventDefault();
-  three[to].focus({ preventScroll: true });
-});
 // the trail of levels closes back to the grotto's hall
 $("mapClose").addEventListener("click", () => { sfx.tick(); arriveAt("grotto"); });
 $("worldIn").addEventListener("click", () => zoomWorld(1));
