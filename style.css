@@ -77,6 +77,17 @@ body.low .glass { backdrop-filter: none; -webkit-backdrop-filter: none; backgrou
 #hud .row:first-child > * { flex-shrink: 0; }
 #hud .row:first-child .stack { flex-shrink: 1; min-width: 58px; }
 #dots { max-width: 100%; }
+/* Quarry Eye's button: under the sound button, clear of the egg and the aim meter; a pip for each ping this geode has left.
+   On stone where the weak spot still glows it rests, dimmed (a tap says why) */
+#eyeBtn { position: absolute; right: 14px; top: calc(var(--top) + 52px); width: 48px; height: 48px; gap: 2px; }
+#eyeBtn[hidden] { display: none; }
+#eyeBtn .ic { margin: 0; }
+#eyeBtn .pips { margin: 0; gap: 2px; }
+#eyeBtn .pips i { width: 7px; height: 5px; box-shadow: inset 0 0 0 2px var(--px-edge); }
+#eyeBtn .pips i.on { box-shadow: inset 0 -2px 0 0 var(--px-gold-lo); }
+#eyeBtn.rest .ic, #eyeBtn.spent .ic { filter: grayscale(1) brightness(.6); opacity: .6; }
+/* (a banner while cracking takes its turn just below it, so the eye stays in reach) */
+body.scene-crack:has(#eyeBtn:not([hidden])) #toast { top: calc(var(--top) + 110px); }
 
 /* hints: a clear bubble near the action, not small grey text */
 #hint {

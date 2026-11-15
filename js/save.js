@@ -83,6 +83,15 @@ function migrate(d) {
   // how you grow as a keeper (see inner.js): the habits' day, and an older save's core and Granite Fist turned into
   // keeper XP, gifts and Strength, once
   keeperMigrate(d);
+  // Quarry Eye used to light the weak spot up for good; now it pings when you choose (see eyePing). Once, for a save from
+  // before: a keeper who had the whole eye keeps one more ping on every geode as thanks, and anyone who had it hears
+  // what changed when they next crack an egg
+  if (!d.eyePings) {
+    const eye = Math.floor(Number(d.forge.eye)) || 0;
+    if (eye >= 3) d.eyeThanks = true;
+    if (eye > 0) d.eyeNote = true;
+    d.eyePings = true;
+  }
   // the moon egg: nights kept, where there was a streak
   const moon = moonSaveOf(d.moon, d);
   if (moon) d.moon = moon; else delete d.moon;
@@ -689,7 +698,7 @@ function resize() {
 const game = {
   scene: "menu", egg: null, time: 0, libTab: "sp",
   coop: null,
-  chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], swings: [], floaters: [], ripples: [], pops: [], gems: [], shake: 0, freeze: 0,
+  chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], swings: [], floaters: [], ripples: [], pops: [], gems: [], ping: null, shake: 0, freeze: 0,
   nest: { snack: null, petDist: 0, petXpT: 0, petting: false, call: null, glad: false },
   actors: null,
   catch: null,

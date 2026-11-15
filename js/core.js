@@ -377,6 +377,16 @@ const sfx = {
     if (h > 0.5) this.tone(t + 0.01, lerp(400, 140, h) * up, 0.12 * h, 0.5, "sine");
   },
 
+  /** Quarry Eye's ping: a soft knock, then, as the ring reaches the weak spot (at seconds later), a deep hollow ring. */
+  ping(at) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.tone(t, 560, 0.12, 0.08, "triangle", 340);
+    this.grain(t, 0.012, 2400, 1.5, 0.08);
+    this.tone(t + at, 196, 0.14, 0.7, "sine", 165, true);
+    this.tone(t + at, 392, 0.04, 0.35, "triangle", 330, true);
+  },
+
   /** A soft cloth on stone: the squeak rises as the surface turns glossy. */
   rubOn() {
     if (!this.ready() || this.rub) return;

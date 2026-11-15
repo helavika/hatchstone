@@ -167,6 +167,12 @@ function newEgg(conf, animate = true) {
     net: { segs: [], tips: [] }, painted: 0,
   };
   const e = game.egg;
+  // Quarry Eye's pings, fresh for every egg (yours alone, even on a shared one: they change nothing the friend sees)
+  e.eyeLeft = eyeCharges(); game.ping = null;
+  if (e.eyeLeft && save.eyeNote && animate) {
+    delete save.eyeNote; persist();
+    setTimeout(() => toast(save.eyeThanks ? tr("Quarry Eye listens now: tap the eye for a ring that shows where to listen. One more ping per geode, as thanks ✦") : tr("Quarry Eye listens now: tap the eye for a ring that shows where to listen ✦")), 1400);
+  }
   // the weak spot: somewhere on the face of the egg, away from the very edge
   // stored the way co-op sends it (height / EGG_R), so host and guest compute with the very same numbers
   for (;;) { const p = [rand(0.25, 0.75), rand(0.3, 1) / EGG_R * EGG_R]; if (inside(EGG_UNIT, p)) { e.spot = p; break; } }
@@ -174,6 +180,7 @@ function newEgg(conf, animate = true) {
   refitEgg(e);
   game.pieces = [];
   updateDots();
+  updateEye();
   $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
   setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : "");
 }
@@ -355,11 +362,17 @@ function burst(x, y, n, colors, speed = 1) {
 // ---------- the forge: shards buy hammer upgrades that last forever ----------
 // (how hard a tap hits is the keeper's Strength alone: the Forge's Granite Fist went into it, see keeperMigrate in inner.js)
 const FORGE = [
-  { id: "eye", name: "Quarry Eye", icon: "eye", cost: [40, 90, 160], what: l => ["", tr("a faint glow shows the weak spot on hard stone"), tr("the weak spot glows brighter"), tr("the weak spot glows even in the deepest caves")][l] },
+  { id: "eye", name: "Quarry Eye", icon: "eye", cost: [40, 90, 160], what: l => ["", tr("one ping per geode: a ring over the shell shows where to listen"), tr("two pings per geode"), save.eyeThanks ? tr("four pings per geode: one is a thank-you") : tr("three pings per geode")][l] },
   { id: "echo", name: "Thunder Echo", icon: "bell", cost: [60, 120, 200], what: l => tr("{0}% of taps ring twice, for 60% more", l * 10) },
   { id: "magpie", name: "Finder's Sack", icon: "pouch", cost: [30, 70, 120, 180], what: l => tr("stone broken at the weak spot pays {0}% more", Math.round(l * SACK_PAY * 100)) },
 ];
 const forgeLvl = id => (save.forge && save.forge[id]) || 0;
+/** Quarry Eye's pings for each geode: one a forge level, and one more for keepers who had the whole eye back when it
+ *  still lit the spot up for good (see migrate). It no longer shows the spot by itself: you choose when to look. */
+const eyeCharges = () => { const l = forgeLvl("eye"); return l ? l + (save.eyeThanks ? 1 : 0) : 0; };
+/** Stone where the weak spot is found by ear: from level 4, where it stops glowing brightly. There a near miss whispers
+ *  "closer…" and Quarry Eye can ping; on brighter stone you simply look. */
+const byEar = conf => conf.spotGlow < 0.5;
 /** Hammer looks: each shows when you tap the stone (the tool swings, bigger with each point of Strength) and changes the sparks. */
 // brutal tools for a cute game: sledges, thorns, picks and cleavers, each drawn as its own pixel silhouette (H h d head, L l handle, S spikes, r g G trim and glow)
 const TOOL_SKINS = [
@@ -658,6 +671,46 @@ function hitEgg(x, y) {
   if (e.damage >= e.hp) openEgg();
 }
 
+// ---------- Quarry Eye: a knock that listens for you ----------
+
+// A ping runs out from the middle of the egg to its rim in this many seconds, and is gone a little after.
+const PING_RUN = 0.7, PING_LIFE = 1;
+
+/** The eye button, while there's shell to listen to: a pip for each ping left; dimmed on stone that glows, where it rests, and once they're spent. */
+function updateEye() {
+  const b = $("eyeBtn"), e = game.egg, n = eyeCharges();
+  b.hidden = !n || !e || !["entering", "cracking"].includes(e.state);
+  if (b.hidden) return;
+  b.querySelector(".pips").innerHTML = Array.from({ length: n }, (_, i) => `<i class="${i < e.eyeLeft ? "on" : ""}"></i>`).join("");
+  b.classList.toggle("rest", !byEar(e.conf));
+  b.classList.toggle("spent", !(e.eyeLeft > 0));
+}
+
+/**
+ * Spend a ping: a knock, and a ring that runs over the shell, bright where it passes near the weak spot, with a deep
+ * hollow note as it gets there. It only shows where to listen, and is gone in a second. All on this screen: on a shared
+ * egg nothing goes to the friend, and the cracks, pay and aim stay exactly as they were.
+ */
+function eyePing() {
+  const e = game.egg;
+  if (!e || e.state !== "cracking") return;
+  const say = text => { sfx.tick(); floatText(text, L.ecx, L.ey0 + 24 * L.k, "#e6e0ff"); };
+  if (!byEar(e.conf)) return say(tr("the spot glows here: just look"));
+  if (!(e.eyeLeft > 0)) return say(tr("no pings left on this geode"));
+  e.eyeLeft--;
+  game.ping = { e, t: game.time };
+  sfx.ping(PING_RUN * pingReach(e));
+  buzz(8);
+  updateEye();
+}
+
+/** How far out the weak spot sits, from the middle of the egg (0) to its rim (1): when the ring gets there. */
+function pingReach(e) {
+  const [x, y] = fromEgg(...e.spot);
+  return clamp(Math.hypot(x - L.ecx, y - L.ecy) / pingRim(), 0, 1);
+}
+const pingRim = () => Math.max(L.ew, L.eh) * 0.55;
+
 /** Everything you see and hear when a hit lands (also used when a co-op guest replays the host's hits). */
 function hitFeedback(e, x, y, res, gems, echo = false) {
   paintNet(e);
@@ -685,7 +738,7 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   if (res.grown) sfx.crackle(Math.min(res.grown, 12));
   game.ripples.push({ x, y, t: 0, r: (20 + res.weak * 50) * L.k, h: res.weak });
   buzz(res.crit ? 18 : 7);
-  if (e.conf.spotGlow < 0.5 && res.weak > 0.2 && !res.crit) floatText("closer…", x, y - 30 * L.k, "#e6e0ff");
+  if (byEar(e.conf) && res.weak > 0.2 && !res.crit) floatText("closer…", x, y - 30 * L.k, "#e6e0ff");
   updateDots();
 }
 
@@ -713,6 +766,7 @@ function openEgg() {
   markTip("open");
   const e = game.egg;
   e.state = "opening"; e.t = 0;
+  updateEye();
   // a jagged line around the middle, with big teeth and small ones, like a cracked shell
   const k = L.k, by = L.ecy + rand(-0.08, 0.02) * L.eh, x0 = L.ex0 - 12, x1 = L.ex0 + L.ew + 12, line = [];
   let drift = 0;
