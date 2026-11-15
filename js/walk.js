@@ -1076,6 +1076,7 @@ function finishWalk() {
     addXP(cr, mood.xp);
     remember(cr, "Went for a walk: {0}", p.name);
   }
+  fancyDone("walk", g.who);
   w.n++; w.last = Date.now();
   if (n > (w.best[p.id] || 0)) w.best[p.id] = n;
   let opened = null;

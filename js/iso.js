@@ -517,6 +517,8 @@ function updateActors(dt) {
       if (wants && a.id === save.active && Math.random() < 0.3) sfx.chirp(specOf(cr).voice * 1.2);
     }
   }
+  // and a content one daydreams now and then
+  fancyTick(dt);
 }
 
 /** What the room's walls and floor are painted from: when it changes, they're painted again. */
@@ -3383,11 +3385,12 @@ function moveCloud(x, y) {
 const weather = { kind: null, last: null, until: 0, acc: 0, drops: [], ground: [] };
 const COLD_THEMES = ["frost", "summit", "celestite"];
 function startWeather() {
-  // rain and snow take turns; the cold backdrops start with snow
-  weather.kind = weather.last ? (weather.last === "rain" ? "snow" : "rain") : COLD_THEMES.includes(currentTheme()) ? "snow" : "rain";
+  // rain and snow take turns; the cold backdrops start with snow (and if someone here is dreaming of one of them, that's the one that comes)
+  weather.kind = fancyHere("rain") ? "rain" : fancyHere("snow") ? "snow" : weather.last ? (weather.last === "rain" ? "snow" : "rain") : COLD_THEMES.includes(currentTheme()) ? "snow" : "rain";
   weather.last = weather.kind; weather.t0 = game.time; weather.until = game.time + WEATHER_MS;
   // everyone awake and free runs over to play under it
   for (const a of actors.values()) if (["idle", "walk", "dance"].includes(a.state) && !a.goal) playInWeather(a);
+  fancyDone("weather:" + weather.kind);
   if (!sfx.ready()) return;
   const t = sfx.ac.currentTime, n = 9;
   // softly in, softly out, like the shower itself
@@ -4000,7 +4003,9 @@ function paintRoomIso(id) {
     const sky = (night ? night.sky : ["#0d0a2a", "#160c33", "#2d2468", "#463592"]).map(pxHex);
     const white = pxHex("#ffffff"), moon = pxHex("#fff8d6");
     const glazed = kind === "timber", sillC = kind === "timber" ? [oak[1], oak[4]] : [wallC[1], wallC[Math.min(6, wallC.length - 1)]];
-    if (kind === "hall") {
+    // (the grotto's hall is deep under the rock: no window there, and no moonlight on its floor)
+    if (roomKindNow === "grotto") {}
+    else if (kind === "hall") {
       // the abbey's window is Gothic: a pointed arch cut deep through the wall and splayed, so both its sides show, with a
       // broad stone seat; four tall lancets with trefoil heads under a net of lozenges (three, two, one), all on the wall's
       // slant. Behind the glass a cold violet night with a moon and stars, and an iron lantern on a curled bracket either side

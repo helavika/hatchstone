@@ -20,7 +20,7 @@ function lane(t) {
     paintAward: (e, a) => painted.push(a),
     setTimeout: (f, ms) => setTimeout(f, ms), clearTimeout: id => clearTimeout(id)
   };
-  vm.runInNewContext(src.slice(from, to) + '\nthis.toast = toast; this.queueAwards = queueAwards;', page);
+  vm.runInNewContext(src.slice(from, to) + '\nthis.toast = toast; this.queueAwards = queueAwards; this.dismissBanner = dismissBanner; this.holdBanner = holdBanner;', page);
   const showing = id => el(id).on.has('on');
   // (time goes by in small steps, so a timer set by another timer rings in its turn)
   return { page, painted, showing, said: () => showing('toast') ? el('toast').textContent : null, tick: ms => { for (let i = 0; i < ms; i += 50) t.mock.timers.tick(50); }, found: () => el('found').on.delete('hidden') };
@@ -96,4 +96,30 @@ test('three or more trophies at once arrive as one banner; two still come one by
   // the keeper's own level keeps its banner; the trophies around it are one
   assert.deepEqual(l.painted.slice(2).map(a => a.many ? a.many.map(x => x.name).join('') : a.keeper ? 'keeper' : a.name), ['cde', 'keeper']);
   assert.ok(!l.showing('award'));
+});
+
+test('a banner waved away leaves at once, and the next in line comes on', t => {
+  const l = lane(t);
+  l.page.toast('one'); l.page.toast('two'); l.page.queueAwards(cup('Snack time'));
+  l.tick(500); l.page.dismissBanner();
+  assert.equal(l.said(), null);
+  l.page.dismissBanner(); // (a second wave while it leaves does nothing)
+  l.tick(450); assert.equal(l.said(), 'two');
+  l.page.dismissBanner(); l.tick(450);
+  assert.ok(l.showing('award') && !l.showing('toast'));
+  l.page.dismissBanner(); l.tick(450);
+  assert.ok(!l.showing('award') && !l.page.document.body.on.has('banner'));
+  l.page.dismissBanner(); // (nothing up: nothing to wave away)
+  l.page.toast('three'); assert.equal(l.said(), 'three');
+});
+
+test('a held banner stays for as long as it is held, then has a moment more', t => {
+  const l = lane(t);
+  l.page.toast('one'); l.page.toast('two');
+  l.tick(2000); l.page.holdBanner(true);
+  l.tick(10000); assert.equal(l.said(), 'one');
+  l.page.holdBanner(false);
+  l.tick(1500); assert.equal(l.said(), 'one');
+  l.tick(150); assert.equal(l.said(), null);
+  l.tick(450); assert.equal(l.said(), 'two');
 });

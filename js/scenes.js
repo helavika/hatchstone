@@ -5,9 +5,21 @@
 // ---------- scenes ----------
 
 const show = (id, on) => $(id).classList.toggle("hidden", !on);
+// (a hint waved away, by a tap or a swipe: see ui.js, keeps quiet for a while; a different hint still shows)
+const HINT_AWAY = 10 * 60e3, hintWaved = {};
 function setHint(text) {
-  if ($("hint").textContent !== text) $("hint").textContent = text;
-  $("hint").classList.toggle("on", !!text);
+  const el = $("hint");
+  if (text && hintWaved[text] > Date.now()) { el.classList.remove("on"); return; }
+  if (el.textContent !== text) el.textContent = text;
+  // (thrown aside last time: it comes back to its place first, unseen)
+  if (text && el.style.translate) { el.style.transition = "none"; el.style.translate = ""; void el.offsetHeight; el.style.transition = ""; }
+  el.classList.toggle("on", !!text);
+}
+function waveHint() {
+  const el = $("hint");
+  if (!el.classList.contains("on")) return;
+  hintWaved[el.textContent] = Date.now() + HINT_AWAY;
+  el.classList.remove("on");
 }
 
 // one lane for banners: toasts and awards wait in one line and show one at a time, in one slot under the top bar (the
@@ -54,6 +66,8 @@ function nextBanner() {
   const wait = bannerQueue.some(b => !b.text) && awardWaits(), i = bannerQueue.findIndex(b => b.text || !wait);
   if (i < 0) { bannerTimer = setTimeout(nextBanner, 400); return; }
   const b = bannerNow = bannerQueue.splice(i, 1)[0], el = bannerEl(b);
+  // (if the last one here was waved away, the slot comes back to its place first, unseen)
+  if (el.style.translate) { el.style.transition = "none"; el.style.translate = ""; void el.offsetHeight; el.style.transition = ""; }
   if (b.text) el.textContent = b.text; else paintAward(el, b);
   el.classList.add("on");
   document.body.classList.add("banner");
@@ -64,6 +78,20 @@ function endBanner() {
   bannerEl(bannerNow).classList.remove("on");
   // (the slot stays taken while it leaves; the hint comes back once nobody else is next)
   bannerTimer = setTimeout(() => { bannerNow = null; nextBanner(); if (!bannerNow) document.body.classList.remove("banner"); }, 450);
+}
+/** Is a banner up right now (not waiting, not already leaving)? */
+const bannerUp = () => !!bannerNow && bannerEl(bannerNow).classList.contains("on");
+/** A finger on the banner: it stays for as long as it's held; let go of it and it has a moment more. */
+function holdBanner(held) {
+  if (!bannerUp()) return;
+  clearTimeout(bannerTimer);
+  if (!held) bannerTimer = setTimeout(endBanner, 1600);
+}
+/** Waved away (tapped, or swiped aside: see ui.js): it leaves at once, and whoever is next in line comes on. */
+function dismissBanner() {
+  if (!bannerUp()) return;
+  clearTimeout(bannerTimer);
+  endBanner();
 }
 
 /**

@@ -16,6 +16,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "echo") { echoTap(x, y); return; }
   if (game.scene === "walk") { pointer = null; walkTap(x, y); return; }
   if (game.scene === "nest" && !remote) { const ps = passageAt(x, y); if (ps) { pointer = null; goPassage(ps); return; } }
+  if (game.scene === "nest" && !remote && fancyAt(x, y)) { pointer = null; sfx.tick(); fancyTell(); return; }
   if (game.scene === "nest" && cloudAt(x, y)) { pointer.cloud = true; return; }
   if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
@@ -64,7 +65,7 @@ function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (game.scene === "nest" && !calling && atIncubator(x, y)) { tapIncubator(); return; }
   if (game.scene === "nest" && decorHit) { if (decorHit.id !== "lights") playDecor(decorHit); return; }
   if (game.scene === "crack") { const egg = game.egg; if (egg.state === "open" && Math.hypot(x - L.ecx, y - L.ecy) < L.ew * 0.25) { egg.hop = 1; sfx.chirp(egg.species.voice); } }
-  if (game.scene === "nest" && !calling) { const a = actorAt(x, y); if (a && a.id !== save.active) selectCreature(a.id); else if (a) { const cr = activeCreature(), v = actorView(a); if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); } } }
+  if (game.scene === "nest" && !calling) { const a = actorAt(x, y); if (a) fancyTell(a.id); if (a && a.id !== save.active) selectCreature(a.id); else if (a) { const cr = activeCreature(), v = actorView(a); if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); } } }
 }
 function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; lanternUp(); game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
 cvs.addEventListener("pointerdown", e => { if (game.scene === "menu") return; try { cvs.setPointerCapture(e.pointerId); } catch {} handlePointerDown(e.clientX, e.clientY); });
@@ -541,7 +542,7 @@ const FAQ = [
   ["Why polish a geode?", "When a geode opens, rub it with your finger to make it shine. The shinier it gets, the more shards you earn. Tap the button when you're happy with it."],
   ["What are shards for?", "Food, furniture and seeds at the Shop, new rooms and more space at home (in the Shop's Renovation), and hammers at the Forge. You get them from geodes, daily tasks, the moon egg, awards, expeditions and the garden. A geode pays for the stone you break off, and hits on the weak spot in a row make a chain: the ring round the hammer grows and the stone pays up to twice as much. A miss breaks the chain, so aim rather than hurry."],
   ["What is the Keeper page?", "It's all about you: menu (⚙) → Keeper. Write your name there. Everything you do earns keeper XP, and each new level brings a skill point: Strength makes your taps hit harder, Care helps glowlings grow faster, and Luck makes shinies and bars a little more likely."],
-  ["How do I look after my glowling?", "Use the three buttons under the room: Hunger feeds it from your pantry, Boredom opens a game, and Sleepiness tucks it in when its eyes are closing. Stroke it with your finger too. The button for what it needs right now glows. A happy glowling earns XP and grows up to level 20, and a well-rested, happy one cheers you on when you crack an egg: a few more shards."],
+  ["How do I look after my glowling?", "Use the three buttons under the room: Hunger feeds it from your pantry, Boredom opens a game, and Sleepiness tucks it in when its eyes are closing. Stroke it with your finger too. The button for what it needs right now glows. Now and then a content glowling daydreams of something, in a little cloud over its head: tap it to hear what, and if the wish comes true it is glad and grows a little faster (if not, the dream simply drifts away). A happy glowling earns XP and grows up to level 20, and a well-rested, happy one cheers you on when you crack an egg: a few more shards."],
   ["What are hungry, sleepy, lonely and messy?", "The four things a glowling calls you for, shown as a little icon by its picture next to the needs buttons. Hungry: give it a snack. Sleepy: tuck it in, or it will nod off right where it stands. Lonely: stroke it or play a game together. Messy: dust bunnies are piling up, so sweep them away. When someone at home needs you, the Nest tab gets a little dot."],
   ["What are dust bunnies?", "Little grey puffs that gather on the floor while your glowlings are awake. A couple of them make a glowling feel messy, and an untidy room wears joy down faster. Tap one to sweep it away."],
   ["What are the shadows in the nest?", "Now and then a few soft shadows of the Gloom seep into the nest, and your glowlings huddle together. Hold a finger on a shadow to shine your lantern on it: glowlings close to your light shine with you, and it goes faster. Two of them who are friends hold a thread of light between them, and a shadow that drifts onto it fades fast. A friend's charm hung on the wall glows too, and a shadow close to it slowly wears thin. Each shadow lets go of the little light hidden inside it. Leave them be and they drift off by themselves: nothing is lost."],
@@ -574,6 +575,7 @@ const FAQ = [
   ["Can I install it like an app?", "Yes, and then it works offline too (playing together still needs the internet). On iPhone, in Safari tap Share → Add to Home Screen. On Android, in Chrome open the ⋮ menu → Add to Home screen or Install app. It opens full screen, and Safari is far less likely to clear your nest."],
   ["How do I turn the sound off, or change the language?", "Menu (⚙) → Settings has music and sounds, each with its own volume, and Sound on/off in the menu mutes everything at once. The flag button switches between English and Ukrainian. Headphones make the cracks sound best."],
   ["Can the game move less, or the text be bigger?", "Yes: menu (⚙) → Settings. Less motion means no shaking or bouncing and gentler effects (it's already on if your device asks for less motion). Bigger text makes the cards, dialogs and hints easier to read."],
+  ["A message is in my way. Can I hide it?", "Yes: tap it, or swipe it aside. That works for the messages at the top of the screen, for award banners and for the hints at home. A hint you wave off keeps quiet for ten minutes."],
   ["What are Classic, Glow and Spirit?", "Three ways your glowlings can shine: Settings → How glowlings shine. Classic is plain pixel art. Glow, the default, adds a soft halo and twinkling sparkles in each glowling's own colour. Spirit glows brighter and fades see-through toward the feet, as if made of light."],
   ["How do I send an idea or report a bug?", "Menu (⚙) → Feedback. Write it in your own words, then tap Send an idea or Report a bug: GitHub opens with your words and a few details about your device, and nothing is sent until you send it there. No GitHub account? Copy it and send it any way you like."],
   ["What is Hatchstone about?", "Care, and the quiet strength it takes. The Gloom hides glowlings away in stone, and every kind thing you do lets a little light back in. The nest isn't a place to hide: it's where you rest and gather strength before the next trip into the dark."],
@@ -624,7 +626,32 @@ $("meName").addEventListener("input", () => { $("meSave").hidden = !$("meSave").
 $("meSave").addEventListener("click", () => { const first = !!$("meSave").dataset.first; saveMe(); sfx.tick(); if (first) $("meClose").click(); else { $("meSave").hidden = true; toast(tr("Saved ✓")); } });
 $("meName").addEventListener("change", saveMe);
 $$("#meForm [data-form]").forEach(b => b.addEventListener("click", () => { me().form = b.dataset.form; persist(); sfx.tick(); $$("#meForm [data-form]").forEach(x => x.classList.toggle("on", x === b)); }));
-$("award").addEventListener("click", () => { if ($("award").classList.contains("legendary") && bannerNow) openMe(); });
+// a banner or a hint in the way can be waved off: tap it, or swipe it aside (it follows the finger and goes the way it was thrown);
+// a tap on a new level or a new facet also opens "About you" (a swipe only sends it away)
+for (const el of [$("toast"), $("award"), $("hint")]) {
+  let from = null;
+  const hint = el.id === "hint";
+  const up = () => hint ? el.classList.contains("on") : bannerUp() && bannerEl(bannerNow) === el;
+  const hold = held => { if (!hint) holdBanner(held); };
+  const off = () => hint ? waveHint() : dismissBanner();
+  const back = () => { from = null; el.style.transition = ""; el.style.translate = ""; };
+  el.addEventListener("pointerdown", e => {
+    if (!up()) return;
+    from = [e.clientX, e.clientY]; hold(true); el.style.transition = "none";
+    try { el.setPointerCapture(e.pointerId); } catch {}
+  });
+  el.addEventListener("pointermove", e => { if (from) el.style.translate = `${Math.round(e.clientX - from[0])}px ${Math.round(e.clientY - from[1])}px`; });
+  el.addEventListener("pointerup", e => {
+    if (!from) return;
+    const dx = e.clientX - from[0], dy = e.clientY - from[1], d = Math.hypot(dx, dy);
+    back();
+    // a tap or a real swipe sends it off; a small nudge lets it settle back for a moment more
+    if (d < 8) { if (!hint && up() && el.classList.contains("legendary")) openMe(); off(); }
+    else if (d > 36) { el.style.translate = `${Math.round(dx * 4)}px ${Math.round(dy * 4)}px`; off(); }
+    else hold(false);
+  });
+  el.addEventListener("pointercancel", () => { if (from) { back(); hold(false); } });
+}
 // a sheet opening or closing while a banner shows: the banner moves out of the sheet's title (or back to its place)
 new MutationObserver(() => {
   if (bannerNow) placeBanner(bannerEl(bannerNow));
