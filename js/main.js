@@ -101,14 +101,17 @@ function gemArrived(worth = 1) {
   if (worth > 1 || game.gemsShown % 2) sfx.blip(game.gemsShown >> 1);
 }
 
-/** The counter in the top bar: shards caught from this egg, and taps (with the 3-star mark once you've cleared it). */
+/**
+ * The counter in the top bar: shards caught from this egg, and under them the aim meter (see aimShare): a bar of how
+ * many taps found the weak spot, notched where the second and the third star begin. It is there from the first visit.
+ */
 function updateClock() {
   const e = game.egg;
   if (game.scene !== "crack" || !e) return;
-  const shown = Math.min(game.gemsShown || 0, e.gems), key = shown + "/" + e.taps;
+  const shown = Math.min(game.gemsShown || 0, e.gems), key = shown + "/" + e.taps + "/" + e.crits;
   if (updateClock.last !== key) {
     updateClock.last = key;
-    $("clock").innerHTML = `<b>${ic("shard")}${shown}</b><small>${e.taps} ${pl(e.taps, "tap", "taps")}${save.stars[e.conf.n] ? ` · ★ ${e.par}` : ""}</small>`;
+    $("clock").innerHTML = `<b>${ic("shard")}${shown}</b><span id="aim" class="s${aimStars(e)}">${ic("star")}<span><i style="width:${aimShare(e)}%"></i>${AIM_STARS.map(p => `<u style="left:${p}%"></u>`).join("")}</span></span>`;
   }
 }
 

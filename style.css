@@ -63,7 +63,20 @@ body.low .glass { backdrop-filter: none; -webkit-backdrop-filter: none; backgrou
 .pill.stack small { font-size: 9px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--soft); }
 .pill.stack.round { font-size: 15px; }
 .pill.stack.round small { font-size: 7px; letter-spacing: 0; }
-#clock small { color: var(--soft); font-weight: 600; }
+/* the aim meter under the shard count: a star, and a bar that fills with the share of taps that found the weak spot;
+   its two notches are where the second and the third star begin. It turns gold as it passes them, and never blinks */
+#aim { display: flex; align-items: center; gap: 4px; align-self: stretch; margin: 1px 0 -2px; }
+#aim .ic { width: 14px; height: 14px; margin: 0 0 -2px; }
+#aim span { position: relative; flex: 1; min-width: 42px; height: 8px; background: var(--px-ink); box-shadow: 0 0 0 2px var(--px-edge); }
+#aim span i { display: block; height: 100%; max-width: 100%; background: var(--soft); }
+#aim.s2 span i { background: var(--px-gold-lo); }
+#aim.s3 span i { background: var(--px-gold); }
+#aim u { position: absolute; top: -2px; bottom: -2px; width: 2px; margin-left: -1px; background: var(--ink); }
+/* on a narrow phone with a long level name the meter keeps its width, and the crack bar beside it gives way */
+#hud .row:first-child { min-width: 0; }
+#hud .row:first-child > * { flex-shrink: 0; }
+#hud .row:first-child .stack { flex-shrink: 1; min-width: 58px; }
+#dots { max-width: 100%; }
 
 /* hints: a clear bubble near the action, not small grey text */
 #hint {

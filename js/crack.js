@@ -170,7 +170,6 @@ function newEgg(conf, animate = true) {
   // the weak spot: somewhere on the face of the egg, away from the very edge
   // stored the way co-op sends it (height / EGG_R), so host and guest compute with the very same numbers
   for (;;) { const p = [rand(0.25, 0.75), rand(0.3, 1) / EGG_R * EGG_R]; if (inside(EGG_UNIT, p)) { e.spot = p; break; } }
-  e.par = Math.ceil(e.hp / 2.6);
   game.gemsShown = 0; game.gems = []; game.pops = [];
   refitEgg(e);
   game.pieces = [];
@@ -621,6 +620,24 @@ function blowPay(e, res, sack = 0) {
   return gems;
 }
 
+// ---------- what aim earns ----------
+
+// Stars are for aim, not for the hammer: the share of an egg's taps that landed on the weak spot (crackHit's crit),
+// so a heavy hammer earns no more of them than the plain one. The first misses on an egg are the search for the spot
+// (deep in the grotto nothing shows it, you find it by knocking), so they are forgiven and left out of the count.
+const AIM_FREE = 3;
+// Two stars from this share of the taps, in percent, and three from that one. The first star is for opening the egg.
+const AIM_STARS = [40, 70];
+
+/**
+ * Aim so far, in whole percent (rounded down, so the number never promises a star it doesn't give): hits on the weak
+ * spot out of the taps that count. Only how many missed matters, not which came first, and both numbers ride in a
+ * co-op snapshot, so host and guest read the same aim off a shared egg.
+ */
+const aimShare = e => Math.floor(e.crits * 100 / Math.max(1, e.taps - Math.min(AIM_FREE, e.taps - e.crits)));
+/** One to three stars for that aim. */
+const aimStars = e => 1 + AIM_STARS.filter(p => aimShare(e) >= p).length;
+
 /** A tap on the egg: crack it, pop numbers and shards, shake. Hosts and solo players run this; guests replay it. */
 function hitEgg(x, y) {
   const e = game.egg;
@@ -844,8 +861,8 @@ function showFound() {
   const e = game.egg, sp = e.species, conf = e.conf, cry = e.crystal;
   if (conf.coop && e.coopRewarded) return;
   if (conf.coop) e.coopRewarded = true;
-  // fewer taps, more stars: finding the weak spot is the whole trick
-  const stars = e.taps <= e.par ? 3 : e.taps <= Math.ceil(e.par * 1.7) ? 2 : 1;
+  // truer aim, more stars: finding the weak spot and staying on it is the whole trick
+  const stars = aimStars(e);
   const firstClear = !conf.wander && !save.stars[conf.n];
   const shine = e.matte ? e.matte.shine : 0;
   const moonBonus = conf.moon ? finishMoon() : 0;
@@ -883,8 +900,9 @@ function showFound() {
   $("foundFact").textContent = `💎 ${cry.fact}`;
   $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? moonNote() : "") + (rubble ? tr(" · {0} in the rubble", barName(rubble)) : "") + (cheer ? tr(" · cheered on by {0}: +{1} ✦", buddy.name, cheer) : "");
   $("stShine").textContent = Math.round(shine * 100) + "%";
-  $("stTaps").textContent = e.taps;
-  $("stPar").textContent = tr("taps · ★ in {0}", e.par);
+  // aim, and the mark of the next star up (of the third, once it is earned); the mark stays on one line of the narrow column
+  $("stAim").textContent = aimShare(e) + "%";
+  $("stAimFor").textContent = tr("aim · {0}★\u00a0from\u00a0{1}%", Math.min(stars + 1, 3), AIM_STARS[Math.min(stars, 2) - 1]);
   $("stCrits").textContent = e.crits;
   $("stShards").textContent = "+" + shards;
   $("foundMap").hidden = !!conf.moon;
@@ -941,7 +959,7 @@ const TALKS = {
   firstGrow: cr => [[glowVoice(cr), "Pip! Pip-pip-pip!", spotActor], [MOSSA, tr("Look at {0}! Not a baby anymore.", cr.name), spotActor],
     [MOSSA, "Glowlings grow when they're loved. Keep it up, and one day it will be Radiant.", "#xpBar"]],
   firstGrotto: () => [[MOSSA, "This is the Grotto. Every level is a geode, each a little harder than the last.", "#mapList .lvl.next"],
-    [MOSSA, "Find the weak spot and you'll need fewer taps. Fewer taps, more stars.", "#mapList .lvl.next"],
+    [MOSSA, "Find the weak spot and keep your taps on it. The truer your aim, the more stars.", "#mapList .lvl.next"],
     [MOSSA, "And look up: once a day a moon egg appears. Something special sleeps in it.", "#moonBtn"]],
   firstExplore: cap => [[MOSSA, tr("The nest is cozy, but small: {0} glowlings fit at home at once.", cap)], [MOSSA, "The others are out exploring the grotto, having a lovely time. Tap the glowlings button below to see who lives where, and call them home.", "#residentsBtn"]],
   firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine.", spotEgg], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.", "#polishDone"]],
