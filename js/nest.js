@@ -189,8 +189,10 @@ function openShop() {
   const tabs = `<div class="shop-tabs">${TABS.map(([id, icon, name]) => `<button data-shoptab="${id}" class="${st.tab === id ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`;
   let body = "";
   if (st.tab === "look") {
-    const now = currentTheme(), view = roomView();
+    // away from home the switch shows what you chose for your rooms, not the diorama you're standing in
+    const now = currentTheme(), view = awayPlace() ? (save.view === "front" ? "front" : "iso") : roomView();
     body = `<h3>${tr("View")}</h3><div class="seg view-seg"><button data-view="front" class="${view === "front" ? "on" : ""}">${tr("Straight on")}</button><button data-view="iso" class="${view === "iso" ? "on" : ""}">${tr("Isometric")}</button></div>`
+      + (awayPlace() ? `<p class="sub">${tr("This is for your rooms. The garden and the places in the valley are always seen from the corner.")}</p>` : "")
       + `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : !save.room ? "The nest is always tucked away in a cave, a grotto or a hollow." : "This room can take any backdrop you've found.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
         const ok = t.ok();
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id)}" alt=""><b>${t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;

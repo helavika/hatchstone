@@ -363,7 +363,8 @@ function computeLayout() {
 /** Which way the room is seen: isometric (the default) or straight on. ?view=front tries it without saving. */
 function roomView() {
   const q = /[?&]view=(iso|front)\b/.exec(location.search);
-  if (save.rooms && isOutside()) return "iso";
+  // the garden and the valley's places are built only as dioramas: straight on they'd be an empty room with the nest's bed in it
+  if (save.rooms && (isOutside() || isPlace())) return "iso";
   return q ? q[1] : save.view === "front" ? "front" : "iso";
 }
 /** Isometric floor coordinates: u runs from the back corner to the right corner, v from the back corner to the left one. */

@@ -519,6 +519,7 @@ const UK = {
   "To the lab": "До лабораторії",
   "View": "Вигляд",
   "Straight on": "Прямо",
+  "This is for your rooms. The garden and the places in the valley are always seen from the corner.": "Це для твоїх кімнат. Сад і місця в долині завжди видно з кута.",
   "Isometric": "Ізометрія",
   "Your friend left · {0} is in your nest ✦": "Друг вийшов · {0} уже в твоєму гніздечку ✦",
   "{0} met a sibling: +40 XP": "{0}: зустріч із родичем! +40 досвіду",
