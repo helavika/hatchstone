@@ -191,7 +191,7 @@ function drawEgg() {
     drawBaked(cachedSprite(e, "shellSprite", `${size}|${e.painted}|${e.dentsPainted}|${e.chips || 0}|${e.bandsPainted ?? 0}|${e.shell.canvas.width}`, () => bakeSprite(L.ecx, L.ecy, half, () => ctx.drawImage(e.shell.canvas, x, y, w, h), box)));
     drawCrackLight(e, prog);
     drawGloss(ctx, L.ecx, L.ecy);
-    if (e.state !== "entering") { drawSpot(e); drawSheen(e); drawPing(e); drawBandBreak(e); }
+    if (e.state !== "entering") { drawSpot(e); drawSheen(e); drawPing(e); drawBandBreak(e); drawShade(e); }
   }
   ctx.restore();
 }
@@ -332,6 +332,50 @@ function drawPing(e) {
     g.addColorStop(0, hexA(light, 0.7 * k)); g.addColorStop(1, hexA(light, 0));
     ctx.fillStyle = g;
     ctx.beginPath(); ctx.arc(sx, sy, R, 0, TAU); ctx.fill();
+  }
+  ctx.restore();
+}
+
+/**
+ * The Gloom's patches of shadow on its first seal (see shadePatch): each a soft pool of the Gloom's own violet dark,
+ * deepest in the middle, with a ragged lilac rim like its blade-wings' and one of its eyes, shut, in the middle. A new
+ * one seeps in over half a second and they all breathe with the dark round the geode. A patch the light burns away
+ * (see shadeBurn) flares in the crystal's light, a ring running out as it shrinks to nothing. With less motion nothing
+ * breathes or runs: a patch just fades in, and a burnt one fades out under a soft light.
+ */
+function drawShade(e) {
+  const fx = (game.shadeFx || []).filter(f => f.e === e && (game.time - f.t) / 1000 < (f.calm ? 0.7 : 0.5));
+  game.shadeFx = fx.length ? fx : null;
+  if ((!e.patches || !e.patches.length) && !fx.length || e.state !== "cracking") return;
+  const calm = opts().calm, k = Math.max(1, L.k), breath = calm ? 1 : 0.92 + 0.08 * Math.sin(game.time * 0.0017);
+  const pool = (p, a, grow = 1) => {
+    const [x, y] = fromEgg(p.u, p.v), r = p.r * L.ew * grow, R = seeded("shade" + p.id), lobes = 9;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    // near-black at the heart (the Gloom's ink), so it reads even on its own violet seal-stone
+    g.addColorStop(0, `rgba(11,6,20,${0.85 * a})`); g.addColorStop(0.7, `rgba(22,12,38,${0.75 * a})`); g.addColorStop(1, `rgba(22,12,38,${0.2 * a})`);
+    // a ragged edge: the rim wanders in and out a little, the same every frame
+    const rim = Array.from({ length: lobes * 2 }, (_, j) => { const t = j / (lobes * 2) * TAU, q = r * (j % 2 ? 0.9 + R() * 0.06 : 0.97); return [x + Math.cos(t) * q, y + Math.sin(t) * q]; });
+    ctx.fillStyle = g; tracePoly(ctx, rim); ctx.fill();
+    ctx.strokeStyle = `rgba(173,145,230,${0.8 * a})`; ctx.lineWidth = 2 * k; ctx.setLineDash([3 * k, 3 * k]);
+    tracePoly(ctx, rim.map(([px, py]) => [x + (px - x) * 0.94, y + (py - y) * 0.94])); ctx.stroke(); ctx.setLineDash([]);
+    // the Gloom's eye, shut: a lilac lid and lashes, in its own pixels
+    const P = Math.max(1, Math.round(2 * k)), lid = ["P.....P", ".PPPPP."];
+    ctx.fillStyle = `rgba(210,191,255,${0.9 * a})`;
+    lid.forEach((row, ry) => [...row].forEach((c, rx) => c === "P" && ctx.fillRect(Math.round(x + (rx - 3.5) * P), Math.round(y + (ry - 1) * P), P, P)));
+  };
+  ctx.save();
+  tracePoly(ctx, L.egg); ctx.clip();
+  for (const p of e.patches || []) pool(p, breath * (calm || p.shown === undefined ? 1 : clamp((game.time - p.shown) / 500, 0, 1)));
+  for (const f of fx) {
+    const a = (game.time - f.t) / 1000, life = f.calm ? 0.7 : 0.5, left = 1 - a / life, [x, y] = fromEgg(f.p.u, f.p.v), r = f.p.r * L.ew;
+    if (f.calm) pool(f.p, left);
+    else pool(f.p, left, 0.4 + 0.6 * left);
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r * 1.3);
+    g.addColorStop(0, hexA(e.crystal.c[1], 0.8 * left)); g.addColorStop(1, hexA(e.crystal.c[1], 0));
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r * 1.3, 0, TAU); ctx.fill();
+    if (f.calm) continue;
+    ctx.strokeStyle = `rgba(255,244,214,${0.9 * left})`; ctx.lineWidth = 2 * k;
+    ctx.beginPath(); ctx.arc(x, y, r * (0.5 + a / life), 0, TAU); ctx.stroke();
   }
   ctx.restore();
 }

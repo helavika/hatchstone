@@ -6,7 +6,11 @@ what's glowing inside. 🎧 Best with headphones.
 - Tap the egg to crack it: every tap grows real, branching cracks, and hits near the
   egg's weak spot crack it much faster (crits, damage numbers, shards flying into your counter)
 - 24 levels in four caves (plus endless Wander): tougher stone, and a weak spot that glows
-  less and less until you find it by the sound of your knocks; 1–3 stars for your aim
+  less and less until you find it by the sound of your knocks; each cave's stone has its own
+  rule (the Gloom's seal at the end of the first lays shadows that soften your blows until a
+  hit on the weak spot burns them away, the Celestite's is silent but its ripples lean towards
+  the spot, the Malachite's bands move the spot when they break, and the Labradorite's spot
+  flashes only when you hit it); 1–3 stars for your aim
   (the share of taps that land on the weak spot, once you have found it), whatever hammer you carry
 - 32 real geodes (amethyst, celestite, agate, malachite, labradorite, lapis lazuli…),
   each drawn the way the mineral looks, with a real fact on the card
