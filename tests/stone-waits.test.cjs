@@ -18,6 +18,7 @@ const src = [
   read('core.js').replace(/^const \$\$? = .*$/gm, ''),
   'const LEVELS = 24;',
   cut(read('pixel.js'), 'function levelConf(', '\n}\n', 'levelConf should sit in pixel.js') + '\n}',
+  cut(read('pixel.js'), '// ---------- Wander goes deeper', 'function depthConf(', 'the descent should sit in pixel.js, after levelConf') + cut(read('pixel.js'), 'function depthConf(', '\n}\n', 'depthConf should close it') + '\n}',
   cut(read('save.js'), 'function eggPoly(', '\n}\n', 'eggPoly should sit in save.js') + '\n}',
   line(crack, /^const EGG_R = .*$/m, 'the egg\'s height should be one line in crack.js'),
   line(crack, /^const EGG_UNIT = .*$/m, 'the egg\'s outline should be one line in crack.js'),
@@ -59,7 +60,7 @@ function grotto(save = {}) {
     did, STONES, GLOOM_STONE, LANG: 'en',
     CRYSTAL: { amethyst: { id: 'amethyst' }, quartz: { id: 'quartz' }, celestite: { id: 'celestite' } },
     SP: { violetling: { id: 'violetling' }, frostkin: { id: 'frostkin' } },
-    save: { stars: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1 }, oil: { n: 5 }, habit: { day: {}, fell: false }, ...save },
+    save: { stars: { 1: 1, 2: 1, 3: 1, 4: 1, 5: 1, 6: 1, 7: 1, 8: 1 }, oil: { n: 5 }, habit: { day: {}, fell: false }, depth: { at: 1, best: 0 }, ...save },
     game: { scene: 'map', coopTouched: false }, coopSession: null, TALKS: {}, MOSSA: { name: 'Mossa' },
     $: el, show: (id, on) => { did.shown[id] = on; }, tr: (s, ...a) => a.length ? s.replace(/\{(\d)\}/g, (_, i) => a[i]) : s,
     sfx: { tick: () => did.ticks++ }, persist: () => did.persisted++, updateTopbar: () => {}, setHint: () => {},
@@ -235,7 +236,8 @@ test('the map marks the level with the waiting stone, and its words have their U
   const map = cut(scenes, 'function renderMap(', '\n}\n', 'renderMap should sit in scenes.js');
   assert.match(map, /const waits = open && stoneWaits\(n\);/);
   assert.match(map, /\$\{waits \? ic\("stoneWait", "wait"\) : ""\}/);
-  assert.match(map, /stoneWaits\(0\) \? ic\("stoneWait", "wait"\)/, 'and the Wander button');
+  assert.match(map, /html \+= wanderButton\(allDone\);/, 'and the Wander button');
+  assert.match(cut(scenes, 'function wanderButton(', '\n}\n', 'wanderButton should sit in scenes.js'), /const waits = stoneWaits\(0\)[\s\S]*\$\{waits \? ic\("stoneWait", "wait"\) : ""\}/);
   const icon = line(read('pixel.js'), /^  stoneWait: \[.*$/m, 'the waiting stone is a pixel icon in pixel.js');
   const rows = JSON.parse(icon.trim().replace(/^stoneWait: /, '').replace(/,$/, ''));
   assert.equal(rows.length, 12); for (const r of rows) assert.equal(r.length, 12);

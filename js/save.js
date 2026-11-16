@@ -47,6 +47,14 @@ function moonSaveOf(m, d) {
  *  A save from before the niches has cracked none, so whichever its stars already reach are simply open. */
 const cacheSaveOf = c => Object.fromEntries(Object.entries(c && typeof c === "object" && !Array.isArray(c) ? c : {}).filter(([k, v]) => /^\d$/.test(k) && Array.isArray(v)).map(([k, v]) => [k, [v[0] === true, v[1] === true]]));
 
+/** How deep Wander has gone (see wanderDown): the step the next geode there is on, and the deepest step opened. A save from
+ *  before the descent starts at the top, step 1, with nothing opened yet; the next step is never below one past the deepest. */
+function depthSaveOf(o) {
+  const num = (v, min) => Number.isFinite(v) && v >= min ? Math.floor(v) : min;
+  const ok = !!o && typeof o === "object" && !Array.isArray(o), best = ok ? num(o.best, 0) : 0;
+  return { at: Math.min(ok ? num(o.at, 1) : 1, best + 1), best };
+}
+
 /** The friend's charm hung on the nest's wall (see gifts.js), kept apart from the chest's list of charms so it stays when
  *  that list is trimmed: what kind, who it's from and when it came. Anything else there is dropped. */
 const hungSaveOf = h => h && typeof h === "object" && !Array.isArray(h) && typeof h.c === "string" && /^[a-z]{1,16}$/.test(h.c)
@@ -115,6 +123,8 @@ function migrate(d) {
   d.wards = wardSaveOf(d.wards);
   // star niches (see scenes.js): which heart geodes have been cracked
   d.caches = cacheSaveOf(d.caches);
+  // how deep Wander has gone (see depthSaveOf): a save from before starts at the top
+  d.depth = depthSaveOf(d.depth);
   // a friend's charm on the wall, if one hangs there
   const hung = hungSaveOf(d.hung);
   if (hung) d.hung = hung; else delete d.hung;

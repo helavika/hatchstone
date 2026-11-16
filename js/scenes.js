@@ -168,7 +168,7 @@ function updateTopbar() {
   $("shardPill").innerHTML = `${ic("shard")}${save.shards}`;
   $("starPill").innerHTML = `${ic("star")}${totalStars()}`;
   const n = nextLevel();
-  $("crackLvl").textContent = n ? tr("Lv {0}", n) : tr("Wander");
+  $("crackLvl").textContent = n ? tr("Lv {0}", n) : tr("Step {0}", wanderStep());
   renderTaskPill();
   renderOilPill();
   // who's home, out of everyone (only once somebody is out exploring)
@@ -573,7 +573,7 @@ function renderOilPill() {
   // the Crack button says so when the lantern is out (a bar in the pocket goes in by itself, so that isn't out)
   const next = nextLevel(), dry = !n && tripCosts(next) && !barFor();
   $("crackTab").classList.toggle("dry", !!dry);
-  $("crackLvl").textContent = dry ? `⏳ ${fmtClock(oilNext())}` : next ? tr("Lv {0}", next) : tr("Wander");
+  $("crackLvl").textContent = dry ? `⏳ ${fmtClock(oilNext())}` : next ? tr("Lv {0}", next) : tr("Step {0}", wanderStep());
   $("oilWhen").textContent = n >= oilMax() ? tr("lantern") : fmtClock(oilNext());
   $("oilPill").classList.toggle("empty", !n);
 }
@@ -659,11 +659,13 @@ function startLevel(n) {
   sfx.tick();
   game.chips = []; game.sparks = [];
   setScene("crack");
-  const conf = levelConf(n);
+  // (Wander is a descent: its egg is the one on the step you're on, see depthConf)
+  const conf = n ? levelConf(n) : depthConf(save.depth.at);
   if (n && n % 6 === 0 && !save.stars[n]) { conf.gloom = n / 6; conf.hp = Math.round(conf.hp * 1.4); }
   if (replays(n) && !conf.gloom) conf.chosen = bookCrystal(conf);
   newEgg(conf, true);
   if (conf.gloom) { talk("g" + conf.gloom); setHint(tr("a geode sealed by the Gloom: crack it and set the spark free")); }
+  if (conf.pocket) { talk("pocket"); setHint(tr(POCKET_HINTS[pocketRule(conf.depth)])); }
   game.egg.paid = paid;
 }
 
@@ -740,6 +742,49 @@ function stoneHome() {
   persist();
 }
 
+// ---------- Wander goes deeper: one step down for every geode opened there, and the depth is never lost ----------
+
+/** What a pocket's hint says, by the cave rule its stone keeps. */
+const POCKET_HINTS = {
+  silent: "a pocket: something rare sleeps here · silent stone, watch which way the ripples lean",
+  bands: "a pocket: something rare sleeps here · banded stone, when a band breaks the weak spot moves",
+  sheen: "a pocket: something rare sleeps here · the weak spot shows only as you hit it",
+};
+/** The step Wander's next egg is on: the waiting stone's, if one waits there. */
+const wanderStep = () => (stoneWaits(0) && save.left.conf.depth) || save.depth.at;
+/** A geode opened at step d of Wander: the next one is a step further down, and the deepest is remembered for good. */
+function wanderDown(d) {
+  save.depth.best = Math.max(save.depth.best, d);
+  save.depth.at = Math.min(d + 1, save.depth.best + 1);
+}
+/** Where Wander can start from: the step you're on, one past the deepest, the top, and every step just past a pocket on
+ *  the way up (so jumping back is five steps at a time, and never straight onto a pocket). Shallowest first. */
+function depthChoices() {
+  const { at, best } = save.depth, set = new Set([1, at, best + 1]);
+  for (let d = POCKET_EVERY + 1; d <= best + 1; d += POCKET_EVERY) set.add(d);
+  return [...set].filter(d => d >= 1 && d <= best + 1).sort((a, b) => a - b);
+}
+/** The picker's arrows: a choice higher up (-1) or deeper (+1). */
+function pickDepth(dir) {
+  const ch = depthChoices(), i = ch.indexOf(save.depth.at), to = ch[i + dir];
+  if (!to) return;
+  sfx.tick();
+  save.depth.at = to;
+  persist();
+  renderMap(); updateTopbar();
+}
+/** Wander's button on the map, with the step you're on and the deepest; under it, while no stone waits there, where to start from. */
+function wanderButton(open) {
+  if (!open) return `<button class="wander" data-n="0" disabled>${tr("🌌 Wander: endless geodes from the deepest caves")}${tr(" (clear level 24)")}</button>`;
+  const waits = stoneWaits(0), d = wanderStep(), best = save.depth.best, ch = depthChoices(), i = ch.indexOf(d);
+  let html = `<button class="wander${waits ? " waits" : ""}" data-n="0">${waits ? ic("stoneWait", "wait") : ""}${tr("🌌 Wander · step {0}", d)}${isPocket(d) ? " ✦" : ""}`
+    + `<small>${best ? tr("deepest: step {0}", best) : tr("endless geodes: each one opened takes you a step deeper")}</small></button>`;
+  if (!waits && ch.length > 1) html += `<div class="depth-pick"><span>${tr("start from")}</span>`
+    + `<button class="pillbtn" data-depth="-1" aria-label="${tr("Higher up")}" ${i > 0 ? "" : "disabled"}>▲</button><b>${tr("step {0}", d)}</b>`
+    + `<button class="pillbtn" data-depth="1" aria-label="${tr("Deeper")}" ${i < ch.length - 1 ? "" : "disabled"}>▼</button></div>`;
+  return html;
+}
+
 /** Where the six levels of a chapter sit on its cave, in percent: across the top, then back along the bottom. */
 const TRAIL = [[16, 26], [50, 22], [84, 30], [80, 70], [48, 76], [16, 70]];
 
@@ -763,9 +808,10 @@ function renderMap() {
     html += `</div>${nicheRow(ci)}</figure>`;
   });
   const allDone = unlocked(LEVELS + 1);
-  html += `<button class="wander${allDone && stoneWaits(0) ? " waits" : ""}" data-n="0" ${allDone ? "" : "disabled"}>${allDone && stoneWaits(0) ? ic("stoneWait", "wait") : ""}${tr("🌌 Wander: endless geodes from the deepest caves")}${allDone ? "" : tr(" (clear level 24)")}</button>`;
+  html += wanderButton(allDone);
   $("mapList").innerHTML = html;
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
+  $$("#mapList [data-depth]").forEach(b => b.addEventListener("click", () => pickDepth(Number(b.dataset.depth))));
   $$("#mapList [data-niche]").forEach(b => b.addEventListener("click", () => tapNiche(...b.dataset.niche.split(",").map(Number))));
 }
 

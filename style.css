@@ -175,12 +175,21 @@ h3 { margin: 18px 0 8px; font-size: 13px; letter-spacing: 2px; text-transform: u
 /* a stone left mid-crack, waiting by its level (and on the Wander button) */
 .lvl .ic.wait { position: absolute; right: -14px; bottom: -12px; width: 30px; height: 30px; pointer-events: none; }
 .wander .ic.wait { width: 24px; height: 24px; margin: -4px 6px 0 0; }
+/* Wander's step and the deepest under it, and the picker of where to start from */
+.wander small { display: block; margin-top: 3px; font-size: 11px; font-weight: 400; color: var(--soft); }
+.depth-pick { display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 8px; font-size: 12px; color: var(--soft); }
+.depth-pick b { min-width: 64px; text-align: center; color: var(--ink, #fff); font-size: 13px; }
+.depth-pick .pillbtn { min-width: 48px; justify-content: center; }
+.depth-pick .pillbtn:disabled { opacity: .35; cursor: default; }
 
 /* found card */
 #found h2 { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--soft); font-weight: 700; }
 #stars { font-size: 30px; letter-spacing: 6px; margin: 4px 0 0; color: rgba(255, 255, 255, .2); }
 #stars b { color: var(--gold); text-shadow: 0 0 14px rgba(255, 233, 168, .7); display: inline-block; animation: starPop .5s cubic-bezier(.2, .9, .3, 1.6) both; }
 @keyframes starPop { from { transform: scale(0) rotate(-40deg); } }
+/* Wander keeps no stars: how deep the egg was, in their place */
+#stars.step { letter-spacing: 1px; font-size: 22px; }
+#stars.step small { display: block; font-size: 11px; letter-spacing: 2px; text-transform: uppercase; color: var(--soft); }
 #foundImg { height: 160px; margin: 4px auto; display: block; filter: drop-shadow(0 12px 20px rgba(0, 0, 0, .4)); }
 #newBadge { color: #b9e88a; font-size: 12px; font-weight: 800; letter-spacing: 1px; margin: 0 0 2px; }
 .big-name { font-size: 26px; font-weight: 800; margin: 2px 0 4px; }
