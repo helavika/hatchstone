@@ -4017,7 +4017,7 @@ function roomMaterials(id, hw, wall, S) {
       return isoTone(dirt, dv, x, y);
     }
     if (pd < pr + 0.03 && pxHash(x, y) > 0.5) val -= 0.14;
-    if (Math.max(u, v) > 0.985) val = 0.85; // a lit rim at the front edges
+    // (no rim at the front edges: the plot lies in its meadow, and the grass grows over its edge: see paintRoomIso, nightSite)
     return isoTone(ground, val, x, y, 0.5);
   };
   return { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, garden, mood, mossy, mossC, ashlarPx, facet, rockPx, timberAt, timberPx, shoreAt, oakPx, oakH, ice, auroraG, auroraP, auroraAt, columnAt, plH, rockTex, growthOn, pathD, dirt, floorPx };
@@ -4976,6 +4976,18 @@ function paintRoomIso(id) {
         put(x + (k === tall - 1 && tall > 2 ? lean : 0), y - k, col);
       }
       if (pxHash(x + 3, y) > 0.92) { put(x - 1, y - 1, ground[2]); put(x + 1, y - 1, ground[3]); }
+    }
+    // the grass at the front edges grows on over them into the meadow (#277): blades rooted just outside, leaning over the edge,
+    // lit on the left half; none where the path leaves (the backdrop takes the path on: nightSite)
+    for (let x = Math.floor(cx - hw) + 1; x < Math.ceil(cx + hw); x++) {
+      const ye = Math.round(top + hh + (hh - Math.abs(x - cx) * hh / hw)), left = x < cx;
+      const [u, v] = [((x - cx) / hw + (ye - top) / hh) / 2, ((ye - top) / hh - (x - cx) / hw) / 2];
+      if (pathD(Math.min(u, 1), Math.min(v, 1)) * hw / (S * 180) < (roomKindNow === "camp" ? 0.07 : 0.05) + 0.02) continue;
+      for (const dy of [0, 1]) {
+        if (pxHash(x * 5 + dy, seed + 17) > (dy ? 0.35 : 0.6)) continue;
+        const tall = 2 + Math.round(pxHash(x, seed + dy) * 2), lean = pxHash(seed + dy, x) > 0.5 ? 1 : -1;
+        for (let k = 0; k < tall; k++) put(x + (k === tall - 1 && tall > 2 ? lean : 0), ye + 1 + dy - k, k === tall - 1 ? ground[left ? 3 : 2] : k === 0 ? ground[1] : ground[2]);
+      }
     }
     // a few small flowers and clover in the grass
     for (let k = 0; k < 40; k++) {

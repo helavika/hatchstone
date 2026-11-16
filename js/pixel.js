@@ -453,8 +453,11 @@ const NIGHT = {
   },
 };
 
-/** Paint one night scene on a W×H canvas, then snap every pixel to the palette (no stray in-between colors). */
-function pixelNight(id, W, H, floor = 0.86) {
+/** Paint one night scene on a W×H canvas, then snap every pixel to the palette (no stray in-between colors). With `site` (the
+ *  garden's or the camp's plot on screen: see bgFor) the ground round the plot is laid to meet it (nightSite). */
+function pixelNight(id, W, H, floor = 0.86, site = null) {
+  // (the glowcap wood is drawn layer by layer, like the tiles: pixelMeadow)
+  if (id === "glowcap") return pixelMeadow(W, H, floor, site);
   const T = NIGHT[id], seed = T.seed, c = document.createElement("canvas"); c.width = W; c.height = H;
   const g = c.getContext("2d", { willReadFrequently: true }), img = g.createImageData(W, H), d = img.data;
   const R = k => T[k].map(pxHex), sky = R("sky"), far = R("far"), ground = R("ground"), moonCol = R("moonCol"), mist = pxHex(T.mist);
@@ -486,6 +489,7 @@ function pixelNight(id, W, H, floor = 0.86) {
     const col = PIXEL_PALETTE[PIXEL_LUT[(o[i] >> 3 << 10) | (o[i + 1] >> 3 << 5) | (o[i + 2] >> 3)]];
     o[i] = col[0]; o[i + 1] = col[1]; o[i + 2] = col[2]; o[i + 3] = 255;
   }
+  if (site) nightSite(o, W, H, T, floorY, site);
   g.putImageData(out, 0, 0);
   return c;
 }
@@ -536,32 +540,6 @@ const NIGHT_PROPS = {
       g.fillStyle = "#22143a"; g.fillRect(x - 1, y - h + 3, 2, 5); g.fillRect(x - 2, y - h + 4, 4, 1);
       g.fillStyle = "#2f7d4a"; g.fillRect(x - w / 2, y - 2, w * 0.6, 2);
     }
-  },
-  glowcap(g, W, H, fy, seed) {
-    // giant mushrooms with spotted caps; a soft glow under each cap
-    const caps = [["#8f3460", "#c25586", "#e88bb1"], ["#1d5276", "#3383a8", "#69b7d6"], ["#5c1f3f", "#8f3460", "#e88bb1"]];
-    for (let i = 0; i < 6; i++) {
-      const x = Math.round(sideX(W, i, seed)), big = 0.6 + pxHash(i, 2) * 0.6, h = Math.round(Math.min(H * (0.14 + 0.2 * big), fy * (0.18 + 0.22 * big))), r = Math.round(Math.min(W * 0.08 * big + 5, h * 0.45));
-      const [dk, md, lt] = caps[i % 3], top = fy - h;
-      const glow = g.createRadialGradient(x, top + r * 0.4, 1, x, top + r * 0.4, r * 2.2);
-      glow.addColorStop(0, lt + "66"); glow.addColorStop(1, lt + "00");
-      g.fillStyle = glow; g.fillRect(x - r * 2.2, top - r * 2, r * 4.4, r * 4.4);
-      g.fillStyle = "#b9b3c0"; g.fillRect(x - Math.max(1, r * 0.18), top, Math.max(3, r * 0.36), h + 2);
-      g.fillStyle = "#e4dfe8"; g.fillRect(x - Math.max(1, r * 0.18), top, Math.max(1, r * 0.12), h + 2);
-      g.fillStyle = dk; g.beginPath(); g.ellipse(x, top + 1, r, r * 0.62, 0, Math.PI, 0); g.fill();
-      g.fillStyle = md; g.beginPath(); g.ellipse(x - 1, top, r - 1, r * 0.56, 0, Math.PI, 0); g.fill();
-      g.fillStyle = lt; g.beginPath(); g.ellipse(x - r * 0.35, top - r * 0.3, r * 0.3, r * 0.14, 0, 0, TAU); g.fill();
-      g.fillStyle = "#efe6ff";
-      for (let k = 0; k < 4; k++) g.fillRect(Math.round(x + (pxHash(i, k + 7) - 0.5) * r * 1.3), Math.round(top - r * 0.15 - pxHash(k, i) * r * 0.35), 2, 2);
-    }
-    // little mushrooms and floating spores
-    for (let i = 0; i < 18; i++) {
-      const x = Math.round(pxHash(i, seed + 4) * W), y = fy + 1 + Math.round(pxHash(i, 9) * 3);
-      g.fillStyle = "#e4dfe8"; g.fillRect(x, y - 3, 1, 3);
-      g.fillStyle = i % 2 ? "#e88bb1" : "#eec26a"; g.fillRect(x - 1, y - 4, 3, 1);
-    }
-    g.fillStyle = "#fff0b5";
-    for (let i = 0; i < 26; i++) g.fillRect(Math.round(pxHash(i, seed + 11) * W), Math.round(H * 0.2 + pxHash(seed, i) * H * 0.6), 1, 1);
   },
   summit(g, W, H, fy, seed) {
     // northern lights: curtains of green with a pink hem, rippling across the upper sky
@@ -629,11 +607,267 @@ const NIGHT_PROPS = {
   },
 };
 
+// ---------- the glowcap wood, drawn like the tiles (#277): a banded sky, a far ridge, a wooded hill, glowcaps, a meadow ----------
+/** Where the garden's and the camp's trodden paths leave their plot (u, v on its floor, as in roomMaterials' pathD) and how wide
+ *  they are there (pr across the floor, as pathD has it; half: how wide that looks on screen, a share of the plot); out on the meadow the backdrop takes each on: the garden's stepping stones toward the shop, the camp's track
+ *  on out of the valley, the way the expeditions go. */
+const WAY_OUT = { yard: { at: [1, 0.44], pr: 0.05, half: 0.075, stones: true }, camp: { at: [1, 0.9], pr: 0.07, half: 0.11 } };
+/** A 2×2 ordered pattern: a seam between two bands goes over in clean checkerboard steps (a quarter, a half, three quarters). */
+const PX_B2 = [0.125, 0.625, 0.875, 0.375];
+/** A colour from a ramp in clean bands (v from 0 to 1), checkered only in a seam k wide between two bands. */
+const pxBand = (ramp, v, x, y, k = 0.4) => { const n = ramp.length - 1; return ramp[clamp(Math.floor(clamp(v, 0, 1) * n + 0.5 + (PX_B2[((y & 1) << 1) | (x & 1)] - 0.5) * k), 0, n)]; };
+/** The nearest colour on the palette. */
+const pxSnap = col => PIXEL_PALETTE[PIXEL_LUT[(col[0] >> 3 << 10) | (col[1] >> 3 << 5) | (col[2] >> 3)]];
+
+/** The glowcap wood at night, painted once per size and kept (see bgFor): the sky in clean bands with a stream of light across
+ *  it, stars and the moon; a far ridge of rock, lit on the faces toward the moon, mist at its foot; a nearer hill wooded with
+ *  round trees and pines; the giant glowcaps, their stems shaded and ringed, gills under their caps, glowing from within; and
+ *  the meadow as horizontal strokes of grass in four greens. With `site`, the ground round the plot is laid to meet it. */
+function pixelMeadow(W, H, floor = 0.86, site = null) {
+  const T = NIGHT.glowcap, seed = T.seed, c = document.createElement("canvas"); c.width = W; c.height = H;
+  const g = c.getContext("2d", { willReadFrequently: true }), img = g.createImageData(W, H), d = img.data;
+  const R = a => a.map(pxHex);
+  const sky = R(["#0b0614", "#160c26", "#0f2f4a", "#1d5276", "#3383a8"]), rock = R(["#0b0614", "#160c26", "#22143a", "#2e1d4f", "#3d2866"]);
+  const leaf = R(["#0b0614", "#10301f", "#1e5233", "#2f7d4a"]), grass = R(["#10301f", "#1e5233", "#2f7d4a", "#57ad6a"]), moonCol = R(T.moonCol);
+  const stemC = R(["#3a3440", "#5d5666", "#8a8494", "#b9b3c0", "#e4dfe8"]), mist = pxHex("#1d5276"), stars = R(["#69b7d6", "#b8e6f5", "#ffffff"]);
+  const floorY = Math.round(H * floor), sk = Math.max(12, floorY);
+  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return; const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
+  const get = (x, y) => { const i = (y * W + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+  // the layers, back to front, each keeping its height above the ground line wherever the room puts it: a peaked ridge (folded
+  // noise), a rolling hill, the meadow's edge; and the stream of light across the sky
+  const ridgeY = new Float32Array(W), hillY = new Float32Array(W), gndY = new Float32Array(W), streamY = new Float32Array(W);
+  for (let x = 0; x < W; x++) {
+    const pk = 1 - Math.abs(pxNoise(x * 0.022, seed) - 0.5) * 2;
+    ridgeY[x] = floorY - sk * (0.25 + 0.17 * pk + 0.05 * pxNoise(x * 0.09, seed + 1));
+    hillY[x] = floorY - sk * (0.08 + 0.06 * pxNoise(x * 0.03, seed + 5));
+    gndY[x] = floorY - 2 * pxNoise(x * 0.08, seed + 3);
+    streamY[x] = sk * (0.2 + 0.09 * Math.sin(x * 0.017 + seed)) + sk * 0.12 * (pxNoise(x * 0.012, seed + 7) - 0.5);
+  }
+  const mr = Math.max(5, Math.min(W, H) * T.moon[2] * 1.6), mx = W * T.moon[0];
+  const my = Math.max(mr * 0.6, Math.min(H * T.moon[1], ridgeY[clamp(Math.round(mx), 0, W - 1)] - mr * 1.8));
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let col;
+    if (y >= gndY[x]) {
+      // the meadow: strokes of grass lying across, longer toward you, in big paler and darker patches; dark at its far edge
+      const z = clamp((y - floorY) / Math.max(8, H - floorY), 0, 1), L = 2 + Math.round(z * 7 + pxHash(y, seed) * 3);
+      const seg = Math.floor((x + pxHash(y, seed + 1) * L) / L), patch = pxNoise(x * 0.012 + seed, y * 0.03);
+      const v = 0.38 + 0.5 * (patch - 0.5) + 0.36 * (pxHash(seg, y + seed) - 0.5) + 0.1 * z - 0.4 * Math.max(0, 1 - (y - gndY[x]) / (sk * 0.06 + 2));
+      col = y - gndY[x] < 1 ? grass[0] : grass[clamp(Math.floor(v * 4), 0, 3)];
+    } else if (y >= hillY[x]) {
+      // the wooded hill: dark, a lit rim along its top, a few strokes of grass on it
+      const seg = Math.floor((x + pxHash(y, seed + 2) * 5) / 5);
+      col = y - hillY[x] < 1 ? leaf[2] : pxHash(seg, y + seed + 1) > 0.86 ? leaf[2] : leaf[1];
+    } else if (y >= ridgeY[x]) {
+      // the far ridge: faces toward the moon (rising to the left) lit, the others in shade, gullies down it, hazy at its foot
+      const lit = ridgeY[Math.min(W - 1, x + 2)] > ridgeY[Math.max(0, x - 2)], fo = (y - ridgeY[x]) / Math.max(1, hillY[x] - ridgeY[x]);
+      let v = (lit ? 0.52 : 0.32) + 0.3 * fo - (pxNoise(x * 0.16, y * 0.035 + seed) > 0.64 ? 0.18 : 0);
+      if (y - ridgeY[x] < 1 && lit) v = 0.95;
+      col = pxBand(rock, v, x, y);
+    } else {
+      // the sky in clean bands, lighter toward the ridge, a stream of light across it and the moon's glow
+      const md = Math.hypot(x - mx, y - my);
+      if (md < mr) col = pxBand(moonCol, 0.95 - 0.5 * (md / mr) ** 2 - 0.3 * pxSmooth(0.55, 0.7, pxFbm(x * 0.35 + seed, y * 0.35)), x, y);
+      else {
+        const t = clamp(y / Math.max(1, ridgeY[x]), 0, 1), st = Math.exp(-(((y - streamY[x]) / (sk * 0.07)) ** 2)) * (0.55 + 0.45 * pxNoise(x * 0.05, y * 0.05 + seed));
+        col = pxBand(sky, 0.7 * t ** 1.6 + 0.3 * st + Math.max(0, 0.3 - (md - mr) / (sk * 0.7)), x, y, 0.45);
+        if (pxHash(x, y + seed) > 0.9965 && y < ridgeY[x] * 0.85) col = stars[pxHash(y, x) > 0.5 ? 2 : 1];
+      }
+    }
+    // mist lying in the hollow between the ridge and the hill, in checkered steps
+    const m = 1 - (hillY[x] - y) / (sk * 0.14);
+    if (y < hillY[x] && y >= ridgeY[x] && m > 0 && PX_B2[((y & 1) << 1) | (x & 1)] < m * 0.55) col = mist;
+    const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+  }
+  // blades standing up out of the meadow here and there, more of them nearer, so it reads as grass and not as water
+  for (let y = floorY + 3; y < H; y++) {
+    const z = clamp((y - floorY) / Math.max(8, H - floorY), 0, 1);
+    for (let x = 0; x < W; x++) {
+      if (pxHash(x * 3 + seed, y * 5) > 0.012 + 0.03 * z) continue;
+      const tall = 2 + Math.round(pxHash(x, y + 2) * (1 + 2 * z));
+      for (let k = 0; k < tall; k++) put(x + (k === tall - 1 && tall > 2 ? (pxHash(y, x) > 0.5 ? 1 : -1) : 0), y - k, grass[k === tall - 1 ? 3 : k ? 2 : 0]);
+    }
+  }
+  // a few big stars, sparkling in a cross
+  for (let k = 0; k < 6; k++) {
+    const x = Math.round(pxHash(k, seed + 21) * W), y = Math.round(pxHash(seed + 22, k) * ridgeY[clamp(x, 0, W - 1)] * 0.7);
+    if (Math.hypot(x - mx, y - my) < mr * 2 || y < 3) continue;
+    put(x, y, stars[2]);
+    for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { put(x + dx, y + dy, stars[1]); if (k % 2) put(x + 2 * dx, y + 2 * dy, stars[0]); }
+  }
+  // trees on the hill: round crowns of three lumps, each lit on its top left, and dark pines between
+  for (let tx = -4, k = 0; tx < W + 4; k++) {
+    const rr = Math.max(2, sk * (0.03 + 0.025 * pxHash(k, seed + 31))), pine = pxHash(k, seed + 32) > 0.68, x0 = Math.round(tx), base = hillY[clamp(x0, 0, W - 1)] + rr * 0.5;
+    tx += rr * (1.3 + 1.4 * pxHash(seed + 33, k));
+    if (pine) {
+      const ph = rr * 3.2, top = base - ph, tier = Math.max(2, Math.round(ph / 3));
+      for (let y = Math.floor(top); y <= base; y++) {
+        const half = (y - top) / ph * rr * 1.1 * (0.7 + 0.3 * (((y - top) % tier) / tier));
+        for (let x = Math.floor(x0 - half); x <= Math.ceil(x0 + half); x++) { const cc = (x - x0) / Math.max(1, half); put(x, y, cc < -0.35 ? leaf[2] : cc > 0.7 ? leaf[0] : leaf[1]); }
+      }
+      continue;
+    }
+    put(x0, base, leaf[0]); put(x0, base - 1, leaf[0]);
+    const lumps = [[0, -rr * 0.9, rr], [-rr * 0.6, -rr * 0.55, rr * 0.75], [rr * 0.65, -rr * 0.5, rr * 0.7]];
+    for (let y = Math.floor(base - rr * 2); y <= base; y++) for (let x = Math.floor(x0 - rr * 1.4); x <= Math.ceil(x0 + rr * 1.4); x++) {
+      let best = null;
+      for (const [ox, oy, r] of lumps) { const dx = (x + 0.5 - x0 - ox) / r, dy = (y + 0.5 - base - oy) / r, dd = dx * dx + dy * dy; if (dd < 1 && (!best || dd < best[2])) best = [dx, dy, dd]; }
+      if (!best) continue;
+      let v = 0.36 + 0.42 * (-best[0] * 0.6 - best[1] * 0.8) - (pxHash(x >> 1, (y >> 1) + seed) > 0.8 ? 0.2 : 0);
+      if (best[2] > 0.75 && best[0] + best[1] > 0) v = 0;
+      put(x, y, pxBand(leaf, v, x, y));
+    }
+  }
+  // the giant glowcaps at the sides, so the plot in the middle stays clear: first the light round each cap, then the mushroom
+  const caps = [["#5c1f3f", "#8f3460", "#c25586", "#e88bb1", "#ffc4da"], ["#0f2f4a", "#1d5276", "#3383a8", "#69b7d6", "#b8e6f5"], ["#2e1d4f", "#523a85", "#8a6cc9", "#ad91e6", "#d2bfff"]].map(R);
+  const shrooms = Array.from({ length: 6 }, (_, i) => {
+    const big = 0.6 + pxHash(i, 2) * 0.6, x = Math.round(sideX(W, i, seed)), foot = Math.round(gndY[clamp(x, 0, W - 1)]) + 1 + (i % 2);
+    const h = Math.round(Math.min(H * (0.14 + 0.2 * big), floorY * (0.18 + 0.22 * big))), r = Math.round(Math.min(W * 0.08 * big + 5, h * 0.45));
+    return { x, foot, h, r, ry: Math.max(2, Math.round(r * 0.62)), top: foot - h, cap: caps[i % 3], i };
+  });
+  for (const s of shrooms) {
+    const cy = s.top - s.ry * 0.3, RR = s.r * 2.4;
+    for (let y = Math.max(0, Math.floor(cy - RR)); y < Math.min(H, cy + RR); y++) for (let x = Math.max(0, Math.floor(s.x - RR)); x < Math.min(W, s.x + RR); x++) {
+      const lv = Math.floor((1 - Math.hypot(x - s.x, (y - cy) * 1.15) / RR) * 2.6 + (PX_B2[((y & 1) << 1) | (x & 1)] - 0.5) * 0.6);
+      if (lv <= 0) continue;
+      const a = [0, 0.16, 0.3, 0.42][Math.min(3, lv)], o = get(x, y), lt = s.cap[3];
+      put(x, y, pxSnap(o.map((v, k) => Math.round(v + (lt[k] - v) * a))));
+    }
+  }
+  for (const { x: x0, foot, h, r, ry, top, cap, i } of shrooms) {
+    // the stem: pale, lit on its left, shaded on its right with a dark edge, fibres along it, a ring under the cap, a bulb at
+    // its foot in a tuft of moss, darker just under the cap where the cap shades it
+    // (each stem bows a little, its foot off to one side of its cap)
+    const half = Math.max(1.5, r * 0.14), ringY = top + Math.max(2, Math.round(h * 0.16)), bend = Math.round((pxHash(i, seed + 41) - 0.5) * r * 0.7), xAt = y => x0 + bend * ((y - top) / h) ** 2;
+    for (let y = top; y <= foot; y++) {
+      const fl = pxSmooth(0.8, 1, (y - top) / h), hw = half * (0.85 + 0.15 * (y - top) / h + 0.55 * fl) + (y === ringY || y === ringY + 1 ? 1 : 0);
+      const xc = xAt(y);
+      for (let x = Math.floor(xc - hw); x <= Math.ceil(xc + hw - 1); x++) {
+        const cc = (x + 0.5 - xc) / hw;
+        let v = 0.62 - 0.42 * cc - (y - top < ry * 0.45 ? 0.22 : 0) - (pxHash(x, Math.floor(y / 3) + seed) > 0.82 ? 0.12 : 0) - 0.15 * fl;
+        if (y === ringY) v = cc < 0.4 ? 1 : 0.55; else if (y === ringY + 1) v = 0.2;
+        if (cc > 0.8) v = 0;
+        put(x, y, pxBand(stemC, v, x, y, 0.3));
+      }
+    }
+    for (let k = -Math.round(half * 2.6); k <= Math.round(half * 2.6); k++) {
+      if (pxHash(k, i + seed) > 0.7) put(x0 + bend + k, foot - 1, grass[pxHash(i, k) > 0.5 ? 2 : 1]);
+      put(x0 + bend + k, foot, grass[k < 0 ? 2 : 1]);
+      if (pxHash(k + 9, i) > 0.6) put(x0 + bend + k, foot - 2, grass[3]);
+    }
+    // under the cap: the gills, fanning out from the stem, glowing toward the rim
+    const gy = Math.max(2, Math.round(ry * 0.45)), gills = Math.max(4, Math.round(r * 0.7));
+    for (let y = top; y <= top + gy; y++) for (let x = Math.floor(x0 - r); x <= Math.ceil(x0 + r); x++) {
+      const ex = (x + 0.5 - x0) / r, ey = (y + 0.5 - top) / (gy + 0.5), e = ex * ex + ey * ey;
+      if (e >= 1) continue;
+      const ang = Math.atan2(x + 0.5 - x0, top + gy * 1.6 - y), stripe = Math.floor((ang / Math.PI + 1) * gills) & 1;
+      put(x, y, e > 0.8 ? cap[0] : ex * ex > 0.55 ? cap[stripe ? 3 : 2] : cap[stripe ? 1 : 0]);
+    }
+    // the cap: a dome lit from the top left, glowing from within, brightest at its rim; a dark edge on its shaded side,
+    // pale spots and a gloss
+    for (let y = top - ry; y <= top; y++) for (let x = Math.floor(x0 - r); x <= Math.ceil(x0 + r); x++) {
+      const dx = (x + 0.5 - x0) / r, dy = (y + 0.5 - top) / ry, e = dx * dx + dy * dy;
+      if (e >= 1) continue;
+      let v = 0.4 + 0.36 * (-dx * 0.6 - dy * 0.8 - 0.4);
+      if (dy > -0.24) v = Math.max(v, 0.7); if (dy > -0.1) v = 0.85;
+      if (e > 0.82 && (dx > 0.2 || dy < -0.6) && dy < -0.24) v = 0;
+      put(x, y, pxBand(cap, v, x, y));
+    }
+    for (let k = 0; k < 5; k++) {
+      const sx = x0 + (pxHash(i, k + 7) - 0.5) * r * 1.3, sy = top - ry * (0.3 + 0.45 * pxHash(k, i)), sr = Math.max(1, r * 0.11);
+      if (((sx - x0) / r) ** 2 + ((sy - top) / ry) ** 2 > 0.7) continue;
+      for (let y = Math.floor(sy - sr * 0.7); y <= sy + sr * 0.7; y++) for (let x = Math.floor(sx - sr); x <= sx + sr; x++) if (((x + 0.5 - sx) / sr) ** 2 + ((y + 0.5 - sy) / (sr * 0.7)) ** 2 < 1.1) put(x, y, y > sy ? cap[3] : cap[4]);
+    }
+    put(x0 - r * 0.45, top - ry * 0.62, stars[2]); put(x0 - r * 0.45 + 1, top - ry * 0.62, cap[4]); put(x0 - r * 0.45 - 1, top - ry * 0.55, cap[4]);
+  }
+  // little glowcaps at the meadow's edge, and spores drifting
+  for (let k = 0; k < 18; k++) {
+    const x = Math.round(pxHash(k, seed + 4) * W), y = Math.round(gndY[clamp(x, 0, W - 1)]) + 1 + Math.round(pxHash(k, 9) * 3), cc = caps[k % 3];
+    put(x, y - 1, stemC[4]); put(x, y - 2, stemC[3]); put(x + 1, y - 1, stemC[2]);
+    put(x - 1, y - 3, cc[3]); put(x, y - 3, cc[2]); put(x + 1, y - 3, cc[1]); put(x, y - 4, cc[3]);
+  }
+  for (let k = 0; k < 26; k++) put(pxHash(k, seed + 11) * W, H * 0.2 + pxHash(seed, k) * H * 0.6 * floor, pxHex("#fff0b5"));
+  if (site) nightSite(d, W, H, T, floorY, site);
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
+/** The ground the garden's or the camp's plot sits in (site: { cx, top, hw } its floor's diamond in art pixels, kind the room):
+ *  the plot's own grass, in its own tones and lumps (the floor's formula in roomMaterials), carried on past its edges and
+ *  checkered out into the meadow, blades and all; and its trodden path going on out of it (WAY_OUT), narrowing toward the
+ *  horizon: the garden's stepping stones in gravel, the camp's dirt track with pebbles. */
+function nightSite(d, W, H, T, floorY, site) {
+  const { cx, top, hw, kind } = site, hh = hw / 2, S = Math.max(0.55, hw / 180), seed = T.seed * 7, ground = T.ground.map(pxHex);
+  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return; const i = (y * W + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
+  // (isoTone's way: a 4×4 ordered seam half a step wide)
+  const tone = (ramp, v, x, y, k) => { const n = ramp.length - 1; return ramp[clamp(Math.floor(clamp(v, 0, 1) * n + 0.5 + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * k), 0, n)]; };
+  const lump = (x, y) => pxFbm(x * 0.03 + seed, y * 0.06), uv = (x, y) => { const a = (x - cx) / hw, b = (y - top) / hh; return [(a + b) / 2, (b - a) / 2]; };
+  const RING = Math.round(10 * S);
+  for (let y = Math.max(0, Math.floor(top - RING)); y <= Math.min(H - 1, Math.ceil(top + hw + RING)); y++) for (let x = Math.max(0, Math.floor(cx - hw - 2 * RING)); x <= Math.min(W - 1, Math.ceil(cx + hw + 2 * RING)); x++) {
+    const [u, v] = uv(x + 0.5, y + 0.5), o = Math.max(u - 1, v - 1, -u, -v) * hw;
+    if (o > RING || o < -3 || PX_BAYER[(y & 3) * 4 + (x & 3)] < (o / RING) ** 1.3) continue;
+    put(x, y, tone(ground, 0.42 + 2.6 * (lump(x - 2, y - 2) - lump(x + 2, y + 2)) + 0.16 * (pxFbm(x * 0.06 + seed, y * 0.12) - 0.5), x, y, 0.5));
+    // and the plot's blades of grass, in tufts, as thick as on it
+    const lush = pxFbm(x * 0.05 + seed, y * 0.1);
+    if (o > 0 && o < RING * 0.8 && pxHash(x * 7 + seed, y * 3) < 0.06 + 0.12 * lush) {
+      const tall = 2 + Math.round(pxHash(x, y + 1) * 2 + lush * 1.5), lean = pxHash(y, x) > 0.5 ? 1 : -1;
+      for (let k = 0; k < tall; k++) put(x + (k === tall - 1 && tall > 2 ? lean : 0), y - k, k === tall - 1 ? ground[3] : k === 0 ? ground[1] : ground[2]);
+    }
+  }
+  const way = WAY_OUT[kind];
+  if (!way) return;
+  // the path's line: out of the plot's edge square to it, then bending off along the meadow to the horizon on the right
+  const at = (u, v) => [cx + (u - v) * hw, top + (u + v) * hh], E = at(...way.at), P1 = [E[0] + 0.4 * hw, E[1] + 0.2 * hw];
+  const P3 = [cx + hw * 1.45, floorY + 1], P2 = [cx + hw * 1.35, floorY + (E[1] - floorY) * 0.6];
+  const bez = t => [0, 1].map(k => (1 - t) ** 3 * E[k] + 3 * (1 - t) ** 2 * t * P1[k] + 3 * (1 - t) * t * t * P2[k] + t ** 3 * P3[k]);
+  // (as wide as it is on the plot where it leaves it, narrowing with distance)
+  const half0 = way.half * S * 180, dist = new Float32Array(W * H).fill(9), far = new Float32Array(W * H), n = Math.ceil(hw * 4);
+  const stones = [];
+  let run = 0, prev = E;
+  for (let s = 0; s <= n; s++) {
+    const p = bez(s / n), persp = clamp((p[1] - floorY) / Math.max(1, E[1] - floorY), 0.1, 1), hwid = Math.max(0.8, half0 * persp ** 0.7);
+    run += Math.hypot(p[0] - prev[0], p[1] - prev[1]); prev = p;
+    if (way.stones && run > 15 * persp) { run = 0; stones.push([p[0] + (stones.length % 2 ? 0.25 : -0.25) * hwid, p[1], persp]); }
+    for (let y = Math.max(0, Math.floor(p[1] - hwid / 2 - 2)); y <= Math.min(H - 1, p[1] + hwid / 2 + 2); y++) for (let x = Math.max(0, Math.floor(p[0] - hwid - 2)); x <= Math.min(W - 1, p[0] + hwid + 2); x++) {
+      const dn = Math.hypot(x + 0.5 - p[0], 2 * (y + 0.5 - p[1])) / hwid, i = y * W + x;
+      if (dn < dist[i]) { dist[i] = dn; far[i] = persp; }
+    }
+  }
+  const dirt = ["#1f130a", "#3b2414", "#553620", "#6e4a2a", "#8a6238", "#a37b4b"].map(pxHex);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const i = y * W + x, dn = dist[i] + 0.25 * (pxNoise(x * 0.3, y * 0.6) - 0.5);
+    if (dn >= 1) continue;
+    const [u, v] = uv(x + 0.5, y + 0.5);
+    if (u > 0 && v > 0 && u < 1 && v < 1) continue;
+    // grass creeping in at its edges
+    if (dn > 0.72 && pxHash(x, y + seed) > 0.55) continue;
+    let dv;
+    if (way.stones) { const gv = pxHash(x, y + 5); dv = 0.42 + (gv > 0.8 ? 0.22 : gv < 0.15 ? -0.2 : 0); }
+    else {
+      dv = 0.45 + 1.8 * (lump(x - 2, y - 2) - lump(x + 2, y + 2)) + 0.1 * (pxFbm(x * 0.2, y * 0.3) - 0.5);
+      const pb = pxHash(x >> 1, (y >> 1) + seed); if (pb > 0.96 && far[i] > 0.4) dv += 0.28; else if (pb > 0.93) dv -= 0.2;
+    }
+    if (dn > 0.8) dv -= 0.2;
+    put(x, y, tone(dirt, dv - 0.15 * (1 - far[i]), x, y, 0.3));
+  }
+  // the stepping stones, smaller as they go: lit on their top left, a shadow under each
+  const stone = ["#22143a", "#3a3440", "#5d5666", "#8a8494", "#b9b3c0"].map(pxHex);
+  for (const [sx, sy, persp] of stones) {
+    const rx = Math.max(1.2, 6.5 * persp), ry = Math.max(0.8, 3.4 * persp), [u, v] = uv(sx, sy);
+    if (u > -0.02 && v > -0.02 && u < 1.02 && v < 1.02) continue;
+    for (let y = Math.floor(sy - ry * 1.4); y <= sy + ry * 1.4; y++) for (let x = Math.floor(sx - rx * 1.4); x <= sx + rx * 1.4; x++) {
+      const dx = (x + 0.5 - sx) / rx, dy = (y + 0.5 - sy) / ry, sd = Math.hypot(dx, dy);
+      if (sd < 1) put(x, y, tone(stone, 0.6 + 0.25 * (-dx * 0.6 - dy * 0.8) - 0.15 * (1 - persp), x, y, 0.3));
+      else if (sd < 1.35 && dy > 0) put(x, y, dirt[1]);
+    }
+  }
+}
+
 /** The backdrop for a theme at the size of the screen's art grid. */
-/** A backdrop; `floor` is where its ground line sits (a share of the height), so the nest can stand on it. */
-function paintTheme(id, w, h, floor = 0.86, deep = false, home = false) {
+/** A backdrop; `floor` is where its ground line sits (a share of the height), so the nest can stand on it; `site` is the
+ *  garden's or the camp's plot, for the ground round it (outdoors only: see bgFor). */
+function paintTheme(id, w, h, floor = 0.86, deep = false, home = false, site = null) {
   const t = THEME[id] || THEME.amethyst, own = home && HOME_ART[t.id];
-  if (t.art === undefined && !own) return pixelNight(t.id, w, h, floor);
+  if (t.art === undefined && !own) return pixelNight(t.id, w, h, floor, site);
   const a = own || CHAPTER_ART[t.art];
   const th = { seed: own ? a.seed : 5 + t.art * 7, wall: a.wall.map(pxHex), crystal: a.crystal.map(pxHex), glow: pxHex(a.glow), pool: a.pool?.map(pxHex), flash: a.flash?.map(pxHex), bands: a.bands, caps: a.caps };
   const c = pixelCave(th, w, h, { floorY: Math.round(h * floor), lx: w / 2, ly: h * 0.55, crystals: Math.round(w / 12), reach: h / 150, girth: 1.6, spill: 0.04, keepClear: Math.round(w * 0.32), deep });
