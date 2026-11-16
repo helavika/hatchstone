@@ -34,6 +34,12 @@ test('each indoor place has its own overlays: firelight at the forge and the lab
   assert.ok(lab.light === 1 && lab.steam > 0 && lab.dust > 0, 'the lab: the burner lights the room, the glass steams, dust in the window light');
   assert.ok(shop.dust > 0 && shop.sway > 0.03 && shop.sway < 0.15, 'the shop: dust in the window light and a sign that swings a little');
   assert.equal(shop.light, 0, 'no fire in the shop');
+  // (#278) its two lanterns flicker, each its own way, a little brighter and dimmer
+  const lamps = times().map(t => p.placeBreath('shop', t, room(), false).lamp);
+  assert.ok(lamps.every(l => l.length === 2), 'two lanterns in the shop');
+  const ks = lamps.map(l => l[0].k);
+  assert.ok(Math.max(...ks) - Math.min(...ks) > 0.3 && lamps.some(l => Math.abs(l[0].k - l[1].k) > 0.1), 'they flicker, and not together');
+  for (const k of ['forge', 'lab']) assert.equal(p.placeBreath(k, 3, room(), false).lamp.length, 0, k + ' has no lanterns');
   for (const k of ['nest', 'yard', 'camp', 'grotto']) { const b = p.placeBreath(k, 3, room(), false); assert.equal(b.light.length + b.spark.length + b.steam.length + b.dust.length + b.sway, 0, k + ' is left as it was'); }
   // sparks come now and then, not all the time
   const busy = times().filter(t => p.placeBreath('forge', t, room(), false).spark.length).length / times().length;
@@ -46,6 +52,7 @@ test('with less motion (or a slow device) only the slow light stays: no sparks, 
     const b = p.placeBreath(kind, t, room(), true);
     assert.equal(b.spark.length + b.steam.length + b.dust.length, 0, kind + ': nothing flies');
     assert.equal(b.sway, 0, kind + ': the sign hangs still');
+    assert.equal(b.lamp.length, 0, kind + ': the lanterns hang steady (their light is in the room\'s picture)');
     for (const L of b.light) assert.ok(L.step <= 1, 'the pool only breathes between its two nearer reaches');
   }
   // the light still breathes, slower than the fire's flicker

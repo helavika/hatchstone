@@ -783,8 +783,10 @@ function bgFor(scene) {
   const floor = scene === "crack" && game.egg ? stageNow().horizon / H : scene !== "nest" || !N.back ? 0.86 : outdoor ? (N.isoTop - N.isoWall * 0.35) / H : (kind === "cave" ? N.front : N.back + 1) / H;
   // in the nest and on the title the cave floor runs on down behind the needs and the tabs, and under the title card (no dark band there)
   const deep = scene === "nest" || scene === "menu";
-  const key = `${id}|${floor.toFixed(3)}|${deep}|${home}`;
-  if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor, deep, home));
+  // the shop looks out on the river from its open front (#278): a backdrop of its own, level with its counter
+  const shop = scene === "nest" && save.rooms?.[save.room]?.kind === "shop" && kind === "timber" ? shopRiverY() : null;
+  const key = `${id}|${floor.toFixed(3)}|${deep}|${home}` + (shop === null ? "" : `|shop${shop}`);
+  if (!bgCache.has(key)) bgCache.set(key, shop === null ? paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor, deep, home) : paintShopBackdrop(Math.ceil(W / PX), Math.ceil(H / PX), floor, shop, Math.max(0.55, N.isoW / PX / 180)));
   return [id, key];
 }
 function drawBackground() {

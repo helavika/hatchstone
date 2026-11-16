@@ -4435,7 +4435,7 @@ const BREATH = {
     win: { v: 0.5, z: 0.56, to: [0.17, 0.55], wide: 0.1 } },
   lab: { fire: { id: "labdesk", at: [0.62, 0.8], z: 0.9, r: 2.6, col: "#ffb45e" }, steam: [{ id: "labdesk", at: [0.82, 0.42], z: 2.25, n: 4 }, { id: "labdesk", at: [1.85, 0.3], z: 1.95, n: 2 }],
     win: { v: 0.42, z: 0.5, to: [0.25, 0.5], wide: 0.08 } },
-  shop: { win: { v: 0.5, z: 0.56, to: [0.17, 0.55], wide: 0.1 }, sign: { u: 3.75, z: 0.62 } },
+  shop: { win: { v: 0.5, z: 0.56, to: [0.17, 0.55], wide: 0.1 }, sign: { u: 3.75, z: 0.62 }, lamps: true },
 };
 /** At most this many of each in the air at once. */
 const BREATH_CAP = { spark: 8, steam: 6, dust: 8 };
@@ -4448,10 +4448,10 @@ const fireFlicker = (t, still) => still ? 0.5 + 0.35 * Math.sin(t * 0.5) : clamp
 /**
  * What breathes in a place at t seconds: its firelight (how bright, and which of three reaches), and the sparks, puffs of steam,
  * motes of dust and the sign's swing, each where it is in the room (u and v across the floor from 0 to 1, z up in art pixels).
- * room: { tile, wall } in art pixels, and piece(id) → the placed piece { i, j, flip } or nothing.
+ * room: { tile, wall } in art pixels, px screen pixels to an art pixel, and piece(id) → the placed piece { i, j, flip } or nothing.
  */
 function placeBreath(kind, t, room, still) {
-  const B = BREATH[kind], out = { light: [], spark: [], steam: [], dust: [], sway: 0 };
+  const B = BREATH[kind], out = { light: [], spark: [], steam: [], dust: [], lamp: [], sway: 0 };
   if (!B) return out;
   const { tile, wall, piece } = room;
   // a point on a piece, as a place on the floor (a turned piece is mirrored: its two axes swap)
@@ -4494,6 +4494,8 @@ function placeBreath(kind, t, room, still) {
       z: wall * w.z * (1 - s) + Math.sin(t * 0.5 + k * 1.3) * 2, age: s, glint: Math.max(0, Math.sin(t * 1.3 + k * 2.4)) };
     if (inRoom(q) && out.dust.length < BREATH_CAP.dust) out.dust.push(q);
   }
+  // the shop's lanterns flicker, each its own way (with less motion they hang steady: their light is in the room's picture)
+  if (B.lamps) { const SH = shopShell(tile * ISO_G, wall, room.px); out.lamp = SH.lamps.map((L, k) => ({ ...L, r: SH.glow, k: fireFlicker(t * 1.4 + k * 2.3, false) })); }
   // the shop's sign swings a little on its bracket
   if (B.sign) out.sway = 0.1 * Math.sin(t * 1.15) + 0.03 * Math.sin(t * 2.6 + 1);
   return out;
@@ -4539,7 +4541,7 @@ function breathNow() {
   if (breath.at === game.time && breath.kind === save.rooms[save.room]?.kind) return breath.plan;
   const kind = save.rooms[save.room]?.kind, placed = isoLayout().placed;
   breath.at = game.time; breath.kind = kind;
-  return breath.plan = placeBreath(kind, game.time / 1000, { tile: N.isoW / ISO_G / PX, wall: N.isoWall / PX, piece: id => placed[id] }, opts().calm || quality.low);
+  return breath.plan = placeBreath(kind, game.time / 1000, { tile: N.isoW / ISO_G / PX, wall: N.isoWall / PX, px: PX, piece: id => placed[id] }, opts().calm || quality.low);
 }
 /** The firelight, right over the room's picture and under everything standing in it. */
 function drawPlaceGlow() {
@@ -4564,12 +4566,23 @@ function drawPlaceGlow() {
   }
   ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = was;
 }
+/** A lantern's glow in art pixels, r across: solid in the middle, dithered toward its rim (kept, one per size). */
+function lampGlow(r) {
+  const k = "g" + r;
+  if (breath.pools[k]) return breath.pools[k];
+  const c = document.createElement("canvas"); c.width = c.height = 2 * r + 1; c.r = r;
+  const g = c.getContext("2d"); g.fillStyle = "#f6d488";
+  for (let y = 0; y <= 2 * r; y++) for (let x = 0; x <= 2 * r; x++) { const dd = Math.hypot(x - r, y - r) / r; if (dd < 0.5 || (dd < 1 && PX_BAYER[(y & 3) * 4 + (x & 3)] < 1 - dd)) g.fillRect(x, y, 1, 1); }
+  return breath.pools[k] = c;
+}
 /** The sparks, steam and dust, over everything in the place. */
 function drawPlaceBreath() {
   const plan = breathNow(), s = Math.max(1, Math.round(PX));
-  if (!plan.spark.length && !plan.steam.length && !plan.dust.length) return;
+  if (!plan.spark.length && !plan.steam.length && !plan.dust.length && !plan.lamp.length) return;
   const at = q => { const [x, y] = isoAt(q.u, q.v); return [Math.round(x / s) * s, Math.round((y - q.z * PX) / s) * s]; };
-  ctx.save();
+  ctx.save(); ctx.imageSmoothingEnabled = false;
+  // a lantern's glow round its glass, a little brighter or dimmer as the flame flickers
+  for (const q of plan.lamp) { const [x, y] = at(q), G = lampGlow(q.r); ctx.globalAlpha = 0.08 + 0.2 * q.k; ctx.drawImage(G, x - G.r * PX, y - G.r * PX, G.width * PX, G.height * PX); }
   for (const q of plan.dust) { const [x, y] = at(q); ctx.globalAlpha = Math.sin(q.age * Math.PI) * (0.25 + 0.5 * q.glint); ctx.fillStyle = "#efe6ff"; ctx.fillRect(x, y, s, s); }
   for (const q of plan.steam) {
     const [x, y] = at(q), r = s * (q.age < 0.35 ? 1 : 2);
@@ -4620,6 +4633,269 @@ function drawShopSign() {
   ctx.imageSmoothingEnabled = was;
 }
 
+// ---------- the shop's own shell (#278): an open counter front under a striped awning, lanterns, the river behind ----------
+
+/**
+ * The shop's shell, measured for a room hw art pixels across with walls wall high (both views of it read this: the painting,
+ * the lanterns' flicker, the backdrop's river). The left wall is the stall's open front: a planked counter up to zc, open from
+ * there to zo between a post at each end and two more between its three bays; a striped awning hangs from zt under the wall
+ * plate and reaches d art pixels out into the room, its scalloped hem hem deep; a lantern hangs from the hem on either side of the
+ * middle bay. postAt(al, sl) is the post at a spot along a wall (c across it from its lit edge) and open(al, z) the open front.
+ * px is how many screen pixels an art pixel is: the lanterns and the goods are drawn sc times over, so they read on a phone too.
+ */
+function shopShell(hw, wall, px = 1) {
+  const S = Math.max(0.55, hw / 180), pw = Math.max(3, Math.round(5 * S)), plate = Math.max(3, Math.round(5 * S)), foot = Math.max(3, Math.round(7 * S));
+  const zc = Math.round(Math.min(wall * 0.36, 38 * S)), zt = Math.min(wall - plate, Math.round(142 * S));
+  const zo = Math.max(zc + 6, Math.min(zt - Math.max(6, Math.round(Math.min(wall * 0.2, 20 * S))), Math.round(122 * S)));
+  const d = Math.max(4, Math.round(9 * S)), hem = Math.max(3, Math.round(5 * S)), chain = Math.max(2, Math.round(4 * S)), sc = Math.max(1, Math.round(1.6 * S / px));
+  const spans = sl => [[0, pw], [hw - pw, hw], ...(sl > 0 ? [hw / 3, hw * 2 / 3].map(p => [p - pw / 2, p + pw / 2]) : [])];
+  const postAt = (al, sl) => { for (const [a0, a1] of spans(sl)) if (al >= a0 && al < a1) return { c: sl > 0 ? (a1 - al) / (a1 - a0) : (al - a0) / (a1 - a0) }; return null; };
+  const open = (al, z) => z >= zc && z < zo && al >= pw && al < hw - pw && !postAt(al, 1);
+  // (the lantern's middle: under the hem, a chain's length down, half the lantern's height lower)
+  // (in the gaps the shop's furniture leaves along that wall: between the back corner and the cabinet, the cabinet and the barrel)
+  const lamps = [0.26, 0.75].map(v => ({ u: d / hw, v, z: zo - hem - chain - 7 * sc }));
+  return { S, pw, plate, foot, zc, zt, zo, d, hem, chain, sc, glow: 6 * sc + 3, lamps, postAt, open };
+}
+/** A lantern hanging on its chain: an iron cap and frame, amber glass round a white flame, one bright stripe down the glass. */
+const SHOP_LANTERN = [
+  "....k....",
+  "...kmk...",
+  "..kmhmk..",
+  ".kmmhmmk.",
+  "kmmmmmmmk",
+  ".kBALAAk.",
+  ".kBLWAAk.",
+  ".kBLWWAk.",
+  ".kBAWAAk.",
+  ".kBAAAAk.",
+  "kmmmmmmmk",
+  "..kmmmk..",
+  "...kmk...",
+];
+/** The goods on the shop's high shelf, each a small sprite standing on it: k its outline, 1 to 3 its own colour from dark to
+ *  light (lit on the left), L the one bright highlight, c cork, m and h a tin lid. */
+const SHOP_GOODS = {
+  bottle: ["..kk..", ".kcck.", ".k32k.", ".k32k.", "k3L21k", "k3L21k", "k3L21k", "k3L21k", "k3221k", ".kkkk."],
+  jar: [".kkkkk.", "kmhhmmk", "k3L221k", "k3L221k", "k32221k", "k32211k", ".kkkkk."],
+  sack: ["..k.k..", "...k...", ".k332k.", "k33221k", "k32221k", "k32211k", ".kkkkk."],
+  bolt: [".kkkkkk.", "k332221k", "k3L2221k", "k322211k", ".kkkkkk."],
+};
+/** Which goods stand along the shelf, and in what colours (glass green, amber and blue, honey, burlap, a bolt of rose cloth). */
+const SHOP_SHELF = [["jar", ["#5c3a14", "#a8661c", "#eec26a"]], ["bottle", ["#1e5233", "#2f7d4a", "#57ad6a"]], ["bottle", ["#5c2a10", "#a8521c", "#e08a35"]], ["sack", ["#4a3420", "#7a5a38", "#a88a5e"]],
+  ["bolt", ["#5c1f3f", "#8f3460", "#c25586"]], ["bottle", ["#1d5276", "#3383a8", "#69b7d6"]], ["jar", ["#3a1f5c", "#6b3fa0", "#ad91e6"]], ["sack", ["#4a3420", "#7a5a38", "#a88a5e"]], ["bottle", ["#1e5233", "#2f7d4a", "#57ad6a"]]];
+
+/**
+ * Paint the shop's walls into the room (paintRoomIso calls this in place of the forge's timber frame and window; the floor and
+ * the slab are the same). Board walls of vertical planks, each its own shade with a lit edge, a dark seam, grain and nails, on a
+ * footing of squared stones under an oak wall plate; the left wall is the open front, where nothing is painted so the river in
+ * the backdrop shows through. Returns wallPx (each spot on the walls, for paintRoomIso's own loop over them), paint (the awning, the high shelf of
+ * goods where the wall is tall enough for it, and the lanterns' light pushed onto lights for paintRoomIso to shine) and after
+ * (drawn once the light has fallen: the lanterns themselves).
+ */
+function paintShopShell({ put, mark, d, w, h, cx, top, hw, hh, wall, S, seed, lights, stoneR, hexes, px }) {
+  const SH = shopShell(hw, wall, px), { pw, plate, foot, zc, zt, zo, sc, postAt, open } = SH;
+  /** A little sprite drawn sc times over, its top left at x0, y0. */
+  const sprite = (rows, C, x0, y0) => rows.forEach((row, r) => [...row].forEach((ch, k) => { if (C[ch]) for (let a = 0; a < sc; a++) for (let b = 0; b < sc; b++) put(x0 + k * sc + a, y0 + r * sc + b, C[ch]); }));
+  // pine boards and dark oak posts, their shadows turned cool and their lights warm; the awning's canvas in faded red and cream
+  const plank = hueRamp(hexes(["#221812", "#38281c", "#523b26", "#6e5232", "#8b6a40", "#a98751"]), undefined, 0.16);
+  const post = hueRamp(hexes(["#140c0a", "#2a1a12", "#43281a", "#5e3a22", "#7a5230", "#97683c"]));
+  const red = hueRamp(hexes(["#3d1622", "#66222e", "#8f3438", "#b2493f", "#cc6a4e"])), cream = hueRamp(hexes(["#4f4440", "#7f6f5e", "#b3a083", "#d9c9a3", "#efe4c4"]));
+  const ink = pxHex("#0b0614"), P = Math.max(4, Math.round(9 * S)), bh = Math.max(3, Math.round(6 * S));
+  /** One spot on a wall (al along it from the back corner, z up, sl +1 on the left wall): its ramp and shade, or null where it's open. */
+  const wallPx = (al, z, sl, x, y) => {
+    if (sl > 0 && open(al, z)) return null;
+    const p = postAt(al, sl), lit = sl > 0 ? 0.1 : -0.06;
+    // the wall plate along the top: a heavy beam, a shadow under it
+    if (z >= wall - plate) return { ramp: post, v: z >= wall - 1 ? 0.8 : z === wall - plate ? 0.1 : 0.42 + lit + 0.06 * (pxNoise(al * 0.4, z * 2 + seed) - 0.5) };
+    // the posts: lit along one edge, shaded along the other, grain down them, the awning's shadow across their tops
+    if (p) {
+      let v = p.c < 0.25 ? 0.78 : p.c > 0.75 ? 0.14 : 0.44 + lit + (Math.abs(pxNoise(al * 0.8, z * 0.08 + seed) - 0.5) < 0.05 ? -0.1 : 0);
+      if (sl > 0 && z < zt && z > zo - 6 * S) v -= 0.14;
+      return { ramp: post, v, post: true };
+    }
+    // a footing of squared stones, each its own shade, mortar between, a lit top edge
+    if (z < foot) {
+      const L = Math.round(14 * S), a = al + seed % 7, si = Math.floor(a / L), fa = a - si * L;
+      return { ramp: stoneR, v: z === 0 || fa < 1 ? 0.06 : z === foot - 1 ? 0.7 : (sl > 0 ? 0.48 : 0.32) + 0.16 * (pxHash(si, seed) - 0.5) + ((sl > 0 ? fa > L - 2 : fa < 2) ? 0.1 : 0) };
+    }
+    // the counter's front, under the open bays: boards laid along it, a thick top board lit along its edge, a shadow under that
+    if (sl > 0 && z < zc && al >= pw && al < hw - pw) {
+      const lip = Math.max(2, Math.round(3 * S));
+      if (z >= zc - lip) return { ramp: plank, v: z === zc - 1 ? 0.95 : z === zc - lip ? 0.12 : 0.66 };
+      const r = Math.floor((z - foot) / bh), fz = (z - foot) % bh, L = Math.round(34 * S), a = al + r * L * 0.45, si = Math.floor(a / L), fa = a - si * L;
+      let v = 0.4 + lit + 0.14 * (Math.floor(pxHash(si, r + seed) * 3) / 2 - 0.5);
+      if (fz === 0 || fa < 1) v = 0.08; else if (fz === bh - 1) v += 0.16;
+      if (Math.abs(pxNoise(al * 0.08 + r * 5, z * 0.9) - 0.5) < 0.04) v -= 0.1;   // grain along the board
+      if (z >= zc - lip - 2) v -= 0.12;
+      return { ramp: plank, v };
+    }
+    // the board wall: vertical planks of different shades, a lit edge toward the light and a dark seam on the other, grain
+    // running up them, a butt joint here and there, two nails where each crosses a rail
+    const k = Math.floor(al / P), fa = al - k * P, jz = foot + Math.round((0.25 + 0.5 * pxHash(k, seed + 3)) * (wall - foot - plate));
+    let v = [0.36, 0.44, 0.52][Math.floor(pxHash(k, seed) * 3)] + lit - 0.1 * z / wall;
+    if (sl > 0 ? fa < 1 : fa >= P - 1) return { ramp: plank, v: 0.06 };
+    if (sl > 0 ? fa >= P - 1 : fa < 1) v += 0.18;
+    if (z === jz) return { ramp: plank, v: 0.08 }; else if (z === jz + 1) v += 0.12;
+    if (Math.abs(pxNoise(fa * 0.7 + k * 13, z * 0.05 + seed) - 0.5) < 0.035) v -= 0.12;
+    if (pxHash(k, Math.floor(z / (24 * S)) + seed) > 0.94 && Math.hypot(fa - P / 2, (z % (24 * S)) - 12 * S) < 1.6) v = 0.1;   // a knot
+    const rail = [foot + Math.round(10 * S), wall - plate - Math.round(8 * S)].some(rz => z === rz || z === rz + 1);
+    if (rail && Math.abs(fa - P / 2) < 0.8) v = z % 2 ? 0.86 : 0.04;
+    return { ramp: plank, v };
+  };
+  const at = (u, v, z) => [cx + (u - v) * hw, top + (u + v) * hh - z];
+  return { wallPx, paint, after };
+
+  function paint() {
+    // the awning: canvas from the wall plate down and out over the counter to its hem, in stripes along the front, each stripe
+    // shaded from the wall (in the plate's shadow) to the front edge, a crease of light along the edge and a scalloped valance
+    // hanging from it; it sags a little in each bay
+    const D = SH.d, sw = Math.max(3, Math.round(7 * S)), drop = zt - zo, a0 = pw / hw, a1 = 1 - pw / hw;
+    const sag = v => Math.round(2 * S * Math.sin(Math.PI * ((v * 3) % 1)));
+    const stripe = v => Math.floor(v * hw / sw) % 2 ? cream : red;
+    for (let v = a0; v <= a1; v += 0.4 / hw) for (let s = 0; s <= 1; s += 0.4 / (D + drop)) {
+      const [x, y] = at(s * D / hw, v, zt - s * drop + sag(v) * s);
+      const fa = (v * hw) % sw, edgeL = fa > sw - 1;
+      put(x, y, isoTone(stripe(v), 0.28 + 0.42 * s + (edgeL ? 0.12 : 0) + (s < 0.12 ? -0.16 : 0), Math.round(x), Math.round(y), 0.2));
+      mark(x, y, s * D / hw, v, zt - s * drop);
+    }
+    for (let v = a0; v <= a1; v += 0.4 / hw) {
+      const fa = (v * hw) % sw, tongue = SH.hem * (0.5 + 0.5 * Math.sin(Math.PI * fa / sw)), zf = zo - sag(v);
+      for (let z = 0; z <= tongue + 1; z++) {
+        const [x, y] = at(D / hw, v, zf - z);
+        put(x, y, z === 0 ? isoTone(stripe(v), 0.95, Math.round(x), Math.round(y), 0) : z > tongue ? ink : isoTone(stripe(v), 0.62 - 0.2 * z / tongue + (fa > sw - 1 ? 0.1 : 0), Math.round(x), Math.round(y), 0.2));
+       
+      }
+    }
+    // its two ends, dark against what's behind
+    for (const v of [a0, a1]) for (let s = 0; s <= 1; s += 0.5 / (D + drop)) { const [x, y] = at(s * D / hw, v, zt - s * drop); put(x + (v === a0 ? 1 : -1), y, ink); }
+
+    // the high shelf of goods along the right wall, where the wall is tall enough to hold it over the furniture and the sign
+    if (wall >= 150) {
+      const zs = Math.round(wall * 0.8), e = Math.max(3, Math.round(5 * S)), u0 = 0.08, u1 = 0.94;
+      for (let u = u0; u <= u1; u += 0.5 / hw) {
+        for (let k = 0; k <= e; k++) { const [x, y] = at(u, k / hw, zs); put(x, y, isoTone(plank, k === e ? 0.92 : k === 0 ? 0.3 : 0.74, Math.round(x), Math.round(y), 0.2)); mark(x, y, u, k / hw, zs); }
+        for (let z = 1; z <= 3; z++) { const [x, y] = at(u, e / hw, zs - z); put(x, y, z === 3 ? ink : isoTone(plank, 0.5 - z * 0.08, Math.round(x), Math.round(y), 0)); }
+        // the shelf's shadow on the boards under it
+        for (let z = 4; z <= 6; z++) { const [x, y] = at(u, 0, zs - z); const i = (Math.round(y) * w + Math.round(x)) * 4; if (d[i + 3] && z - 4 < 2) put(x, y, mixHex([d[i], d[i + 1], d[i + 2]], ink, 0.35)); }
+      }
+      // iron brackets under it
+      for (const u of [0.14, 0.5, 0.88]) for (let k = 0; k <= e; k++) { const [x, y] = at(u, k / hw, zs - 1 - (e - k)); put(x, y, IC.m3); const [x2, y2] = at(u, 0, zs - 1 - k); put(x2, y2, IC.m2); }
+      // the goods standing on it, each with its contact shadow
+      let u = u0 + 0.03;
+      for (let n = 0; u < u1 - 0.04; n++) {
+        const [kind, cols] = SHOP_SHELF[n % SHOP_SHELF.length], spr = SHOP_GOODS[kind], C = { k: ink, 1: pxHex(cols[0]), 2: pxHex(cols[1]), 3: pxHex(cols[2]), L: pxHex("#f4f0ff"), c: pxHex("#946027"), m: pxHex("#8a8494"), h: pxHex("#e4dfe8") };
+        const sw2 = spr[0].length * sc, [bx, by] = at(u, e * 0.5 / hw, zs), x0 = Math.round(bx - sw2 / 2), y0 = Math.round(by) - spr.length * sc;
+        for (let k = -1; k <= sw2; k++) { const i = ((y0 + spr.length * sc) * w + x0 + k) * 4; if (d[i + 3]) put(x0 + k, y0 + spr.length * sc, mixHex([d[i], d[i + 1], d[i + 2]], ink, 0.4)); }
+        sprite(spr, C, x0, y0);
+        u += (sw2 + 2 + Math.round(pxHash(n, seed) * 3)) / hw;
+      }
+    }
+    // the lanterns' warm light on the counter, the posts, the floor and the walls round them
+    for (const L of SH.lamps) lights.push({ u: L.u + 0.03, v: L.v, z: L.z, r: hw * 0.5, col: "#f2b45a", k: 0.9 });
+  }
+  function after() {
+    for (const L of SH.lamps) {
+      const [hx, hy] = at(L.u, L.v, zo - SH.hem * 0.5), [lx, ly] = at(L.u, L.v, L.z + 6 * sc);
+      // the chain from the hem, then the lantern, and a soft warm glow round its glass on whatever's painted behind it
+      for (let y = Math.round(hy); y < Math.round(ly); y++) for (let a = 0; a < sc; a++) put(Math.round(lx) + a, y, Math.floor(y / sc) % 2 ? IC.m3 : IC.m2);
+      const R = SH.glow, gx = Math.round(lx), gy = Math.round(ly) + 7 * sc, warm = pxHex("#f6d488");
+      for (let y = gy - R; y <= gy + R; y++) for (let x = gx - R; x <= gx + R; x++) {
+        const dd = Math.hypot(x - gx, y - gy) / R + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * 0.25, i = (y * w + x) * 4;
+        if (dd >= 1 || x < 0 || y < 0 || x >= w || y >= h || !d[i + 3]) continue;
+        put(x, y, mixHex([d[i], d[i + 1], d[i + 2]], warm, dd < 0.45 ? 0.3 : 0.14));
+      }
+      const C = { k: IC.m4, m: IC.m3, h: IC.m2, W: pxHex("#fffbe6"), A: pxHex("#f6c46a"), B: pxHex("#e08a35"), L: pxHex("#fff0b5") };
+      sprite(SHOP_LANTERN, C, gx - 4 * sc, Math.round(ly));
+    }
+  }
+}
+
+
+/** Where the river runs past the shop on screen (art pixels): level with the middle of the open front's opening. */
+function shopRiverY() {
+  const q = v => v / PX, SH = shopShell(q(N.isoW), q(N.isoWall), PX);
+  return Math.round(q(N.isoTop + N.isoH * 0.5) - (SH.zc + SH.zo) / 2);
+}
+/**
+ * The shop's backdrop: the valley's river running past the open front, in the map's own colours (its water, its glints and
+ * its dark banks: WM_COL), under the same night sky as the forge's but with low round hills and trees beyond the water instead
+ * of its pines; a meadow of grass in horizontal strokes on the near bank, reeds along both, and a landing at either side
+ * stacked with crates and sacks. w×h art pixels; floor is where the ground meets the room, ry where the river runs, S the room's scale.
+ */
+function paintShopBackdrop(w, h, floor, ry, S = 1) {
+  const T = NIGHT.smithy, C = WM_COL, c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data, seed = 83, hx = a => a.map(pxHex);
+  const sky = hx(T.sky), ground = hx(T.ground), white = pxHex("#ffffff"), moonC = hx(T.moonCol), ink = pxHex("#0b0614");
+  const fy = Math.round(h * floor), rw = Math.max(8, Math.round(18 * S)), r0 = Math.round(clamp(ry, h * 0.12, fy - rw - 6) - rw / 2), r1 = r0 + rw;
+  const mx = w * T.moon[0], my = h * T.moon[1], mr = Math.max(6, Math.min(w, h) * T.moon[2] * 1.6);
+  // the far bank: gentle hills, and round trees standing on them (their crowns lit on the moon's side)
+  const top = new Float32Array(w), tree = new Uint8Array(w);
+  for (let x = 0; x < w; x++) top[x] = r0 - 3 - Math.round((10 + 14 * pxNoise(x * 0.012, seed)) * S);
+  for (let k = 0; k < Math.round(w / (9 * S)); k++) {
+    const tx = Math.round(pxHash(k, seed) * w), tr = (4 + 5 * pxHash(k, seed + 1)) * S, ty = top[clamp(tx, 0, w - 1)] - tr * 0.6;
+    for (let x = Math.floor(tx - tr); x <= tx + tr; x++) if (x >= 0 && x < w) { const t2 = ty - Math.sqrt(Math.max(0, tr * tr - (x - tx) ** 2)) * 1.1; if (t2 < top[x]) { top[x] = t2; tree[x] = 1; } }
+  }
+  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    let col;
+    const md = Math.hypot(x - mx, y - my);
+    if (y >= fy) col = pxPick(ground, Math.max(0.28, 0.75 - (y - fy) / Math.max(16, (h - fy) * 0.7)) + pxFbm(x * 0.3, y * 0.3) * 0.25, x, y);
+    else if (y > r1) {
+      // the near bank: grass in strokes along it, darker away from the water, a dark lip where it meets the river
+      const stroke = pxNoise(x * 0.22 + seed, y * 1.3), k = 0.62 - 0.4 * (y - r1) / Math.max(8, fy - r1) + (stroke > 0.6 ? 0.18 : stroke < 0.3 ? -0.12 : 0);
+      col = y <= r1 + 1 ? C.g1 : pxPick([C.g0, C.g1, C.g2, C.g3, C.g4], k, x, y);
+    } else if (y >= r0) {
+      // the river: deep along the far bank's shadow, the map's blue in the middle, its pale blue in ripples and at the near
+      // edge; glints here and there, and the moon's reflection broken into dashes under it
+      const t = (y - r0) / rw, rip = pxNoise(x * 0.11 + seed, y * 0.85);
+      col = y < r0 + 2 ? C.sea : pxPick([C.sea, C.sea2, C.w0, C.w1], 0.2 + 0.55 * t + (rip > 0.66 ? 0.3 : rip < 0.3 ? -0.12 : 0), x, y);
+      if (pxHash(x, y + seed) > 0.992) col = C.foam;
+      if (Math.abs(x - mx) < mr * (0.5 + 0.8 * t) && y % 2 === 0 && pxNoise(x * 0.5, y * 0.7 + 3) > 0.45) col = pxNoise(x * 0.9, y) > 0.6 ? moonC[1] : C.foam;
+    } else if (y >= top[x]) {
+      // the far bank: trees and hills in the map's darkest greens, lit along their tops; a dark lip on the water
+      col = y >= r0 - 1 ? C.g1 : y - top[x] < 1.5 ? (tree[x] ? C.g2 : C.g1) : pxPick([C.g0, C.g0, C.g1], 0.4 + 0.3 * pxFbm(x * 0.2, y * 0.2), x, y);
+    } else if (md < mr) col = pxPick(moonC, 0.95 - 0.5 * (md / mr) ** 2 - 0.3 * pxSmooth(0.55, 0.7, pxFbm(x * 0.35 + seed, y * 0.35)), x, y);
+    else {
+      col = pxPick(sky, y / r0 * 0.75 + Math.max(0, 0.35 - (md - mr) / (w * 0.35)), x, y);
+      if (pxHash(x, y + seed) > 0.994 && y < r0 * 0.8) col = pxHash(y, x) > 0.5 ? white : pxHex("#d2bfff");
+    }
+    const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+  }
+  // reeds along both banks, leaning a little, a pale tip on some
+  for (let x = 0; x < w; x++) for (const [by, n] of [[r1 + 1, 0.55], [r0, 0.75]]) {
+    if (pxHash(x, by + seed) > n) continue;
+    const hgt = Math.round((2 + 4 * pxHash(x + 7, by)) * S), lean = pxHash(by, x) > 0.5 ? 1 : 0;
+    for (let k = 0; k < hgt; k++) put(x + (k > hgt * 0.6 ? lean : 0), by - k, k === hgt - 1 && pxHash(x, 3) > 0.7 ? C.sand2 : k < 2 ? C.g1 : C.g3);
+  }
+  // a landing on the near bank at either side: boards out over the water on posts, crates and sacks stacked on it
+  const wood = [C.d0, C.d1, C.d2, C.d3], s = Math.max(1, Math.round(S));
+  for (const lx of [Math.round(w * 0.1), Math.round(w * 0.9)]) {
+    const lw = 16 * s, ly = r1 - 2 * s;
+    for (let y = ly; y < r1 + 3 * s; y++) for (let x = lx - lw; x <= lx + lw; x++) put(x, y, y === ly ? wood[3] : (x - lx + lw) % (4 * s) === 0 ? wood[0] : y > r1 + 2 * s - 1 ? wood[0] : wood[pxHash(Math.floor((x - lx) / (4 * s)), seed) > 0.5 ? 2 : 1]);
+    for (const px of [lx - lw + s, lx + lw - s]) for (let y = r1 + 3 * s; y < r1 + 7 * s; y++) { put(px, y, wood[0]); put(px - 1, y, ink); }
+    // two crates, one on the other, and a sack leaning on them: each with a dark outline, a lit top and left face, slats
+    const crate = (x0, y0, cw, ch) => {
+      for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+        const edge = x === 0 || y === 0 || x === cw - 1 || y === ch - 1;
+        put(x0 + x, y0 + y, edge ? ink : y === 1 ? wood[3] : x === 1 ? wood[3] : (y - 1) % (3 * s) === 0 ? wood[0] : x > cw - 3 ? wood[1] : wood[2]);
+      }
+      put(x0 + 1, y0 + 1, pxHex("#e2c08d"));
+    };
+    const side = lx < w / 2 ? 1 : -1, cw = 10 * s, ch = 8 * s, cx0 = lx - cw / 2 - side * 5 * s;
+    for (let x = cx0 - 1; x <= cx0 + cw + 3 * s; x++) put(x, ly - 1, mixHex([d[(ly - 1) * 4 * w + x * 4], d[(ly - 1) * 4 * w + x * 4 + 1], d[(ly - 1) * 4 * w + x * 4 + 2]], ink, 0.4));
+    crate(cx0, ly - ch, cw, ch); crate(cx0 + s, ly - 2 * ch + s, cw - 2 * s, ch - s);
+    const sx = cx0 + (side > 0 ? cw + 2 * s : -4 * s), sr = 4 * s;
+    for (let y = -2 * sr; y <= 0; y++) for (let x = -sr; x <= sr; x++) {
+      const e = Math.hypot(x / sr, (y + sr) / (sr * 1.1));
+      if (e > 1.05 && !(y < -2 * sr + 2 * s && Math.abs(x) < s)) continue;
+      put(sx + x, ly - 1 + y, e > 0.88 ? ink : x < -sr * 0.3 ? pxHex("#a88a5e") : x > sr * 0.4 ? pxHex("#4a3420") : pxHex("#7a5a38"));
+    }
+    put(sx, ly - 1 - 2 * sr - 1, ink); put(sx - 1, ly - 1 - 2 * sr, pxHex("#a88a5e"));
+  }
+  g.putImageData(img, 0, 0);
+  return c;
+}
+
 /** The isometric room in art pixels: a diamond floor on a thick slab, and (indoors) a lit left wall and a shaded right one.
  *  Every surface is a material laid along its own plane, lit from the top left: caves are layered rock with ledges and
  *  fissures over a pebbly floor; the abbey dressed stone in courses over flagstones; the timber hall an oak frame with
@@ -4657,6 +4933,8 @@ function paintRoomIso(id) {
     }
   };
   const ink = pxHex("#0b0614"), at = (u, v) => [cx + (u - v) * hw, top + (u + v) * hh];
+  // the shop has a shell of its own (#278): board walls, an open counter front under an awning, lanterns (paintShopShell)
+  const shop = roomKindNow === "shop" && kind === "timber" && paintShopShell({ put, mark, d, w, h, cx, top, hw, hh, wall, S, seed, lights, stoneR: ruinStone, hexes, px: PX });
   const lightAt = (u, v) => Math.exp(-(((u - 0.35) / 0.5) ** 2) - (((v - 0.5) / 0.6) ** 2));
 
   // the slab under the floor: its two front faces, the left one lit, the right one in shade (outdoors the room is part of the land: no slab)
@@ -4715,6 +4993,17 @@ function paintRoomIso(id) {
       const yTop = base - wall * ruinH(tt) - (crypt ? wall * 0.22 * (1 - tt) + 2 : kind === "cave" ? wall * (0.22 * (1 - tt) + 0.16 * pxNoise(x * 0.05, seed)) + 4 * pxNoise(x * 0.3, seed + 4) - 2 : 0);
       for (let y = Math.floor(yTop); y < base; y++) {
         const z = base - y;
+        if (shop) {
+          // (nothing is painted in the open front: the river in the backdrop shows through it)
+          const m = shop.wallPx(al, z, sl, x, y);
+          if (!m) continue;
+          let val = m.v;
+          if (al < 10 * S && !m.post) val -= 0.14 * (1 - al / (10 * S));   // the corner's own shadow
+          if (Math.abs(x - cx) > hw - 1) val = 0.1;                         // the open ends
+          put(x, y, isoTone(m.ramp, val, x, y, 0.15));
+          mark(x, y, side < 0 ? 0 : tt, side < 0 ? tt : 0, z);
+          continue;
+        }
         let val, ramp = wallC;
         if (kind === "cave" && !crypt) {
           // the gallery's rock is shored up with oak: posts against it, a cap along the top, a knee brace in each corner;
@@ -4792,8 +5081,8 @@ function paintRoomIso(id) {
     const sky = (night ? night.sky : ["#0d0a2a", "#160c33", "#2d2468", "#463592"]).map(pxHex);
     const white = pxHex("#ffffff"), moon = pxHex("#fff8d6");
     const glazed = kind === "timber", sillC = kind === "timber" ? [oak[1], oak[4]] : [wallC[1], wallC[Math.min(6, wallC.length - 1)]];
-    // (the grotto's hall is deep under the rock: no window there, and no moonlight on its floor)
-    if (roomKindNow === "grotto") {}
+    // (the grotto's hall is deep under the rock: no window there, and no moonlight on its floor; the shop's front is open)
+    if (roomKindNow === "grotto" || shop) {}
     // (the moss garden has no window: its light comes down a shaft from a crack in the vault, see paintMossGarden; nor has any
     // cave at home that isn't a crystal cave: each has its own light, see paintMood)
     else if (garden || (mood && mood !== "crystal")) {}
@@ -4940,8 +5229,10 @@ function paintRoomIso(id) {
       }
       for (const [u0, v0] of [[0.86, 0.12], [0.1, 0.9]]) { const [bx, by] = at(u0, v0); for (let yy = 0; yy < 4; yy++) for (let xx = -4; xx <= 4; xx++) put(bx + xx, by - yy, pxPick(ruinStone, yy === 3 ? 0.8 : xx < 0 ? 0.55 : 0.35, xx, yy)); }
     }
+    if (shop) shop.paint();
     const glowing = mood && paintMood({ mood, put, d, w, h, at, cx, top, hw, hh, wall, S, seed, lights, art, crys, oak, ashlar, ice, wallC, plH });
     shine(lights);
+    if (shop) shop.after();
     if (glowing) glowing();
     if (garden || mood === "grotto") paintMossGarden({ put, d, w, h, at, cx, top, hw, hh, wall, S, seed, mossC, dirt, crys, whole: garden });
     else if (kind === "cave" && mood !== "gallery" && !crypt) {
