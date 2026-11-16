@@ -69,6 +69,9 @@ function migrate(d) {
   if (!(d.room >= 0 && d.room < d.rooms.length)) d.room = 0;
   // everyone has a way outside, to the garden
   if (!d.rooms.some(r => r.kind === "yard")) d.rooms.push({ kind: "yard", on: [] });
+  // a moss garden built before its glowcaps were found had no backdrop of its own: it's their grotto now (the room you're in
+  // keeps its backdrop in d.theme, the others in their own entry)
+  d.rooms.forEach((r, i) => { if (r.kind !== "garden") return; if (i === d.room) d.theme = d.theme || "glowcap"; else r.theme = r.theme || "glowcap"; });
   if (!d.bars) d.bars = { firefly: 2, nut: 1 };
   if (!d.oil || !Number.isFinite(d.oil.n)) d.oil = { n: 5, t: 0 };
   // dust bunnies used to belong to each glowling and showed up in every room: now they're the nest's own, three at most
@@ -725,19 +728,24 @@ function roomTheme(i, id) {
   const fits = roomThemes(i), own = ownTheme(i);
   return THEME[id] && (THEME[id].ok() || isPlace(i) || id === own) && fits.includes(id) ? id : own;
 }
-/** A room's own backdrop, there even before it's found: the moss room's green cave, the study's blue one, else the first that suits. */
+/** A room's own backdrop, there even before it's found: the moss garden's glowcap grotto, the study's blue cave, else the first that suits. */
 function ownTheme(i = save.room) {
   const kind = save.rooms && save.rooms[i] && ROOM_KINDS.find(k => k.id === save.rooms[i].kind), fits = roomThemes(i);
-  return kind && !kind.place && fits.includes(kind.cave || kind.theme) ? kind.cave || kind.theme : fits[0];
+  return kind && !kind.place && fits.includes(kind.theme) ? kind.theme : fits[0];
 }
-/** Which backdrops suit the room you're in: every room at home is a cave, outside is always under the sky, the map's places take any. */
+/** Which backdrops suit the room you're in: every room at home is a cave (the moss garden's glowcaps grow in a grotto of their
+ *  own there), outside is always under the sky, the map's places take any. */
 function roomThemes(i = save.room) {
   const kind = save.rooms && save.rooms[i] && save.rooms[i].kind, k = id => ROOM_KIND[id] || "cave";
-  const ids = THEMES.map(t => t.id);
+  const ids = THEMES.map(t => t.id), own = ROOM_KINDS.find(r => r.id === kind)?.theme;
   if (kind === "yard") return ids.filter(id => k(id) === "wood" || k(id) === "yard");
   if (kind && isPlace(i)) return ids;
-  return ids.filter(id => k(id) === "cave");
+  return ids.filter(id => k(id) === "cave" || id === own);
 }
+/** Is room i one of the caves at home (not the garden outside, nor a place in the valley)? */
+const atHome = (i = save.room) => !!(save.rooms && save.rooms[i]) && !isPlace(i);
+/** What sort of place a backdrop makes of room i: at home every one is a cave, elsewhere a hall, a ruin, a wood or a yard as it always was. */
+const lookOf = (id, i = save.room) => atHome(i) ? "cave" : ROOM_KIND[id] || "cave";
 
 // ---------- gothic little things: candles by the egg, bats in the dark ----------
 
@@ -795,7 +803,7 @@ function updateEventMotes(dt) {
   }
 }
 /** Is there open sky here? (the garden, the camp, a backdrop out of doors) — not inside a cave, the shop or the lab. */
-const skyHere = () => game.scene === "nest" && ["yard", "wood", "ruin"].includes(ROOM_KIND[currentTheme()] || "cave");
+const skyHere = () => game.scene === "nest" && ["yard", "wood", "ruin"].includes(lookOf(currentTheme()));
 function drawEventMotes() {
   const f = eventNow()?.fall;
   if (!f || !skyHere()) return;
@@ -822,12 +830,12 @@ function bgFor(scene) {
   // in the nest, the backdrop's ground meets the room: a clearing or a ruined hall stands on the land, a cave hollow opens onto the cave floor
   // in the isometric room the land goes on around it: outdoors the horizon lies behind the room, so the clearing is part of the
   // meadow and the hills, trees and mushrooms stand beyond it; a cave room stands on a rock shelf on the cave floor, crystals around it
-  const kind = ROOM_KIND[id] || "cave", outdoor = kind === "yard" || kind === "wood";
+  const home = scene === "nest" && atHome(), kind = scene === "nest" ? lookOf(id) : ROOM_KIND[id] || "cave", outdoor = kind === "yard" || kind === "wood";
   const floor = scene !== "nest" || !N.back ? 0.86 : N.iso && outdoor ? (N.isoTop - N.isoWall * 0.35) / H : (kind === "cave" ? N.front : N.back + 1) / H;
   // in the nest and on the title the cave floor runs on down behind the needs and the tabs, and under the title card (no dark band there)
   const deep = scene === "nest" || scene === "menu";
-  const key = `${id}|${floor.toFixed(3)}|${deep}`;
-  if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor, deep));
+  const key = `${id}|${floor.toFixed(3)}|${deep}|${home}`;
+  if (!bgCache.has(key)) bgCache.set(key, paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor, deep, home));
   return [id, key];
 }
 function drawBackground() {

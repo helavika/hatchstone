@@ -233,7 +233,7 @@ DECOR.push(
   { id: "musicbox", name: "Music box", emoji: "🎼", cost: 120, lovers: ["dance", "flutter"], verb: "sways to the music box", emote: "♪", iso: true, legend: true, how: "meet a legendary glowling" },
   { id: "bench", name: "Garden bench", emoji: "🪑", cost: 45, lovers: ["nap", "curious"], verb: "sits on the bench", emote: "♥", iso: true, rooms: ["yard", "garden"] },
   { id: "lamppost", name: "Lantern post", emoji: "🏮", cost: 55, lovers: ["flutter"], verb: "circles the lantern", emote: "✦", iso: true, rooms: ["yard", "garden"] },
-  { id: "birdbath", name: "Birdbath", emoji: "⛲", cost: 60, lovers: ["swim", "flutter"], verb: "splashes in the birdbath", emote: "💧", iso: true, rooms: ["yard", "garden"] },
+  { id: "birdbath", name: "Birdbath", emoji: "⛲", cost: 60, lovers: ["swim", "flutter"], verb: "splashes in the birdbath", emote: "💧", iso: true, rooms: ["yard"] },
   { id: "drum", name: "Little drum", emoji: "🥁", cost: 50, lovers: ["dance", "hop"], verb: "bangs the drum", emote: "♪", iso: true, rooms: ["play"] },
   { id: "blocks", name: "Toy blocks", emoji: "🧱", cost: 35, lovers: ["hop", "curious"], verb: "stacks the blocks", emote: "!", iso: true, rooms: ["play", "nest"] },
   { id: "telescope", name: "Telescope", emoji: "🔭", cost: 90, lovers: ["curious", "flutter"], verb: "looks at the stars", emote: "✦", iso: true, rooms: ["study", "yard"] },

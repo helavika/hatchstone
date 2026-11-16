@@ -324,7 +324,7 @@ function pixelCave(th, W, H, { floorY = H - 8, lx, ly = H * .62, crystals = 16, 
   const lr = W * .44, lh = H * .65;
   // per column, worked out once: the floor and ceiling lines, and only the crystals that reach that column (in the same order)
   const floorA = Float32Array.from({ length: W }, (_, x) => floor(x)), ceilA = Float32Array.from({ length: W }, (_, x) => ceil(x));
-  const colPts = Array.from({ length: W }, (_, x) => [...stones, ...pts].filter(([sx, , , sw]) => Math.abs(x - sx) <= sw + .5));
+  const colPts = Array.from({ length: W }, (_, x) => [...stones, ...pts].filter(([sx, , , sw]) => Math.abs(x - sx) <= sw * (th.caps ? 2.4 : 1) + .5));
   // a deep floor is rock in flat slabs, like the room's own walls: the nearest of a scatter of points owns each pixel, every slab
   // lit along its far edge and darker toward you, cracks between them, grit on top
   const ground = (x, y, f, light) => {
@@ -346,6 +346,14 @@ function pixelCave(th, W, H, { floorY = H - 8, lx, ly = H * .62, crystals = 16, 
       if (rock) {
         if (t >= 0 && t <= 1 && Math.abs(x - sx) <= sw * (1 - t) ** 1.5 + .5) { col = pxPick(wall, (x < sx ? .8 : .1) - ((sb - y) / reach % 2.5 < .6 ? .2 : 0) + light * .25 + pxFbm(x, y) * .08, x, y); break; }
         if (t < 0 && ((x - sx) / (sw + .5)) ** 2 + ((y - sb) / (sw * .35)) ** 2 < 1) { col = wall[0]; break; }
+        continue;
+      }
+      // (in a glowcap grotto they're glowing mushrooms, a pale stem under a domed cap, and moss hangs from the roof instead)
+      if (th.caps && t >= 0 && t <= 1) {
+        const dx = Math.abs(x - sx), cap = t > .55 && dx <= sw * 2.3 * Math.sqrt(Math.max(0, 1 - ((t - .55) / .45) ** 2)) + .5;
+        if (!up) { if (dx <= .5 + .5 * (pxHash(sx, seed) > .5)) { col = pxPick(wall, .55 + .4 * t + light * .2, x, y); break; } continue; }
+        if (cap) { col = t < .6 ? crys[0] : pxPick(crys, (x < sx ? .85 : .5) - (t - .55) * .25 + light * .2 + pxFbm(x, y) * .08, x, y); break; }
+        if (dx <= Math.max(.6, sw * .3)) { col = pxPick(crys, x < sx ? .7 : .45, x, y); break; }
         continue;
       }
       if (t >= 0 && t <= 1 && Math.abs(x - sx) <= sw * (1 - t) + .5) { col = pxPick(crys, (x < sx ? .8 - t * .15 : .4 + t * .15) + light * .25 + pxFbm(x, y) * .08, x, y); break; }
@@ -381,7 +389,7 @@ const THEMES = [
   { id: "malachite", name: "Malachite Deep", art: 2, how: "reach chapter III", ok: () => unlocked(13) },
   { id: "labradorite", name: "Labradorite Vault", art: 3, how: "reach chapter IV", ok: () => unlocked(19) },
   { id: "churchyard", name: "Moonlit Ruins", how: "open a moon egg", ok: () => !!save.moon },
-  { id: "glowcap", name: "Glowcap Wood", how: "collect 30 stars", ok: () => totalStars() >= 30 },
+  { id: "glowcap", name: "Glowcap Wood", home: "Glowcap Grotto", how: "collect 30 stars", ok: () => totalStars() >= 30 },
   { id: "abbey", name: "Starfall Abbey", how: "clear all 24 levels", ok: () => unlocked(LEVELS + 1) },
   { id: "frost", name: "Frost Hollow", art: 4, how: "meet 12 kinds of glowling", ok: () => Object.keys(save.seen).length >= 12 },
   { id: "smithy", name: "Timber Hall", how: "open the forge on the map", ok: () => placeOk("forge") },
@@ -389,6 +397,13 @@ const THEMES = [
 ];
 const THEME = Object.fromEntries(THEMES.map(t => [t.id, t]));
 const CAVE_THEME = ["amethyst", "celestite", "malachite", "labradorite"];
+/** Backdrops that are a cave of their own at home (every room there is a cave): the glowcaps grow in a grotto of mossy rock,
+ *  their caps glowing where a cave would have crystals. */
+const HOME_ART = {
+  glowcap: { seed: 29, wall: ["#0a0d0b", "#17221a", "#26391f", "#3a5527", "#557a34"], crystal: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5", "#f0fbff"], glow: "#b4e67a", caps: true },
+};
+/** The cave a backdrop is drawn as: at home its own grotto if it has one, else its chapter's cave (the first for one that has none). */
+const caveArt = (id, home) => (home && HOME_ART[id]) || CHAPTER_ART[(THEME[id] || THEME.amethyst).art ?? 0];
 
 /** Outdoor night scenes: sky, far hills, ground and mist ramps, a moon, and props drawn on top. */
 const NIGHT = {
@@ -597,11 +612,11 @@ const NIGHT_PROPS = {
 
 /** The backdrop for a theme at the size of the screen's art grid. */
 /** A backdrop; `floor` is where its ground line sits (a share of the height), so the nest can stand on it. */
-function paintTheme(id, w, h, floor = 0.86, deep = false) {
-  const t = THEME[id] || THEME.amethyst;
-  if (t.art === undefined) return pixelNight(t.id, w, h, floor);
-  const a = CHAPTER_ART[t.art];
-  const th = { seed: 5 + t.art * 7, wall: a.wall.map(pxHex), crystal: a.crystal.map(pxHex), glow: pxHex(a.glow), pool: a.pool?.map(pxHex), flash: a.flash?.map(pxHex), bands: a.bands };
+function paintTheme(id, w, h, floor = 0.86, deep = false, home = false) {
+  const t = THEME[id] || THEME.amethyst, own = home && HOME_ART[t.id];
+  if (t.art === undefined && !own) return pixelNight(t.id, w, h, floor);
+  const a = own || CHAPTER_ART[t.art];
+  const th = { seed: own ? a.seed : 5 + t.art * 7, wall: a.wall.map(pxHex), crystal: a.crystal.map(pxHex), glow: pxHex(a.glow), pool: a.pool?.map(pxHex), flash: a.flash?.map(pxHex), bands: a.bands, caps: a.caps };
   const c = pixelCave(th, w, h, { floorY: Math.round(h * floor), lx: w / 2, ly: h * 0.55, crystals: Math.round(w / 12), reach: h / 150, girth: 1.6, spill: 0.04, keepClear: Math.round(w * 0.32), deep });
   // cobwebs in the top corners
   const o = c.getContext("2d");
@@ -619,7 +634,8 @@ function paintTheme(id, w, h, floor = 0.86, deep = false) {
 }
 
 const themeThumbs = {};
-const themeThumb = id => themeThumbs[id] || (themeThumbs[id] = paintTheme(id, 96, 64).toDataURL());
+/** A backdrop's little picture (home: as it looks in a room at home, for one that's a cave of its own there). */
+const themeThumb = (id, home = false) => { const k = home && HOME_ART[id] ? id + "|home" : id; return themeThumbs[k] || (themeThumbs[k] = paintTheme(id, 96, 64, 0.86, false, home).toDataURL()); };
 
 /** Newly reached backdrops get a little announcement, once. */
 function checkThemes(quiet = false) {
