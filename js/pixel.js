@@ -15,6 +15,14 @@ function pxNoise(x, y) {
 const pxFbm = (x, y) => pxNoise(x, y) * .55 + pxNoise(x * 2.1, y * 2.1) * .3 + pxNoise(x * 4.3, y * 4.3) * .15;
 function pxSmooth(a, b, x) { const t = clamp((x - a) / (b - a), 0, 1); return t * t * (3 - 2 * t); }
 
+// Rust, drawn as the Gloom's opposite: where the Gloom is soft, round, violet and many-eyed, Rust is hard, flaking and angular,
+// a dry oxide red-brown gone grey with age, with green verdigris in its seams and cold steel where a flake has just come away.
+// It never has eyes. Kept dull and dark on purpose, so it can't be mistaken for the Heartlight's gold or a reward's orange.
+const PX_RUST = {
+  u0: "#191514", u1: "#2b221f", u2: "#41302a", u3: "#5c4034", u4: "#957060", // oxide, darkest to a dusty flake
+  cold: "#8d9aa2", vg0: "#2c4f49", vg1: "#4f8478",                              // a cold bare edge; verdigris, dark and light
+};
+
 // ---------- pixel icons: little sprites for buttons and labels, drawn from text maps ----------
 const PX_ICON_COLORS = { U: "#2f68c8", K: "#3a2440", w: "#efe6ff", W: "#ffffff", l: "#ad91e6", L: "#d2bfff", p: "#6b4fa8", d: "#3d2866", k: "#160c26", g: "#eec26a", G: "#fff0b5", o: "#c98f3a", b: "#946027", B: "#5e3a1c", r: "#e88bb1", R: "#c25586", s: "#e4dfe8", S: "#8a8494", z: "#5d5666", t: "#69b7d6", T: "#3383a8", m: "#57ad6a", M: "#a3dd9b", e: "#e0634f", E: "#b8323b" };
 const PX_ICON_MAPS = {

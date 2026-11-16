@@ -13,7 +13,7 @@ const WM_COL = Object.fromEntries(Object.entries({
   n0: "#b9b3c0", n1: "#e4dfe8", n2: "#ffffff",
   d0: "#4a2e16", d1: "#6b4a2a", d2: "#8a6238", d3: "#a77b48",
   w0: "#2f68c8", w1: "#69b7d6", ink: "#0b0614",
-  k0: "#1a1128", k1: "#26193c", k2: "#352454", k3: "#48316e", crack: "#b07af0",
+  ...PX_RUST,
   sn0: "#7d8cb4", sn1: "#aebcdc", sn2: "#d8e2f4", ice0: "#8fb6dc", ice1: "#c6def2",
 }).map(([k, v]) => [k, pxHex(v)]));
 
@@ -21,17 +21,17 @@ const WM_COL = Object.fromEntries(Object.entries({
 const WM_RIVER = [[208, 52], [204, 80], [216, 108], [210, 132], [196, 152], [202, 186], [192, 214], [198, 244], [180, 276], [154, 298], [124, 322], [98, 346]];
 /** The roads: the main one from the nest up to the grotto is wider; the others are lanes. */
 const WM_ROADS = [["forge", "gloom", 0.9, 10], ["lab", "frost", 0.9, -16], ["nest", "grotto", 2.2, 14], ["nest", "lab", 1.8, -14], ["lab", "shop", 1.6, 12], ["grotto", "forge", 1.4, -12], ["forge", "garden", 1.3, 10], ["garden", "shop", 1.3, -8], ["shop", "trail", 1.4, -12], ["lab", "garden", 1.1, 18]];
-/** Lands past the valley, not open yet: the Gloom's dark country in the west, snowfields in the east, an island, the aurora.
+/** Lands past the valley, not open yet: the west that Rust laid waste, snowfields in the east, an island, the aurora.
  *  Each has a veil, and ward spots along its road at the veil's edge (see wards.js): every stone set thins the veil a step,
  *  and once all of a land's spots stand guarded the veil lifts and the land shows, named like its sights (sparks.js). */
 const WM_MYSTERY = [
-  { id: "gloom", at: [44, 132], hint: "Mossa won't say what sleeps in the dark past the forge. Only that it's waiting.", name: "The Gloomreach", veil: "dark", thin: "The dark steps back" },
+  { id: "gloom", at: [44, 132], hint: "Mossa won't say what sleeps in the dark past the forge. Only that it's waiting.", name: "The Gloomreach", veil: "rust", thin: "The dark steps back" },
   { id: "frost", at: [360, 150], hint: "Snow, and something glittering under it. A door of ice?", name: "The snowfields", veil: "fog", thin: "The fog thins" },
   { id: "isle", at: [334, 322], hint: "A light blinks far out at sea, every night, as if someone keeps it.", name: "The isle", veil: "haze", thin: "The sea mist thins" },
   { id: "summit", at: [300, 34], hint: "Above the peaks the sky dances in green and pink. Somebody lives up there.", name: "The summit", veil: "cloud", thin: "The clouds part" },
 ].map(w => ({ ...w, wards: WARD_LAND[w.id].spots }));
 const wmAt = id => (WORLD.find(w => w.id === id) || WM_MYSTERY.find(w => w.id === id)).at;
-/** How far into the west (the Gloom's land) or the east (the snowfields) a point is, 0 to 1, with a ragged edge. */
+/** How far into the west (Rust's land) or the east (the snowfields) a point is, 0 to 1, with a ragged edge. */
 const wmWest = (x, y) => pxSmooth(0, 1, (100 - x) / 34 + (pxFbm(x / 15 + 2, y / 15) - 0.5) * 0.9);
 const wmEast = (x, y) => pxSmooth(0, 1, (x - 304) / 34 + (pxFbm(x / 15 + 5, y / 15) - 0.5) * 0.9) * pxSmooth(0, 1, (285 - y) / 30);
 
@@ -88,9 +88,9 @@ function worldBase() {
     else if (e < 0.62) col = pxPick([C.g0, C.g1, C.g2, C.g3, C.g4, C.g5], 0.42 + shade * 1.4 + (n - 0.5) * 0.45 + (e - 0.4) * 0.4, x, y);
     else if (e < 0.8) col = pxPick([C.r0, C.r1, C.r2, C.r3, C.r4], 0.45 + shade * 1.6 + (n - 0.5) * 0.3, x, y);
     else col = pxPick([C.r4, C.r5, C.n0, C.n1], (e - 0.8) * 3 + shade * 1.5, x, y);
-    // the Gloom's country: dark ground split by violet cracks; the east: snow, and ice where the sea was
+    // the west: ground gone to Rust, cracked into flaking plates; the east: snow, and ice where the sea was
     const west = wmWest(x, y), east = wmEast(x, y);
-    if (west > 0.5 && e >= 0.15 && e < 0.8) { const f = pxFbm(x / 6 + 1, y / 6); col = Math.abs(f - 0.5) < 0.012 ? C.crack : pxPick([C.k0, C.k1, C.k2, C.k3], 0.4 + shade * 1.4 + (n - 0.5) * 0.4, x, y); }
+    if (west > 0.5 && e >= 0.15 && e < 0.8) col = wmRustGround(x, y, shade, n);
     if (east > 0.5) col = e < 0.15 ? pxPick([C.ice0, C.ice1], 0.5 + (n - 0.5) * 0.8, x, y) : e < 0.8 ? pxPick([C.sn0, C.sn1, C.sn2, C.n2], 0.5 + shade * 1.6 + (n - 0.5) * 0.4, x, y) : col;
     if (e < 0.15 && east <= 0.5) water.push(i);
     else if (e < 0.185 && (h(x + 1, y) < 0.15 || h(x - 1, y) < 0.15 || h(x, y + 1) < 0.15 || h(x, y - 1) < 0.15)) shore.push(i);
@@ -106,7 +106,9 @@ function worldBase() {
       const x = Math.round(px + dx), y = Math.round(py + dy), dd = Math.hypot(dx, dy);
       if (dd > r.wid + 0.6 || x < 0 || y < 0 || x >= W || y >= H) continue;
       const i = y * W + x, onRiver = riverD[i] < 1.2 + 2.4 * y / H + 0.5;
-      put(x, y, onRiver ? ((x + y) % 3 ? C.d3 : C.d1) : dd > r.wid - 0.4 ? C.d1 : pxHash(x, y) > 0.9 ? C.n0 : pxPick([C.d2, C.d3], pxHash(y, x), x, y));
+      // (out in the west the road has rusted: oxide over the dirt, a cold glint where a flake came away)
+      const rusted = pxHash(x, y + 3) < wmWest(x, y) * 1.1;
+      put(x, y, onRiver ? ((x + y) % 3 ? C.d3 : C.d1) : rusted ? (dd > r.wid + 0.2 ? C.u0 : pxHash(x, y) > 0.85 ? C.cold : C.u4) : dd > r.wid - 0.4 ? C.d1 : pxHash(x, y) > 0.9 ? C.n0 : pxPick([C.d2, C.d3], pxHash(y, x), x, y));
     }
   }
   g.putImageData(im, 0, 0);
@@ -134,8 +136,15 @@ function worldBase() {
   for (let gy = 70; gy < H; gy += 5) for (let gx = 2; gx < W; gx += 6) {
     const x = gx + (pxHash(gx, gy) - 0.5) * 5, y = gy + (pxHash(gy, gx) - 0.5) * 4, i = Math.round(y) * W + Math.round(x), e = elev[i];
     if (!(e > 0.2 && e < 0.6) || pxFbm(x / 34 + 3, y / 34 + 7) < 0.5 || riverD[i] < 6 || roadD[i] < 5 || places.some(([px, py]) => Math.hypot(x - px, (y - py) * 1.2) < 26)) continue;
-    const pine = pxFbm(x / 20, y / 20 + 4) > 0.5, land = wmWest(x, y) > 0.5 ? "dead" : wmEast(x, y) > 0.5 ? "snow" : "";
+    if (wmWest(x, y) > 0.5) continue;
+    const pine = pxFbm(x / 20, y / 20 + 4) > 0.5, land = wmEast(x, y) > 0.5 ? "snow" : "";
     stand.push({ y, draw: () => wmTree(g, x, y, pine || land === "snow", pxHash(x | 0, y | 0), land) });
+  }
+  // in the west, a few trees Rust got to stand alone where a forest was
+  for (let gy = 96; gy < H; gy += 15) for (let gx = 4; gx < 100; gx += 17) {
+    const x = gx + (pxHash(gx, gy + 1) - 0.5) * 7, y = gy + (pxHash(gy, gx + 1) - 0.5) * 6, i = Math.round(y) * W + Math.round(x), e = elev[i];
+    if (wmWest(x, y) <= 0.5 || !(e > 0.17 && e < 0.7) || pxHash(gx, gy + 2) < 0.45 || roadD[i] < 4 || places.some(([px, py]) => Math.hypot(x - px, (y - py) * 1.2) < 22)) continue;
+    stand.push({ y, draw: () => wmTree(g, x, y, false, pxHash(x | 0, y | 0), "rust") });
   }
   // the far-off secrets, half seen
   for (const w of WM_MYSTERY) stand.push({ y: w.id === "summit" ? 90 : w.at[1], draw: () => g.drawImage(wmMysteryArt(w.id), Math.round(w.at[0] - 20), Math.round(w.at[1] - 40)) });
@@ -173,11 +182,18 @@ function wmTree(g, x, y, pine, r, land = "") {
   x = Math.round(x); y = Math.round(y);
   const C = WM_COL, px = (a, b, col) => { g.fillStyle = `rgb(${col})`; g.fillRect(a, b, 1, 1); };
   g.fillStyle = "rgba(5,10,20,.45)"; g.fillRect(x - 1, y, 5, 1); g.fillRect(x, y + 1, 4, 1);
-  if (land === "dead") {
-    // a dead tree: a bare grey trunk with crooked branches
-    const tall = 6 + Math.round(r * 5);
-    for (let k = 0; k < tall; k++) px(x, y - k, C.r4);
-    for (const [k, side] of [[0.5, -1], [0.7, 1], [0.85, -1]]) { const by = y - Math.round(tall * k); for (let j = 1; j <= 3; j++) px(x + side * j, by - Math.floor(j / 2), C.r5); }
+  if (land === "rust") {
+    // a tree Rust got to: a bare trunk lit pale on its west side and dark on its east, snapped off at the top with a cold bare
+    // edge, its branches bent at hard right angles with a dark underside, their ends flaking; verdigris in the fork of a few
+    const tall = 8 + Math.round(r * 5), h = pxHash(x, y);
+    for (let k = 0; k < tall; k++) { const thick = k < tall * 0.55; px(x, y - k, thick ? C.u4 : C.u3); px(x + 1, y - k, thick ? C.u0 : C.u1); }
+    px(x, y - tall, C.cold); px(x + 1, y - tall, C.u0);
+    for (const [k, side, out] of [[0.4, -1, 3], [0.6, 1, 3], [0.8, -1, 2]]) {
+      const by = y - Math.round(tall * k), x0 = side < 0 ? x : x + 1;
+      for (let j = 1; j <= out; j++) { px(x0 + side * j, by, C.u3); px(x0 + side * j, by + 1, C.u0); }
+      px(x0 + side * out, by - 1, C.u3); px(x0 + side * out, by - 2, pxHash(x + side, by) > 0.6 ? C.cold : C.u4);
+    }
+    if (h > 0.55) px(x, y - Math.round(tall * 0.4) - 1, C.vg1);
     return;
   }
   if (pine) {
@@ -197,6 +213,35 @@ function wmTree(g, x, y, pine, r, land = "") {
       px(x + a, y - rad - 1 + b, a * a + b * b > (rad - 1) * (rad - 1) + 1 ? C.g1 : lit > rad * 0.5 ? C.g5 : lit > -rad * 0.3 ? C.g4 : C.g2);
     }
   }
+}
+/** One pixel of ground gone to Rust: dark corroded earth (lit from the north-west like the rest of the land), split by long
+ *  angular cracks with a lit lip on their north-west side, and here and there a flake of lighter oxide lifting off it, its
+ *  north-west edge caught bright or bare cold steel; verdigris grows along some of the cracks. */
+function wmRustGround(x, y, shade, n) {
+  const C = WM_COL, crack = (x, y) => { const [gap, a, b] = wmRustCell(x, y); return gap < 1 && pxHash(Math.min(a, b), Math.max(a, b)) < 0.45; };
+  const [gap, id] = wmRustCell(x, y);
+  if (crack(x, y)) return pxHash(id, 11) < 0.25 && pxHash(x, y) < 0.5 ? C.vg0 : C.u0;
+  if (crack(x - 1, y - 1) || crack(x - 1, y)) return C.u2;
+  if (crack(x + 1, y + 1)) return C.u0;
+  // a flake: a lighter plate shrunk inside its cell, lit along its top and left, shadowed under
+  if (pxHash(id, 5) < 0.16 && gap > 3) {
+    if (wmRustCell(x - 1, y)[0] <= 3 || wmRustCell(x, y - 1)[0] <= 3) return pxHash(x, y) > 0.75 ? C.cold : C.u4;
+    if (wmRustCell(x + 1, y + 1)[0] <= 3) return C.u0;
+    return pxPick([C.u2, C.u3], 0.6 + shade, x, y);
+  }
+  if (pxHash(x + 5, y) > 0.99) return C.u4;
+  return pxPick([C.u0, C.u1, C.u2], 0.38 + shade * 1.6 + (n - 0.5) * 0.5, x, y);
+}
+/** Which plate of the cracked ground a pixel is on, how far it is from that plate's edge, and the plate across that edge
+ *  (straight-edged cells round jittered points: [gap, id, id across]). */
+function wmRustCell(x, y) {
+  const S = 11, gx = Math.floor(x / S), gy = Math.floor(y / S);
+  let d1 = Infinity, d2 = Infinity, id = 0, id2 = 0;
+  for (let j = -1; j <= 1; j++) for (let i = -1; i <= 1; i++) {
+    const cx = gx + i, cy = gy + j, d = Math.hypot((cx + 0.1 + pxHash(cx, cy) * 0.8) * S - x, (cy + 0.1 + pxHash(cy, cx) * 0.8) * S - y), k = cx * 977 + cy;
+    if (d < d1) { d2 = d1; id2 = id; d1 = d; id = k; } else if (d < d2) { d2 = d; id2 = k; }
+  }
+  return [d2 - d1, id, id2];
 }
 /** Each place as a little building (40×36 art pixels, standing on its spot at the bottom middle), in the room's own iso style. */
 const wmPlaceCache = {};
@@ -288,12 +333,16 @@ function wmMysteryArt(id) {
     }
   });
 }
-// pre-painted veils: darkness over the Gloom's land, a bank of fog over the snowfields, sea mist round the isle, cloud on the
+// pre-painted veils: dry oxide dust blown over the west, a bank of fog over the snowfields, sea mist round the isle, cloud on the
 // peaks, and night at the edges (drawn breathing each frame). `keep` thins a land's veil as its wardstones go up: 1 is untouched,
 // 0 is gone. A thinner veil is the same dither with a lower bar, so every step only takes pixels away, never moves them.
 const WM_VEILS = {
-  // tendrils of dark, thicker towards the west edge; thin enough to make out the tower and the dead trees
-  dark: (x, y) => [wmWest(x, y) * 0.75 - 0.1 + (pxFbm(x / 9 + 4, y / 7) - 0.5) * 0.9 + pxSmooth(0, 1, (30 - x) / 30) * 0.4, [10, 4, 20, 210]],
+  // Rust's dust on the west wind: a dull dark haze with hard-edged streaks of paler grit through it (blocky across, thin
+  // down), thicker towards the west edge; thin enough to make out the tower and the trees. Never a warm glow: that's the Heartlight's
+  rust: (x, y) => {
+    const streak = pxFbm(Math.floor(x / 4) / 5 + 4, y / 2.2);
+    return [wmWest(x, y) * 0.75 - 0.1 + (pxFbm(x / 9 + 4, y / 7) - 0.5) * 0.6 + pxSmooth(0, 1, (30 - x) / 30) * 0.4, streak > 0.6 ? [104, 88, 84, 215] : [30, 22, 21, 215]];
+  },
   fog: (x, y) => [wmEast(x, y) * 0.7 - 0.2 + (pxFbm(x / 13 + 3, y / 13) - 0.5) * 0.8, [228, 234, 246, 190]],
   // a ring of sea mist round the lighthouse's rock; its light still blinks through
   haze: (x, y) => [(1 - Math.hypot(x - 334, (y - 316) * 1.25) / 40) * 1.3 + (pxFbm(x / 8 + 7, y / 8) - 0.5) * 0.8, [200, 212, 236, 200]],
@@ -325,7 +374,7 @@ function wmVeilDraw(g, id, alpha, now) {
 
 // ---------- the living map: water that sparkles, smoke from the chimneys, fireflies, clouds drifting over ----------
 
-const wm = { raf: 0, t0: 0, smoke: [], flies: [], cv: null, K: 3, fade: {}, rise: {}, lifting: null, press: null, hint: null };
+const wm = { raf: 0, t0: 0, smoke: [], flies: [], cv: null, K: 3, fade: {}, rise: {}, lifting: null, press: null, hint: null, rustRoad: null, scrape: null };
 const WM_CHIMNEYS = { forge: [8, -26], nest: [9, -27], trail: [-2, -2] };
 function worldFrame(now) {
   const base = worldBase(), cv = wm.cv, g = cv.getContext("2d"), C = WM_COL, t = now / 1000;
@@ -352,7 +401,9 @@ function worldFrame(now) {
   for (let x = 220; x < WM_W; x++) { const y = 10 + Math.sin(x / 17 + t * 0.6) * 6 + Math.sin(x / 7 + t) * 2; for (let k = 0; k < 6; k++) put(x, y + k, k < 3 ? WM_COL.foam : [232, 139, 177], 0.18 + 0.12 * Math.sin(t + x / 30)); }
   // the veils stay put and only breathe: nudged a pixel at a time, their dither crawled and the map's edges peeked out from under them
   wmVeilDraw(g, "summit", 0.9 + Math.sin(t * 0.2) * 0.1, now);
-  wmVeilDraw(g, "gloom", 0.92 + Math.sin(t * 0.7) * 0.06, now);
+  // (Rust's dust doesn't breathe like the others: it only lies there, and creeps along its road, see wmRustFrame)
+  wmVeilDraw(g, "gloom", 0.94, now);
+  wmRustFrame(g, t);
   wmVeilDraw(g, "frost", 0.88 + Math.sin(t * 0.15) * 0.12, now);
   wmVeilDraw(g, "isle", 0.85 + Math.sin(t * 0.3) * 0.1, now);
   g.drawImage(wmVeil("night"), 0, 0);
@@ -371,6 +422,22 @@ function worldFrame(now) {
     }
   }
   wm.raf = requestAnimationFrame(worldFrame);
+}
+
+/** Rust creeping along the western road from the land it laid waste, a pixel at a time: each creep a flaking head with its
+ *  stain behind it. With less motion it stays where it is. */
+function wmRustFrame(g, t) {
+  const C = WM_COL;
+  if (!wm.rustRoad) wm.rustRoad = wmCurve(wmAt("forge"), wmAt("gloom"), 10).filter(([x]) => x > 46 && x < 118).reverse();
+  for (const [x, y, k, i] of wmRustCrawl(wm.rustRoad, t, opts().calm)) {
+    // the stain it leaves behind, the flaking head (a cold glint where a flake has just come away), a fleck come loose beside it
+    const at = j => wm.rustRoad[Math.max(0, i - j)].map(Math.round), p = (q, col, w = 1) => { g.fillStyle = `rgb(${col})`; g.fillRect(q[0], q[1], w, 1); };
+    const hx = Math.round(x), hy = Math.round(y);
+    g.globalAlpha = k * 0.85; p(at(4), C.u1); p(at(3), C.u2); p(at(2), C.u3);
+    g.globalAlpha = k; p([hx - 1, hy + 1], C.u0, 3); p(at(1), C.u3, 2); p([hx, hy], C.u4); p([hx + 1, hy], C.cold); p([hx, hy - 1], C.u3); p([hx + 1, hy - 1], C.u4);
+    if (pxHash(i, 6) > 0.6) p([hx - 1, hy], C.vg1);
+  }
+  g.globalAlpha = 1;
 }
 
 // ---------- wardstones: Ember forges them, you set them at the edge of the fog, and the lands past the valley come out of it ----------
@@ -596,6 +663,32 @@ const wmPanTo = (p, size, view) => wmPanClamp(p - view / 2, size, view);
 const WM_TAP = 8;
 const wmDragged = (dx, dy) => Math.hypot(dx, dy) > WM_TAP;
 
+// ---------- Rust in the west: its slow creep along the road, and the dry scrape you hear when you look that way ----------
+// (plain sums too, for tests/rust-look.test.cjs)
+
+/** How many creeps of Rust are on the western road, and how much of the road one crawls in a second (the length in ~2 minutes). */
+const WM_CREEPS = 7, WM_CRAWL = 1 / 120;
+/** Where each creep is on the road (points from the west end in), at t seconds: [x, y, how strongly it shows, point index].
+ *  Each fades in at the west end and out at the east, where it gives up. With less motion they never move. */
+function wmRustCrawl(pts, t, calm) {
+  if (pts.length < 2) return [];
+  return Array.from({ length: WM_CREEPS }, (_, k) => {
+    const s = (k / WM_CREEPS + pxHash(k, 9) * 0.06 + (calm ? 0 : t * WM_CRAWL)) % 1, i = Math.floor(s * (pts.length - 1));
+    return [pts[i][0], pts[i][1], Math.min(1, s * 6, (1 - s) * 3), i];
+  });
+}
+// the window looks into the west once its left edge is this near the map's own (art pixels): Rust's land fills its side
+const WM_WEST = 40;
+const wmLooksWest = left => left < WM_WEST;
+/** Should the scrape sound now? Only as the window comes into the west from outside it, and once a visit to the map
+ *  (st: { west: is it looking west already, scraped: has it sounded this visit }, updated). */
+function wmScrapeDue(st, west) {
+  const due = west && !st.west && !st.scraped;
+  st.west = west;
+  if (due) st.scraped = true;
+  return due;
+}
+
 // ---------- the map sheet: laid out, opened, dragged about, and the strip under it ----------
 
 /** The sizes at which the map would just fit the sheet's width, and its height. */
@@ -650,12 +743,18 @@ function openWorld() {
   const sc = $("worldScroll"), [hx, hy] = wmAt(here);
   sc.scrollLeft = wmPanTo(map.offsetLeft + hx * wm.K, sc.scrollWidth, sc.clientWidth); sc.scrollTop = wmPanTo(map.offsetTop + (hy - 14) * wm.K, sc.scrollHeight, sc.clientHeight);
   cancelAnimationFrame(wm.raf); wm.raf = requestAnimationFrame(worldFrame);
+  // a new visit: Rust may scrape once, if you look west (not if the map opens looking there already)
+  wm.scrape = { west: wmLooksWest(wmViewLeft()), scraped: false };
   litTabs();
   if (wardsOpen()) setTimeout(() => worldOpen() && talk("wardSpots"), 600);
 }
+/** The art pixel at the window's left edge. */
+function wmViewLeft() { const sc = $("worldScroll"); return (sc.scrollLeft - $("worldMap").offsetLeft) / wm.K; }
+/** However the map moved (a drag, the wheel, a zoom), looking west for the first time this visit, you hear Rust. */
+function wmScrolled() { if (wm.scrape && worldOpen() && wmScrapeDue(wm.scrape, wmLooksWest(wmViewLeft()))) sfx.scrape(); }
 function zoomWorld(dir) { sfx.tick(); layoutWorld(wm.zoom + dir, true); }
 function closeWorld() {
-  cancelAnimationFrame(wm.raf); wm.raf = 0;
+  cancelAnimationFrame(wm.raf); wm.raf = 0; wm.scrape = null;
   show("worldSheet", false);
   if (game.scene === "nest") setHint(nestHint());
   litTabs();
@@ -705,6 +804,7 @@ function wmClick(e) {
 $("worldSheet").addEventListener("pointerdown", () => { if (wm.press && wm.press.up) wm.press = null; }, true);
 $("worldScroll").addEventListener("pointerdown", wmPress);
 $("worldScroll").addEventListener("pointermove", wmDrag);
+$("worldScroll").addEventListener("scroll", wmScrolled, { passive: true });
 for (const ev of ["pointerup", "pointercancel"]) addEventListener(ev, wmRelease);
 $("worldSheet").addEventListener("click", wmClick, true);
 

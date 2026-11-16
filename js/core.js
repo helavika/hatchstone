@@ -431,6 +431,16 @@ const sfx = {
     [1568, 2093, 2637, 3136].forEach((f, i) => this.tone(t + i * 0.06, f, 0.05, 1.2, "sine", null, true));
   },
 
+  /** Rust, heard from the west: a dry scrape, metal dragged over stone in a few uneven ticks that slow and catch, and a
+   *  rasp under them. No note in it at all (where the Gloom hums low and round). */
+  scrape() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.wash(t, 0.5, 2600, 1300, 3, 0.03);
+    [0, 0.07, 0.12, 0.2, 0.27, 0.38].forEach((at, i) => this.grain(t + at + rand(0, 0.015), rand(0.01, 0.025), rand(3000, 5200) - i * 260, rand(4, 7), 0.05 - i * 0.005));
+    this.grain(t + 0.44, 0.06, 900, 1.5, 0.04);
+  },
+
   tick() {
     if (!this.ready()) return;
     this.tone(this.ac.currentTime, 1500, 0.03, 0.05, "sine");
