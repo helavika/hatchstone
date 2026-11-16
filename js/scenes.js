@@ -137,7 +137,8 @@ function setScene(scene) {
   // into or out of cracking: the pixel size changes (finer everywhere else), so everything is laid out again
   const wasCrack = game.scene === "crack";
   // an egg left before it opened: no harm done, but going back to the stone after it counts (see habitTried)
-  if (wasCrack && scene !== "crack" && game.egg?.state === "cracking" && game.egg.taps > 0 && !game.egg.conf.coop) habitFell();
+  // and the stone itself waits for you, as it is (see stoneLeave)
+  if (wasCrack && scene !== "crack" && game.egg?.state === "cracking" && game.egg.taps > 0 && !game.egg.conf.coop) { habitFell(); stoneLeave(game.egg); }
   if (game.scene === "nest" && scene !== "nest") sfx.purrOff();
   game.scene = scene;
   if (wasCrack !== (scene === "crack") && W) refit();
@@ -648,6 +649,8 @@ function caveShell(k) {
 
 /** Into the grotto. */
 function startLevel(n) {
+  // a stone left mid-crack on this level is still there: back to it, for no oil (its trip was paid when it began)
+  if (save.left && save.left.n === n && resumeStone(save.left)) return;
   // a trip into the grotto takes a drop of lantern oil
   const paid = tripCosts(n);
   // out of oil with a bar in the pocket: the smallest goes in by itself, and on you go
@@ -662,6 +665,79 @@ function startLevel(n) {
   newEgg(conf, true);
   if (conf.gloom) { talk("g" + conf.gloom); setHint(tr("a geode sealed by the Gloom: crack it and set the spark free")); }
   game.egg.paid = paid;
+}
+
+// ---------- the stone that waits: an egg left mid-crack is kept, cracks and all, until you come back to it ----------
+
+/** Can this geode wait for you? The Grotto's levels and Wander can. A moon egg is the day's own, a heart geode stays in its
+ *  niche until it's cracked anyway, and a shared egg belongs to both of you: those aren't kept. */
+const stoneKeeps = conf => !!conf && !conf.coop && !conf.moon && !conf.heart && Number.isInteger(conf.n) && conf.n >= 0 && conf.n <= LEVELS;
+/** What a waiting stone keeps besides its level, crystal, glowling, shell and cracks: everything the blows so far have done. */
+const STONE_KEEP = ["shiny", "hp", "damage", "taps", "crits", "search", "found", "gems", "combo", "chain", "owed", "hits", "seed", "spot",
+  "bands", "banded", "silent", "sheen", "shade", "patches", "shadeLaid", "shadeBurnt", "eyeLeft", "paid"];
+/** The crack network as plain data: a spoke is both a live tip and a ray of its impact, so each is written once and named by number. */
+function netOut(net) {
+  const all = [...new Set([...net.tips, ...(net.impacts || []).flatMap(m => m.rays)])], at = new Map(all.map((t, i) => [t, i]));
+  return { segs: net.segs, tips: all, live: net.tips.map(t => at.get(t)), impacts: (net.impacts || []).map(m => ({ ...m, rays: m.rays.map(t => at.get(t)) })), dents: net.dents || [] };
+}
+/** And back: the same spokes shared between the tips and the impacts again, so the next blow grows them as it would have. */
+function netIn(o) {
+  const all = o.tips.map(t => ({ ...t, path: t.path && t.path.map(p => p.slice()) }));
+  return { segs: o.segs.map(g => g.slice()), tips: o.live.map(i => all[i]), impacts: o.impacts.map(m => ({ ...m, rays: m.rays.map(i => all[i]) })), dents: o.dents.map(d => d.slice()) };
+}
+/** The egg as it stands, for the save. */
+function stoneOf(e) {
+  const { chosen, ...conf } = e.conf, kept = {};
+  for (const k of STONE_KEEP) if (e[k] !== undefined) kept[k] = e[k];
+  return JSON.parse(JSON.stringify({ n: e.conf.n, conf, crystal: e.crystal.id, species: e.species.id, stone: e.stone.gloom ? "gloom" : [...e.stone], net: netOut(e.net), ...kept, at: Date.now() }));
+}
+/** Is this a stone that can be picked up again (and not something a damaged or hand-edited save left behind)? */
+const stoneOk = s => !!s && typeof s === "object" && Number.isInteger(s.n) && s.n >= 0 && s.n <= LEVELS && !!s.conf && typeof s.conf === "object" && !!CRYSTAL[s.crystal] && !!SP[s.species]
+  && s.taps > 0 && s.damage < s.hp && !!s.net && [s.net.segs, s.net.tips, s.net.live, s.net.impacts, s.net.dents, s.hits, s.spot].every(Array.isArray);
+/** Is a stone waiting on level n (0: in Wander)? */
+const stoneWaits = n => !!save.left && save.left.n === n && stoneOk(save.left);
+/** Left mid-crack: the stone stays as it is, and takes the place of any other that waited (only one waits at a time). */
+function stoneLeave(e) {
+  if (!e || e.state !== "cracking" || !e.taps || !stoneKeeps(e.conf) || coopSession || game.coopTouched) return;
+  save.left = stoneOf(e);
+  persist();
+}
+/** The words on the quit confirm: whether the stone waits, and which one it takes the place of. */
+function leaveWords(e) {
+  if (!e || !stoneKeeps(e.conf)) return tr("The cracks you've made so far will be lost.");
+  const s = save.left, other = s && stoneOk(s) && s.n !== e.conf.n && !e.waited;
+  return tr("This stone will wait for you on the map, cracks and all.")
+    + (other ? " " + (s.n ? tr("The stone waiting on level {0} goes back to the rock.", s.n) : tr("The stone waiting in Wander goes back to the rock.")) : "");
+}
+/** Back at the stone: the same egg, as you left it. No oil (that trip was paid), nothing rolled again. False if it can't be. */
+function resumeStone(s) {
+  if (!stoneOk(s)) { delete save.left; persist(); return false; }
+  sfx.tick();
+  game.chips = []; game.sparks = [];
+  setScene("crack");
+  const crystal = CRYSTAL[s.crystal], conf = { ...s.conf, chosen: crystal };
+  // (laid out without the drop-in, so no sunpetal is spent and nothing new is rolled; then it drops in as any egg does)
+  newEgg(conf, false);
+  const e = game.egg;
+  Object.assign(e, JSON.parse(JSON.stringify(Object.fromEntries(STONE_KEEP.filter(k => s[k] !== undefined).map(k => [k, s[k]])))));
+  e.crystal = crystal; e.species = SP[s.species];
+  e.stone = s.stone === "gloom" ? GLOOM_STONE : STONES.find(t => t.join() === s.stone.join()) || s.stone;
+  e.net = netIn(s.net);
+  e.waited = true; e.state = "entering"; e.t = 0;
+  refitEgg(e);
+  updateDots(); updateEye();
+  game.gemsShown = e.gems;
+  if (conf.gloom) setHint(tr("a geode sealed by the Gloom: crack it and set the spark free"));
+  // Mossa notices, in one line, once a day (and only when nobody else is talking)
+  const id = "stone-" + habitDay();
+  if (!talkLines()) { TALKS[id] = () => [[MOSSA, "Your stone waited. Stones are good at that.", null, "warm"]]; talk(id); }
+  return true;
+}
+/** The stone that waited is open: it's gone from the save, and coming back to it counts as going back to the stone. */
+function stoneHome() {
+  delete save.left;
+  if (!coopSession && !game.coopTouched) save.habit.fell = true;
+  persist();
 }
 
 /** Where the six levels of a chapter sit on its cave, in percent: across the top, then back along the bottom. */
@@ -680,12 +756,14 @@ function renderMap() {
     html += `<figure class="plate band cave${unlocked(ci * 6 + 1) ? "" : " dim"}"><div class="biome"><img src="${chapterArt(ci)}" alt=""><svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true">${line([[pts[0][0], -6], ...pts, [pts[5][0], 106]], "rgba(239,230,255,.35)", "2 6")}${line(pts.slice(0, Math.min(6, done + 1)), "#eec26a", "2 6")}</svg>`;
     pts.forEach(([x, y], i) => {
       const n = ci * 6 + i + 1, st = save.stars[n] || 0, open = unlocked(n);
-      html += `<button class="lvl${n === next ? " next" : ""}" style="left:${x}%;top:${y}%" data-n="${n}" ${open ? "" : "disabled"}>${n}<span>${open ? (st ? "★".repeat(st) : "") : "🔒"}</span></button>`;
+      // (a stone left mid-crack sits by its level, waiting)
+      const waits = open && stoneWaits(n);
+      html += `<button class="lvl${n === next ? " next" : ""}${waits ? " waits" : ""}" style="left:${x}%;top:${y}%" data-n="${n}" ${open ? "" : "disabled"}${waits ? ` aria-label="${tr("Level {0}: your stone waits here", n)}"` : ""}>${n}<span>${open ? (st ? "★".repeat(st) : "") : "🔒"}</span>${waits ? ic("stoneWait", "wait") : ""}</button>`;
     });
     html += `</div>${nicheRow(ci)}</figure>`;
   });
   const allDone = unlocked(LEVELS + 1);
-  html += `<button class="wander" data-n="0" ${allDone ? "" : "disabled"}>${tr("🌌 Wander: endless geodes from the deepest caves")}${allDone ? "" : tr(" (clear level 24)")}</button>`;
+  html += `<button class="wander${allDone && stoneWaits(0) ? " waits" : ""}" data-n="0" ${allDone ? "" : "disabled"}>${allDone && stoneWaits(0) ? ic("stoneWait", "wait") : ""}${tr("🌌 Wander: endless geodes from the deepest caves")}${allDone ? "" : tr(" (clear level 24)")}</button>`;
   $("mapList").innerHTML = html;
   $$("#mapList [data-n]").forEach(b => b.addEventListener("click", () => startLevel(Number(b.dataset.n))));
   $$("#mapList [data-niche]").forEach(b => b.addEventListener("click", () => tapNiche(...b.dataset.niche.split(",").map(Number))));

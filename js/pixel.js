@@ -221,6 +221,8 @@ const PX_ICON_MAPS = {
   compass: ["............", "....ssss....", "..ssSSSSss..", ".sSw.e..wSs.", ".sS..e...Ss.", ".sS.eWe..Ss.", ".sS..t...Ss.", ".sSw.t..wSs.", "..ssSSSSss..", "....ssss....", "............", "............"],
   gift: ["............", "..gg....gg..", ".gGGg..gGGg.", "..gGGggGGg..", ".RRRRggRRRR.", ".RrrrgGrrrR.", ".RrrrgGrrrR.", ".RrWrgGrrrR.", ".RrrrgGrrrR.", ".RrrrgGrrrR.", ".RRRRggRRRR.", "............"],
   broom: ["........b...", ".......b....", "......b.....", ".....b......", "....b.......", "...gg.......", "..gGgg......", ".gGgggo.....", "gGgggo......", ".gggo.......", "............", "............"],
+  // a geode left mid-crack, waiting by its level on the map: grey stone, a crack, the crystal showing through
+  stoneWait: ["............", "....SSSS....", "...SssssS...", "..SswsskS...", "..SswskLSS..", ".SsssklsSSz.", ".SssskLkSSz.", ".SsssslkSSz.", "..SsssskSz..", "..zSSSSSzz..", "...zzzzzz...", "............"],
   // for the Book's tabs: a glowling, and a mossy stone face for the folk
   glowling: ["............", "..L......L..", "...l....l...", "...llllll...", "..lLLllllp..", ".lLlllllllp.", ".llkllllklp.", ".lrlllllrlp.", ".llllllllpp.", "..llllllpp..", "...pppppp...", "............"],
   folk: ["............", "...mmmmmm...", "..mMmmmmmm..", ".mmmmsmmsmm.", ".msssssssss.", ".sWsssssssS.", ".sskssskssS.", ".sskssskssS.", ".srsskssrsS.", ".SsssssssSz.", "..SSSSSSSz..", "............"],

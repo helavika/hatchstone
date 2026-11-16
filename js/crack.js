@@ -1253,7 +1253,7 @@ function showFound() {
   checkThemes();
   taskDone("crack");
   if (shine >= 0.8) taskDone("polish");
-  if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); habitTried(); }
+  if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); if (e.waited) stoneHome(); habitTried(); }
 
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);

@@ -172,6 +172,9 @@ h3 { margin: 18px 0 8px; font-size: 13px; letter-spacing: 2px; text-transform: u
 .lvl.next { box-shadow: 0 0 0 2px #c9b8ff, 0 0 18px rgba(201, 184, 255, .6); animation: breathe 3s ease-in-out infinite; }
 .wander { margin-top: 16px; width: 100%; border-radius: 18px; border: 1px solid var(--glass-edge); background: rgba(255, 255, 255, .08); padding: 12px; cursor: pointer; font-weight: 700; }
 .wander:disabled { opacity: .4; cursor: default; }
+/* a stone left mid-crack, waiting by its level (and on the Wander button) */
+.lvl .ic.wait { position: absolute; right: -14px; bottom: -12px; width: 30px; height: 30px; pointer-events: none; }
+.wander .ic.wait { width: 24px; height: 24px; margin: -4px 6px 0 0; }
 
 /* found card */
 #found h2 { font-size: 13px; letter-spacing: 3px; text-transform: uppercase; color: var(--soft); font-weight: 700; }

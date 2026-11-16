@@ -427,7 +427,7 @@ $("quit").addEventListener("click", () => {
   if (coopSession) { coopEnd("left"); return; }
   const e = game.egg;
   const started = e && e.state === "cracking" && e.taps > 0;
-  if (started) { sfx.tick(); show("confirmLeave", true); return; }
+  if (started) { sfx.tick(); $("leaveSays").textContent = leaveWords(e); show("confirmLeave", true); return; }
   if (e && e.paid && !e.taps) { e.paid = false; oilNow(); save.oil.n++; persist(); updateTopbar(); }
   setScene("map");
 });
