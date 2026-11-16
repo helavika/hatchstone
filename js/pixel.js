@@ -267,17 +267,28 @@ function pxIcon(name) {
 }
 const ic = (name, cls = "") => `<i class="ic${cls ? " " + cls : ""}" style="background-image:url(${pxIcon(name)})" aria-hidden="true"></i>`;
 
-// ---------- portraits: the faces of those who speak but keep no hut, at the size of the keepers' portraits ----------
-/** name → { pal: { letter: colour }, rows: 26 strings of 26 letters, "." clear }. Each is set beside its speaker (see crack.js). */
+// ---------- portraits: the faces of those who speak, in the talk box ----------
+/** name → { pal: { letter: colour }, rows: square strings, "." clear } (the Gloom's, 26x26, in crack.js), or a cast portrait
+ *  (39x39, portraits.js) with `base` (its calm face's name), `moods` { face: [[y, x, "pixels"], …] painted over the rows }
+ *  and `as` { mood the lines use: the face drawn for it }. */
 const PX_PORTRAITS = {};
-/** A portrait as a data URL, each art pixel doubled like keeperFace's; the small icon of that name stands in until one is drawn. */
-function pxPortrait(name) {
-  const p = PX_PORTRAITS[name], key = "portrait:" + name;
+/** The face drawn for a mood (a face's own name, or a line's mood through `as`), or "" for the base face. */
+function pxFace(p, mood) {
+  const f = mood && p.moods ? (p.as && p.as[mood]) || mood : "";
+  return f && p.moods[f] ? f : "";
+}
+/** A portrait as a data URL, each art pixel doubled like keeperFace's, in the face for that mood (the base one if it has none);
+ *  the small icon of that name stands in until one is drawn. */
+function pxPortrait(name, mood) {
+  const p = PX_PORTRAITS[name];
   if (!p) return pxIcon(name);
+  const face = pxFace(p, mood), key = "portrait:" + name + (face ? "|" + face : "");
   if (pxIconCache[key]) return pxIconCache[key];
-  const c = document.createElement("canvas"); c.width = c.height = p.rows.length * 2;
+  const rows = p.rows.map(r => [...r]);
+  if (face) for (const [y, x, px] of p.moods[face]) rows[y].splice(x, px.length, ...px);
+  const c = document.createElement("canvas"); c.width = c.height = rows.length * 2;
   const g = c.getContext("2d");
-  p.rows.forEach((row, y) => [...row].forEach((ch, x) => { if (p.pal[ch]) { g.fillStyle = p.pal[ch]; g.fillRect(x * 2, y * 2, 2, 2); } }));
+  rows.forEach((row, y) => row.forEach((ch, x) => { if (p.pal[ch]) { g.fillStyle = p.pal[ch]; g.fillRect(x * 2, y * 2, 2, 2); } }));
   return pxIconCache[key] = c.toDataURL();
 }
 

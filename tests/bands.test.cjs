@@ -190,9 +190,9 @@ test('plain stone is as it was: no band, the spot never moves, and every crack a
 
 test('Mossa tells of the bands in the third cave\'s talk, in a line of her own, within the talk\'s length', () => {
   const ch2 = cut(crack, '  ch2: () => [', ']],\n', 'ch2 should be in TALKS');
-  assert.match(ch2, /\[MOSSA, "The stone there grows in bands\. When one breaks, the weak spot moves\./);
+  assert.match(ch2, /\[MOSSA, "The stone there grows in bands\. When one breaks, the weak spot moves\. Find it again\."/);
   assert.ok(ch2.split('[MOSSA').length - 1 <= 5);
   const i18n = read('i18n.js');
-  for (const k of ['The stone there grows in bands. When one breaks, the weak spot moves. Just find it again.', 'banded stone: when a band breaks, the weak spot moves', 'a band broke · the spot moved'])
+  for (const k of ['The stone there grows in bands. When one breaks, the weak spot moves. Find it again.', 'banded stone: when a band breaks, the weak spot moves', 'a band broke · the spot moved'])
     assert.ok(i18n.includes(JSON.stringify(k) + ':'), k);
 });

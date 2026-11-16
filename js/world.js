@@ -710,15 +710,15 @@ $("worldSheet").addEventListener("click", wmClick, true);
 
 // what Ember says over the first wardstone, Pip at the first sight of the ward spots, and Pip as each land comes out of the dark
 Object.assign(TALKS, {
-  firstWard: () => [[EMBER, "A hammer breaks stone. This one holds ground."],
-    [EMBER, "Set it where the fog is thickest. Where a wardstone stands, the dark steps back, and stays back."]],
-  wardSpots: () => [[PIP, "See the old sockets in the ground, at the edge of the fog? Wardstones stood there once.", () => wardSpotRect()],
-    [PIP, "Ember can forge new ones at the workbench. I'm scared of what's past the fog. But I'd still like to see it."]],
-  wardFound_frost: () => [[PIP, "Snowfields, and that ice door! I'm drawing it on my map. The road's still being cleared, but we'll get there.", wardSpotOf("frost")]],
-  wardFound_isle: () => [[PIP, "Someone has kept that lighthouse lit every single night. Steady as anything. I'd like to meet them one day.", wardSpotOf("isle")]],
-  wardFound_summit: () => [[PIP, "Up there the sky never quite goes dark. The path is steep and still being cleared, but one day we'll stand under it.", wardSpotOf("summit")]],
-  wardFound_gloom: () => [[PIP, "The dark held for so long. But the stones are standing, and so are we.", wardSpotOf("gloom")],
-    [PIP, "I'm still scared of the dark. I'll go anyway, with my map, once the road is clear. Will you come too?"]],
+  firstWard: () => [[EMBER, "A hammer breaks stone. This one holds ground.", null, "satisfied"],
+    [EMBER, "Set it where the fog is thickest. Where a wardstone stands, the dark steps back. Stays back.", null, "concern"]],
+  wardSpots: () => [[PIP, "See the old sockets in the ground, at the edge of the fog? Wardstones stood there once. I've marked them.", () => wardSpotRect(), "thinking"],
+    [PIP, "Ember can forge new ones at the workbench. What's past the fog scares me. A bit. I'd still like to see it.", null, "scared-but-steady"]],
+  wardFound_frost: () => [[PIP, "Snowfields, and that ice door! It's on my map now. The road's still being cleared, but we'll get there.", wardSpotOf("frost"), "excited"]],
+  wardFound_isle: () => [[PIP, "Someone keeps that lighthouse lit every single night. Never misses. I'd like to meet them one day.", wardSpotOf("isle"), "thinking"]],
+  wardFound_summit: () => [[PIP, "Up there the sky never quite goes dark. The path is steep and still being cleared. One day we'll stand under it.", wardSpotOf("summit"), "excited"]],
+  wardFound_gloom: () => [[PIP, "The dark held for so long. But the stones are standing, and so are we.", wardSpotOf("gloom"), "shy-pride"],
+    [PIP, "I'm still scared of the dark. I'll go anyway, with my map, once the road is clear. Will you come too?", null, "scared-but-steady"]],
 });
 /** A land's banner on the map, for Pip to point at as it comes out of the veil. */
 const wardSpotOf = id => `#worldMap [data-mystery="${id}"] .wbanner`;

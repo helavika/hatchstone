@@ -166,8 +166,8 @@ function giftArrive() {
   if (talkNow || talkQueue.length || coopSession || arrange.on || gloomNow.on || $$(".overlay").some(o => !o.classList.contains("hidden"))) return;
   giftNow = l.wait[0];
   const from = giftNow.f || tr("a friend");
-  talkQueue.push([[PIP, tr("Knock knock! I came up through the tunnels with a parcel for you, {0}.", myName())],
-    [PIP, giftNow.m ? tr("It's from {0}. There's a note tucked under the ribbon!", from) : tr("It's from {0}. Shall we open it?", from)]]);
+  talkQueue.push([[PIP, tr("{0}. A parcel for you, up through the tunnels. Dry the whole way.", myName()), null, "shy-pride"],
+    [PIP, giftNow.m ? tr("It's from {0}. There's a note under the ribbon. I didn't read it.", from) : tr("It's from {0}. Shall we open it? Together?", from), null, giftNow.m ? "excited" : null]]);
   const before = afterTalk;
   afterTalk = () => { if (before) before(); giftParcel(); };
   if (!talkNow) nextTalk();

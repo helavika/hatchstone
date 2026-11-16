@@ -664,9 +664,9 @@ function lanternUp() { gloomNow.lamp.on = false; }
 
 // Mossa's word the first time, about what the shadows are
 Object.assign(TALKS, {
-  lamp1: () => [[MOSSA, "Those shadows creep up from the deep sometimes, even into a warm nest."],
+  lamp1: () => [[MOSSA, "Shadows creep up from the deep sometimes. Even into a warm nest.", null, "concerned"],
     [MOSSA, "Don't be cross with them. They're only light that hid away from hurting."],
-    [MOSSA, "Shine on them together, and the light remembers the way out."]],
+    [MOSSA, "Shine on them together, and the light remembers the way out.", null, "resolve"]],
 });
 
 /**

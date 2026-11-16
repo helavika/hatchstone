@@ -23,7 +23,7 @@ const errandsSrc = [
   cut(nestJs, 'function tapHero(', '/** The bar under a place', 'tapHero should sit in nest.js, before the place bar'),
   line(walkJs, /^const WALK_KEEP = .*$/m, 'WALK_KEEP should be one line in walk.js'),
   cut(walkJs, 'function walkGive(', '\n}\n', 'walkGive should sit in walk.js') + '\n}',
-  'Object.assign(this, { HEROES, FENNEL, GARDEN_SLOTS, gardenSlots, bondOf, wishOf, wishTold, bondStory, wishSeeks });',
+  'Object.assign(this, { HEROES, FENNEL, GARDEN_SLOTS, gardenSlots, bondOf, wishOf, wishTold, bondStory, wishSeeks, heroWords });',
 ].join('\n');
 const saveSrc = cut(saveJs, 'const SAVE_VERSION', 'const save = loadSave();', 'the save\'s way in should sit at the top of save.js');
 
@@ -252,8 +252,10 @@ test('after the last wish there is none: no wish, nothing to give, a contented w
   // the first thing he says is that he needs nothing; after that it's his everyday lines (and that one among them, now and then)
   assert.equal(tap(), yard.calm);
   for (let i = 0; i < 12; i++) tap();
-  assert.ok(said.every(l => l === yard.calm || yard.lines.includes(l)), said.join(' | '));
-  assert.ok(said.slice(1).some(l => yard.lines.includes(l)));
+  // (a line can carry the face it is said with, [mood, words]: what he says is the words)
+  const lines = yard.lines.map(page.heroWords);
+  assert.ok(said.every(l => l === yard.calm || lines.includes(l)), said.join(' | '));
+  assert.ok(said.slice(1).some(l => lines.includes(l)));
   assert.ok(!said.some(l => yard.asks.some(a => a.ask === l)));
   // a bond past the end (a save from a later day, opened by this one) is the same quiet
   const far = nest({ bonds: { yard: 7 } });
@@ -263,7 +265,7 @@ test('after the last wish there is none: no wish, nothing to give, a contented w
 test('he says his wish once the hellos are done, then again within a few taps, never every tap', () => {
   const { page, save, tap, said, yard } = nest({ heroTalk: {} });
   // three hellos first, and the wish isn't in the bar before he has said it
-  for (const hello of yard.hello) { assert.equal(tap(), hello); assert.equal(page.wishTold('yard'), false); }
+  for (const hello of yard.hello) { assert.equal(tap(), page.heroWords(hello)); assert.equal(page.wishTold('yard'), false); }
   assert.equal(tap(), yard.asks[0].ask);
   assert.equal(page.wishTold('yard'), true);
   assert.deepEqual(JSON.parse(JSON.stringify(save.wishes)), { yard: 1 });

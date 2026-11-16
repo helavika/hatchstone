@@ -255,10 +255,10 @@ test('the search before the first hit stays forgiven, so stars stay about aim', 
 
 test('Mossa tells of the flash in the fourth cave\'s talk, in a line of her own, within the talk\'s length; level 19 says it too', () => {
   const ch3 = cut(crack, '  ch3: () => [', ']],\n', 'ch3 should be in TALKS');
-  assert.match(ch3, /\[MOSSA, "Its weak spot only flashes when you hit it\. Keep hitting, and you won't lose it\."/);
+  assert.match(ch3, /\[MOSSA, "Its weak spot flashes only when you strike it\. Keep striking\. You won't lose it\."/);
   assert.ok(ch3.split('[MOSSA').length - 1 <= 5);
   assert.match(crack, /conf\.step === 19 && e\.sheen \? tr\("this stone shows its weak spot only as you hit it · keep the chain"\)/);
   const i18n = read('i18n.js');
-  for (const k of ['Its weak spot only flashes when you hit it. Keep hitting, and you won\'t lose it.', 'this stone shows its weak spot only as you hit it · keep the chain'])
+  for (const k of ['Its weak spot flashes only when you strike it. Keep striking. You won\'t lose it.', 'this stone shows its weak spot only as you hit it · keep the chain'])
     assert.ok(i18n.includes(JSON.stringify(k) + ':'), k);
 });
