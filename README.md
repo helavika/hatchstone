@@ -15,19 +15,23 @@ what's glowing inside. 🎧 Best with headphones.
 - The nest: feed, pet, play a sparkle-catch mini-game and put them to sleep; needs drift
   in real time (nobody ever dies), and glowlings level up to 20 and grow Baby → Young →
   Grown → Radiant
-- Seven pixel-art backdrops: each cave chapter has its own, and a moonlit churchyard, a
-  glowcap mushroom wood and a starfall abbey unlock as you play (pick one in Decor); each
-  backdrop has its own quiet generative tune
+- Ten pixel-art backdrops: each cave chapter has its own, and frost hollow, moonlit ruins,
+  a glowcap wood, a starfall abbey, a timber hall and an aurora summit unlock as you play.
+  At home every one is a cave mood (a glowcap grotto, a lantern gallery, a starfall crypt,
+  a moonwell cave, an aurora ice cave and the five crystal caves), picked per room in the
+  Chest; each has its own quiet generative tune
 - The Forge: spend shards on hammer upgrades that last forever (a keener eye for the weak
   spot, echoing knocks, more shards from weak-spot hits); how hard you hit is your keeper
   Strength
 - Like an old handheld pet, glowlings call for you when they're hungry, sleepy or lonely,
   and dust bunnies gather in the nest until you tap them away
 - Knock on the stone to find its hollow spot, and polish each opened geode to a shine
-- The nest is a little cave room where all your glowlings roam, nap, dance, visit each
-  other and come when you call; decorate it with shards (lamp, mushrooms, cloud cushion,
-  starry rug, geode shelf, moon spring, moon swing, fairy lights) and each kind of
-  glowling has favorites it goes to play with
+- The nest is a little cave room, seen from the corner, where all your glowlings roam, nap,
+  dance, visit each other and come when you call. The shop carves more caves beside it (a
+  playroom, a moss garden that is a garden underground, a crystal study), joined in a row
+  by tunnels with the name of the room beyond over each; decorate them with shards (lamp,
+  mushrooms, cloud cushion, starry rug, geode shelf, moon spring, moon swing, fairy lights)
+  and each kind of glowling has favorites it goes to play with
 - Breeding: two happy glowlings at level 5+ can lay a mixed egg in the incubator; it
   hatches in about 3 real hours (stroke it to keep it warm), and the baby mixes their
   parts, colors and names, sometimes with a surprise trait

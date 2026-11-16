@@ -520,7 +520,7 @@ const TASKS = {
   catch: { text: "Play sparkle catch", icon: "sparkle", ok: hasPets, go: toNest(null, "playBtn") },
   sweep: { text: "Sweep a dust bunny out of the nest", icon: "broom", ok: () => hasPets() && (save.dust || []).length > 0, go: () => toRoomKind("nest") },
   forge: { text: "Buy a hammer upgrade at the Forge", icon: "hammer", ok: canForge, go: () => openForge() },
-  decor: { text: "Decorate the nest or change its backdrop", icon: "candle", ok: hasPets, go: toNest(null, "decorBtn") },
+  decor: { text: "Decorate the nest or change its cave mood", icon: "candle", ok: hasPets, go: toNest(null, "decorBtn") },
   moon: { text: "Open today's moon egg", icon: "moon", ok: () => !moonDone(), go: () => startMoon() },
   book: { text: "Look someone up in the Glowpedia", icon: "book", ok: () => true, go: () => setScene("lib") },
   breed: { text: "Lay a mixed egg in the incubator", icon: "heart", ok: () => !save.incubator && save.creatures.filter(c => !pairReason(c)).length >= 2, go: () => { toRoomKind("lab"); openIncubator(); } },

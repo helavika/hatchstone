@@ -144,7 +144,7 @@ const SPECIES = [
   { id: "fernlet", name: "Fernlet", crystal: "mossagate", body: "drop", head: "fern", pattern: "moss", eyes: "round", snack: "dew", voice: 1.05, beh: "nap",
     lore: "Carries a whole forest inside, grown thread by thread. Very patient with seedlings, and with sad days." },
   { id: "vitrikin", name: "Vitrikin", crystal: "obsidian", body: "wide", ears: "shards", pattern: "belly", eyes: "big", snack: "berry", voice: 0.85, beh: "curious",
-    lore: "Born in fire, cooled in a hurry: sharp at the edges, soft in the middle. On dark nights it sits by the nest door, so nobody else has to." },
+    lore: "Born in fire, cooled in a hurry: sharp at the edges, soft in the middle. On dark nights it sits at the mouth of the nest, so nobody else has to." },
   { id: "stibbit", name: "Stibbit", crystal: "stibnite", body: "bean", back: "needles", pattern: "belly", eyes: "big", snack: "cookie", voice: 1.0, beh: "dance",
     lore: "Looks prickly. Isn't. Bristles up to stand in front of the little ones, then folds every needle flat for a hug." },
   { id: "hexlet", name: "Hexlet", crystal: "vanadinite", body: "round", head: "barrels", pattern: "spots", eyes: "round", snack: "berry", voice: 1.15, beh: "hop",

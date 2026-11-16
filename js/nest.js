@@ -940,11 +940,12 @@ const JUKE_SOUNDS = [
 ];
 function openJukebox() {
   sfx.tick();
-  const cur = save.jukebox || "", open = THEMES.filter(t => t.ok()).length;
-  $("jukeSub").textContent = tr("{0} of {1} songs unlocked. Find more by opening new backdrops.", open, THEMES.length);
+  const cur = save.jukebox || "", open = THEMES.filter(t => t.ok()).length, home = atHome();
+  // at home every backdrop is a mood of the cave, by the name and picture it has there
+  $("jukeSub").textContent = tr(home ? "{0} of {1} songs unlocked. Each new cave mood brings one more." : "{0} of {1} songs unlocked. Find more by opening new backdrops.", open, THEMES.length);
   const song = (id, img, name, small, ok) => `<button class="snack song${cur === id ? " on" : ""}" data-song="${id}" ${ok ? "" : "disabled"}>${img}<span><b>${name}</b><small>${small}</small></span><span class="cost">${ok ? (cur === id ? "♪" : "") : ic("lock")}</span></button>`;
-  $("jukeList").innerHTML = `<h3>${tr("Songs")}</h3>` + song("", `<span class="em">🏞️</span>`, tr("The backdrop's own song"), tr("changes with the backdrop"), true)
-    + THEMES.map(t => song(t.id, `<img class="em" src="${themeThumb(t.id)}" alt="">`, t.name, t.ok() ? tr("song") : t.how, t.ok())).join("")
+  $("jukeList").innerHTML = `<h3>${tr("Songs")}</h3>` + song("", `<span class="em">🏞️</span>`, tr(home ? "The cave's own song" : "The backdrop's own song"), tr(home ? "changes with the cave mood" : "changes with the backdrop"), true)
+    + THEMES.map(t => song(t.id, `<img class="em" src="${themeThumb(t.id, home && !!t.home)}" alt="">`, (home && t.home) || t.name, t.ok() ? tr("song") : t.how, t.ok())).join("")
     + `<h3>${tr("Sounds")}</h3><div class="juke-sounds">${JUKE_SOUNDS.map((x, i) => `<button class="pillbtn" data-sound="${i}">${x.emoji} ${tr(x.name)}</button>`).join("")}</div>`;
   $$("#jukeList [data-song]").forEach(b => b.addEventListener("click", () => { save.jukebox = b.dataset.song || null; persist(); openJukebox(); fancyDone("song"); }));
   $$("#jukeList [data-sound]").forEach(b => b.addEventListener("click", () => { JUKE_SOUNDS[b.dataset.sound].play(); fancyDone("song"); }));
