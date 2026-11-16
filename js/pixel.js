@@ -388,19 +388,25 @@ const THEMES = [
   { id: "celestite", name: "Celestite Grotto", art: 1, how: "reach chapter II", ok: () => unlocked(7) },
   { id: "malachite", name: "Malachite Deep", art: 2, how: "reach chapter III", ok: () => unlocked(13) },
   { id: "labradorite", name: "Labradorite Vault", art: 3, how: "reach chapter IV", ok: () => unlocked(19) },
-  { id: "churchyard", name: "Moonlit Ruins", how: "open a moon egg", ok: () => !!save.moon },
+  { id: "churchyard", name: "Moonlit Ruins", home: "Moonwell Cave", how: "open a moon egg", ok: () => !!save.moon },
   { id: "glowcap", name: "Glowcap Wood", home: "Glowcap Grotto", how: "collect 30 stars", ok: () => totalStars() >= 30 },
-  { id: "abbey", name: "Starfall Abbey", how: "clear all 24 levels", ok: () => unlocked(LEVELS + 1) },
+  { id: "abbey", name: "Starfall Abbey", home: "Starfall Crypt", how: "clear all 24 levels", ok: () => unlocked(LEVELS + 1) },
   { id: "frost", name: "Frost Hollow", art: 4, how: "meet 12 kinds of glowling", ok: () => Object.keys(save.seen).length >= 12 },
-  { id: "smithy", name: "Timber Hall", how: "open the forge on the map", ok: () => placeOk("forge") },
-  { id: "summit", name: "Aurora Summit", how: "raise a glowling to Radiant", ok: () => save.creatures.some(c => c.level >= 15) },
+  { id: "smithy", name: "Timber Hall", home: "Lantern Gallery", how: "open the forge on the map", ok: () => placeOk("forge") },
+  { id: "summit", name: "Aurora Summit", home: "Aurora Ice Cave", how: "raise a glowling to Radiant", ok: () => save.creatures.some(c => c.level >= 15) },
 ];
 const THEME = Object.fromEntries(THEMES.map(t => [t.id, t]));
 const CAVE_THEME = ["amethyst", "celestite", "malachite", "labradorite"];
-/** Backdrops that are a cave of their own at home (every room there is a cave): the glowcaps grow in a grotto of mossy rock,
- *  their caps glowing where a cave would have crystals. */
+/** Backdrops that are a cave of their own at home (every room there is a cave), each a mood of the rock: the glowcaps grow in a
+ *  grotto of mossy rock, their caps glowing where a cave would have crystals; the timber hall is a gallery of rock shored up with
+ *  oak and hung with lanterns; the abbey a crypt of dressed stone; the moonlit ruins a cave round a well the moon shines down;
+ *  the aurora summit a cave of ice the northern lights glow through. (mood is how paintRoomIso builds the room: see roomMaterials) */
 const HOME_ART = {
-  glowcap: { seed: 29, wall: ["#0a0d0b", "#17221a", "#26391f", "#3a5527", "#557a34"], crystal: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5", "#f0fbff"], glow: "#b4e67a", caps: true },
+  glowcap: { seed: 29, mood: "grotto", wall: ["#0a0d0b", "#17221a", "#26391f", "#3a5527", "#557a34"], crystal: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5", "#f0fbff"], glow: "#b4e67a", caps: true },
+  smithy: { seed: 31, mood: "gallery", wall: ["#0b0a0e", "#1c1a20", "#302a2c", "#473d38", "#63554a"], crystal: ["#5c2a10", "#a8521c", "#e08a35", "#f6c46a", "#fff0b5"], glow: "#f2b45a" },
+  abbey: { seed: 47, mood: "crypt", wall: ["#0b0814", "#1b1527", "#2e2639", "#463c52", "#62576d"], crystal: ["#3a1f5c", "#6b3fa0", "#c25586", "#eec26a", "#fff0b5"], glow: "#e6a8d8" },
+  churchyard: { seed: 59, mood: "moonwell", wall: ["#080812", "#141428", "#23233d", "#363654", "#4d4b6e"], crystal: ["#2e1d4f", "#523a85", "#8a6cc9", "#d2bfff", "#efe6ff"], glow: "#d2bfff" },
+  summit: { seed: 71, mood: "aurora", wall: ["#060c18", "#0e1e33", "#1a3552", "#2b5577", "#4a7fa0"], crystal: ["#1d5276", "#3383a8", "#8fd8ef", "#d4f4fb", "#ffffff"], glow: "#8ff0c8", bands: true },
 };
 /** The cave a backdrop is drawn as: at home its own grotto if it has one, else its chapter's cave (the first for one that has none). */
 const caveArt = (id, home) => (home && HOME_ART[id]) || CHAPTER_ART[(THEME[id] || THEME.amethyst).art ?? 0];
@@ -637,7 +643,7 @@ const themeThumbs = {};
 /** A backdrop's little picture (home: as it looks in a room at home, for one that's a cave of its own there). */
 const themeThumb = (id, home = false) => { const k = home && HOME_ART[id] ? id + "|home" : id; return themeThumbs[k] || (themeThumbs[k] = paintTheme(id, 96, 64, 0.86, false, home).toDataURL()); };
 
-/** Newly reached backdrops get a little announcement, once. */
+/** Newly reached backdrops get a little announcement, once (at home by the name of the cave it makes there). */
 function checkThemes(quiet = false) {
   save.themesSeen = save.themesSeen || [];
   const fresh = THEMES.filter(t => t.ok() && !save.themesSeen.includes(t.id));
@@ -645,7 +651,7 @@ function checkThemes(quiet = false) {
   save.themesSeen.push(...fresh.map(t => t.id));
   persist();
   const shown = fresh.filter(t => t.id !== "amethyst");
-  if (!quiet && shown.length) setTimeout(() => toast(tr("New backdrop: {0} · choose it in the Chest ✦", shown.map(t => t.name).join(", "))), 1600);
+  if (!quiet && shown.length) setTimeout(() => toast(tr("New backdrop: {0} · choose it in the Chest ✦", shown.map(t => (atHome() && t.home) || t.name).join(", "))), 1600);
 }
 
 /** How hard an egg is: tougher stone deeper in the grotto, and a weak spot that glows less and less. */
