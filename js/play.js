@@ -436,6 +436,7 @@ function gloomCome() {
 
 function updateGloom(dt) {
   const g = gloomNow, b = N.base, lamp = g.lamp, alt = gloomAlt();
+  gloomVeilStep(dt);
   for (const l of g.lights) if (l.on && (l.t += dt) > GLOOM_RISE) l.on = false;
   g.glow = clamp(g.glow + (g.on ? dt : -dt) * 2, 0, 1);
   if (!g.on) {
@@ -629,6 +630,30 @@ function gloomEnd(seen) {
     if (cnt("lamplit") === 1) setTimeout(() => { if (game.scene === "nest") talk("lamp1"); }, 1500);
   }
   if (game.scene === "nest") { setHint(nestHint()); renderNest(); }
+}
+
+// ---------- the veil: while the shadows are in, the room dims and its colour drains ----------
+// It creeps out from the crack they come in by and darkens over about two seconds; every shadow that goes takes its share
+// of the dark with it, and once the last is gone the room warms back to its full colour in about a second and a half. Never
+// near black (the nest stays the safe place), and your lantern, every glowling and the light of the room cut holes in it
+// (drawVeil). With less motion it doesn't creep, it just fades in and out.
+const VEIL_RISE = 2, VEIL_WARM = 1.5, VEIL_DARK = 0.34, VEIL_GREY = 0.6;
+const gloomVeil = { k: 0, reach: 0 };
+/** How much of the dark the shadows still in the room hold: all of it as they come in, a share less for each one gone. */
+function gloomVeilTo() {
+  const g = gloomNow;
+  if (!g.on || !g.count) return 0;
+  let s = 0;
+  for (const w of g.wisps) if (w.on) s += w.fade;
+  return clamp(s / g.count, 0, 1);
+}
+function gloomVeilStep(dt) {
+  const v = gloomVeil, to = gloomVeilTo();
+  if (game.scene !== "nest" || save.room !== nestRoom()) { v.k = v.reach = 0; return; }
+  v.k = to > v.k ? Math.min(to, v.k + dt / VEIL_RISE) : Math.max(to, v.k - dt / VEIL_WARM);
+  // (how far out from the crack it has crept, as a share of the way to the far side of the screen)
+  if (gloomNow.on) v.reach = opts().calm ? 1 : Math.min(1, v.reach + dt / VEIL_RISE);
+  else if (v.k <= 0) v.reach = 0;
 }
 
 /** Where the huddle is for a glowling: around your light while it shines, else close together where they were. */
@@ -984,6 +1009,89 @@ function drawGloomOver() {
   ctx.restore();
 }
 
+/**
+ * The veil's holes, where light keeps the room's colour: your lantern's pool and its cone, every glowling (each its own
+ * little light, so you can always see them), the ring of each one shining with you, the friend's charm and its pool, a
+ * thread friends hold, the sparks freed from the shadows as they float up, and a shaft of light down from the vault.
+ * Each is an ellipse { x, y, rx, ry, k } (k how clear it is), into `out`, reused frame to frame; returns how many.
+ */
+function veilHoles(out) {
+  const g = gloomNow, b = N.base, lamp = g.lamp;
+  let n = 0;
+  const hole = (x, y, rx, ry, k) => { if (k <= 0.02 || rx <= 0 || ry <= 0) return; const h = out[n] || (out[n] = {}); h.x = x; h.y = y; h.rx = rx; h.ry = ry; h.k = Math.min(1, k); n++; };
+  if (g.on && lamp.k > 0) { hole(lamp.x, lamp.y, b * 1.15, b * 0.62, lamp.k); hole(lamp.x, lamp.y - b * 0.7, b * 0.6, b * 0.85, lamp.k); }
+  for (const a of actors.values()) {
+    const size = N.base * depth(a.y), y = a.y - (a.perch || 0), cy = y - size * 0.45 - (a.alt || 0);
+    hole(a.x, cy, size * 0.62, size * 0.72, 1);
+    hole(a.x, cy, size * 1.15, size * 0.9, a.gloomLit || 0);
+  }
+  const at = g.glow > 0 && charmSpot();
+  if (at) { hole(at.fx, at.fy, b * GLOOM_CHARM_R * 1.1, b * GLOOM_CHARM_R / 1.3, g.glow); hole(at.x, at.y, b * 0.45, b * 0.45, g.glow); }
+  for (const th of g.threads) if (th.on && th.k > 0) hole((th.a.x + th.b.x) / 2, (th.a.y + th.b.y) / 2 - b * 0.35, Math.abs(th.a.x - th.b.x) / 2 + b * 0.4, Math.abs(th.a.y - th.b.y) / 2 + b * 0.4, th.k);
+  for (const l of g.lights) if (l.on) hole(l.x, l.y - (l.t / GLOOM_RISE) * b * 1.2, b * 0.6, b * 0.8, 1 - l.t / GLOOM_RISE);
+  // a shaft of light from the vault (the moss garden's, the grotto's, the moonwell's): along it, and its pool on the floor
+  const sh = roomShaft();
+  if (sh) {
+    const [kx, ky] = mossCrack(caveArt(currentTheme(), true).seed * 7, sh.off).map(v => v * PX), [px, py] = isoAt(...sh.at), wt = N.isoW * sh.top, wb = N.isoW * sh.bot;
+    for (const t of [0.15, 0.4, 0.65, 0.88]) hole(lerp(kx, px, t), lerp(ky, py, t), lerp(wt, wb, t) * 1.3, (py - ky) * 0.16, 1);
+    hole(px, py, wb * 1.45, wb * 0.75, 1);
+  }
+  return n;
+}
+
+/**
+ * The veil in coarse cells (cols by rows, each `cell` screen pixels): how far it covers each, into m. Out from the crack
+ * (ox, oy) as far as `reach` of the way to `far` (a step toward the back counting for 1.4 across, as ever), with a soft edge;
+ * then the holes. No canvas in here, so it can be tested.
+ */
+function veilMask(m, cols, rows, cell, reach, ox, oy, far, holes, n) {
+  if (reach >= 1) m.fill(1, 0, cols * rows);
+  else for (let j = 0, i = 0; j < rows; j++) {
+    const dy = ((j + 0.5) * cell - oy) * 1.4;
+    for (let c = 0; c < cols; c++, i++) m[i] = clamp((reach * 1.2 - Math.hypot((c + 0.5) * cell - ox, dy) / far) / 0.2, 0, 1);
+  }
+  for (let q = 0; q < n; q++) {
+    const h = holes[q], c0 = Math.max(0, Math.floor((h.x - h.rx) / cell)), c1 = Math.min(cols - 1, Math.floor((h.x + h.rx) / cell)), j0 = Math.max(0, Math.floor((h.y - h.ry) / cell)), j1 = Math.min(rows - 1, Math.floor((h.y + h.ry) / cell));
+    for (let j = j0; j <= j1; j++) {
+      const ey = ((j + 0.5) * cell - h.y) / h.ry;
+      for (let c = c0; c <= c1; c++) {
+        const ex = ((c + 0.5) * cell - h.x) / h.rx, e = ex * ex + ey * ey;
+        // clear in the middle, thinning out over the outer part of it
+        if (e < 1) m[j * cols + c] *= 1 - h.k * Math.min(1, (1 - e) / 0.5);
+      }
+    }
+  }
+}
+
+// the veil's canvas: one cell an art pixel or more, no more than about 20 000 of them however big the screen
+const veilArt = { c: null, g: null, img: null, px: null, m: null, cols: 0, rows: 0, cell: 0, holes: [] };
+const VEIL_INK = 0xff140c0e; // (ink, nearly grey: draining colour toward it leaves the room's own light and dark)
+/**
+ * Over the room, under the wisps and your lantern: the veil. The colour drains where it lies (not on a slow device: there it's
+ * just a tint) and it darkens a little; its edge and the edges of its holes are dithered on the cells' Bayer pattern.
+ */
+function drawVeil() {
+  const v = gloomVeil;
+  if (v.k <= 0.002) return;
+  const A = veilArt, P = gloomArtNow().P, cell = P * Math.max(1, Math.ceil(Math.sqrt(W * H / 20000) / P)), cols = Math.ceil(W / cell), rows = Math.ceil(H / cell);
+  if (A.cell !== cell || A.cols !== cols || A.rows !== rows) {
+    A.c = document.createElement("canvas"); A.c.width = cols; A.c.height = rows;
+    A.g = A.c.getContext("2d"); A.img = A.g.createImageData(cols, rows); A.px = new Uint32Array(A.img.data.buffer); A.m = new Float32Array(cols * rows);
+    Object.assign(A, { cell, cols, rows });
+  }
+  const g = gloomNow, ox = g.crack.x, oy = N.isoTop, far = Math.hypot(Math.max(ox, W - ox), (H - oy) * 1.4) || 1;
+  veilMask(A.m, cols, rows, cell, v.reach, ox, oy, far, A.holes, veilHoles(A.holes));
+  const m = A.m, px = A.px;
+  for (let j = 0, i = 0; j < rows; j++) { const row = (j & 3) * 4; for (let c = 0; c < cols; c++, i++) px[i] = m[i] > PX_BAYER[row + (c & 3)] ? VEIL_INK : 0; }
+  A.g.putImageData(A.img, 0, 0);
+  ctx.save();
+  ctx.imageSmoothingEnabled = false;
+  if (!quality.low) { ctx.globalCompositeOperation = "saturation"; ctx.globalAlpha = v.k * VEIL_GREY; ctx.drawImage(A.c, 0, 0, cols * cell, rows * cell); }
+  ctx.globalCompositeOperation = "source-over"; ctx.globalAlpha = v.k * VEIL_DARK;
+  ctx.drawImage(A.c, 0, 0, cols * cell, rows * cell);
+  ctx.restore();
+}
+
 function drawNest() {
   // furniture and glowlings share one back-to-front order, so a glowling behind the bookcase is hidden by it
   const items = drawRoom() || [];
@@ -1008,6 +1116,7 @@ function drawNest() {
   const order = isoOrder(items);
   order.forEach(it => it.draw());
   ghostBehind(order);
+  drawVeil();
   drawGloomOver();
   if (isPlace()) drawPlaceLife();
   const sn = game.nest.snack;
