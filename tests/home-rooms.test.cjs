@@ -19,7 +19,7 @@ const themesSrc = [
   line(nest, /^const isOutside = .*$/m, 'isOutside should be one line in nest.js'),
   line(nest, /^const isPlace = .*$/m, 'isPlace should be one line in nest.js'),
   cut(save, 'function currentTheme(', '\n// ----------', 'the backdrop rules should sit together in save.js'),
-  'Object.assign(this, { THEMES, currentTheme, roomTheme, ownTheme, roomThemes });',
+  'Object.assign(this, { THEMES, currentTheme, roomTheme, ownTheme, roomThemes, lookOf });',
 ].join('\n');
 
 /** A pretend nest with these rooms, every backdrop found (or none but the first, with found: false). */
@@ -35,28 +35,36 @@ function home(kinds, { found = true, theme, room = 0 } = {}) {
 const CAVES = ['amethyst', 'celestite', 'malachite', 'labradorite', 'frost'];
 const HOMES = ['nest', 'play', 'garden', 'study'];
 
-test('every room at home takes the cave backdrops only; the garden outside and the valley keep theirs', () => {
+test('every room at home takes the cave backdrops only (the moss garden its glowcap grotto too); the garden outside and the valley keep theirs', () => {
   const p = home(['nest', 'yard', ...HOMES.slice(1), 'shop', 'grotto']);
-  for (const kind of HOMES) assert.deepEqual([...p.roomThemes(p.save.rooms.findIndex(r => r.kind === kind))].sort(), [...CAVES].sort(), kind);
+  for (const kind of HOMES) assert.deepEqual([...p.roomThemes(p.save.rooms.findIndex(r => r.kind === kind))].sort(), [...CAVES, ...(kind === 'garden' ? ['glowcap'] : [])].sort(), kind);
   // Fennel's garden is under the sky, and the places on the map take any backdrop, as before
   assert.deepEqual([...p.roomThemes(1)], ['glowcap', 'summit']);
   assert.equal(p.roomThemes(5).length, p.THEMES.length);
   assert.equal(p.roomThemes(6).length, p.THEMES.length);
+  // and at home every one of them is drawn as a cave: no meadow, wood or sky in any room there
+  for (const kind of HOMES) for (const id of p.roomThemes(p.save.rooms.findIndex(r => r.kind === kind))) assert.equal(p.lookOf(id, p.save.rooms.findIndex(r => r.kind === kind)), 'cave', `${kind} ${id}`);
+  assert.equal(p.lookOf('glowcap', 1), 'wood', 'outside the glowcaps are still a wood');
 });
 
-test('the garden room is a green cave from the start, the study a blue one, even before those caves are found', () => {
+test('the moss garden is its glowcap grotto from the start, even before the glowcaps are found; the study a blue cave', () => {
   for (const found of [true, false]) {
     // bought with its glowcaps (or before they were found, with no backdrop at all)
     for (const theme of ['glowcap', null]) {
       const p = home(['nest', 'yard', 'play', { kind: 'garden', on: [], theme }], { found, room: 3, theme });
-      assert.equal(p.currentTheme(), 'malachite', `garden with ${theme}, found ${found}`);
+      assert.equal(p.currentTheme(), 'glowcap', `garden with ${theme}, found ${found}`);
     }
     const p = home(['nest', 'yard', 'play', 'garden', 'study'], { found, room: 4 });
     assert.equal(p.currentTheme(), 'celestite');
     assert.equal(home(['nest', 'play'], { found, room: 1 }).currentTheme(), 'amethyst');
+    // the glowcap grotto is the moss garden's own: not the other rooms' (yet)
+    assert.equal(home(['nest', 'play'], { found, room: 1, theme: 'glowcap' }).currentTheme(), 'amethyst');
   }
-  // the shop's renovation shows the cave the room will be
-  assert.match(nest, /themeThumb\(k\.cave \|\| k\.theme/);
+  // a cave picked for the moss garden shows; the glowcaps are still its own whatever it shows
+  assert.equal(home(['nest', 'yard', 'play', 'garden'], { room: 3, theme: 'frost' }).currentTheme(), 'frost');
+  // the shop's renovation shows the grotto the room will be, and a new one is built on it
+  assert.match(nest, /themeThumb\(k\.theme \|\| "amethyst", true\)/);
+  assert.match(nest, /theme: kind\.theme \|\| null/);
 });
 
 test('a meadow or a hall saved in a room at home shows a cave, and stays in the save for later', () => {
@@ -64,7 +72,7 @@ test('a meadow or a hall saved in a room at home shows a cave, and stays in the 
     const p = home(['nest', 'yard', 'play', 'garden'], { room: 2, theme });
     assert.equal(p.currentTheme(), 'amethyst', theme);
     assert.equal(p.save.theme, theme, 'the pick is kept');
-    assert.equal(p.roomTheme(3, theme), 'malachite', 'the garden room shows its own green cave for ' + theme);
+    assert.equal(p.roomTheme(3, theme), 'glowcap', 'the moss garden shows its own grotto for ' + theme);
   }
   // a cave picked for a room shows, and a cave not found yet doesn't
   assert.equal(home(['nest', 'play'], { room: 1, theme: 'frost' }).currentTheme(), 'frost');
@@ -73,6 +81,52 @@ test('a meadow or a hall saved in a room at home shows a cave, and stays in the 
   assert.equal(home(['nest', 'yard', 'forge'], { room: 2, theme: 'smithy' }).currentTheme(), 'smithy');
   assert.equal(home(['nest', 'yard', 'camp'], { room: 2, theme: 'glowcap', found: false }).currentTheme(), 'glowcap');
   assert.equal(home(['nest', 'yard'], { room: 1, theme: 'glowcap' }).currentTheme(), 'glowcap');
+});
+
+test('old saves: a moss garden built before the glowcaps were found gets its grotto; a cave picked for it stays', () => {
+  const fix = line(save, /^  d\.rooms\.forEach\(\(r, i\) => \{ if \(r\.kind !== "garden"\).*$/m, 'the moss garden\'s migration should be one line in migrate');
+  const run = d => { vm.runInNewContext(`(function (d) {\n${fix}\n})(d)`, { d }); return d; };
+  // in another room: the garden's own entry
+  let d = run({ room: 0, theme: 'amethyst', rooms: [{ kind: 'nest' }, { kind: 'yard' }, { kind: 'play', theme: null }, { kind: 'garden', theme: null }] });
+  assert.equal(d.rooms[3].theme, 'glowcap');
+  assert.equal(d.rooms[2].theme, null, 'the playroom is left alone');
+  assert.equal(d.theme, 'amethyst', 'and so is the room you are in');
+  // standing in it: the backdrop in the save's own field
+  d = run({ room: 1, rooms: [{ kind: 'nest' }, { kind: 'garden', theme: null }] });
+  assert.equal(d.theme, 'glowcap');
+  // a pick of its own is kept
+  d = run({ room: 0, rooms: [{ kind: 'nest' }, { kind: 'garden', theme: 'frost' }] });
+  assert.equal(d.rooms[1].theme, 'frost');
+});
+
+test('the moss garden is called that everywhere, in both languages', () => {
+  const i18n = read('i18n.js'), ui = read('ui.js');
+  assert.match(nest, /\{ id: "garden", name: "Moss garden"/);
+  assert.match(i18n, /"Moss garden": "Мохова оранжерея"/);
+  const note = nest.match(/\{ id: "garden"[^}]*note: "([^"]+)"/)[1];
+  assert.ok(i18n.includes(`"${note}": "`), 'its note in the shop is in Ukrainian too');
+  assert.match(i18n, /glowcap: \{ name: "Ліс сяйних шапинок", home: "Грот сяйних шапинок"/);
+  // nothing left calls it the garden room (Fennel's garden outside is the only garden)
+  for (const [f, src] of [['nest', nest], ['i18n', i18n], ['ui', ui]]) {
+    assert.ok(!/Garden room|garden room/.test(src), f + ' still says garden room');
+    assert.ok(!/"Садова"|потім садову/.test(src), f + ' still says Садова');
+  }
+  // the birdbath stays outside: the moss garden has its own spring and basin
+  assert.match(read('data.js'), /id: "birdbath".*rooms: \["yard"\]/);
+});
+
+test('the moss garden\'s own garden is drawn into the room: it takes no floor tiles and stays clear of both tunnels', () => {
+  const ROOM_FIXED = vm.runInNewContext('(' + line(iso, /^const ROOM_FIXED = .*$/m, 'ROOM_FIXED should be one line in iso.js').replace(/^const ROOM_FIXED = /, '').replace(/;$/, '') + ')');
+  assert.equal(ROOM_FIXED.garden, undefined, 'nothing fixed stands on its floor: only its bed, like any room');
+  const G = vm.runInNewContext('(' + line(iso, /^const MOSS_GARDEN = .*$/m, 'MOSS_GARDEN should be one line in iso.js').replace(/^const MOSS_GARDEN = /, '').replace(/;$/, '') + ')');
+  const [at, dw] = line(iso, /^const DOOR_AT = .*$/m, 'DOOR_AT').match(/[\d.]+/g).map(Number), door = at - dw;
+  assert.ok(G.bedL[1] < door && G.bedR[1] < door, 'the beds end before the tunnels');
+  assert.ok(G.basin + 0.08 < door && G.basin > 0.08, 'and so does the basin');
+  // they stand against the walls, less than a third of a tile deep (6 tiles to the floor)
+  const paint = cut(iso, 'function paintMossGarden(', '\nconst mossLight', 'paintMossGarden should sit in iso.js');
+  for (const depth of [paint.match(/const D = ([\d.]+)/)[1], paint.match(/rb = ([\d.]+)/)[1]].map(Number)) assert.ok(depth < 1 / 6 / 3 + 0.05 && depth <= 0.11, 'depth ' + depth);
+  // and its light respects less motion
+  assert.match(cut(iso, 'function drawMossLight(', '\n}\n', 'drawMossLight'), /opts\(\)\.calm/);
 });
 
 // the row of caves and the tunnels between them

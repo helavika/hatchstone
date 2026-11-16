@@ -605,7 +605,7 @@ function updateActors(dt) {
 }
 
 /** What the room's walls and floor are painted from: when it changes, they're painted again. */
-const roomKey = () => `${currentTheme()}|${isPlace() ? save.rooms[save.room].kind : ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}${N.iso}`;
+const roomKey = () => `${currentTheme()}|${save.rooms[save.room]?.kind || ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}${N.iso}`;
 function drawRoom() {
   // the walls and floor of this backdrop, painted once in art pixels (or ahead of time: see bakeAhead), and kept a while
   // after you leave, so walking back in is smooth too
@@ -3716,6 +3716,9 @@ function isoRug(starry) {
 
 /** A shade from a ramp, banded the way hand-placed pixels are: flat clusters of one colour, dithered only in a thin seam
  *  where two shades meet (k is how wide the seam is; pxPick dithers the whole way between them). */
+/** Moss and the moss garden's stone, ramps that shift hue the way the light does: cool and blue-green in shadow, warm and yellow where lit. */
+const MOSS = ["#0b1418", "#132820", "#1d3c22", "#2f5726", "#4a772b", "#72a03a", "#a6c65a"];
+const GARDEN_STONE = ["#0e0d16", "#1f1e28", "#33323a", "#4b4946", "#6a6658", "#8f8870"];
 const isoTone = (ramp, v, x, y, k = 0.3) => { const n = ramp.length - 1; return ramp[clamp(Math.floor(clamp(v, 0, 1) * n + 0.5 + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * k), 0, n)]; };
 const mixHex = (a, b, k) => a.map((c, i) => Math.round(c + (b[i] - c) * k));
 
@@ -3791,8 +3794,9 @@ function gothicWindow(wall, hw, S, seed) {
  *  the timber frame, the floor) as functions of a spot on a wall or the floor. hw is the room's width in art pixels, wall its
  *  height, S the scale its stones and boards are cut to. Both views of the room paint from these. */
 function roomMaterials(id, hw, wall, S) {
-  const kind = ROOM_KIND[id] || "cave", t = THEME[id] || THEME.amethyst;
-  const art = t.art !== undefined ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
+  // (at home every backdrop is a cave: lookOf; the moss garden's glowcaps grow in a grotto of their own, HOME_ART)
+  const kind = lookOf(id), t = THEME[id] || THEME.amethyst;
+  const art = kind === "cave" ? caveArt(id, atHome()) : t.art !== undefined ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
   const wallR = (art ? art.wall : night.ground).map(pxHex), crys = art ? art.crystal.map(pxHex) : null, ground = night ? night.ground.map(pxHex) : wallR;
   const seed = (art ? art.seed : night.seed) * 7, indoor = kind === "cave" || kind === "hall" || kind === "ruin" || kind === "timber";
   const hexes = a => a.map(pxHex);
@@ -3810,6 +3814,8 @@ function roomMaterials(id, hw, wall, S) {
   const wood = [oak[1], oak[2], oak[4]], stone = [ruinStone[0], ruinStone[1], ruinStone[2], ruinStone[3]];
   // which room this is: the camp and the garden share a backdrop but not their paths
   const roomKindNow = save.rooms && save.rooms[save.room] ? save.rooms[save.room].kind : "";
+  // the moss garden: moss over everything, and soil (see paintMossGarden for what grows in it)
+  const garden = roomKindNow === "garden" && kind === "cave", mossC = hexes(MOSS);
 
   // ---- materials on the walls. al runs along a wall from the back corner, z up from the floor; sl is +1 where a larger al
   //      is further left on screen (the left wall) and -1 on the right wall, so "the lit edge" is always the one to the top left.
@@ -3978,11 +3984,30 @@ function roomMaterials(id, hw, wall, S) {
       let val = 0.44 + 0.22 * lk + 0.1 * (f.sh - 0.5) + 0.12 * (-f.ox * 0.6 - f.oy * 0.8) + 0.08 * (pxFbm(x * 0.12, y * 0.24) - 0.5);
       if (f.edge < 1 && f.sh > 0.45) val = 0.1; else if (f.edge < 2 && f.sh > 0.45) val += f.ox + f.oy < 0 ? -0.1 : 0.08;
       const gx = Math.floor(x / 9), gy = Math.floor(y / 5), ph = pxHash(gx + seed, gy * 3);
-      if (ph > 0.6) {
+      let pebble = false;
+      if (ph > (garden ? 0.8 : 0.6)) {
         const px0 = gx * 9 + 2 + pxHash(gx, gy) * 5, py0 = gy * 5 + 1 + pxHash(gy, gx) * 3, pr = 1 + (ph - 0.6) * 5, dx = (x + 0.5 - px0) / pr, dy = (y + 0.5 - py0) / (pr * 0.6);
         const dd = dx * dx + dy * dy;
-        if (dd < 1) val = 0.5 + 0.35 * (-dx * 0.6 - dy * 0.8) + 0.2 * lk;
+        if (dd < 1) { val = 0.5 + 0.35 * (-dx * 0.6 - dy * 0.8) + 0.2 * lk; pebble = true; }
         else if (dd < 2.2 && dx > -0.2 && dy > 0) val -= 0.2;
+      }
+      if (garden && !pebble) {
+        // a carpet of moss in cushions, each its own lump: lit warm on its top left, cool in shade on its bottom right, a dark
+        // seam between them; bare soil in patches, its clods shaded the same way, the moss's rim curling over its edge
+        const soil = pxFbm(u * 6 + seed, v * 6 + 3) + 0.05 * (pxNoise(x * 0.4, y * 0.8) - 0.5);
+        if (soil < 0.33) {
+          const cl = facet(u * hw, v * hw, 5 * S, 5 * S, seed + 21);
+          let sv = 0.36 + 0.2 * lk + 0.28 * (-cl.ox * 0.6 - cl.oy * 0.8) + 0.1 * (cl.sh - 0.5);
+          if (cl.edge < 0.8) sv = 0.1;
+          if (soil > 0.31) sv -= 0.14;
+          return isoTone(dirt, sv - 0.4 * ao, x, y);
+        }
+        const cu = facet(u * hw, v * hw, 9 * S, 9 * S, seed + 13);
+        let mv = 0.42 + 0.22 * lk + 0.36 * (-cu.ox * 0.6 - cu.oy * 0.8) + 0.1 * (cu.sh - 0.5);
+        if (cu.edge < 1) mv = 0.2; else if (cu.edge < 2 && cu.ox + cu.oy > 0) mv -= 0.12;
+        if (soil < 0.36) mv += 0.16;      // the rim of the moss where it curls over the soil
+        if (pxHash(x * 3, y) > 0.97) mv += 0.18;
+        return isoTone(mossC, mv - 0.5 * ao, x, y, 0.2);
       }
       if (pxHash(x, y + seed) > 0.9975) return crys[2];
       return isoTone(wallC, val - 0.45 * ao, x, y);
@@ -4009,7 +4034,253 @@ function roomMaterials(id, hw, wall, S) {
     if (Math.max(u, v) > 0.985) val = 0.85; // a lit rim at the front edges
     return isoTone(ground, val, x, y, 0.5);
   };
-  return { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, ashlarPx, facet, rockPx, timberAt, timberPx, pathD, dirt, floorPx };
+  return { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, garden, mossC, ashlarPx, facet, rockPx, timberAt, timberPx, pathD, dirt, floorPx };
+}
+/** Where the moss garden's own garden is, in floor units along its walls (see paintMossGarden): low against the walls and clear
+ *  of the tunnels (DOOR_AT), so furniture still stands anywhere on the floor, in front of it; and where its shaft of light lands. */
+const MOSS_GARDEN = { bedL: [0.32, 0.62], bedR: [0.06, 0.3], basin: 0.17, light: [0.32, 0.38] };
+const CAP_BLUE = ["#13304e", "#1d5276", "#3383a8", "#69b7d6", "#b8e6f5", "#f0fbff"], CAP_PINK = ["#3a1530", "#8f3460", "#c25586", "#e88bb1", "#ffd8e6", "#fff4f8"];
+const CAVE_FLOWERS = ["#f4f0ff", "#c9a8ff", "#fff0b5", "#ffb8d8", "#9fe4f4"];
+/** Is this the moss garden, seen from the corner? (its light and its fireflies go over everything in it) */
+const mossGardenHere = () => N.iso && game.scene === "nest" && save.rooms[save.room]?.kind === "garden";
+/** The crack in the vault the light comes down through, in art pixels: just left of the back corner, where the rock's ragged top is
+ *  (the same top paintRoomIso gives a cave's walls), and the seed of the cave it's in. */
+function mossCrack(seed) {
+  const q = v => v / PX, cx = q(N.cx), hw = q(N.isoW), wall = q(N.isoWall), x = Math.round(cx - hw * 0.12), tt = (cx - x) / hw;
+  const yTop = q(N.isoTop) + tt * hw / 2 - wall - (wall * (0.22 * (1 - tt) + 0.16 * pxNoise(x * 0.05, seed)) + 4 * pxNoise(x * 0.3, seed + 4) - 2);
+  return [x, Math.round(yTop + Math.max(4, wall * 0.13))];
+}
+/**
+ * The moss garden's garden, drawn into its walls and floor (none of it is furniture, and none of it is in the way): a raised bed
+ * against the foot of each wall, two courses of stones each shaded on its own (lit top and left, a cool shadow below and right,
+ * dark joints, moss creeping over the top), full of dark soil with glowcaps, ferns and little cave flowers; a spring trickling from
+ * a crack in the left wall into a stone basin; vines climbing both walls; glowcaps at the ends of the walls and a fern in the back corner; the crack
+ * in the vault, and the pool of warm light its shaft lays on the moss (the shaft itself is drawn over the room: drawMossLight).
+ */
+function paintMossGarden({ put, d, w, h, at, cx, top, hw, hh, wall, S, seed, mossC, dirt }) {
+  const get = (x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return null; const i = (y * w + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+  const tint = (x, y, col, k) => { const c0 = get(x, y); if (c0) put(x, y, mixHex(c0, col, k)); };
+  const stoneC = GARDEN_STONE.map(pxHex), capB = CAP_BLUE.map(pxHex), capP = CAP_PINK.map(pxHex), aq = DECO_AQUA, warm = pxHex("#f6e9a8");
+  const bay = (x, y) => PX_BAYER[(Math.round(y) & 3) * 4 + (Math.round(x) & 3)];
+  // a glow round something that shines, falling off in two steps, dithered only where they meet
+  const halo = (x0, y0, R, col, k) => { for (let y = Math.floor(y0 - R); y <= y0 + R; y++) for (let x = Math.floor(x0 - R); x <= x0 + R; x++) { const dd = Math.hypot(x - x0, y - y0) / R + (bay(x, y) - 0.5) * 0.25; if (dd < 1) tint(x, y, col, dd < 0.5 ? k : k * 0.45); } };
+  // a spot on a wall's plane: s along the wall from the back corner, o out from it across the floor, z up
+  const pt = (side, s, o, z = 0) => { const [x, y] = side === "L" ? at(o, s) : at(s, o); return [x, y - z]; };
+  const step = 0.35 / hw;
+
+  // ---- the pool of light from the crack in the vault, laid on the moss in three steps (the shaft brightens it again, over the rug too)
+  const [lu, lv] = MOSS_GARDEN.light;
+  for (let y = Math.floor(top); y <= Math.ceil(top + hw); y++) for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
+    const a = (x - cx) / hw, b = (y - top) / hh, u = (a + b) / 2, v = (b - a) / 2;
+    if (u < 0.02 || v < 0.02 || u > 0.98 || v > 0.98) continue;
+    const dd = Math.hypot(u - lu, v - lv) / 0.2 + (bay(x, y) - 0.5) * 0.16;
+    if (dd < 1) tint(x, y, warm, dd < 0.4 ? 0.36 : dd < 0.7 ? 0.22 : 0.1);
+  }
+
+  // ---- the crack in the vault: a jagged slit of light in the rock, a dark lip round it, the stone round it warmed
+  const [kx, ky] = mossCrack(seed);
+  halo(kx, ky - wall * 0.08, wall * 0.12, warm, 0.22);
+  for (let k = 0, x = kx; k < Math.max(5, wall * 0.14); k++) {
+    x += pxHash(k, seed + 31) > 0.6 ? 1 : pxHash(k, seed + 32) > 0.7 ? -1 : 0;
+    const y = ky - k, wide = k > 2 && k < wall * 0.1 ? 1 : 0;
+    put(x - 1 - wide, y, stoneC[0]); put(x + 1 + wide, y, stoneC[0]);
+    put(x, y, pxHex(k < 2 ? "#f6e9a8" : "#fffbe6")); if (wide) put(x + 1, y, pxHex("#f6e9a8"));
+  }
+
+  // ---- what grows: each drawn from its foot, in pixels, lit from the top left
+  const fernAt = (x0, y0, L) => {
+    for (const a of [-1.25, -0.75, -0.25, 0.25, 0.75, 1.2]) {
+      const len = L * (0.62 + 0.38 * Math.cos(a * 0.9)), fx = Math.sin(a), fy = -Math.cos(a), lit = a < 0;
+      for (let st = 0; st <= len; st += 0.5) {
+        const t = st / len, x = x0 + fx * st, y = y0 + fy * st + t * t * len * 0.4 * Math.abs(fx);
+        put(x, y, mossC[t > 0.85 ? 5 : 3]);
+        // leaflets in pairs along the frond, shorter toward its tip, the upper ones catching the light
+        if (st > 1 && Math.round(st * 2) % 3 === 0) {
+          const lf = Math.max(1, Math.round((1 - t) * 2.6 * S + 0.4));
+          for (let q = 1; q <= lf; q++) { put(x - fy * q + fx * q * 0.4, y + fx * q - q * 0.5, mossC[lit ? 6 : 5]); put(x + fy * q + fx * q * 0.4, y - fx * q - q * 0.2, mossC[lit ? 5 : 4]); }
+        }
+      }
+    }
+  };
+  const capAt = (x0, y0, hg, r, C) => {
+    const top = Math.round(y0 - hg), ry = Math.max(2, r * 0.72), ws = Math.max(1, Math.round(r * 0.26));
+    halo(x0, top - ry * 0.3, r * 3, C[3], 0.26);
+    // a stout stem, glowing pale, lit on the left, a little flared at the foot
+    for (let k = 0; k <= hg; k++) { const fw = ws + (k < 2 ? 1 : 0); for (let q = -fw; q <= fw; q++) put(x0 + q, y0 - k, q < 0 ? C[4] : q < fw ? C[3] : C[2]); }
+    // the cap: a dome lit from the top left, its rim curling under in shadow, the gills a darker band beneath
+    for (let yy = Math.floor(top - ry); yy <= top + 1; yy++) {
+      const dy = (top - yy) / ry, half = yy > top ? r * 0.8 : r * Math.sqrt(Math.max(0, 1 - dy * dy));
+      for (let xx = Math.round(x0 - half); xx <= Math.round(x0 + half); xx++) {
+        const nx = (xx - x0) / (r + 0.01);
+        put(xx, yy, yy > top ? C[0] : yy === top ? C[1] : Math.abs(nx) > 0.82 ? C[2] : nx < -0.25 && dy > 0.3 ? C[5] : nx > 0.45 || dy < 0.2 ? C[3] : C[4]);
+      }
+    }
+    if (r > 2.4) { put(x0 - Math.round(r * 0.3), top - Math.round(ry * 0.6), pxHex("#ffffff")); put(x0 + Math.round(r * 0.35), top - Math.round(ry * 0.35), C[5]); }
+  };
+  const flowerAt = (x0, y0, hg, col) => {
+    for (let k = 0; k < hg; k++) put(x0, y0 - k, mossC[3]);
+    put(x0 - 1, y0 - Math.round(hg / 2), mossC[5]);
+    const c = pxHex(col), dk = mixHex(c, [40, 30, 70], 0.35), fy = y0 - hg;
+    put(x0 - 1, fy, c); put(x0 + 1, fy, dk); put(x0, fy - 1, c); put(x0, fy + 1, dk); put(x0, fy, pxHex("#ffe08a"));
+    if (wall > 90) { put(x0 - 2, fy - 1, c); put(x0 + 2, fy - 1, c); put(x0 - 2, fy + 1, dk); put(x0 + 2, fy + 1, dk); put(x0, fy - 3, c); put(x0 - 2, fy, c); put(x0 + 2, fy, dk); put(x0, fy - 2, c); put(x0 - 1, fy - 1, c); put(x0 + 1, fy - 1, c); put(x0 + 1, fy + 1, dk); put(x0 - 1, fy + 1, dk); }
+  };
+  const tuft = (x0, y0) => { put(x0, y0 - 1, mossC[5]); put(x0 - 1, y0, mossC[4]); put(x0 + 1, y0 - 2, mossC[6]); put(x0 + 1, y0, mossC[4]); };
+
+  // ---- vines up the walls: a stem wandering as it climbs, a leaf every few pixels, turn and turn about, and the odd glowing bud
+  const vine = (side, s, z0, z1, ph) => {
+    for (let z = z0; z <= z1; z += 0.5) {
+      const off = (2.2 * Math.sin(z * 0.08 + ph) + Math.sin(z * 0.21 + ph * 2)) * S, [x, y] = pt(side, s + off / hw, 0, z);
+      put(x, y, mossC[2]);
+      const zi = Math.round(z);
+      if (z === zi && zi % 4 === 0) {
+        const dir = (zi / 4) % 2 ? 1 : -1;
+        put(x + dir, y, mossC[4]); put(x + 2 * dir, y - 1, mossC[dir < 0 ? 6 : 5]); put(x + dir, y - 1, mossC[5]);
+        if (pxHash(zi, ph * 9) > 0.86) { halo(x + 2 * dir, y - 2, 3, capB[3], 0.3); put(x + 2 * dir, y - 2, capB[4]); }
+      }
+    }
+  };
+  const kz = Math.max(6, Math.round(wall * 0.15)), zb = Math.max(6, Math.round(wall * 0.12)), U = Math.max(1, wall / 70);
+  for (const [s, z1, ph] of [[0.1, 0.92, 1], [0.36, 0.58, 2], [0.67, 0.78, 3]]) vine("L", s, s > 0.2 && s < 0.6 ? kz : 0, wall * z1, ph);
+  for (const [s, z1, ph] of [[0.14, 0.86, 4], [0.36, 0.5, 5], [0.68, 0.7, 6]]) vine("R", s, s > 0.2 && s < 0.5 ? kz : 0, wall * z1, ph);
+
+  // ---- the spring: a wet crack in the left wall, a stone lip, the water falling in a thin bright thread into a round stone
+  //      basin against the wall (by the back corner, on the lit wall), the basin's stones shaded each on its own, moss round its rim
+  const ub = MOSS_GARDEN.basin, rb = 0.075, rim = 0.016, zs = zb + Math.round(wall * 0.22);
+  for (let z = zs; z < zs + wall * 0.2; z += 0.5) {
+    const o = Math.round(Math.sin(z * 0.4 + seed) * 1.2), [x, y] = pt("L", ub, 0, z);
+    put(x + o, y, stoneC[0]); tint(x + o + 1, y, aq[4], 0.4); tint(x + o - 1, y, stoneC[0], 0.5);
+  }
+  for (let k = -2; k <= 2; k++) { const [x, y] = pt("L", ub + k / hw, 0.01, zs); put(x, y, stoneC[4]); put(x, y + 1, stoneC[2]); put(x, y - 1, mossC[5]); }
+  const ws = 2 * Math.PI / 5;
+  for (let th = 0; th <= Math.PI; th += 0.35 / (rb * hw)) for (let z = 0; z < zb; z++) {
+    const ch = Math.ceil(zb / 2), row = Math.floor(z / ch), sh = row % 2 ? 0.5 : 0, si = Math.floor(th / ws + sh), fa = th / ws + sh - si;
+    const cs = Math.cos(th), fz = z % ch, [x, y] = pt("L", ub + rb * cs, rb * Math.sin(th), z);
+    let k = 3 + (Math.sin(th) > 0.75 ? 1 : 0) - (cs > 0.45 ? 1 : 0) + (pxHash(si, row) > 0.7 ? -1 : 0);   // (lit where it faces out of the wall, into the room)
+    if (fa < 0.05 || fz === 0) k = 0; else if (fz === ch - 1 || fa > 0.88) k += 1; else if (fz === 1 || fa < 0.12) k -= 1;
+    put(x, y, stoneC[clamp(k, 0, 5)]);
+  }
+  for (let a = -rb; a <= rb; a += step) for (let b = 0; b <= rb; b += step) {
+    const r = Math.hypot(a, b);
+    if (r > rb) continue;
+    const [x, y] = pt("L", ub + a, b, r > rb - rim ? zb : zb - 1);
+    if (r > rb - rim) { put(x, y, b < rb * 0.4 && pxHash(Math.round(x), 2) > 0.5 ? mossC[5] : stoneC[a < 0 ? 5 : 4]); continue; }
+    const ripple = Math.abs(Math.hypot(a, b - 0.012) - rb * 0.45) < step * 1.5;
+    put(x, y, ripple ? aq[1] : aq[b < rb * 0.35 ? 4 : pxHash(Math.round(x), Math.round(y)) > 0.9 ? 2 : 3]);
+  }
+  for (let z = zs - 1; z >= zb - 1; z--) { const [x, y] = pt("L", ub, 0.012, z); put(x, y, aq[z % 3 ? 2 : 1]); if (z % 4 === 0) put(x + 1, y, aq[0]); }
+  { const [x, y] = pt("L", ub, 0.012, zb - 1); put(x - 1, y - 1, aq[0]); put(x + 1, y - 2, aq[0]); put(x + 2, y, aq[1]); }
+  { const [x, y] = pt("L", ub + rb + 0.03, 0.01); fernAt(x, y, wall * 0.16); }
+
+  // ---- the beds: raised against the wall in two courses of stone, soil, and what grows in them
+  const D = 0.05, rimO = 0.015;
+  const bed = (side, s0, s1, sk) => {
+    for (let s = s0; s <= s1; s += step) for (let o = 0; o <= D - rimO; o += step) {
+      const [x, y] = pt(side, s, o, kz - 1), cl = pxHash(Math.round(x), Math.round(y) + sk);
+      put(x, y, dirt[o < 0.008 ? 0 : cl > 0.82 ? 3 : cl < 0.25 ? 1 : 2]);
+    }
+    // the stones, course by course, each its own length and shade: a lit top and left edge, a cool shadow on its bottom and
+    // right, dark joints between; moss creeping over the tops of some
+    const ch = Math.ceil(kz / 2), lit = side === "L";   // (a bed's front on the left wall faces the light; on the right one it's in shade)
+    const courses = [0, 1].map(r => { const c = [-Math.round(pxHash(r, sk + 9) * 6 * U)]; while (c[c.length - 1] < (s1 - s0) * hw + 2) c.push(c[c.length - 1] + Math.round((7 + 6 * pxHash(c.length + r * 17, sk)) * U)); return c; });
+    const stoneOf = (r, p) => { const c = courses[r]; let i = 0; while (c[i + 1] <= p) i++; return [i + r * 50, p - c[i], c[i + 1] - c[i]]; };
+    for (let s = s0; s <= s1; s += step) {
+      for (let o = D - rimO; o <= D; o += step) { const [x, y] = pt(side, s, o, kz); const [i] = stoneOf(1, (s - s0) * hw); put(x, y, pxHash(i, Math.round(o * 400)) > 0.5 && pxHash(i, sk + 2) > 0.45 ? mossC[5] : stoneC[5]); }
+      for (let z = 0; z < kz; z++) {
+        const r = Math.min(1, Math.floor(z / ch)), fz = z - r * ch, [i, fa, L] = stoneOf(r, (s - s0) * hw), shade = pxHash(i, sk + 1);
+        const bv = Math.max(1.5, U), leftEdge = lit ? fa > L - bv : fa < bv, rightEdge = lit ? fa < bv : fa > L - bv, [x, y] = pt(side, s, D, z);
+        let k = (lit ? 3 : 2) + (shade > 0.66 ? 1 : shade < 0.3 ? -1 : 0);
+        if (fa < 0.8 || fz === 0 && r) k = 0;
+        else if (fz >= ch - Math.max(1, Math.round(U * 0.8)) || z === kz - 1 || leftEdge) k += 1;
+        else if (fz <= (r ? 1 : 0) || rightEdge) k -= 1;
+        if (r === 1 && z >= kz - 1 - Math.round(2 * pxHash(i, sk + 2)) && fa > 1 && fa < L - 1 && shade > 0.45) { put(x, y, mossC[z === kz - 1 ? 5 : 4]); continue; }
+        // grit and pits in the stone's face, and its corners worn round
+        const g = pxHash(Math.round(x) * 3, Math.round(y) + sk);
+        if (k > 0 && g > 0.9) k -= 1; else if (k > 0 && g < 0.06) k += 1;
+        if ((fa < 1.8 || fa > L - 1.8) && (fz < 1.2 || fz > ch - 1.8) && k > 0) k = 1;
+        put(x, y, stoneC[clamp(k, 0, 5)]);
+      }
+    }
+    // the end of the bed toward the room's front: the stones turned the other way to the light
+    for (let o = 0; o <= D; o += step) for (let z = 0; z <= kz; z++) {
+      const [x, y] = pt(side, s1, o, z), fz = z % ch;
+      put(x, y, stoneC[o < step * 2 || fz === 0 && z ? 0 : z >= kz - 1 || fz === ch - 1 ? 5 : lit ? 2 : 3]);
+    }
+    // what grows in it, from the back of the bed to the front
+    const n = Math.max(4, Math.round((s1 - s0) * hw / (6.5 * U)));
+    for (let k = 0; k < n; k++) {
+      const s = s0 + (k + 0.25 + 0.5 * pxHash(k, sk)) / n * (s1 - s0), [x0, y0] = pt(side, s, D * 0.45, kz - 1), x = Math.round(x0), y = Math.round(y0), r = pxHash(k + 7, sk);
+      const kind = ["fern", "cap", "flowers", "caps", "fern", "flowers", "cap"][(k + sk) % 7];
+      if (kind === "fern") fernAt(x, y, wall * (0.16 + 0.08 * r));
+      else if (kind === "cap") { const cr = (2.6 + 1.8 * r) * U; capAt(x, y, Math.round(cr * (0.9 + 0.7 * r)), cr, r > 0.65 ? capP : capB); }
+      else if (kind === "caps") { capAt(x - Math.round(2 * U), y, Math.round(5 * U), 3 * U, capB); capAt(x + Math.round(2.5 * U), y + 1, Math.round(2.5 * U), 2 * U, capP); }
+      else for (let f = 0; f < 3; f++) flowerAt(x + Math.round((f - 1) * 3 * U), y + (f % 2), Math.round((4 + 5 * pxHash(f, k + sk)) * U), CAVE_FLOWERS[(k + f + sk) % CAVE_FLOWERS.length]);
+      tuft(x + Math.round(3 * U), y + 1);
+    }
+  };
+  bed("L", ...MOSS_GARDEN.bedL, 3);
+  bed("R", ...MOSS_GARDEN.bedR, 5);
+
+  // ---- glowcaps where a cave grows crystals, at both ends of the walls, with a fern beside them; a big fern in the back corner
+  const clump = (x, y, n, big) => {
+    fernAt(x - 5 * U, y, wall * 0.14);
+    for (let k = 0; k < n; k++) { const r = pxHash(k, Math.round(x)), cr = (big ? 2.6 + 2.4 * r : 2 + 1.6 * r) * U; capAt(Math.round(x + (k - (n - 1) / 2) * 5 * U), Math.round(y + (k % 2)), Math.round(cr * (0.9 + 0.8 * r)), cr, k % 3 === 2 ? capP : capB); }
+  };
+  { const [x, y] = at(0.02, 0.02); fernAt(x, y, wall * 0.2); }
+  clump(...at(0, 0.95), 2, false);
+  clump(...at(0.95, 0), 2, false);
+  // the moss's own sparkle: a few pale spores resting on it, in the light
+  for (let k = 0; k < 18; k++) { const u = 0.15 + 0.6 * pxHash(k, seed + 41), v = 0.15 + 0.6 * pxHash(seed + 42, k), [x, y] = at(u, v); if (Math.hypot(u - lu, v - lv) < 0.3) put(x, y, pxHex("#fffbe6")); }
+}
+const mossLight = {};
+/**
+ * The shaft of light down from the crack in the vault, over everything in the room (whoever stands in it is lit): dithered bands
+ * in three steps, brighter in streaks down its middle, and a soft pool where it lands; dust and spores drift up it, and fireflies
+ * wander over the beds. With less motion the shaft and the fireflies stand still and nothing drifts.
+ */
+function drawMossLight() {
+  const seed = caveArt(currentTheme(), true).seed * 7, key = `${W}|${H}|${PX}|${N.isoTop}|${N.isoW}|${N.isoWall}|${seed}`;
+  const q = v => v / PX, hw = q(N.isoW), [kx, ky] = mossCrack(seed), [px, py] = isoAt(...MOSS_GARDEN.light).map(q), wt = Math.max(3, hw * 0.05), wb = hw * 0.21;
+  if (mossLight.key !== key) {
+    const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
+    const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data, col = pxHex("#fff2c0");
+    for (let y = Math.max(0, Math.floor(ky)); y < Math.min(h, py + wb); y++) for (let x = Math.max(0, Math.floor(Math.min(kx, px) - wb * 1.4)); x < Math.min(w, Math.max(kx, px) + wb * 1.4); x++) {
+      const t = (y - ky) / (py - ky), b = PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5;
+      let I = 0;
+      if (t <= 1) {
+        const mid = kx + (px - kx) * t, half = wt + (wb - wt) * t, dx = (x - mid) / half;
+        if (Math.abs(dx) < 1) I = (1 - dx * dx) * (0.55 + 0.25 * t) * (0.8 + 0.2 * Math.cos(dx * 9 + 1)) * Math.min(1, t * 6 + 0.3);
+      }
+      const pd = Math.hypot((x - px) / (wb * 1.35), (y - py) / (wb * 0.62));
+      if (pd < 1) I = Math.max(I, (1 - pd) * 0.9);
+      const lv = Math.floor(I * 3.2 + b * 0.9);
+      if (lv <= 0) continue;
+      const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = [0, 46, 80, 116][Math.min(3, lv)];
+    }
+    g.putImageData(img, 0, 0);
+    Object.assign(mossLight, { key, c });
+  }
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalCompositeOperation = "screen";
+  ctx.drawImage(mossLight.c, 0, 0, W, H);
+  ctx.globalCompositeOperation = "source-over";
+  const calm = opts().calm, s = Math.max(1, Math.round(PX)), tm = game.time / 1000;
+  // dust and spores drifting up the light, turning slowly
+  if (!calm) for (let k = 0; k < 9; k++) {
+    const t = 1 - ((tm * (0.03 + 0.02 * pxHash(k, 3)) + pxHash(k, 5)) % 1), mid = kx + (px - kx) * t, half = wt + (wb - wt) * t;
+    const x = (mid + (pxHash(k, 7) - 0.5) * 1.4 * half + Math.sin(tm * 0.7 + k) * 2) * PX, y = (ky + (py - ky) * t) * PX;
+    ctx.globalAlpha = 0.5 * Math.sin(t * Math.PI); ctx.fillStyle = "#fffbe6"; ctx.fillRect(Math.round(x), Math.round(y), s, s);
+  }
+  // fireflies over the beds and the spring, blinking; with less motion each glows steady where it is
+  for (let k = 0; k < 7; k++) {
+    const side = k % 2 ? "R" : "L", along = 0.18 + 0.55 * pxHash(k, 11), out = 0.05 + 0.12 * pxHash(k, 13), lift = N.isoWall * (0.15 + 0.3 * pxHash(k, 17));
+    let [x, y] = side === "L" ? isoAt(out, along) : isoAt(along, out);
+    y -= lift;
+    if (!calm) { x += Math.sin(tm * (0.4 + 0.2 * pxHash(k, 19)) + k) * N.base * 0.25; y += Math.sin(tm * 0.53 + k * 2) * N.base * 0.12; }
+    const on = calm ? 0.75 : clamp(Math.sin(tm * (1.1 + 0.4 * pxHash(k, 23)) + k * 1.7) * 1.4 + 0.3, 0, 1);
+    if (on <= 0) continue;
+    ctx.globalAlpha = on * 0.28; ctx.fillStyle = "#d8f58a"; ctx.fillRect(Math.round(x / s) * s - s, Math.round(y / s) * s - s, s * 3, s * 3);
+    ctx.globalAlpha = on; ctx.fillStyle = "#f4ffb8"; ctx.fillRect(Math.round(x / s) * s, Math.round(y / s) * s, s, s);
+  }
+  ctx.restore();
 }
 /** The isometric room in art pixels: a diamond floor on a thick slab, and (indoors) a lit left wall and a shaded right one.
  *  Every surface is a material laid along its own plane, lit from the top left: caves are layered rock with ledges and
@@ -4021,7 +4292,7 @@ function paintRoomIso(id) {
   const q = v => v / PX, cx = q(N.cx), top = q(N.isoTop), hw = q(N.isoW), hh = hw / 2, wall = q(N.isoWall), slab = Math.max(4, Math.round(hw / 16));
   // stones, planks and beams keep their proportions to the room whatever its size (a phone's room is about 180 pixels from corner to end)
   const S = Math.max(0.55, hw / 180);
-  const { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, ashlarPx, facet, rockPx, timberAt, timberPx, pathD, dirt, floorPx } = roomMaterials(id, hw, wall, S);
+  const { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, garden, mossC, ashlarPx, facet, rockPx, timberAt, timberPx, pathD, dirt, floorPx } = roomMaterials(id, hw, wall, S);
   const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
   const ink = pxHex("#0b0614"), at = (u, v) => [cx + (u - v) * hw, top + (u + v) * hh];
   const lightAt = (u, v) => Math.exp(-(((u - 0.35) / 0.5) ** 2) - (((v - 0.5) / 0.6) ** 2));
@@ -4082,7 +4353,11 @@ function paintRoomIso(id) {
       for (let y = Math.floor(yTop); y < base; y++) {
         const z = base - y;
         let val, ramp = wallC;
-        if (kind === "cave") val = rockPx(al, z, sl, x, y) - 0.3 * Math.max(0, 1 - z / (6 * S));
+        if (kind === "cave") {
+          val = rockPx(al, z, sl, x, y) - 0.3 * Math.max(0, 1 - z / (6 * S));
+          // in the moss garden moss grows where it would: on the lit tops of the ledges, thickest low down and up under the roof
+          if (garden) { const m = pxFbm(al * 0.05 + sl * 9 + seed, z * 0.06) + (z < wall * 0.14 ? 0.16 : 0) + (z > wall * 0.9 ? 0.1 : 0); if (m > 0.56 && val > 0.42 - (m - 0.56) * 1.2) { ramp = mossC; val = val * 0.8 + 0.12 + (m > 0.62 ? 0.08 : 0); } }
+        }
         else if (kind === "timber") { const m = timberPx(al, z, sl, x, y); ramp = m.ramp; val = m.v; }
         else if (kind === "ruin") {
           // big old blocks, uneven, some missing their corners; moss on whatever still stands on top, ivy trailing down
@@ -4100,7 +4375,7 @@ function paintRoomIso(id) {
             if (z < plH + 3) val -= 0.12 * (plH + 3 - z) / 3;   // the ledge's shadow on the wall just above it
           }
         }
-        if (y - yTop < 2) { val = sl > 0 ? 0.8 : 0.6; if (kind === "timber") ramp = oak; }   // the lit top edge of the wall
+        if (y - yTop < 2) { val = sl > 0 ? 0.8 : 0.6; if (kind === "timber") ramp = oak; if (garden) ramp = mossC; }   // the lit top edge of the wall
         if (kind === "cave") { if (Math.abs(x - cx) < 3) val -= 0.08 * (3 - Math.abs(x - cx)); }  // rock curves round the back, no sharp corner
         else if (Math.abs(x - cx) < 1 && kind !== "timber") val = 0.05;     // the back corner
         if (al < 10 * S) val -= 0.14 * (1 - al / (10 * S));   // the corner's own shadow
@@ -4108,7 +4383,18 @@ function paintRoomIso(id) {
         put(x, y, isoTone(ramp, val, x, y));
       }
       // a cave's rock overhangs: stalactites drip from its ragged top
-      if (kind === "cave" && pxHash(x, seed + 5) > 0.82) {
+      if (garden) {
+        // in the moss garden the roof drips moss instead: curtains of it, long where the rock hangs low, and now and then a root
+        // that found its way down through the rock, twisting, lit on its left
+        const hs = pxHash(x, seed + 5), curtain = pxNoise(x * 0.09, seed + 7);
+        if (hs > 0.42 - 0.3 * curtain) {
+          const len = Math.round((2 + 14 * curtain * curtain + 4 * pxHash(x + 3, seed)) * S) + 1;
+          for (let k = 0; k < len; k++) put(x, yTop + 1 + k, k === len - 1 ? mossC[pxHash(x, 9) > 0.6 ? 6 : 5] : mossC[clamp(3 + (side < 0 ? 1 : 0) - (k > len * 0.6 ? 1 : 0) + (pxHash(x, k) > 0.85 ? 1 : 0), 0, 6)]);
+        } else if (hs < 0.06) {
+          const len = Math.round((10 + 16 * pxHash(x, seed + 2)) * S);
+          for (let k = 0; k < len; k++) { const rx = x + Math.round(Math.sin(k * 0.35 + x) * 1.2); put(rx, yTop + 1 + k, dirt[k === len - 1 ? 3 : 2]); put(rx - 1, yTop + 1 + k, dirt[k % 5 ? 4 : 3]); }
+        }
+      } else if (kind === "cave" && pxHash(x, seed + 5) > 0.82) {
         const len = 2 + Math.round(pxHash(x + 3, seed) * 5);
         for (let k = 0; k < len; k++) put(x, yTop + 2 + k, pxPick(wallC, 0.62 - k * 0.07, x, k));
       }
@@ -4122,6 +4408,8 @@ function paintRoomIso(id) {
     const glazed = kind === "timber", sillC = kind === "timber" ? [oak[1], oak[4]] : [wallC[1], wallC[Math.min(6, wallC.length - 1)]];
     // (the grotto's hall is deep under the rock: no window there, and no moonlight on its floor)
     if (roomKindNow === "grotto") {}
+    // (the moss garden has no window: its light comes down a shaft from a crack in the vault, see paintMossGarden)
+    else if (garden) {}
     else if (kind === "hall") {
       // the abbey's window is Gothic: a pointed arch cut deep through the wall and splayed, so both its sides show, with a
       // broad stone seat; four tall lancets with trefoil heads under a net of lozenges (three, two, one), all on the wall's
@@ -4265,7 +4553,8 @@ function paintRoomIso(id) {
       }
       for (const [u0, v0] of [[0.86, 0.12], [0.1, 0.9]]) { const [bx, by] = at(u0, v0); for (let yy = 0; yy < 4; yy++) for (let xx = -4; xx <= 4; xx++) put(bx + xx, by - yy, pxPick(ruinStone, yy === 3 ? 0.8 : xx < 0 ? 0.55 : 0.35, xx, yy)); }
     }
-    if (kind === "cave") {
+    if (garden) paintMossGarden({ put, d, w, h, at, cx, top, hw, hh, wall, S, seed, mossC, dirt, crys });
+    else if (kind === "cave") {
       // crystals growing at the foot of the walls, in the back corner and at both ends: facets lit on the left, a pale tip
       for (const [bx, by, n] of [[cx, top, 5], [cx - hw * 0.92, top + hh * 0.92, 3], [cx + hw * 0.92, top + hh * 0.92, 3]]) for (let k = 0; k < n; k++) {
         const ox = bx + (k - n / 2) * 2.4 * S, hgt = (4 + Math.round(pxHash(k + bx, seed) * 8)) * S, ww = (1.4 + pxHash(k, 3)) * S;
@@ -4362,6 +4651,7 @@ function drawRoomIso() {
   if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
   if (weather.drops.length) items.push({ y: 1e6, top: true, draw: drawWeatherAir });
   if (hasDecor("cushion")) items.push({ y: 1e6, top: true, id: "cushion", draw: drawCloud });
+  if (mossGardenHere()) items.push({ y: 1e6, top: true, draw: drawMossLight });
   return items;
 }
 
@@ -4382,7 +4672,7 @@ function paintRoom(id) {
   // the materials are cut for a wall 1.2 back-halves long: five timber bays across the back wall, planks and stones the size
   // they are in the isometric room
   const MW = hb * 1.2;
-  const { kind, night, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, wallC, wood, ashlarPx, rockPx, timberPx, floorPx } = roomMaterials(id, MW, wallH, S);
+  const { kind, night, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, wallC, wood, garden, mossC, dirt, ashlarPx, rockPx, timberPx, floorPx } = roomMaterials(id, MW, wallH, S);
   const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (!col || x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
   const get = (x, y) => { const i = (y * w + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
   const has = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0;
@@ -4516,7 +4806,18 @@ function paintRoom(id) {
         put(x, y, tone(m.ramp, v, x, y));
       }
       // a cave's rock overhangs: stalactites drip from its ragged top
-      if (kind === "cave" && pxHash(x, seed + 5) > 0.82) {
+      if (garden) {
+        // in the moss garden the roof drips moss instead: curtains of it, long where the rock hangs low, and now and then a root
+        // that found its way down through the rock, twisting, lit on its left
+        const hs = pxHash(x, seed + 5), curtain = pxNoise(x * 0.09, seed + 7);
+        if (hs > 0.42 - 0.3 * curtain) {
+          const len = Math.round((2 + 14 * curtain * curtain + 4 * pxHash(x + 3, seed)) * S) + 1;
+          for (let k = 0; k < len; k++) put(x, back - zt + 1 + k, k === len - 1 ? mossC[pxHash(x, 9) > 0.6 ? 6 : 5] : mossC[clamp(3 + 0 - (k > len * 0.6 ? 1 : 0) + (pxHash(x, k) > 0.85 ? 1 : 0), 0, 6)]);
+        } else if (hs < 0.06) {
+          const len = Math.round((10 + 16 * pxHash(x, seed + 2)) * S);
+          for (let k = 0; k < len; k++) { const rx = x + Math.round(Math.sin(k * 0.35 + x) * 1.2); put(rx, back - zt + 1 + k, dirt[k === len - 1 ? 3 : 2]); put(rx - 1, back - zt + 1 + k, dirt[k % 5 ? 4 : 3]); }
+        }
+      } else if (kind === "cave" && pxHash(x, seed + 5) > 0.82) {
         const len = 2 + Math.round(pxHash(x + 3, seed) * 5 * S);
         for (let k = 0; k < len; k++) put(x, back - zt + 2 + k, pxPick(wallC, 0.62 - k * 0.07, x, k));
       }
@@ -4593,6 +4894,20 @@ function paintRoom(id) {
           const k = f + (bay(y, x) - 0.5) * 0.2 > 0.55 ? 0.5 : 0.34;
           put(x, y, mixHex(get(x, y), lav, edge ? k * 0.6 : k));
         }
+      }
+    } else if (garden) {
+      // the moss garden has no window: a shaft of light comes down from a crack in the vault, in dithered bands, and lies in
+      // a warm pool on the moss (the same light as in the isometric room, drawn into the room here)
+      const warm = pxHex("#f6e9a8"), y0 = Math.round(q(N.wallTop)), yP = Math.round(lerp(back, front, 0.32)), x0 = cx - hb * 0.12, xP = cx - hb * 0.04;
+      for (let y = Math.max(0, y0); y <= yP + hb * 0.12; y++) for (let x = Math.floor(cx - hb * 0.6); x <= cx + hb * 0.4; x++) {
+        const t = (y - y0) / (yP - y0), b = PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5;
+        let I = 0;
+        if (t <= 1) { const mid = x0 + (xP - x0) * t, half = hb * (0.05 + 0.13 * t), dx = (x - mid) / half; if (Math.abs(dx) < 1) I = (1 - dx * dx) * 0.6; }
+        const pd = Math.hypot((x - xP) / (hb * 0.26), (y - yP) / (hb * 0.07));
+        if (pd < 1) I = Math.max(I, (1 - pd) * 0.9);
+        const lv = Math.floor(I * 3.2 + b * 0.9);
+        if (lv <= 0 || x < 0 || y < 0 || x >= w || y >= h) continue;
+        const k = (y * w + x) * 4; put(x, y, mixHex([d[k], d[k + 1], d[k + 2]], warm, [0, 0.14, 0.24, 0.34][Math.min(3, lv)]));
       }
     } else {
       // a cave's opening hacked through the rock (ragged, no frame, a short tunnel to the sky); the timber hall's square-headed
