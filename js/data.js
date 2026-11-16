@@ -223,7 +223,7 @@ const DECOR = [
   { id: "swing", name: "Moon swing", emoji: "🌙", cost: 70, lovers: ["nap", "hop"], spot: [0.9, 0.4], verb: "swings on the moon", emote: "♥" },
   { id: "lights", name: "Fairy lights", emoji: "🎐", cost: 55, lovers: ["flutter", "dance"], spot: [0.5, 0], verb: "chases the fairy lights", emote: "✦" },
 ];
-// the isometric room has space for more: these stand on the floor (or hang on the wall) only in that view
+// more pieces, made for the isometric room from the start (iso: their names and verbs are translated just below)
 DECOR.push(
   { id: "bookcase", name: "Bookcase", emoji: "📚", cost: 65, lovers: ["curious"], verb: "leafs through a book", emote: "✦", iso: true },
   { id: "armchair", name: "Moss armchair", emoji: "🛋️", cost: 50, lovers: ["nap"], verb: "curls up in the armchair", emote: "zz", iso: true },

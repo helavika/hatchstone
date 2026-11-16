@@ -13,18 +13,11 @@ const decorFx = {};
 let swingPush = 0;
 const fxAge = id => decorFx[id] === undefined ? 9 : (game.time - decorFx[id]) / 1000;
 
-/** The lights droop a little, but never across the window. */
-const lightsSag = () => Math.max(4, Math.min(N.base * 0.4, (N.win.y - N.win.r * 1.25 - N.wallTop - 10) / 2));
-/** A point t (0..1) along the string of lights. */
+/** A point t (0..1) along the string of lights: from the left corner to the back corner, then on to the right corner, drooping between. */
 function lightsLine(t) {
-  if (N.iso) {
-    // from the left corner to the back corner, then on to the right corner, drooping between
-    const ends = [[N.cx - N.isoW * 0.94, isoWallTop(N.cx - N.isoW * 0.94) + 6], [N.cx, N.wallTop + 6], [N.cx + N.isoW * 0.94, isoWallTop(N.cx + N.isoW * 0.94) + 6]];
-    const seg = t < 0.5 ? 0 : 1, s = t < 0.5 ? t * 2 : t * 2 - 1, [a, b] = [ends[seg], ends[seg + 1]];
-    return [lerp(a[0], b[0], s), lerp(a[1], b[1], s) + N.base * 0.3 * 4 * s * (1 - s)];
-  }
-  const x0 = N.cx - N.hb + N.base * 0.3, x1 = N.cx + N.hb - N.base * 0.3, y = N.wallTop + 6, sag = lightsSag();
-  return [lerp(x0, x1, t), y + sag * 4 * t * (1 - t)];
+  const ends = [[N.cx - N.isoW * 0.94, isoWallTop(N.cx - N.isoW * 0.94) + 6], [N.cx, N.wallTop + 6], [N.cx + N.isoW * 0.94, isoWallTop(N.cx + N.isoW * 0.94) + 6]];
+  const seg = t < 0.5 ? 0 : 1, s = t < 0.5 ? t * 2 : t * 2 - 1, [a, b] = [ends[seg], ends[seg + 1]];
+  return [lerp(a[0], b[0], s), lerp(a[1], b[1], s) + N.base * 0.3 * 4 * s * (1 - s)];
 }
 function bulbPos(i) {
   const [x, y] = lightsLine(i / 14);
@@ -33,36 +26,20 @@ function bulbPos(i) {
 
 /** Which decoration (if any) is under a finger. The rug is left out: the floor is for calling everyone. */
 function decorAt(x, y) {
-  const b = N.base;
-  if (N.iso) {
-    // the frontmost piece whose own pixels are under the finger; the swing's seat counts too
-    let best = null;
-    for (const p of Object.values(isoLayout().placed)) {
-      if (p.id === "bed" || p.id === "incubator" || (isPlace() && PLACE_PROPS.has(p.id))) continue;
-      // not drawn yet (it was only just put out): its picture is made now
-      let h = pieceHits[p.id];
-      if (!h) { const f = isoPiece(p, pieceExtra(p)); h = pieceHits[p.id] = { c: f.c, x: f.x, y: f.y }; }
-      let hit = spriteHit(h.c, h.x, h.y, x, y);
-      if (!hit && p.id === "swing") { const [sx, sy] = swingSeat(); hit = Math.hypot(x - sx, (y - sy) * 1.6) < N.isoW / ISO_G * 0.7; }
-      if (hit && (!best || p.i + p.j > best.i + best.j)) best = p;
-    }
-    if (best) return { id: best.id };
-    if (hasDecor("shelf") && pieceHits.shelf && spriteHit(pieceHits.shelf.c, pieceHits.shelf.x, pieceHits.shelf.y, x, y)) return { id: "shelf" };
-    if (wallItemAt(x, y) === "painting") return { id: "painting" };
+  // the frontmost piece whose own pixels are under the finger; the swing's seat counts too
+  let best = null;
+  for (const p of Object.values(isoLayout().placed)) {
+    if (p.id === "bed" || p.id === "incubator" || (isPlace() && PLACE_PROPS.has(p.id))) continue;
+    // not drawn yet (it was only just put out): its picture is made now
+    let h = pieceHits[p.id];
+    if (!h) { const f = isoPiece(p, pieceExtra(p)); h = pieceHits[p.id] = { c: f.c, x: f.x, y: f.y }; }
+    let hit = spriteHit(h.c, h.x, h.y, x, y);
+    if (!hit && p.id === "swing") { const [sx, sy] = swingSeat(); hit = Math.hypot(x - sx, (y - sy) * 1.6) < N.isoW / ISO_G * 0.7; }
+    if (hit && (!best || p.i + p.j > best.i + best.j)) best = p;
   }
-  for (const d of DECOR) {
-    if (!hasDecor(d.id) || d.id === "rug" || d.id === "lights") continue;
-    if (N.iso) continue;
-    let [hx, hy] = decorSpot(d.id), r = b * 0.42;
-    const k = d.id === "shelf" ? N.dk : depthK(hy); r *= k;
-    if (d.id === "lamp") { hy -= b * 0.75 * k; r = b * 0.5 * k; }
-    else if (d.id === "mushrooms") { hy -= b * 0.35 * k; r = b * 0.6 * k; }
-    else if (d.id === "cushion") hy -= b * 0.1;
-    else if (d.id === "shelf") { hy -= b * 1.15 * k; r = b * 0.5 * k; }
-    else if (d.id === "spring") r = b * 0.7;
-    else if (d.id === "swing") { const s2 = swingSeat(); hx = s2[0]; hy = s2[1] + b * 0.18; r = b * 0.5; }
-    if (Math.hypot(x - hx, y - hy) < r) return { id: d.id };
-  }
+  if (best) return { id: best.id };
+  if (hasDecor("shelf") && pieceHits.shelf && spriteHit(pieceHits.shelf.c, pieceHits.shelf.x, pieceHits.shelf.y, x, y)) return { id: "shelf" };
+  if (wallItemAt(x, y) === "painting") return { id: "painting" };
   // the fairy lights last, so they don't steal taps meant for the shelf
   if (hasDecor("lights")) for (let i = 1; i < 14; i++) { const [bx, by] = bulbPos(i); if (Math.hypot(x - bx, y - by) < 13) return { id: "lights", bulb: i }; }
   return null;
@@ -105,8 +82,7 @@ function playDecor(hit) {
     }
     case "cushion":
       if (sfx.ready()) { sfx.grain(t, 0.25, 500, 0.7, 0.25, "lowpass"); sfx.grain(t + 0.02, 0.12, 2200, 1, 0.08); }
-      if (N.iso) startWeather();
-      else spawnChips(x, y - b * 0.2, 10, 0.5, ["#ffffff", "#e6e0ff", "#f3eefc"]);
+      startWeather();
       break;
     case "drum":
       if (sfx.ready()) { sfx.tone(t, 110, 0.25, 0.35, "sine", 60); sfx.grain(t, 0.08, 400, 1.2, 0.15, "lowpass"); }
@@ -217,11 +193,11 @@ const dustView = { key: "", spots: [] }, dustArt = { R: 0 }, dustBorn = new Map(
 function dustSpots() {
   const dust = save.dust || [];
   if (!dust.length || save.room !== nestRoom()) return [];
-  const lay = N.iso && isoLayout(), key = `${W}|${H}|${N.base}|${N.iso}|${dust.join(";")}`;
+  const lay = isoLayout(), key = `${W}|${H}|${N.base}|${dust.join(";")}`;
   if (dustView.key === key && dustView.lay === lay && dustView.dust === dust) return dustView.spots;
   const taken = [];
   dustView.spots = dust.map((d, i) => {
-    const [x, y] = N.iso ? isoDustAt(d[0], d[1], taken) : [lerp(N.x0, N.x1, 0.06 + d[0] * 0.88), lerp(N.y0, N.y1, 0.2 + d[1] * 0.75)];
+    const [x, y] = isoDustAt(d[0], d[1], taken);
     return { d, i, x, y, r: N.base * 0.24 * depth(y) };
   });
   dustView.key = key; dustView.lay = lay; dustView.dust = dust;
@@ -415,13 +391,9 @@ function gloomCalm() {
   return home.length > 0 && !home.some(c => c.sleeping);
 }
 /** A point on the floor (0..1 each way) onto an object's x and y. */
-function gloomFloor(o, u, v) {
-  if (N.iso) { o.x = N.cx + (u - v) * N.isoW; o.y = N.isoTop + (u + v) * N.isoH; }
-  else { o.x = lerp(N.x0, N.x1, u); o.y = lerp(N.y0, N.y1, v); }
-}
+function gloomFloor(o, u, v) { o.x = N.cx + (u - v) * N.isoW; o.y = N.isoTop + (u + v) * N.isoH; }
 /** Keep a wisp over the floor. */
 function gloomKeep(w) {
-  if (!N.iso) { w.x = clamp(w.x, N.x0, N.x1); w.y = clamp(w.y, N.y0, N.y1); return; }
   const a = (w.x - N.cx) / N.isoW, b = (w.y - N.isoTop) / N.isoH;
   gloomFloor(w, clamp((a + b) / 2, 0.04, 0.96), clamp((b - a) / 2, 0.04, 0.96));
 }
@@ -442,18 +414,17 @@ function gloomCome() {
   for (const th of g.threads) th.on = th.live = false;
   // the little ones huddle at the front of the room, away from where the shadows come in
   const huddle = { x: 0, y: 0 };
-  gloomFloor(huddle, N.iso ? 0.66 : 0.5, N.iso ? 0.66 : 0.78);
+  gloomFloor(huddle, 0.66, 0.66);
   g.gx = huddle.x; g.gy = huddle.y;
   const count = g.count = 1 + (Math.random() < 0.65 ? 1 : 0) + (Math.random() < 0.35 ? 1 : 0);
   // (in floor coordinates, a little way in: the crack, then the left end and the right end of the walls)
-  const from = N.iso ? [[0.05, 0.05], [0.06, 0.86], [0.86, 0.06]] : [[0.5, 0.03], [0.04, 0.25], [0.96, 0.25]];
+  const from = [[0.05, 0.05], [0.06, 0.86], [0.86, 0.06]];
   g.wisps.forEach((w, i) => {
     w.on = i < count;
     gloomFloor(w, ...from[i]);
     Object.assign(w, { t: -i * 1.2, life: GLOOM_LIFE + rand(-6, 6), hp: 1, k: 0, fade: 1, ph: rand(0, TAU), lit: 0, tie: 0, spk: 0 });
   });
   gloomFloor(g.crack, 0, 0);
-  if (!N.iso) gloomFloor(g.crack, 0.5, 0);
   g.crack.t = 0;
   if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.grain(t, 1.4, 160, 0.6, 0.14, "lowpass"); sfx.tone(t, 98, 0.04, 1.6, "sine", 82); }
   // the one nearest the crack notices first
@@ -596,16 +567,6 @@ const charmPlace = { key: "", wall: "R", s: 3, x: 0, y: 0, fx: 0, fy: 0 };
 function charmSpot() {
   if (!charmHung() || save.room !== nestRoom()) return null;
   const o = charmPlace, b = N.base;
-  if (!N.iso) {
-    // seen straight on: on the back wall beside the window, right of it if there's room before the swing's ropes, else left of
-    // it before the shelf; with no room either side, over the shelf where the wall is tall, or in the wider gap where it isn't
-    const wr = N.win.x + N.win.r, wl = N.win.x - N.win.r, need = b * 0.62;
-    const R = hasDecor("swing") ? wallAt(0.9, 0)[0] - b * 0.45 : N.cx + N.hb - b * 0.3, L = hasDecor("shelf") ? wallAt(0.12, 0)[0] + b * 0.7 * N.dk : N.cx - N.hb + b * 0.3;
-    const right = Math.min((wr + R) / 2, wr + b * 0.9), left = Math.max((wl + L) / 2, wl - b * 0.9), over = R - wr < need && wl - L < need && N.back - N.wallTop > b * 2.6;
-    o.x = over ? wallAt(0.12, 0)[0] : R - wr >= need || R - wr >= wl - L ? right : left;
-    o.y = lerp(N.back, N.wallTop, over ? 0.7 : 0.6); o.fx = o.x; o.fy = N.y0 + b * 0.1;
-    return o;
-  }
   // half-way up the wall, or lower where the wall is short, to hang clear of a string of lights
   const lift = Math.min(N.isoWall * 0.55, N.isoWall - b * 0.8), lay = isoLayout(), key = lay.key + "|" + Object.keys(WALL_ITEMS).filter(hasDecor).join() + "|" + Math.round(lift / b * 10);
   if (o.key !== key) {
@@ -904,7 +865,7 @@ function drawGloomUnder() {
     const last = GLOOM_SEEP + 1.2 * (g.count - 1) + 1.5, t = g.crack.t;
     const k = t < 0.6 ? t / 0.6 : t < last ? 1 : Math.max(0, 1 - (t - last) / 1.5);
     if (k > 0) {
-      const C = A.crack, x = Math.round(g.crack.x / P) * P - Math.floor(C.w / 2) * P, y = Math.round((N.iso ? N.isoTop : N.back) / P) * P - C.h * P;
+      const C = A.crack, x = Math.round(g.crack.x / P) * P - Math.floor(C.w / 2) * P, y = Math.round(N.isoTop / P) * P - C.h * P;
       ctx.globalAlpha = k;
       ctx.drawImage(C.c, x, y, C.w * P, C.h * P);
     }
@@ -1029,34 +990,26 @@ function drawNest() {
   drawPassages();
   drawDust();
   drawGloomUnder();
-  // whoever lies on the bed or sits on a piece is drawn right after it (on top), not by where their feet are
-  const frontOf = id => { const p = N.iso && isoLayout().placed[id]; return p ? isoAt((p.i + p.fw) / ISO_G, (p.j + p.fd) / ISO_G)[1] : null; };
   for (const a of actors.values()) {
-    // (asleep on the floor beside a full bed: drawn where it lies, like anyone else on the floor)
-    const on = (a.state === "sleep" || a.state === "toBed") && (!N.iso || a.onBed) ? frontOf("bed") : N.iso && a.state === "nap" && a.decor === "cushion" ? 1e6 : (a.state === "nap" || a.state === "visit") && a.decor ? frontOf(a.decor) : null;
-    const item = { y: on != null && a.state !== "toBed" ? on + 0.5 : a.y + 0.5, draw: () => drawActor(a), actor: a };
-    if (N.iso) {
-      const [u, v] = isoFrom(a.x, a.y);
-      item.box = { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G };
-      // lying on the bed, napping on the cloud or sitting on the swing or a piece: drawn right after it
-      item.after = a.onBed ? "bed" : a.state === "nap" && a.decor === "cushion" ? "cushion" : (a.state === "visit" || a.state === "nap") && a.decor ? a.decor : null;
-      if (item.after === "cushion") item.top = true;
-    }
+    const [u, v] = isoFrom(a.x, a.y), item = { y: a.y + 0.5, draw: () => drawActor(a), actor: a, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } };
+    // lying on the bed, napping on the cloud or sitting on the swing or a piece: drawn right after it (on top), not by where their feet are
+    item.after = a.onBed ? "bed" : a.state === "nap" && a.decor === "cushion" ? "cushion" : (a.state === "visit" || a.state === "nap") && a.decor ? a.decor : null;
+    if (item.after === "cushion") item.top = true;
     items.push(item);
   }
   const h = heroHere();
-  if (h && !h.none && N.iso) {
+  if (h && !h.none) {
     const [hx, hy] = heroSpot(), [u, v] = isoFrom(hx, hy);
     items.push({ y: hy, draw: drawHero, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } });
   }
   // Wick's bench in the grotto's hall: its lanterns, and on his days Wick himself, go right over the bench
-  const wb = wickRoom() && N.iso && isoLayout().placed.wickbench;
+  const wb = wickRoom() && isoLayout().placed.wickbench;
   if (wb) items.push({ y: 0, after: "wickbench", draw: drawWick, box: { u0: wb.i, u1: wb.i + wb.fw, v0: wb.j, v1: wb.j + wb.fd } });
-  const order = N.iso ? isoOrder(items) : items.sort((p, q) => p.y - q.y);
+  const order = isoOrder(items);
   order.forEach(it => it.draw());
-  if (N.iso) ghostBehind(order);
+  ghostBehind(order);
   drawGloomOver();
-  if (isPlace() && N.iso) drawPlaceLife();
+  if (isPlace()) drawPlaceLife();
   const sn = game.nest.snack;
   if (sn) {
     fx.font = `${Math.round(N.base * 0.32)}px system-ui`; fx.textAlign = "center";
@@ -1375,91 +1328,8 @@ function incubatorPod(x, y, b) {
   });
 }
 
-/** The incubator in the straight-on room, all in pixels: the pod (incubatorPod), a shadow and a ring of light on the floor
- *  that fills while it incubates, a tiny moon going round the dome, the speckled egg rocking when it's ready, and the glass. */
-function drawIncubatorFront() {
-  const [x, y] = incSpot(), b = N.base * depthK(y), inc = save.incubator, n = game.nest, ready = inc && Date.now() >= inc.due;
-  pxShadow(x, y + 4, b * 0.55, b * 0.11, 0.3);
-  if (inc && !ready) {
-    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), fy = y - b * 0.02, from = Math.PI / 2;
-    pxRing(x, fy, b * 0.66, b * 0.2, 0, TAU, "rgba(255,255,255,.16)");
-    if (k > 0.005) pxRing(x, fy, b * 0.66, b * 0.2, from, from + TAU * k, "#ffb3d4");
-  }
-  // the tiny moon on its faint orbit: the far half (and the moon, when it's back there) goes behind the dome
-  const an = game.time * 0.0009, oy0 = y - b * 0.42, moonFront = Math.sin(an) > 0;
-  const moon = () => { const m = cachedSprite(roomSprites, "frontIncMoon", PX, () => ({ c: isoArt(7, 7, T => T.ball(3, 3, 1.7, IC.white, IC.y0, IC.y1)) })); drawBaked({ c: m.c, x: Math.round((x + Math.cos(an) * b * 0.62) / PX - 3) * PX, y: Math.round((oy0 + Math.sin(an) * b * 0.16) / PX - 3) * PX }); };
-  pxRing(x, oy0, b * 0.62, b * 0.16, Math.PI, TAU, "rgba(201,184,255,.35)");
-  if (!moonFront) moon();
-  drawBaked(incubatorPod(x, y, b));
-  propCue("incubator", incubatorPod(x, y, b));
-  if (inc) {
-    // the egg, speckled in both parents' colours and glowing warmer as it gets closer; when it's ready it rocks
-    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), wob = ready ? Math.sin(game.time * 0.02) * 0.08 + (n.hatchWob || 0) * Math.sin(game.time * 0.05) * 0.2 : 0;
-    const ew = Math.round(b * 0.42 / PX), eh = Math.round(ew * 1.28), tilt = clamp(Math.round(wob * 10), -2, 2), warm = Math.round(k * 4), taps = Math.min(2, n.hatchTaps || 0);
-    const gr = Math.ceil(ew * 1.1), w = ew + gr * 2 + 6, h = eh + gr * 2 + 4, ex = w / 2, ebot = h - gr - 2;
-    drawBaked(frontArt("incEgg", x, y - b * 0.05, w, h, ex, ebot, `${inc.mix.name}|${inc.mix.pal}|${ew}`, `${tilt}|${warm}|${taps}`, T => {
-      const pal = inc.mix.pal.map(pxHex), ey = ebot - eh / 2;
-      // the shape, leaning as it rocks: each row slides over by how high it is
-      const lean = py => tilt * (ebot - py) / eh;
-      const pts = eggPoly(ex, ey, ew, eh, 40);
-      for (let py = Math.floor(ey - eh / 2); py <= Math.ceil(ebot); py++) for (let px = Math.floor(ex - ew); px <= Math.ceil(ex + ew); px++) {
-        const sx = px + 0.5 - lean(py), sy = py + 0.5;
-        let inside = false;
-        for (let i = 0, j = pts.length - 1; i < pts.length; j = i++) { const [xi, yi] = pts[i], [xj, yj] = pts[j]; if ((yi > sy) !== (yj > sy) && sx < (xj - xi) * (sy - yi) / (yj - yi) + xi) inside = !inside; }
-        if (!inside) continue;
-        const nx = (sx - ex) / (ew / 2), ny = (sy - ey) / (eh / 2), lit = -nx * 0.6 - ny * 0.75;
-        T.px(px, py, lit > 0.55 ? mixHex(pal[1], IC.white, 0.6) : lit > 0.05 ? pal[1] : lit > -0.5 ? mixHex(pal[1], pal[0], 0.55) : pal[0]);
-      }
-      // speckles
-      const R2 = seeded(inc.mix.name);
-      for (let i = 0; i < 9; i++) { const sy = Math.round(ey + (R2() - 0.5) * eh * 0.8), sx = Math.round(ex + (R2() - 0.5) * ew * 0.8 + lean(sy)), big = R2() > 0.6; for (const [dx, dy] of big ? [[0, 0], [1, 0], [0, 1]] : [[0, 0]]) if (T.has(sx + dx, sy + dy)) T.px(sx + dx, sy + dy, mixHex(pal[2], pal[0], 0.3)); }
-      // a glint
-      T.px(ex - ew * 0.22 + lean(ey - eh * 0.25), ey - eh * 0.25, IC.white);
-      // cracks from the taps
-      if (taps) for (let i = 0; i <= 6; i++) { const cx2 = ex - ew / 2 + i * ew / 6, cy2 = ey + (i % 2 ? -1 : 1); T.px(cx2 + lean(cy2), cy2, IC.ink2); }
-      if (taps > 1) { T.line(ex - 1 + lean(ey), ey - 1, ex + lean(ey - eh * 0.3), ey - eh * 0.3, IC.ink2); T.line(ex + ew * 0.2 + lean(ey), ey + 1, ex + ew * 0.12 + lean(ey + eh * 0.3), ey + eh * 0.3, IC.ink2); }
-      // its warm glow inside the glass, stronger as it gets closer
-      T.glow(ex, ey, ew * (0.8 + warm * 0.1), IC.y0, 0.06 + warm * 0.04);
-    }));
-  }
-  // the glass dome: a bright rim, the back of its foot showing faintly through, a long highlight down the left
-  const r = Math.round(b * 0.4 / PX), gh = Math.round((b * 0.49) / PX), gr = Math.max(1, Math.round(b * 0.112 / PX)), dw = r * 2 + 5, dh = r + gh + gr + 4;
-  const glass = cachedSprite(roomSprites, "frontIncGlass", `${r}|${gh}|${gr}|${PX}`, () => ({ c: isoArt(dw, dh, T => {
-    const cx = r + 2, cy = r + 1, rim = pxHex("#f4f0ff");
-    for (let k = 0; k <= 64; k++) { const a = Math.PI + k / 64 * Math.PI; T.px(cx + Math.cos(a) * r, cy + Math.sin(a) * r, rim); }
-    for (let j = 0; j <= gh; j++) { T.px(cx - r, cy + j, rim); T.px(cx + r, cy + j, rim); }
-    for (let k = 0; k <= 48; k++) { const a = k / 48 * Math.PI; T.px(cx + Math.cos(a) * r, cy + gh + Math.sin(a) * gr, rim); if (k % 3 === 0) T.px(cx - Math.cos(a) * r, cy + gh - Math.sin(a) * gr, IC.l1); }
-    // the highlight: following the curve of the glass at the top left, then straight down its side
-    for (let k = 0; k <= 12; k++) { const a = Math.PI * (1.12 + k / 12 * 0.26); T.px(cx + Math.cos(a) * (r - 2.5), cy + Math.sin(a) * (r - 2.5), IC.white); }
-    for (let j = 0; j < Math.round(gh * 0.7); j++) T.px(cx - r + 2, cy + j, j % 4 === 3 ? IC.l0 : IC.white);
-    T.px(cx + r * 0.55, cy - r * 0.55, IC.white); T.px(cx + r * 0.62, cy - r * 0.45, IC.l0);
-  }, { outline: false, texture: false, light: false }) }));
-  ctx.globalAlpha = 0.6;
-  drawBaked({ c: glass.c, x: Math.round(x / PX - r - 2) * PX, y: Math.round((y - b * 0.55) / PX - r - 1) * PX });
-  ctx.globalAlpha = 1;
-  pxRing(x, oy0, b * 0.62, b * 0.16, 0, Math.PI, "rgba(201,184,255,.35)");
-  if (moonFront) moon();
-  if (ready) {
-    // ready to hatch: three twinkles going round it
-    for (let i = 0; i < 3; i++) {
-      const a = game.time * 0.002 + i * 2.1, big = Math.abs(Math.sin(game.time * 0.005 + i)) > 0.5 ? 1 : 0;
-      const s = cachedSprite(roomSprites, "frontIncSpark" + big, PX, () => ({ c: isoArt(9, 9, T => pxTwinkle(T, 4, 4, big + 1, IC.y1, IC.y0), { outline: false, texture: false, light: false }) }));
-      drawBaked({ c: s.c, x: Math.round((x + Math.cos(a) * b * 0.5) / PX - 4) * PX, y: Math.round((y - b * 0.55 + Math.sin(a) * b * 0.4) / PX - 4) * PX });
-    }
-  } else if (!inc) {
-    // empty: a little heart, waiting
-    const s = cachedSprite(roomSprites, "frontIncHeart", PX, () => ({ c: isoArt(9, 8, T => {
-      for (const [row, a, bb] of [[0, 1, 2], [0, 4, 5], [1, 0, 6], [2, 0, 6], [3, 1, 5], [4, 2, 4], [5, 3, 3]]) for (let q = a; q <= bb; q++) T.px(q + 1, row + 1, row < 2 && (q === 1 || q === 4) ? IC.white : row > 2 ? IC.p2 : IC.p1);
-    }, { texture: false, light: false }) }));
-    ctx.globalAlpha = 0.85;
-    drawBaked({ c: s.c, x: Math.round(x / PX - 4) * PX, y: Math.round((y - b * 0.45) / PX - 4) * PX });
-    ctx.globalAlpha = 1;
-  }
-}
-
 function drawIncubator() {
-  if (!N.iso) return drawIncubatorFront();
-  const [x, y] = incSpot(), b = N.base * depthK(incSpot()[1]), inc = save.incubator, n = game.nest;
+  const [x, y] = incSpot(), b = N.base * N.dk, inc = save.incubator, n = game.nest;
   const ready = inc && Date.now() >= inc.due;
   // a little space pod: a metal saucer with blinking lights, and a nebula full of stars inside the dome
   ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + 4, b * 0.55, b * 0.11, 0, 0, TAU); ctx.fill();

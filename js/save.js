@@ -118,6 +118,8 @@ function migrate(d) {
   // a friend's charm on the wall, if one hangs there
   const hung = hungSaveOf(d.hung);
   if (hung) d.hung = hung; else delete d.hung;
+  // rooms used to be seen either from the corner or from the front: now always from the corner, so the choice goes
+  delete d.view;
   d.v = SAVE_VERSION;
   return d;
 }
@@ -328,13 +330,13 @@ Object.assign(PX_ICON_MAPS, {
 /** How long a daydream stays up (seconds of looking at the nest), what it gives when it comes true, and how long until the first and the next one. */
 const FANCY_LIFE = 100, FANCY_JOY = 20, FANCY_XP = 20, FANCY_FIRST = [70, 120], FANCY_GAP = [240, 420];
 /** Can this piece be tapped in the room you're looking at? (The cloud floats by itself: see the two showers below.) */
-const fancyPiece = id => !!hasDecor(id) && (N.iso ? !!isoLayout().placed[id] || !!DECO[id].wall || id === "lights" : !DECO[id].iso);
+const fancyPiece = id => !!hasDecor(id) && (!!isoLayout().placed[id] || !!DECO[id].wall || id === "lights");
 /**
  * What each kind daydreams of: the picture in its bubble, the line it says when tapped, the diary line, whether it can come
  * true here and now, and what makes it come true (by: a tap on a piece, a shower from the cloud, a finished game or walk).
  */
 const FANCIES = [
-  { id: "rain", kinds: ["swim"], icon: "fRain", dream: "{0} is dreaming of rain", mem: "Wished for rain and got it", by: ["weather:rain"], can: () => !!N.iso && !!hasDecor("cushion") },
+  { id: "rain", kinds: ["swim"], icon: "fRain", dream: "{0} is dreaming of rain", mem: "Wished for rain and got it", by: ["weather:rain"], can: () => !!hasDecor("cushion") },
   { id: "splash", kinds: ["swim"], icon: "fDrop", dream: "{0} is dreaming of a splash in the water", mem: "Wished for a splash and got one", by: ["tap:spring", "tap:birdbath"], can: () => fancyPiece("spring") || fancyPiece("birdbath") },
   { id: "song", kinds: ["dance"], icon: "fNote", dream: "{0} is dreaming of a song", mem: "Wished for a song and got one", by: ["song", "tap:drum"], can: () => true },
   { id: "walk", kinds: ["curious"], icon: "walk", dream: "{0} is dreaming of a walk", mem: "Wished for a walk and got one", by: ["walk"], can: () => true },
@@ -345,7 +347,7 @@ const FANCIES = [
   { id: "catch", kinds: ["hop"], icon: "sparkle", dream: "{0} is dreaming of catching sparkles", mem: "Wished to catch sparkles, and did", by: ["catch"], can: () => true },
   { id: "bounce", kinds: ["hop"], icon: "fShroom", dream: "{0} is dreaming of a bounce on the mushrooms", mem: "Wished for a bounce on the mushrooms and got one", by: ["tap:mushrooms"], can: () => fancyPiece("mushrooms") },
   { id: "twinkle", kinds: ["flutter"], icon: "fLights", dream: "{0} is dreaming of twinkling lights", mem: "Wished for twinkling lights and got them", by: ["tap:lights", "tap:lamppost"], can: () => fancyPiece("lights") || fancyPiece("lamppost") },
-  { id: "snow", kinds: ["flutter"], icon: "fSnow", dream: "{0} is dreaming of snow", mem: "Wished for snow and got it", by: ["weather:snow"], can: () => !!N.iso && !!hasDecor("cushion") },
+  { id: "snow", kinds: ["flutter"], icon: "fSnow", dream: "{0} is dreaming of snow", mem: "Wished for snow and got it", by: ["weather:snow"], can: () => !!hasDecor("cushion") },
 ];
 /** The one daydream in the nest (there is never a second): whose, of what, how long it has been up. Kept in memory only, so one that fades leaves nothing behind. */
 const fancy = { on: null, wait: rand(...FANCY_FIRST), acc: 0, last: "" };
@@ -460,47 +462,25 @@ function computeLayout() {
   L.egg = eggPoly(L.ecx, L.ecy, L.ew, L.eh);
   // the nest leaves room for the name above and the needs, buttons and tabs below
   const compact = true;
-  const nTop = compact ? 98 : 116, nBottom = H - (compact ? 206 : 280), roomW = Math.min(W * 0.92, 760);
+  const nTop = compact ? 98 : 116, nBottom = H - (compact ? 206 : 280);
   N.top = nTop;
   N.base = clamp(Math.min(W * 0.18, (nBottom - nTop) * 0.28), 56, 120);
-  N.x0 = W / 2 - roomW / 2 + N.base * 0.5; N.x1 = W / 2 + roomW / 2 - N.base * 0.5;
-  N.y0 = nTop + (nBottom - nTop) * 0.45; N.y1 = nBottom - 24;
-  // the room around them: the floor widens toward you, the back wall stands behind it
+  // the room: a diamond of floor with two walls behind it, like a little diorama
   N.cx = W / 2;
-  N.back = N.y0 - N.base * 0.3; N.front = N.y1 + N.base * 0.5;
-  N.hf = roomW / 2; N.hb = roomW / 2 * 0.84;
-  N.wallTop = Math.max(64, nTop - 56);
-  N.dk = W < 520 ? 0.82 : 1; // decorations a touch smaller on a phone, so the room doesn't feel stuffed
-  const wr = Math.min(N.hb * 0.3, (N.back - N.wallTop) * 0.3);
-  N.win = { x: N.cx, y: lerp(N.back, N.wallTop, 0.5), r: wr };
-  // the isometric room: a diamond of floor with two walls behind it, like a little diorama
-  N.iso = roomView() === "iso";
-  // the room arrows hug the room's sides (on a wide screen, not the far edges of it)
-  document.body.style.setProperty("--room-mid", Math.round((nTop + nBottom) / 2) + "px");
-  document.body.style.setProperty("--room-side", Math.max(6, Math.round(W / 2 - (N.iso ? Math.min(W * 0.47, 400, (nBottom - nTop) * 0.9) : roomW / 2) - 64)) + "px");
-  if (N.iso) {
-    const room = nBottom - nTop;
-    N.isoW = Math.min(W * 0.47, 400, room * 0.9); N.isoH = N.isoW / 2;
-    // taller walls on tall screens (more wall for the window, shelf and painting); any space left over goes above and below evenly,
-    // but on a phone held upright most of it goes above: the room sits low, near the needs, and the cave floor runs on down behind them
-    N.isoWall = clamp(room - N.isoW - 4, N.base * 1.2, N.isoW * 1.25);
-    N.isoTop = nBottom - N.isoW - 6 - Math.max(0, room - N.isoW - 4 - N.isoWall) / (H > W ? 4 : 2);
-    N.y0 = N.isoTop; N.y1 = N.isoTop + N.isoW;
-    N.wallTop = N.isoTop - N.isoWall;
-    N.back = N.isoTop + N.isoH; N.front = N.y1 + 10;
-    N.x0 = N.cx - N.isoW; N.x1 = N.cx + N.isoW;
-    N.dk = W < 520 ? 0.8 : 0.92;
-  }
+  const room = nBottom - nTop;
+  N.isoW = Math.min(W * 0.47, 400, room * 0.9); N.isoH = N.isoW / 2;
+  // taller walls on tall screens (more wall for the window, shelf and painting); any space left over goes above and below evenly,
+  // but on a phone held upright most of it goes above: the room sits low, near the needs, and the cave floor runs on down behind them
+  N.isoWall = clamp(room - N.isoW - 4, N.base * 1.2, N.isoW * 1.25);
+  N.isoTop = nBottom - N.isoW - 6 - Math.max(0, room - N.isoW - 4 - N.isoWall) / (H > W ? 4 : 2);
+  N.y0 = N.isoTop; N.y1 = N.isoTop + N.isoW;
+  N.wallTop = N.isoTop - N.isoWall;
+  N.back = N.isoTop + N.isoH; N.front = N.y1 + 10;
+  N.x0 = N.cx - N.isoW; N.x1 = N.cx + N.isoW;
+  N.dk = W < 520 ? 0.8 : 0.92; // decorations a touch smaller on a phone, so the room doesn't feel stuffed
   [N.bedX, N.bedY] = roomSpot("bed");
 }
 
-/** Which way the room is seen: isometric (the default) or straight on. ?view=front tries it without saving. */
-function roomView() {
-  const q = /[?&]view=(iso|front)\b/.exec(location.search);
-  // the garden and the valley's places are built only as dioramas: straight on they'd be an empty room with the nest's bed in it
-  if (save.rooms && (isOutside() || isPlace())) return "iso";
-  return q ? q[1] : save.view === "front" ? "front" : "iso";
-}
 /** Isometric floor coordinates: u runs from the back corner to the right corner, v from the back corner to the left one. */
 const isoAt = (u, v) => [N.cx + (u - v) * N.isoW, N.isoTop + (u + v) * N.isoH];
 const isoFrom = (x, y) => { const a = (x - N.cx) / N.isoW, b = (y - N.isoTop) / N.isoH; return [(a + b) / 2, (b - a) / 2]; };
@@ -508,53 +488,25 @@ const isoFrom = (x, y) => { const a = (x - N.cx) / N.isoW, b = (y - N.isoTop) / 
 const isoWallTop = x => N.isoTop + Math.min(1, Math.abs(x - N.cx) / N.isoW) * N.isoH - N.isoWall;
 const isoMargin = k => k * N.base / (1.118 * N.isoW);
 
-/** A point on the floor: u from the left wall (0) to the right (1), v from the back (0) to the front (1). */
-function floorAt(u, v) {
-  if (N.iso) { const m = isoMargin(0.5); return isoAt(lerp(m, 1 - m, u), lerp(m, 1 - m, v)); }
-  const y = lerp(N.y0, N.y1, v), h = floorHalf(y) - N.base * 0.55;
-  return [N.cx + (u * 2 - 1) * h, y];
-}
-const floorHalf = y => lerp(N.hb, N.hf, clamp((y - N.back) / (N.front - N.back), 0, 1));
-/** A point on the back wall: u across, h from the floor line (0) up to the top (1). */
-const wallAt = (u, h) => [N.cx + (u * 2 - 1) * (N.hb - N.base * 0.55), lerp(N.back, N.wallTop, h)];
+/** A point on the floor, a little in from the walls: u along the right wall (0 at the back corner, 1 at the right one), v along the left. */
+function floorAt(u, v) { const m = isoMargin(0.5); return isoAt(lerp(m, 1 - m, u), lerp(m, 1 - m, v)); }
 
-/** Every piece of furniture has its own place, so nothing stands on top of anything else:
- *  the left side has the lamp (under the shelf), the incubator and the mushrooms (back to front), the right side the spring and the bed,
- *  the cloud cushion sits under the window for naps in the moonlight, the rug lies in the middle,
- *  and the shelf, window, lights and swing are on the back wall. */
-const ROOM_SLOTS = {
-  lamp: [0, 0.02], incubator: [0.02, 0.5], mushrooms: [0.1, 0.94],
-  spring: [0.98, 0.06], cushion: [0.5, 0], bed: [0.97, 0.94],
-  rug: [0.5, 0.56],
-  // the pieces drawn for the isometric room stand here when the room is seen straight on
-  bookcase: [0.22, 0], plant: [0.36, 0.02], armchair: [0.72, 0.06], chest: [1, 0.48], table: [0.78, 0.52], musicbox: [0.36, 0.98], bench: [0.6, 0.04], lamppost: [0.08, 0.02], birdbath: [0.62, 0.98], drum: [0.24, 0.96], blocks: [0.84, 0.97], telescope: [0.9, 0.05], keepjar: [0.06, 0.28],
-};
-// a wide, shallow room (a computer screen) spreads the front pieces inward instead, so they don't stand in front of the middle ones
-const ROOM_SLOTS_WIDE = { ...ROOM_SLOTS, incubator: [0, 0.62], mushrooms: [0.2, 0.96], bed: [0.85, 0.9] };
-// isometric: [u, v] on the diamond. The left wall has the window with the cloud under it, the lamp in the back corner
-// and the incubator; the right wall has the shelf, the spring and the swing, the bed in its corner; mushrooms in front
+// where each piece stands when nothing else says: [u, v] on the diamond. The left wall has the window with the cloud under it,
+// the lamp in the back corner and the incubator; the right wall has the shelf, the spring and the swing, the bed in its corner;
+// mushrooms in front
 const ROOM_SLOTS_ISO = { lamp: [0.06, 0.08], cushion: [0.05, 0.5], incubator: [0.1, 0.86], spring: [0.36, 0.06], bed: [0.9, 0.1], mushrooms: [0.92, 0.9], rug: [0.5, 0.5] };
 function roomSpot(id) {
-  if (N.iso && id === "cushion") { const [u, v] = cloudUV(); return isoAt(u, v); }
-  if (N.iso && isoLayout().placed[id]) { const p = isoLayout().placed[id]; return isoPieceAt(p, id === "bed" || id === "cushion" || id === "incubator" ? 0 : 0.55); }
-  if (N.iso) {
-    if (id === "shelf") { const m = wallSlot("shelf"), [x, y] = wallFoot(m.wall, m.s); return [x, y - N.isoWall * 0.5 + N.base * 0.95 * N.dk]; }
-    if (id === "swing") { const [x, y] = floorAt(0.42, 0.04); return [x, y + N.base * 0.55]; }
-    if (id === "lights") return [N.cx, N.wallTop];
-    if (id === "rug" && save.layout && save.layout.rug) return isoAt(save.layout.rug.u, save.layout.rug.v);
-    const [u, v] = ROOM_SLOTS_ISO[id] || [0.5, 0.5];
-    return floorAt(u, v);
-  }
-  if (id === "shelf") { const [x, y] = wallAt(0.12, 0.4); return [x, y + N.base * 0.95 * N.dk]; }
-  if (id === "swing") { const [x] = wallAt(0.9, 0); return [x, N.back + N.base * 0.62]; }
+  if (id === "cushion") { const [u, v] = cloudUV(); return isoAt(u, v); }
+  if (isoLayout().placed[id]) { const p = isoLayout().placed[id]; return isoPieceAt(p, id === "bed" || id === "incubator" ? 0 : 0.55); }
+  if (id === "shelf") { const m = wallSlot("shelf"), [x, y] = wallFoot(m.wall, m.s); return [x, y - N.isoWall * 0.5 + N.base * 0.95 * N.dk]; }
+  if (id === "swing") { const [x, y] = floorAt(0.42, 0.04); return [x, y + N.base * 0.55]; }
   if (id === "lights") return [N.cx, N.wallTop];
-  const slots = N.hf * 2 / (N.y1 - N.y0) > 2.6 ? ROOM_SLOTS_WIDE : ROOM_SLOTS;
-  const [u, v] = slots[id] || [0.5, 0.5];
+  if (id === "rug" && save.layout && save.layout.rug) return isoAt(save.layout.rug.u, save.layout.rug.v);
+  const [u, v] = ROOM_SLOTS_ISO[id] || [0.5, 0.5];
   return floorAt(u, v);
 }
-/** How big things are drawn at a depth: smaller toward the back wall. */
-const depthK = y => N.iso ? N.dk : lerp(0.78, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1)) * N.dk;
-const rugSize = () => N.iso ? [N.isoW * 0.36, N.isoW * 0.18] : [Math.min(N.hf * 0.4, N.base * 2.1), (N.y1 - N.y0) * 0.26];
+/** The rug's half width and half depth on the floor. */
+const rugSize = () => [N.isoW * 0.36, N.isoW * 0.18];
 
 // ---------- quality: step resolution down if the device can't keep up ----------
 
@@ -827,11 +779,10 @@ function makeMotes() {
 /** The backdrop for a scene: which picture, and where its ground line meets the room. */
 function bgFor(scene) {
   const id = currentTheme();
-  // in the nest, the backdrop's ground meets the room: a clearing or a ruined hall stands on the land, a cave hollow opens onto the cave floor
-  // in the isometric room the land goes on around it: outdoors the horizon lies behind the room, so the clearing is part of the
+  // in the nest the land goes on around the room: outdoors the horizon lies behind the room, so the clearing is part of the
   // meadow and the hills, trees and mushrooms stand beyond it; a cave room stands on a rock shelf on the cave floor, crystals around it
   const home = scene === "nest" && atHome(), kind = scene === "nest" ? lookOf(id) : ROOM_KIND[id] || "cave", outdoor = kind === "yard" || kind === "wood";
-  const floor = scene !== "nest" || !N.back ? 0.86 : N.iso && outdoor ? (N.isoTop - N.isoWall * 0.35) / H : (kind === "cave" ? N.front : N.back + 1) / H;
+  const floor = scene !== "nest" || !N.back ? 0.86 : outdoor ? (N.isoTop - N.isoWall * 0.35) / H : (kind === "cave" ? N.front : N.back + 1) / H;
   // in the nest and on the title the cave floor runs on down behind the needs and the tabs, and under the title card (no dark band there)
   const deep = scene === "nest" || scene === "menu";
   const key = `${id}|${floor.toFixed(3)}|${deep}|${home}`;

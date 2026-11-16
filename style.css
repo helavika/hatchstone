@@ -224,13 +224,9 @@ body.scene-nest #nestBottom > * { pointer-events: auto; }
 #nestName { background: none; border: 0; font-size: 24px; font-weight: 800; cursor: pointer; }
 body.scene-nest #nestName { pointer-events: auto; }
 /* the arrows to the next rooms sit on the sides of the room, halfway down; the room's name under the glowling's */
-#roomNav { position: fixed; left: 0; right: 0; top: var(--room-mid, 45%); transform: translateY(-50%); z-index: 2; display: flex; justify-content: space-between; padding: 0 var(--room-side, 6px); pointer-events: none; opacity: 0; transition: opacity .4s; }
-#roomNav button { pointer-events: auto; display: flex; flex-direction: column; align-items: center; gap: 2px; width: 52px; padding: 10px 0 8px; font-size: 30px; line-height: 1; }
-#roomNav button small { font-size: 11px; line-height: 1.1; max-width: 48px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #roomLabel { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 96px); z-index: 2; font-size: 16px; color: var(--px-gold, #eec26a); white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .4s; }
-body.scene-nest #roomNav, body.scene-nest #roomLabel { opacity: 1; }
-body:not(.scene-nest) #roomNav button { pointer-events: none; }
-body.arranging #roomNav, body.arranging #roomLabel, #roomNav[hidden], #roomLabel[hidden] { display: none; }
+body.scene-nest #roomLabel { opacity: 1; }
+body.arranging #roomLabel, #roomLabel[hidden] { display: none; }
 .rooms { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
 .rooms button { flex: 1 1 30%; }
 #nestName::after { content: " ✎"; font-size: 14px; color: var(--soft); }
@@ -1004,7 +1000,6 @@ body.scene-nest #hint, body.compact.scene-nest #hint { top: var(--lane) !importa
 body.banner.scene-nest #hint, body.banner.scene-catch #hint, body.banner.scene-echo #hint { opacity: 0; }
 body.compact #nestTop #nestName { font-size: 22px; }
 body.compact #nestTop { top: calc(var(--top) + 46px) !important; }
-.view-seg { display: flex; margin: 4px 0 8px; }
 .switch-wrap { display: flex; align-items: center; gap: 4px; max-width: min(460px, 100%); }
 .switch-wrap #switcher { flex: 1; min-width: 0; }
 .sw-arrow { flex: 0 0 26px; height: 40px; border: 0; padding: 0; cursor: pointer; font-size: 26px; line-height: 1; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame), inset 2px 2px 0 0 var(--px-gold-hi), inset -2px -2px 0 0 var(--px-gold-lo); }
@@ -1064,7 +1059,6 @@ body.arranging #nestBottom { visibility: hidden; }
 .space-bar { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 2px 8px; margin: 12px 2px 0; font-size: 16px; color: var(--soft); }
 .space-bar b { color: var(--px-gold); font-weight: 400; }
 .space-bar i { grid-column: 1 / -1; height: 8px; background: linear-gradient(90deg, var(--px-gold) calc(var(--k) * 100%), var(--px-deep) 0); box-shadow: 0 0 0 3px var(--px-ink); }
-.view-seg button { flex: 1; }
 body.compact .card { max-width: calc(100vw - 20px); }
 body.compact .overlay { padding: 14px 10px; }
 body.compact .card { padding: 18px 16px; }

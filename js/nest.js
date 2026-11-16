@@ -11,16 +11,14 @@ function renderNest(full) {
   $("nestTop").hidden = !hasAny || place;
   $("nestBottom").hidden = !hasAny || place;
   renderPlaceBar();
-  if (place) { $("roomNav").hidden = true; $("roomLabel").hidden = false; $("roomName").textContent = roomName(save.room); }
+  if (place) { $("roomLabel").hidden = false; $("roomName").textContent = roomName(save.room); }
   if (!hasAny || place) return;
   applyTime(cr);
   const sp = specOf(cr);
   $("nestName").textContent = cr.name;
   const nr = save.rooms.filter((_, i) => roomOpen(i)).length;
-  $("roomNav").hidden = nr < 2 || N.iso; $("roomLabel").hidden = nr < 2;
+  $("roomLabel").hidden = nr < 2;
   $("roomName").textContent = roomName(save.room);
-  // the row of caves has two ends: no arrow past them
-  for (const [id, dir] of [["roomPrev", -1], ["roomNext", 1]]) { const to = stepRoom(dir); $(id).style.visibility = to === save.room ? "hidden" : ""; $(id + "Name").textContent = roomName(to); }
   $("nestLvl").textContent = tr("Lv {0}", cr.level) + (cr.level >= MAX_LEVEL ? tr(" · max") : "");
   $("nestTop").title = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name);
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
@@ -182,18 +180,15 @@ const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", l
 const shopOf = () => (game.shop = game.shop || { mode: "chest", tab: "decor", pick: null });
 function openShop() {
   sfx.tick();
-  const st = shopOf(), iso = N.iso, market = st.mode === "market", TABS = market ? MARKET_TABS : SHOP_TABS;
+  const st = shopOf(), market = st.mode === "market", TABS = market ? MARKET_TABS : SHOP_TABS;
   if (!TABS.some(t => t[0] === st.tab)) st.tab = TABS[0][0];
   $("shop").querySelector("h2").textContent = tr(market ? "Shop" : "Chest");
   $("shopSub").innerHTML = market ? tr("You have {0}. What you buy waits in your chest.", ic("shard") + save.shards) : tr("Everything that's yours. Glowlings visit the things they love.");
   const tabs = `<div class="shop-tabs">${TABS.map(([id, icon, name]) => `<button data-shoptab="${id}" class="${st.tab === id ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`;
   let body = "";
   if (st.tab === "look") {
-    // away from home the switch shows what you chose for your rooms, not the diorama you're standing in
-    const now = currentTheme(), view = awayPlace() ? (save.view === "front" ? "front" : "iso") : roomView();
-    body = `<h3>${tr("View")}</h3><div class="seg view-seg"><button data-view="front" class="${view === "front" ? "on" : ""}">${tr("Straight on")}</button><button data-view="iso" class="${view === "iso" ? "on" : ""}">${tr("Isometric")}</button></div>`
-      + (awayPlace() ? `<p class="sub">${tr("This is for your rooms. The garden and the places in the valley are always seen from the corner.")}</p>` : "")
-      + `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : isPlace() ? "This room can take any backdrop you've found." : "Every room at home is a cave: pick its mood.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
+    const now = currentTheme();
+    body = `<h3>${tr("Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : isPlace() ? "This room can take any backdrop you've found." : "Every room at home is a cave: pick its mood.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
         const ok = t.ok() || t.id === ownTheme();
         const home = atHome() && t.home;
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id, home)}" alt=""><b>${home || t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
@@ -212,13 +207,13 @@ function openShop() {
     body = chestPantry();
   } else {
     const used = isoSpaceUsed();
-    const items = DECOR.filter(d => (iso || !d.wall || DRAW_DECOR[d.id]) && (market ? !save.decor[d.id] && !d.found : !!save.decor[d.id]));
+    const items = DECOR.filter(d => market ? !save.decor[d.id] && !d.found : !!save.decor[d.id]);
     const tile = d => {
       const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
       const tag = owned ? (owned.on ? tr("placed ✓") : decorRoom(d.id) >= 0 ? tr("in {0}", roomName(decorRoom(d.id))) : tr("stored")) : locked ? ic("lock") : "✦ " + d.cost;
       return `<button class="tile${owned ? " owned" : ""}${owned && owned.on ? " placed" : ""}${d.legend ? " legend" : ""}${locked || (!owned && save.shards < d.cost) ? " dim" : ""}${st.pick === d.id ? " on" : ""}" data-pick="${d.id}">${decorThumb(d)}<b>${d.name}</b><small>${tag}</small></button>`;
     };
-    body = (!market ? `<div class="room-head"><span><b>${roomName(save.room)}</b>${iso ? `<small>${tr("Room space")} ${used}/${ISO_CAP}</small>` : ""}</span>${iso ? `<i class="room-space" style="--k:${Math.min(1, used / ISO_CAP)}"></i><button class="act" id="arrangeOpen">✥ ${tr("Rearrange")}</button>` : ""}</div>` : "")
+    body = (!market ? `<div class="room-head"><span><b>${roomName(save.room)}</b><small>${tr("Room space")} ${used}/${ISO_CAP}</small></span><i class="room-space" style="--k:${Math.min(1, used / ISO_CAP)}"></i><button class="act" id="arrangeOpen">✥ ${tr("Rearrange")}</button></div>` : "")
       + (!items.length ? market ? `<p class="me-hint">${tr("You own everything here ✦")}</p>` : shopEmpty("Nothing here yet: furniture you buy at the shop waits in the chest.", "Nothing here yet: furniture comes from the shop, which opens after level {0}.", "decor") : "")
       + DECOR_CATS.map(([cat, name]) => { const here = items.filter(d => (DECOR_CAT[d.id] || "pretty") === cat); return here.length ? `<h3 class="forge-h">${tr(name)}</h3><div class="tiles">${here.map(tile).join("")}</div>` : ""; }).join("");
   }
@@ -232,7 +227,6 @@ function openShop() {
   }));
   $$("#shopList .acc").forEach(b => b.addEventListener("click", () => wearAccessory(b.dataset.acc)));
   $$("#shopList .theme").forEach(b => b.addEventListener("click", () => { save.theme = b.dataset.theme; persist(); sfx.tick(); taskDone("decor"); openShop(); }));
-  $$("#shopList [data-view]").forEach(b => b.addEventListener("click", () => setView(b.dataset.view)));
   $("arrangeOpen")?.addEventListener("click", startArrange);
   $$("#shopList [data-bed]").forEach(b => b.addEventListener("click", () => { save.rooms[save.room].bed = b.dataset.bed; persist(); sfx.setDown(); toast(tr("A new bed: {0} ✦", tr(BEDS.find(x => x.id === b.dataset.bed).name))); openShop(); }));
   $$("#shopList [data-build]").forEach(b => b.addEventListener("click", () => buildRoom(b.dataset.build)));
@@ -653,7 +647,7 @@ function drawWick() {
   if (fly) { const [x, y] = at(turn % 3), lx = left + k.lap[0] * u, ly = top + k.lap[1] * u; lamp(fly, Math.round((x + lx) / 2 / PX) * PX, Math.round((y + ly) / 2 / PX) * PX); }
 }
 /** Is (x, y) on Wick? A box round the seated moth, a little bigger than he is for a fingertip. */
-const wickAt = (x, y) => { if (!(wickRoom() && N.iso && wickHere() && isoLayout().placed.wickbench)) return false; const { u, left, top } = wickBox(), [x0, y0, x1, y1] = WICK_NATIVE.tap; return x >= left + x0 * u && x <= left + x1 * u && y >= top + y0 * u && y <= top + y1 * u; };
+const wickAt = (x, y) => { if (!(wickRoom() && wickHere() && isoLayout().placed.wickbench)) return false; const { u, left, top } = wickBox(), [x0, y0, x1, y1] = WICK_NATIVE.tap; return x >= left + x0 * u && x <= left + x1 * u && y >= top + y0 * u && y <= top + y1 * u; };
 function openWick() {
   sfx.voice(WICK.voice); sfx.tick();
   const t = wickToday(), end = new Date(); end.setHours(24, 0, 0, 0);
@@ -959,7 +953,7 @@ function openJukebox() {
 /** While the music box is out, little notes float up from it now and then. */
 let noteT = 0;
 function musicNotes(dt) {
-  const p = N.iso && hasDecor("musicbox") && isoLayout().placed.musicbox;
+  const p = hasDecor("musicbox") && isoLayout().placed.musicbox;
   if (!p || sfx.muted || (noteT -= dt) > 0) return;
   noteT = rand(1.1, 1.9);
   const [x, y] = isoPieceAt(p);
@@ -1015,14 +1009,6 @@ function wearAccessory(id) {
   persist(); updateTopbar(); renderNest(true); openShop();
 }
 
-/** Switch between the straight-on room and the isometric one: everything is laid out again. */
-function setView(v) {
-  save.view = v === "iso" ? "iso" : "front"; persist(); sfx.tick();
-  if (/[?&]view=/.test(location.search)) history.replaceState(null, "", location.pathname + location.hash);
-  computeLayout(); actors.clear(); for (const k in roomSprites) delete roomSprites[k];
-  syncActors(); renderNest(true); openShop();
-}
-
 // ---------- rooms: the nest plus rooms you add, each with its own furniture, layout and backdrop ----------
 
 /** The rooms you can add, in order: each starts on its own backdrop. Every room at home is a cave: the moss garden's glowcaps
@@ -1063,13 +1049,8 @@ function ensurePlace(kind) {
 }
 /** Is this room one of the map's places (the shop, the forge, the camp, the lab) rather than a home for glowlings? */
 const isPlace = (i = save.room) => !!ROOM_KINDS.find(k => k.id === save.rooms[i]?.kind)?.place;
-/** Rooms the arrows step through: homes only (the garden outside is one of the map's places). */
+/** Rooms the tunnels join: homes only (the garden outside is one of the map's places). */
 const roomOpen = i => !isPlace(i) && (!isOutside(i) || placeOk("garden"));
-/** The next room along the row of caves that way (dir -1 or 1), the same one its tunnel leads to: none past either end. */
-function stepRoom(dir) {
-  for (let i = save.room + dir; i >= 0 && i < save.rooms.length; i += dir) if (roomOpen(i)) return i;
-  return save.room;
-}
 // ---------- the places' keepers: each place on the map has someone who runs it ----------
 
 const TANSY = { name: "Tansy", face: () => keeperFace("tansy"), voice: { f: 330, wave: "triangle", spread: 0.25, glide: 1.05, gain: 0.06, len: 0.06 } };
@@ -1236,7 +1217,7 @@ function drawBubble(x, y, text, alpha = 1) {
   rows.forEach((r, k) => fx.fillText(r, bx + 8, by + 6 + k * lh));
   fx.restore();
 }
-const heroAt = (x, y) => { if (!heroHere() || heroHere().none || !N.iso) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.6 && y < hy + N.base * 0.15 && y > hy - N.base * 1.6; };
+const heroAt = (x, y) => { if (!heroHere() || heroHere().none) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.6 && y < hy + N.base * 0.15 && y > hy - N.base * 1.6; };
 const propAt = (x, y) => Object.values(isoLayout().placed).find(p => PLACE_PROPS.has(p.id) && pieceHits[p.id] && spriteHit(pieceHits[p.id].c, pieceHits[p.id].x, pieceHits[p.id].y, x, y))?.id || null;
 /** Things in a place that do something of their own when tapped (the keeper's counter, anvil and map table do the keeper's job). */
 const PROP_TAP = {
@@ -1486,7 +1467,7 @@ function roomDoors(i = save.room) {
 }
 /** The passages drawn and tappable right now. */
 function passages() {
-  if (!N.iso || isPlace() || game.scene !== "nest" || arrange.on) return [];
+  if (isPlace() || game.scene !== "nest" || arrange.on) return [];
   return roomDoors();
 }
 let passageShapes = [];
@@ -1607,15 +1588,13 @@ function goRoom(i, via) {
   for (const k of ROOM_KEYS) { if (r[k] == null) delete save[k]; else save[k] = r[k]; }
   isoLayoutCache = null;
   persist();
-  // outside is always seen from above: stepping out of a straight-on room lays everything out again
-  if ((roomView() === "iso") !== !!N.iso) { computeLayout(); actors.clear(); for (const k in roomSprites) delete roomSprites[k]; }
   [N.bedX, N.bedY] = roomSpot("bed");
   // the room's own glowlings are here; the one you look after is one of them
   syncActors();
   const here = residents(i);
   if (here.length && !here.some(c => c.id === save.active)) save.active = here[0].id;
   // they wander in from the middle of the room; walking in through an arch, the one you look after comes with you, in at that wall
-  const door = via && N.iso && roomDoors(i).some(d => d.wall === via) && doorStep(via);
+  const door = via && roomDoors(i).some(d => d.wall === via) && doorStep(via);
   for (const a of actors.values()) {
     const [x, y] = roomSpot("rug"), tx = x + rand(-1, 1) * N.base * 0.6, ty = y + rand(-0.5, 0.5) * N.base * 0.3, lead = door && a.id === save.active && a.state !== "sleep";
     [a.x, a.y] = lead ? door : [tx, ty];
@@ -1666,8 +1645,8 @@ function buyNestUp() {
 }
 
 /** Buy a decoration, or tap one you own to put it away or bring it back. */
-/** Is there room on the floor for one more of this? (only the isometric room has a limit; wall pieces don't take floor) */
-const roomFor = id => !N.iso || !ISO_PLACES[id] || isoSpaceUsed() + ISO_PLACES[id].fw * ISO_PLACES[id].fd <= ISO_CAP;
+/** Is there room on the floor for one more of this? (wall pieces don't take floor) */
+const roomFor = id => !ISO_PLACES[id] || isoSpaceUsed() + ISO_PLACES[id].fw * ISO_PLACES[id].fd <= ISO_CAP;
 function buyDecor(id) {
   const d = DECO[id], owned = save.decor[id];
   if (owned) {
@@ -1734,11 +1713,10 @@ const BEHAVIOR = {
   emberleaf: "curious", acornet: "curious", bloomkit: "hop", petalpup: "hop", frostpuff: "flutter", glimmerbug: "flutter",
   sunsplash: "swim", rimeling: "swim", gourdlet: "nap", twinklet: "dance",
 };
-const ROOM_MAX = 12, ROOM_MAX_PHONE = 8;
 const actors = new Map();
 
 // ---------- home and exploring: the nest holds a few at a time, the others are off in the grotto ----------
-const homeCap = () => (N.iso ? (W < 520 ? 5 : 8) : H < 700 ? 6 : W < 520 ? ROOM_MAX_PHONE : ROOM_MAX) + (save.nestUp || 0);
+const homeCap = () => (W < 520 ? 5 : 8) + (save.nestUp || 0);
 /** Making the nest roomier: each step is one more place at home. */
 const NEST_UP_COST = [150, 300, 500];
 /**
@@ -1916,22 +1894,12 @@ function roomCreatures() {
   return residents(save.room);
 }
 
-const roomPoint = () => N.iso ? freeFloorPoint() : floorAt(rand(0.08, 0.92), rand(0.05, 0.95));
+const roomPoint = () => freeFloorPoint();
 
 /** The things you can't stand inside, as flat ellipses on the floor. */
 function roomObstacles() {
-  const b = N.base, out = [];
-  if (N.iso) {
-    // every placed piece is an ellipse over its tiles
-    for (const p of Object.values(isoLayout().placed)) { if (p.id === "bed") continue; const [x, y] = isoPieceAt(p); out.push({ id: p.id, x, y, rx: N.isoW / ISO_G * Math.max(p.fw, p.fd) * 0.9, ry: N.isoH / ISO_G * Math.max(p.fw, p.fd) * 0.9 }); }
-    return out;
-  }
-  const add = (id, rx, ry) => { const [x, y] = roomSpot(id), k = depthK(y); out.push({ id, x, y, rx: rx * b * k, ry: ry * b * k }); };
-  if (incHere()) add("incubator", 0.5, 0.2);
-  add("bed", 0.72, 0.24);
-  if (hasDecor("lamp")) add("lamp", 0.3, 0.14);
-  if (hasDecor("mushrooms")) add("mushrooms", 0.6, 0.2);
-  if (hasDecor("cushion")) add("cushion", 0.6, 0.18);
-  if (hasDecor("spring")) add("spring", 0.75, 0.22);
+  // every placed piece is an ellipse over its tiles
+  const out = [];
+  for (const p of Object.values(isoLayout().placed)) { if (p.id === "bed") continue; const [x, y] = isoPieceAt(p); out.push({ id: p.id, x, y, rx: N.isoW / ISO_G * Math.max(p.fw, p.fd) * 0.9, ry: N.isoH / ISO_G * Math.max(p.fw, p.fd) * 0.9 }); }
   return out;
 }
