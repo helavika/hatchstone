@@ -508,7 +508,7 @@ function tapWard(key) {
   if (!cid) return;
   const now = performance.now();
   wm.rise[key] = now; wm.fade[id] = { from, t0: now + 900 };
-  sfx.thud(); setTimeout(() => sfx.shimmer(), 700); buzz([10, 40, 20]);
+  sfx.thud(); setTimeout(() => music.sting("ward") || sfx.shimmer(), 700); buzz([10, 40, 20]); // (the ward's phrase in the song's key)
   bump("warded");
   persist();
   if (wardDone(id)) wm.lifting = id;

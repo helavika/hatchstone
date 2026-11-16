@@ -306,7 +306,7 @@ function addXP(cr, n) {
     if (grew && stageOf(cr.level) === 1) { if (game.scene === "nest") setTimeout(() => talk("firstGrow", cr), 900); else talkLater.push(["firstGrow", cr]); }
     giveBar("firefly");
     toast((grew ? tr("{0} grew up: now {1}! ✦", cr.name, STAGES[stageOf(cr.level)]) : tr("{0} reached level {1} ✦", cr.name, cr.level)) + " · " + tr("{0} +1", barName("firefly")));
-    sfx.levelUp();
+    if (!music.sting("level")) sfx.levelUp(); // a phrase in the song's key, or the old run of bells with the music off
     const a = actors.get(cr.id);
     if (game.scene === "nest" && a) { const v = actorView(a); burst(v.x, v.y, grew ? 40 : 18, ["#fff", ...palOf(specOf(cr))], grew ? 1.6 : 1); }
   }

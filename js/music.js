@@ -31,7 +31,33 @@ const PLACES = {
   grotto: { bpm: 42, pad: "triangle", cut: 420, tune: "kalimba", notes: 0.24, dark: true, chime: 0.04, wet: 0.7, deep: true, bed: "hum", drip: 0.05 },
   walk: { bpm: 60, pad: "sine", cut: 1500, tune: "harp", notes: 0.44, birds: 0.12, chime: 0.03, wet: 0.22 },
   map: { bpm: 44, pad: "sine", cut: 950, tune: "harp", notes: 0.2, bell: 0.15, wet: 0.5, wide: true },
-  crack: { bpm: 46, pad: "sine", cut: 560, padGain: 0.55, notes: 0, chime: 0.06, wet: 0.45 },
+  crack: { bpm: 46, pad: "sine", cut: 560, padGain: 0.55, tune: "kalimba", notes: 0.4, chime: 0.06, wet: 0.45, layered: true },
+};
+
+/**
+ * The crack scene's tune assembles itself as the shell goes: the pad alone at first, the bass at a quarter of the shell gone,
+ * a second voice at half, the tune at three quarters; the opening settles it all on the home chord (see `sting`).
+ */
+const CRACK_GATES = { bass: 0.25, voice: 0.5, tune: 0.75 };
+const crackLayers = share => ({ bass: share >= CRACK_GATES.bass, voice: share >= CRACK_GATES.voice, tune: share >= CRACK_GATES.tune });
+/** How much of the egg in hand is gone (the shared one in co-op: its damage comes over the wire); once it opens, all of it. */
+function crackShare(egg = game.egg) {
+  if (!egg) return 0;
+  if (egg.state === "entering" || egg.state === "cracking") return egg.hp ? clamp(egg.damage / egg.hp, 0, 1) : 0;
+  return 1;
+}
+/** While the Gloom's shadows are in the nest the tune, the chimes and the bells keep still and a low drone holds (by the veil's level). */
+const gloomMelody = veil => veil < 0.1;
+
+/**
+ * Short phrases in the song's key for the moments that matter, as scale degrees (0 is home, 7 the octave) a gap apart, at an
+ * octave over the song's low one. The opening's is the home chord broken upwards, longer for a rarer crystal.
+ */
+const STINGS = {
+  hatch: { oct: 2, steps: [0, 4, 2, 7], gap: 0.17 },
+  level: { oct: 2, steps: [0, 2, 4, 7], gap: 0.1 },
+  ward: { oct: 1, steps: [7, 4, 0], gap: 0.3, bell: true },
+  open: { oct: 2, steps: [0, 2, 4, 7, 9, 11], gap: 0.11, at: 0.25 },
 };
 /** Where the music is: the egg, the map (and the book), or the room you stand in. */
 function musicPlace() {
@@ -59,7 +85,7 @@ function musicImpulse(ac, secs, decay) {
  */
 function makeMusic(ac, dest, noise) {
   const CAP = 32, FADE = 2;
-  const e = { ac, out: ac.createGain(), layers: [], live: null, ends: [], song: SONGS.amethyst, beat: 0, next: 0, motif: null, stats: {} };
+  const e = { ac, out: ac.createGain(), layers: [], live: null, ends: [], song: SONGS.amethyst, beat: 0, next: 0, motif: null, stats: {}, share: 0, gloom: 0, log: null };
   e.out.gain.value = 0;
   e.out.connect(dest);
   // the room around the music, and a long echo for the deep places
@@ -76,17 +102,18 @@ function makeMusic(ac, dest, noise) {
   const scaleFor = chord => MODES[e.song.mode === "minor" && ((chord % 7) + 7) % 7 === 3 ? "dorian" : e.song.mode];
   const freq = (deg, oct, sc) => { const d = ((deg % 7) + 7) % 7; return base() * Math.pow(2, (sc[d] + 12 * (Math.floor(deg / 7) + oct)) / 12); };
 
-  /** Room for one more voice at t? (the ones still sounding then, counted) */
-  function room(t, len) {
+  /** Room for one more voice at t? (the ones still sounding then, counted; a phrase for a moment gets a little more) */
+  function room(t, len, more = 0) {
     e.ends = e.ends.filter(x => x > t);
-    if (e.ends.length >= CAP) return false;
+    if (e.ends.length >= CAP + more) return false;
     e.ends.push(t + len);
     return true;
   }
   /** One voice: an oscillator that swells and falls (or holds, for pads and the flute), panned a little, gone when it's done. */
-  function voice(L, t, f, { type = "sine", gain, a = 0.005, len, hold = 0, glide = 0, cut = 0, pan = 0, detune = 0, into = null }) {
-    if (!room(t, len)) return null;
+  function voice(L, t, f, { type = "sine", gain, a = 0.005, len, hold = 0, glide = 0, cut = 0, pan = 0, detune = 0, into = null, tag = "" }) {
+    if (!room(t, len, L.id === "sting" ? 16 : 0)) return null;
     e.stats[L.id] = (e.stats[L.id] || 0) + 1; // notes per place, for the tests
+    if (e.log && tag) e.log.push([Math.round(t * 100) / 100, tag, Math.round(f * 100) / 100]); // and what was played, when asked
     const o = ac.createOscillator(), g = ac.createGain(), nodes = [o, g];
     o.type = type; o.detune.value = detune;
     o.frequency.setValueAtTime(f, t);
@@ -122,25 +149,26 @@ function makeMusic(ac, dest, noise) {
   // ---------- the instruments ----------
   /** The pad: each chord tone twice, a little out of tune with itself, through one lowpass; it swells in and lets go slowly. */
   function pad(L, t, fs, len) {
-    const p = L.p, lp = ac.createBiquadFilter(), rel = 3, a = Math.min(3, len * 0.4);
+    const p = L.p, lp = ac.createBiquadFilter(), pg = ac.createGain(), rel = 3, a = Math.min(3, len * 0.4);
     lp.type = "lowpass"; lp.frequency.value = p.cut; lp.Q.value = 0.3;
-    lp.connect(L.in);
+    pg.gain.value = 1 - 0.6 * e.gloom; // (dimmed while the Gloom is in)
+    lp.connect(pg).connect(L.in);
     let last = null;
-    for (const f of fs) for (const d of [-7, 7]) last = voice(L, t, f, { type: p.pad, gain: 0.016 * (p.padGain || 1), a, len: len + rel, hold: Math.max(0.01, len - a), detune: d, pan: d / (p.wide ? 12 : 25), into: lp }) || last;
-    if (last) last.addEventListener("ended", () => lp.disconnect()); else lp.disconnect();
+    for (const f of fs) for (const d of [-7, 7]) last = voice(L, t, f, { type: p.pad, gain: 0.016 * (p.padGain || 1), a, len: len + rel, hold: Math.max(0.01, len - a), detune: d, pan: d / (p.wide ? 12 : 25), into: lp, tag: d < 0 ? "pad" : "" }) || last;
+    if (last) { L.padG = pg; last.addEventListener("ended", () => { lp.disconnect(); pg.disconnect(); }); } else { lp.disconnect(); pg.disconnect(); }
   }
   const TUNES = {
     kalimba(L, t, f) {
-      voice(L, t, f, { gain: 0.05, a: 0.004, len: 2.4, pan: spread(L) });
+      voice(L, t, f, { gain: 0.05, a: 0.004, len: 2.4, pan: spread(L), tag: "tune" });
       if (!L.p.dark) voice(L, t, f * 4.02, { gain: 0.007, a: 0.002, len: 0.2, pan: spread(L) });
     },
     harp(L, t, f) {
-      voice(L, t, f, { type: "triangle", gain: 0.045, a: 0.003, len: 2.8, cut: 2200, pan: spread(L) });
+      voice(L, t, f, { type: "triangle", gain: 0.045, a: 0.003, len: 2.8, cut: 2200, pan: spread(L), tag: "tune" });
       voice(L, t, f * 2, { gain: 0.009, a: 0.003, len: 1.2, pan: spread(L) });
     },
     /** A wooden flute: a slow breath in, a gentle vibrato once the note settles, a puff of air at the start. */
     flute(L, t, f, spb) {
-      const len = spb * 1.8, o = voice(L, t, f, { type: "triangle", gain: 0.03, a: 0.16, len, hold: len - 0.5, cut: 1500, pan: spread(L) });
+      const len = spb * 1.8, o = voice(L, t, f, { type: "triangle", gain: 0.03, a: 0.16, len, hold: len - 0.5, cut: 1500, pan: spread(L), tag: "tune" });
       if (!o) return;
       const lfo = ac.createOscillator(), depth = ac.createGain();
       lfo.frequency.value = 4.6; depth.gain.setValueAtTime(0, t); depth.gain.linearRampToValueAtTime(9, t + 0.6);
@@ -151,9 +179,9 @@ function makeMusic(ac, dest, noise) {
     },
   };
   /** A crystal chime: high, clear, with a glassy overtone that isn't quite in tune. */
-  const chime = (L, t, f) => { const pan = spread(L) * 1.5; voice(L, t, f, { gain: 0.016, a: 0.002, len: 3.5, pan }); voice(L, t, f * 2.76, { gain: 0.005, a: 0.002, len: 1.5, pan }); };
+  const chime = (L, t, f) => { const pan = spread(L) * 1.5; voice(L, t, f, { gain: 0.016, a: 0.002, len: 3.5, pan, tag: "chime" }); voice(L, t, f * 2.76, { gain: 0.005, a: 0.002, len: 1.5, pan }); };
   /** A low bell far off: a hum under it and two bell partials over it. */
-  const bell = (L, t, f) => { const pan = spread(L); for (const [k, g, len] of [[0.5, 0.012, 6], [1, 0.026, 5], [2, 0.01, 3], [2.76, 0.007, 2]]) voice(L, t, f * k, { gain: g, a: 0.004, len, pan }); };
+  const bell = (L, t, f, tag = "bell") => { const pan = spread(L); for (const [k, g, len] of [[0.5, 0.012, 6], [1, 0.026, 5], [2, 0.01, 3], [2.76, 0.007, 2]]) voice(L, t, f * k, { gain: g, a: 0.004, len, pan, tag: k === 1 ? tag : "" }); };
   /** Birds, suggested: two or three soft high blips that rise. */
   const birds = (L, t) => { const f = rand(2600, 4000), pan = spread(L) * 2; for (let i = 0, n = pick([2, 2, 3]); i < n; i++) voice(L, t + i * rand(0.08, 0.12), f * rand(0.95, 1.08), { gain: 0.006, a: 0.004, len: 0.07, glide: 1.25, pan }); };
   /** The anvil in the next cave: a small metal tick with a ring that's mostly room. */
@@ -173,6 +201,12 @@ function makeMusic(ac, dest, noise) {
       const lp = swayLp(320, 160, 1 / 11);
       for (const det of [-5, 5]) { osc("sine", 0, -1, 0.02, lp, det); osc("sine", 4, -1, 0.01, lp, det); }
       hiss("bandpass", 500, 0.6, 0.012);
+      // and, silent until the Gloom comes in, a low drone an octave under it: the root and a dark fifth, barely moving
+      const dg = ac.createGain(), dlp = ac.createBiquadFilter();
+      dg.gain.value = 0; dlp.type = "lowpass"; dlp.frequency.value = 240;
+      dg.connect(dlp).connect(g);
+      osc("triangle", 0, -2, 0.026, dg, -4); osc("sine", 0, -2, 0.018, dg, 4); osc("sine", 4, -2, 0.008, dg);
+      L.drone = dg;
     } else if (p.bed === "drone") {
       // the forge's furnace: a deep, warm drone that never quite settles
       const lp = swayLp(170, 70, 1 / 13);
@@ -198,18 +232,31 @@ function makeMusic(ac, dest, noise) {
   /** One beat of music in a place. */
   function beat(L, t) {
     const p = L.p, s = e.song, b = e.beat, bar = Math.floor(b / 4), k = b % 4, spb = 60 / p.bpm;
-    const chord = s.prog[Math.floor(bar / 2) % s.prog.length], sc = scaleFor(chord), nt = (deg, oct) => freq(deg, oct, sc);
-    const turn = b % 8 === 0;
+    // the crack scene's voices let in by the shell gone so far; an opened egg rests on the home chord
+    const gate = p.layered ? crackLayers(e.share) : null;
+    const chord = gate && e.share >= 1 ? 0 : s.prog[Math.floor(bar / 2) % s.prog.length], sc = scaleFor(chord), nt = (deg, oct) => freq(deg, oct, sc);
+    const turn = b % 8 === 0, melody = (!gate || gate.tune) && gloomMelody(e.gloom);
     // the chord on its pad (a fresh place joins the chord already playing), a soft bass under it
     if (turn || L.fresh) {
       const left = spb * (8 - (b % 8));
       pad(L, t, [nt(chord, 0), nt(chord + 4, 0), nt(chord + 9, 0)], left);
       if (p.glass) voice(L, t, nt(chord + 4, 2), { gain: 0.006, a: Math.min(2, left / 2), len: left + 2, hold: Math.max(0.01, left - 2) });
-      if (turn) voice(L, t, nt(chord, -1), { gain: 0.04, a: 0.4, len: spb * 7 });
+      if (turn && (!gate || gate.bass)) voice(L, t, nt(chord, -1), { gain: 0.04, a: 0.4, len: spb * 7, tag: "bass" });
       L.fresh = false;
     }
+    if (gate) {
+      const was = L.gate || {};
+      // a voice let in mid-chord comes in on the next beat rather than waiting for the chord to turn
+      if (gate.bass && !was.bass && !turn) { const left = spb * (8 - (b % 8)); voice(L, t, nt(chord, -1), { gain: 0.04, a: 0.4, len: left + 0.6, tag: "bass" }); }
+      // the second voice: one held note a bar, the chord's third and then its fifth, above the pad
+      if (gate.voice && (k === 0 || !was.voice)) {
+        const left = spb * (4 - k);
+        voice(L, t, nt(chord + (bar % 2 ? 4 : 2), 1), { type: "triangle", gain: 0.02, a: Math.min(0.5, left / 3), len: left + 0.8, hold: Math.max(0.01, left - 0.5), cut: 1400, pan: 0.25, tag: "voice" });
+      }
+      L.gate = gate;
+    }
     // the tune: two bars of motif, two bars of rest, a fresh pair of motifs every sixteen bars
-    if (p.tune && p.notes) {
+    if (p.tune && p.notes && melody) {
       if (!e.motif || (bar % 16 === 0 && k === 0)) e.motif = motif(p);
       const phrase = Math.floor(bar / 2) % 4;
       let deg = phrase % 2 ? null : e.motif[(bar % 2) * 4 + k];
@@ -222,8 +269,8 @@ function makeMusic(ac, dest, noise) {
       }
     }
     // the things that come now and then
-    if (p.chime && Math.random() < p.chime) chime(L, t + spb * pick([0, 0.5]), nt(chord + pick([0, 2, 4, 7]), 2));
-    if (k === 0 && Math.random() < (p.bell || 0) + (s.bells && bar % 4 === 0 ? 0.3 : 0)) bell(L, t, nt(chord, 0));
+    if (p.chime && melody && Math.random() < p.chime) chime(L, t + spb * pick([0, 0.5]), nt(chord + pick([0, 2, 4, 7]), 2));
+    if (k === 0 && melody && Math.random() < (p.bell || 0) + (s.bells && bar % 4 === 0 ? 0.3 : 0)) bell(L, t, nt(chord, 0));
     if (p.birds && Math.random() < p.birds) birds(L, t + rand(0, spb));
     if (p.drip && Math.random() < p.drip) drip(L, t + rand(0, spb));
     // the forge: the smith strikes on one and three, rests a bar now and then
@@ -274,6 +321,48 @@ function makeMusic(ac, dest, noise) {
     const sc = scaleFor(0);
     for (const L of e.layers) for (const [o, deg, oct] of L.tune) o.frequency.setTargetAtTime(freq(deg, oct, sc), ac.currentTime, 1.5);
   };
+  // the phrases go out on their own line, beside the places' (so the music ducking under a burst doesn't take them with it)
+  const S = { id: "sting", p: {}, in: ac.createGain() }, sWet = ac.createGain();
+  sWet.gain.value = 0.35;
+  S.in.connect(e.out); S.in.connect(sWet).connect(rev);
+  /** A phrase in the song's key at t (see STINGS); the opening also lets the pad go so the next beat turns to the home chord. */
+  e.sting = (name, t, rarity) => {
+    const st = STINGS[name];
+    if (!st) return false;
+    const sc = MODES[e.song.mode], at = t + (st.at || 0);
+    let steps = st.steps;
+    if (name === "open") {
+      steps = steps.slice(0, rarity === "legendary" ? 6 : rarity === "rare" ? 5 : 4);
+      voice(S, at, freq(0, -1, sc), { gain: 0.05, a: 0.02, len: 4, tag: "sting" });
+      const L = e.live;
+      if (L) {
+        if (L.padG) { L.padG.gain.setTargetAtTime(0, t, 0.25); L.padG = null; }
+        e.beat = Math.ceil(e.beat / 8) * 8;
+      }
+    }
+    steps.forEach((deg, i) => {
+      const tt = at + i * st.gap, f = freq(deg, st.oct, sc), pan = (i / Math.max(1, steps.length - 1) - 0.5) * 0.5;
+      if (st.bell) bell(S, tt, f, "sting");
+      else { voice(S, tt, f, { gain: 0.06, a: 0.003, len: 2.2, pan, tag: "sting" }); voice(S, tt, f * 2, { gain: 0.01, a: 0.003, len: 0.7, pan }); }
+    });
+    return true;
+  };
+  /** Step aside for a loud moment (a shell bursting): the place drops to a whisper and comes back over a couple of seconds. */
+  e.duck = t => {
+    const L = e.live;
+    if (!L) return;
+    const g = L.in.gain;
+    g.cancelScheduledValues(t); g.setValueAtTime(g.value, t);
+    g.linearRampToValueAtTime(0.25, t + 0.06); g.setValueAtTime(0.25, t + 1.2); g.linearRampToValueAtTime(1, t + 2.6);
+  };
+  /** How deep the Gloom's veil is over the nest (0 to 1): the drone rises with it, the pad dims, the tune keeps still (see beat). */
+  e.setGloom = (k, t) => {
+    const L = e.live;
+    if (L === e.gloomL && (k === e.gloom || (k > 0 && Math.abs(k - e.gloom) < 0.02))) return;
+    e.gloom = k; e.gloomL = L;
+    if (L && L.drone) L.drone.gain.setTargetAtTime(k, t, 0.6);
+    if (L && L.padG) L.padG.gain.setTargetAtTime(1 - 0.6 * k, t, 0.6);
+  };
   /** Schedule the beats up to `until` (back from a pause, it picks up from now rather than rushing the missed beats). */
   e.run = until => {
     const L = e.live;
@@ -286,7 +375,9 @@ function makeMusic(ac, dest, noise) {
 
 /**
  * The soundtrack that plays: it wakes with the sound (after the first tap), follows you from place to place with a slow
- * crossfade, and keeps quiet when music is off, in co-op, in the echo game and while the game is in the background.
+ * crossfade, and keeps quiet when music is off, in co-op (all but the shared egg), in the echo game and while the game is
+ * in the background. It listens too: the crack scene's tune grows with the shell gone, the Gloom in the nest stills the
+ * tune over a low drone, and the big moments get a phrase in the song's key (`sting`).
  * A small timer schedules half a second ahead; nothing runs per frame.
  */
 const music = {
@@ -301,14 +392,28 @@ const music = {
   song(id) { this.id = id; if (this.eng) this.eng.setSong(id); },
   quiet() {
     return !this.on || this.vol < 0.01 || !sfx.ready() || document.hidden || sfx.hush || this.eng.ac.state !== "running"
-      || (typeof coopSession !== "undefined" && !!coopSession);
+      || (typeof coopSession !== "undefined" && !!coopSession && game.scene !== "crack"); // (in co-op, only the shared egg's tune)
   },
   pump() {
     const e = this.eng;
     if (!e) return;
-    const now = e.ac.currentTime, q = this.quiet(), level = q ? 0 : 1.1 * this.vol;
+    const now = e.ac.currentTime, q = this.quiet(), level = q ? 0 : 1.1 * this.vol, where = q ? null : musicPlace();
     if (level !== this.level) { this.level = level; e.out.gain.setTargetAtTime(level, now, q ? 0.6 : 0.3); }
-    e.place(q ? null : musicPlace(), now);
+    e.place(where, now);
+    if (where === "crack") e.share = crackShare();
+    e.setGloom(where === "nest" && typeof gloomVeil !== "undefined" ? gloomVeil.k : 0, now);
     if (!q) e.run(now + 0.5);
   },
+  /**
+   * A phrase in the current song's key for a moment (hatch, level, ward, open), on the music's own volume. False when the
+   * music isn't playing, so the caller plays its usual sound instead: nothing new plays with the music off.
+   */
+  sting(name, rarity) {
+    const e = this.eng;
+    if (!e || this.quiet()) return false;
+    if (this.level <= 0) this.pump();
+    return e.sting(name, e.ac.currentTime + 0.02, rarity);
+  },
+  /** The music steps aside under a loud sound (see sfx.burst). */
+  duck() { if (this.eng) this.eng.duck(this.eng.ac.currentTime); },
 };
