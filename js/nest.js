@@ -1354,7 +1354,7 @@ function openThing(what) {
   }
   show("thingSheet", true);
 }
-// ---------- life in the places: sparks at the forge, embers and fireflies at the camp, bubbles in the lab, dust in the shop's light, butterflies in the garden ----------
+// ---------- life in the places: Ember's sparks, embers and fireflies at the camp, butterflies in the garden (the forge, lab and shop: see placeBreath) ----------
 
 const placeLife = { list: [], last: 0 };
 const pieceCenter = (id, fx = 0.5, fy = 0.5) => { const h = pieceHits[id]; return h && h.c ? [h.x + h.c.width * PX * fx, h.y + h.c.height * PX * fy] : null; };
@@ -1368,14 +1368,13 @@ function drawPlaceLife() {
   if (placeLife.kind !== kind) { placeLife.kind = kind; placeLife.list = []; }
   const L = placeLife.list, add = p => L.length < 60 && L.push({ t: 0, ...p });
   const P = Math.max(1, Math.round(PX));
-  if (kind === "forge") { const m = pieceCenter("furnace", 0.3, 0.55); if (m && Math.random() < 0.18) add({ kind: "spark", x: m[0] + rand(-6, 6), y: m[1], vx: rand(-10, 10), vy: rand(-60, -30), life: rand(0.8, 1.4) }); }
   if (kind === "camp") {
     const f = pieceCenter("campfire", 0.5, 0.6); if (f && Math.random() < 0.15) add({ kind: "ember", x: f[0] + rand(-4, 4), y: f[1], vx: rand(-8, 8), vy: rand(-40, -24), life: rand(1.2, 2.2) });
     if (L.filter(p => p.kind === "fly").length < 6) add({ kind: "fly", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base * 1.5, N.y1), ph: rand(0, TAU), life: 1e9 });
   }
-  if (kind === "lab") { const d = pieceCenter("labdesk", rand(0.25, 0.65), 0.25); if (d && Math.random() < 0.06) add({ kind: "bubble", x: d[0], y: d[1], vx: rand(-4, 4), vy: rand(-22, -14), life: rand(1, 1.8) }); }
   drawCueIcons();
-  if (kind === "shop" && L.length < 22 && Math.random() < 0.08) add({ kind: "mote", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base * 2.5, N.y1 - N.base), vx: rand(-5, 5), vy: rand(-4, 4), life: rand(4, 7) });
+  // the forge, the lab and the shop breathe on their own (see placeBreath): sparks off the anvil, steam, dust in the window light
+  drawPlaceBreath();
   if (kind === "yard" && L.filter(p => p.kind === "butterfly").length < 3) add({ kind: "butterfly", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base, N.y1), ph: rand(0, TAU), col: pick(["#ffc4da", "#fff0b5", "#b8e6f5"]), life: 1e9 });
   ctx.save();
   for (const p of L) {
@@ -1384,8 +1383,6 @@ function drawPlaceLife() {
     const k = p.t / p.life, a = clamp(Math.min(p.t * 4, 1 - k), 0, 1);
     if (p.kind === "spark") { ctx.fillStyle = k < 0.5 ? "#fff0b5" : "#e0634f"; ctx.globalAlpha = a; ctx.fillRect(Math.round(p.x), Math.round(p.y), P, P); }
     else if (p.kind === "ember") { ctx.fillStyle = k < 0.4 ? "#eec26a" : "#e0634f"; ctx.globalAlpha = a; ctx.fillRect(Math.round(p.x + Math.sin(p.t * 4) * 3), Math.round(p.y), P, P); }
-    else if (p.kind === "bubble") { ctx.strokeStyle = "#b8e6f5"; ctx.globalAlpha = a; ctx.lineWidth = 1; ctx.strokeRect(Math.round(p.x), Math.round(p.y), P * 2, P * 2); }
-    else if (p.kind === "mote") { ctx.fillStyle = "#fff0b5"; ctx.globalAlpha = a * 0.55; ctx.fillRect(Math.round(p.x), Math.round(p.y), P, P); }
     else if (p.kind === "fly") { const x = p.x + Math.sin(now * 0.0007 + p.ph) * N.base * 0.8, y = p.y + Math.cos(now * 0.0005 + p.ph) * N.base * 0.4; ctx.fillStyle = "#fff0b5"; ctx.globalAlpha = 0.3 + 0.7 * Math.max(0, Math.sin(now * 0.004 + p.ph)); ctx.fillRect(Math.round(x), Math.round(y), P, P); }
     else if (p.kind === "butterfly") {
       const x = p.x + Math.sin(now * 0.0009 + p.ph) * N.base * 1.2, y = p.y + Math.sin(now * 0.0013 + p.ph * 2) * N.base * 0.5 - N.base * 0.3, open = Math.sin(now * 0.025 + p.ph) > 0;
