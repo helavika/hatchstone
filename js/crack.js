@@ -165,12 +165,12 @@ function newEgg(conf, animate = true) {
     state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
     hp: conf.hp, damage: 0, taps: 0, crits: 0, search: 0, gems: 0, combo: 0, chain: 0, owed: 0, hits: [], seed: coopId(),
     net: { segs: [], tips: [] }, painted: 0,
-    // banded stone (the Malachite's levels; never a moon egg or a heart's): the bands still whole, and how many it had
-    bands: conf.bands && (!conf.wander || conf.coop) ? BANDS : 0, banded: conf.bands && (!conf.wander || conf.coop) ? BANDS : 0,
+    // banded stone (the Malachite's levels and a pocket in Wander that keeps its rule; never a moon egg or a heart's): the bands still whole, and how many it had
+    bands: conf.bands && (!conf.wander || conf.coop || conf.pocket) ? BANDS : 0, banded: conf.bands && (!conf.wander || conf.coop || conf.pocket) ? BANDS : 0,
     // silent stone (the Celestite's levels, on the same terms): no glow, and the ripples lean towards the weak spot
-    silent: !!conf.silent && (!conf.wander || !!conf.coop),
+    silent: !!conf.silent && (!conf.wander || !!conf.coop || !!conf.pocket),
     // the Labradorite's stone (on the same terms again): the weak spot shows only in a flash, right after a blow lands on it
-    sheen: !!conf.sheen && (!conf.wander || !!conf.coop),
+    sheen: !!conf.sheen && (!conf.wander || !!conf.coop || !!conf.pocket),
     // the Gloom's first seal (level 6, only until it is cleared: see startLevel): it lays patches of shadow as you go
     shade: conf.gloom === 1, patches: [], shadeLaid: 0,
   };
@@ -191,7 +191,7 @@ function newEgg(conf, animate = true) {
   game.pieces = [];
   updateDots();
   updateEye();
-  $("lvlPill").textContent = conf.moon ? "🌙" : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
+  $("lvlPill").textContent = conf.moon ? "🌙" : conf.depth ? tr("Step {0}", conf.depth) + (conf.pocket ? " ✦" : "") : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
   setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : conf.step === 7 && e.silent ? tr("silent stone: no glow here · watch which way the ripples lean") : conf.step === 13 && e.banded ? tr("banded stone: when a band breaks, the weak spot moves") : conf.step === 19 && e.sheen ? tr("this stone shows its weak spot only as you hit it · keep the chain") : "");
 }
 
@@ -1402,6 +1402,8 @@ function showFound() {
   const moonBonus = conf.moon ? finishMoon() : 0;
   let shards = 8 + stars * 10 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + e.gems + Math.round(shine * 10) + moonBonus;
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
+  // a geode opened in Wander takes you a step further down (a shared egg is no step of yours)
+  if (conf.depth && !conf.coop) wanderDown(conf.depth);
   save.shards += shards;
   // now and then a bar turns up in the rubble
   const r = Math.random(), rubble = conf.coop || conf.moon ? null : r < 0.03 * (1 + skill("luck") * 0.25) ? "nut" : r < 0.13 * (1 + skill("luck") * 0.25) ? "firefly" : null;
@@ -1424,8 +1426,12 @@ function showFound() {
   $("foundHead").textContent = tr(foundHead(conf));
   $("found").classList.toggle("freed", freed);
   if (freed) setTimeout(() => sfx.freed(), 120);
-  $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
-  for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
+  // Wander keeps no stars: its card says how deep you are instead
+  const deep = conf.depth && !conf.coop;
+  $("stars").classList.toggle("step", !!deep);
+  $("stars").innerHTML = deep ? `<b>${tr("Step {0}", conf.depth)}${conf.pocket ? " ✦" : ""}</b><small>${conf.pocket ? tr("a pocket") : conf.depth >= save.depth.best ? tr("the deepest yet") : tr("deepest: step {0}", save.depth.best)}</small>`
+    : [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
+  if (!deep) for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
   $("foundImg").src = geodeImage();
   // the same picture as a pixel sprite, once it's drawn
   imgFrom($("foundImg").src).then(im => { $("foundImg").src = pixelate(im, 66, 88).toDataURL(); });
@@ -1439,7 +1445,7 @@ function showFound() {
   $("stShine").textContent = Math.round(shine * 100) + "%";
   // aim, and on a line of its own the mark of the next star up (of the third, once it is earned)
   $("stAim").textContent = aimShare(e) + "%";
-  $("stAimFor").textContent = tr("aim") + "\n" + tr("{0}★\u00a0from\u00a0{1}%", Math.min(stars + 1, 3), AIM_STARS[Math.min(stars, 2) - 1]);
+  $("stAimFor").textContent = deep ? tr("aim") : tr("aim") + "\n" + tr("{0}★\u00a0from\u00a0{1}%", Math.min(stars + 1, 3), AIM_STARS[Math.min(stars, 2) - 1]);
   $("stCrits").textContent = e.crits;
   $("stShards").textContent = "+" + shards;
   $("foundMap").hidden = !!conf.moon;
@@ -1512,6 +1518,9 @@ const TALKS = {
   legendary: cr => [[glowVoice(cr), "...Pip."], [MOSSA, tr("A legendary glowling. They say {0} wakes only for someone kind. They were right.", cr.name), null, "warm"]],
   allClear: () => [[MOSSA, "Every geode in the grotto, opened. In all my watch, this is the best of it.", null, "warm"],
     [MOSSA, "The deep caves never end. Go down whenever you like. I'll keep the moss warm.", "#mapList .wander", "warm"]],
+  // the first pocket on the way down in Wander (see depthConf): Pip, who maps the tunnels, has heard of them
+  pocket: () => [[PIP, "A pocket! Every fifth step down, the rock opens into one. Something rare always sleeps there.", spotEgg, "excited"],
+    [PIP, "Its stone remembers one of the caves above. I'm putting it on my map.", null, "shy-pride"]],
   // Wick, on his bench in the hall, once the isle and its lighthouse are found: it is he who keeps that light (see talkMoments)
   wickLight: () => [[WICK, "You found the isle. And… the light on it."], [WICK, "Someone trims that wick every night. Quietly. It's… not a big thing.", null, "confiding"],
     [WICK, "Please don't tell Pip. He wants to meet the keeper. I'm not… ready to be met.", null, "flustered"]],

@@ -15,6 +15,7 @@ const src = [
   read('data.js'),
   line(read('core.js'), /^const pick = .*$/m, 'pick should be one line in core.js'),
   cut(read('pixel.js'), 'function levelConf(', '\n}\n', 'levelConf should sit in pixel.js') + '\n}',
+  cut(read('pixel.js'), '// ---------- Wander goes deeper', 'function depthConf(', 'the descent should sit in pixel.js, after levelConf') + cut(read('pixel.js'), 'function depthConf(', '\n}\n', 'depthConf should close it') + '\n}',
   line(scenes, /^const tripCosts = .*$/m, 'tripCosts should be one line in scenes.js'),
   cut(scenes, '// ---------- home caves ----------', '/** Where the six levels of a chapter sit', 'the home caves should sit in scenes.js, in a section of their own that ends with startLevel'),
   'function newEgg(conf) {',
@@ -38,7 +39,7 @@ function grotto(save = {}, random = stream()) {
   const page = {
     LANG: 'en', LEVELS: 24, eggs: did.eggs,
     Math: Object.assign(Object.create(Math), { random: () => { did.rolls++; return random(); } }),
-    save: { stars: {}, seen: {}, geodes: {}, oil: { n: 5 }, ...save }, game: {},
+    save: { stars: {}, seen: {}, geodes: {}, oil: { n: 5 }, depth: { at: 1, best: 0 }, ...save }, game: {},
     tr: s => s, sfx: { tick: () => {} },
     persist: () => {}, talk: () => {}, setHint: s => did.hints.push(s),
     burnOil: () => page.save.oil.n >= 1 ? (page.save.oil.n--, did.burnt++, true) : false,

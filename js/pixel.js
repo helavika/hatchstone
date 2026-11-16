@@ -925,3 +925,31 @@ function levelConf(n) {
     sheen: !wander && cave === 3,
   };
 }
+
+// ---------- Wander goes deeper: every geode opened there is one step further down (see wanderDown) ----------
+
+/** Every fifth step down is a pocket: a rare stone or better, in stone that keeps one of the caves' own rules. */
+const POCKET_EVERY = 5;
+/** The pockets take the caves' rules in turn: the Celestite's silence, the Malachite's bands, the Labradorite's flash. */
+const POCKET_RULES = ["silent", "bands", "sheen"];
+/** The stone hardens a little with each step (DEPTH_HP) down to DEPTH_FLAT, then only a touch (DEPTH_HP_LATE), and never
+ *  past DEPTH_HP_CAP: a few more taps deep down, never a slog. Deeper, the pockets' rules carry the difficulty. */
+const DEPTH_HP = 0.4, DEPTH_FLAT = 21, DEPTH_HP_LATE = 0.1, DEPTH_HP_CAP = 60;
+const isPocket = d => d > 0 && d % POCKET_EVERY === 0;
+/** Which cave rule the pocket at step d keeps. */
+const pocketRule = d => POCKET_RULES[(d / POCKET_EVERY - 1) % POCKET_RULES.length];
+/** The stone at step d of Wander: step 1 is as hard as it always was (level 24's), and it grows slowly from there. */
+function depthHp(d) {
+  const base = levelConf(0).hp, k = Math.max(0, d - 1);
+  return Math.min(DEPTH_HP_CAP, Math.round(base + Math.min(k, DEPTH_FLAT) * DEPTH_HP + Math.max(0, k - DEPTH_FLAT) * DEPTH_HP_LATE));
+}
+/** An egg at step d of Wander: Wander's own, a little harder, and on a pocket a rare one or better under one cave rule. */
+function depthConf(d) {
+  const conf = { ...levelConf(0), depth: d, hp: depthHp(d) };
+  if (!isPocket(d)) return conf;
+  conf.pocket = true;
+  conf[pocketRule(d)] = true;
+  // (the legendary chance as deep as ever, and all the rest rare)
+  conf.rare = 1 - conf.legendary;
+  return conf;
+}

@@ -312,7 +312,8 @@ test('the card, the wallet, Mossa and the FAQ say what stars are for now, in bot
   assert.match(faq, /can only add to them/);
   assert.match(faqUk, new RegExp(`${AIM_STARS[1]}% ударів.*слабке місце.*від ${AIM_STARS[0]}%.*всі промахи до першого влучання.*щонайменше три промахи.*жеод`));
   // the card's label breaks after the word and nowhere else: the word, a new line, the mark held together
-  assert.match(found, /\$\("stAimFor"\)\.textContent = tr\("aim"\) \+ "\\n" \+ tr\(/);
+  // (a Wander egg keeps no stars, so its card says only the word: see tests/wander-deep.test.cjs)
+  assert.match(found, /\$\("stAimFor"\)\.textContent = deep \? tr\("aim"\) : tr\("aim"\) \+ "\\n" \+ tr\(/);
   assert.match(fs.readFileSync(path.join(__dirname, '../style.css'), 'utf8'), /#stAimFor \{ white-space: pre-line; \}/);
   assert.ok(!/Fewer taps, more stars|you'll need fewer taps|crack the egg in fewer taps|taps · ★ in/.test(ui + crack + main + html + read('i18n.js')), 'nothing should still promise stars for fewer taps');
 });
