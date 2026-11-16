@@ -3490,6 +3490,22 @@ const MOSS = ["#0b1418", "#132820", "#1d3c22", "#2f5726", "#4a772b", "#72a03a", 
 const GARDEN_STONE = ["#0e0d16", "#1f1e28", "#33323a", "#4b4946", "#6a6658", "#8f8870"];
 const isoTone = (ramp, v, x, y, k = 0.3) => { const n = ramp.length - 1; return ramp[clamp(Math.floor(clamp(v, 0, 1) * n + 0.5 + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * k), 0, n)]; };
 const mixHex = (a, b, k) => a.map((c, i) => Math.round(c + (b[i] - c) * k));
+/** A ramp shifted in hue the way a painter shifts one: the shadows cooler (toward blue-violet) and a little richer, the lights
+ *  warmer (toward warm) and a little greyer, so a material reads in steps of its own colour rather than one colour darkened. */
+function hueRamp(ramp, warm = [255, 222, 168], turn = 0.28) {
+  const n = ramp.length - 1;
+  return ramp.map((c, i) => {
+    const t = i / n, [r, g, b] = c.map(v => v / 255), mx = Math.max(r, g, b), mn = Math.min(r, g, b), l = (mx + mn) / 2, dd = mx - mn;
+    let hu = 0, sa = 0;
+    if (dd) { sa = dd / (1 - Math.abs(2 * l - 1)); hu = mx === r ? ((g - b) / dd) % 6 : mx === g ? (b - r) / dd + 2 : (r - g) / dd + 4; hu *= 60; }
+    // turn the hue part of the way to 245 (blue-violet), most in the darkest shade, by the short way round
+    const dh = ((245 - hu + 540) % 360) - 180;
+    hu = (hu + dh * turn * (1 - t) + 360) % 360; sa = Math.min(1, sa * (1.18 - 0.36 * t));
+    const C = (1 - Math.abs(2 * l - 1)) * sa, X = C * (1 - Math.abs((hu / 60) % 2 - 1)), m = l - C / 2;
+    const [r1, g1, b1] = hu < 60 ? [C, X, 0] : hu < 120 ? [X, C, 0] : hu < 180 ? [0, C, X] : hu < 240 ? [0, X, C] : hu < 300 ? [X, 0, C] : [C, 0, X];
+    return mixHex([r1 + m, g1 + m, b1 + m].map(v => Math.round(v * 255)), warm, 0.2 * t * t);
+  });
+}
 
 /** An iron wall lantern on its bracket, the plate at the left edge against the wall, the arm reaching into the room. */
 const LANTERN = [
@@ -3579,7 +3595,8 @@ function roomMaterials(id, hw, wall, S) {
   // the abbey's dressed stone: cool grey with a little violet in the shadows
   const ashlar = hexes(["#0f0a19", "#1d1629", "#2e2639", "#41384d", "#574d63", "#70667b", "#8c8396", "#aaa2b1"]);
   // cave rock: the chapter's own ramp, with a highlight leaning toward its crystals for the lit edges
-  const rock = art ? [...wallR, mixHex(wallR[4], crys[2], 0.35)] : wallR;
+  // (at home, #307: shifted in hue, cooler in the cracks and warmer on the lit faces, one more step of light on top)
+  const rock = !art ? wallR : mood ? hueRamp([...wallR, mixHex(wallR[4], crys[2], 0.35), mixHex(mixHex(wallR[4], crys[3], 0.3), [255, 236, 200], 0.3)]) : [...wallR, mixHex(wallR[4], crys[2], 0.35)];
   const wallC = kind === "timber" ? ruinStone : kind === "ruin" ? ruinStone : kind === "hall" || mood === "crypt" ? ashlar : rock;
   // how high a ruined wall still stands along its length (0..1): broken off in steps, low in the middle of each side
   const ruinH = tt => kind !== "ruin" ? 1 : clamp(0.55 + 0.45 * Math.cos(tt * 2.6) - 0.35 * (Math.floor(pxNoise(tt * 7 + seed, 3) * 4) / 4), 0.18, 1);
@@ -3639,6 +3656,69 @@ function roomMaterials(id, hw, wall, S) {
     const sp = pxHash(x * 3, y * 5 + seed); if (sp > 0.985) v += 0.15;
     return v;
   };
+  // ---- the caves at home (#307): rock you can read stone by stone, each stone shaded on its own, and what grows on it
+  /** What grows on the rock at home, by mood: moss in the grotto (and the moss garden) and round the moonwell, rime on the ice
+   *  cave's stones, a pale lichen in the crystal caves and the crypt, hardly anything in the gallery's dry rock. moss is how much
+   *  covers the tops of the stones (and how high up the wall it climbs), lichen how much of their faces it spots. */
+  const GROWTH = { crystal: { moss: 0, lichen: 0.35 }, grotto: { moss: 0.75, lichen: 0.3 }, gallery: { moss: 0, lichen: 0 }, crypt: { moss: 0.1, lichen: 0.7 }, moonwell: { moss: 0.45, lichen: 0.6 }, aurora: { moss: 0.12, lichen: 0, rime: true } };
+  const grow = mood && GROWTH[mood];
+  const lichenC = !mood ? null : mood === "crypt" ? hexes(["#4f4c34", "#7d7748", "#a69e62"]) : mood === "moonwell" ? hexes(["#4a4660", "#7a7392", "#aaa2c0"]) : [mixHex(wallR[2], crys[1], 0.35), mixHex(wallR[3], crys[2], 0.35), mixHex(wallR[4], crys[2], 0.42)];
+  const rimeC = hexes(["#3a6688", "#8fc4dc", "#d8f2fa", "#ffffff"]);
+  /** Moss on a stone's top, or rime: it sits on the upper rim of the stone (up is how far up the stone, edge how near its rim) in
+   *  a band whose depth wanders, hanging down a little at its lower edge; thickest low on the wall and in damp patches. */
+  const growthOn = (f, al, z, sl, x, y, k) => {
+    if (!grow || f.edge < 1) return null;
+    const damp = pxFbm(al * 0.035 + sl * 11 + seed, z * 0.05) - 0.6 + grow.moss * 0.42 + (grow.rime ? 0.12 * z / wall : 0.16 * (1 - z / wall) ** 2);
+    if (grow.moss && damp > 0.06 && f.oy > 0) {
+      const depth = (2.2 + 4 * damp + 2 * pxHash(Math.round(al), f.id & 255)) * Math.max(1, S);
+      if (f.edge < depth * 1.4 && f.oy > 0.12) {
+        if (grow.rime) return { col: rimeC[f.edge < 1.8 ? (sl > 0 ? 3 : 2) : f.edge < 3 ? 2 : 1] };
+        // a cushion: lit along its top, its body a step darker (cooler on the shaded wall), its lower rim darker still
+        return { col: MOSS_HEX[f.edge < 1.8 ? (sl > 0 ? 5 : 4) : f.edge < depth * 0.9 ? (sl > 0 ? 4 : 3) : 2] };
+      }
+    }
+    // lichen in round spots on a stone's face, a pale ring round a darker heart
+    // (in patches here and there: a broad mask, and the spots inside it)
+    if (k && grow.lichen && f.edge > 2.4 && f.oy > -0.25 && pxFbm(al * 0.03 + seed + 5, z * 0.04 + sl * 3) > 0.66 - 0.12 * grow.lichen) {
+      const ln = pxFbm(x * 0.25 + seed, y * 0.35 + 5);
+      if (ln > 0.6) return { col: lichenC[ln > 0.66 ? (sl > 0 ? 2 : 1) : 0] };
+    }
+    return null;
+  };
+  /** The rock face at home: layered stones, wider than they're tall, each one flat in one of three shades (its own, not noise),
+   *  lit along its top and left edges and shaded along its bottom and right in two steps, a dark crevice round it; the odd pit
+   *  and crack; darker toward the roof. Returns a shade, or a colour of its own where something grows on it. */
+  const rockTex = (al, z, sl, x, y) => {
+    const f = facet(al + 5 * pxNoise(z * 0.07, seed), z, 23 * S, 10 * S, seed);
+    if (f.edge < 1) return { v: 0.03 };
+    const g = growthOn(f, al, z, sl, x, y, true);
+    if (g) return g;
+    const up = f.oy, lt = f.ox * sl;
+    // (flat across the stone: its shade darkens toward the roof by where the stone's middle is, not pixel by pixel)
+    let v = (f.sh < 0.3 ? 0.36 : f.sh < 0.72 ? 0.45 : 0.54) + (sl > 0 ? 0.07 : -0.07) - 0.24 * Math.round((z - f.oy * 10 * S) / wall * 4) / 4;
+    if (f.edge < 2.2) v += up > 0.05 || lt > 0.3 ? 0.2 : -0.16;
+    else if (f.edge < 3.6 && up < -0.15) v -= 0.08;
+    else if (f.edge < 3.6 && (up > 0.2 || lt > 0.4)) v += 0.07;
+    const ph = pxHash(Math.round(x) * 3, Math.round(y) * 5 + seed);
+    if (ph > 0.988) v -= 0.18; else if (ph > 0.976 && pxHash(Math.round(x) * 3, Math.round(y) * 5 + seed - 5) > 0.988) v += 0.12;
+    if (f.sh > 0.82 && Math.abs(pxNoise(al * 0.18 + f.id, z * 0.32) - 0.5) < 0.022) v -= 0.22;
+    return { v };
+  };
+  /** The cave floor at home: worn stones set close in a bed of grit, each its own shade, its edge toward the back and the left
+   *  (toward the light) bevelled bright and its edge toward you in shadow, dark gaps between; the odd crack. */
+  const floorTex = (u, v, x, y, ao, lk) => {
+    const f = facet(u * hw, v * hw, 15 * S, 15 * S, seed + 5);
+    if (f.edge < 1.1) return { v: 0.06 - 0.04 * ao, gap: true };
+    const toward = f.ox * 0.85 + f.oy * 0.35;   // < 0: the side toward the back left, which faces the light
+    let val = (f.sh < 0.3 ? 0.34 : f.sh < 0.7 ? 0.42 : 0.5) + 0.24 * lk;
+    if (f.edge < 2.3) val += toward < -0.08 ? 0.18 : toward > 0.08 ? -0.17 : 0;
+    else if (f.edge < 3.6 && toward > 0.25) val -= 0.08;
+    const ph = pxHash(Math.round(x) * 7, Math.round(y) * 3 + seed);
+    if (ph > 0.985) val -= 0.16; else if (ph < 0.01) val += 0.12;
+    if (f.sh > 0.86 && Math.abs(pxNoise(u * 30 + f.id, v * 30) - 0.5) < 0.02) val -= 0.22;
+    return { v: val - 0.45 * ao, f };
+  };
+
   // the timber frame: posts at each bay, studs below the middle rail, a brace in each panel above it, a sill on the footing,
   // a wall plate along the top with the joists' ends resting on it
   const bay = hw / 3, pw = Math.max(2, Math.round(5 * S)), bw = Math.max(3, Math.round(7 * S)), foot = Math.round(12 * S), sw = Math.max(1, Math.round(1.8 * S));
@@ -3781,6 +3861,8 @@ function roomMaterials(id, hw, wall, S) {
     };
   })();
   const dirt = hexes(["#1f130a", "#3b2414", "#553620", "#6e4a2a", "#8a6238", "#a37b4b"]);
+  // (the gallery's oak at home, shifted in hue like its rock: cool in the seams, warm where it's lit)
+  const oakH = mood ? hueRamp(oak, [255, 222, 168], 0.1) : oak;
   const floorPx = (u, v, x, y, ao, lk) => {
     if (floorK === "timber") {
       // wide oak boards running from the back to the front: each its own shade, grain along it, a lit and a dark edge to each
@@ -3794,7 +3876,7 @@ function roomMaterials(id, hw, wall, S) {
       if (wp < 1) pv = 0.04; else if (wp < 2) pv += 0.14; else if (wp > pw2 - 1.2) pv -= 0.14;
       if (e < 1) pv = 0.06; else if (e < 2) pv += 0.1; else if (e > Lb - 1.2) pv -= 0.12;
       if (Math.abs(e - 3.2 * S) < 0.6 && (Math.abs(wp - pw2 * 0.28) < 0.6 || Math.abs(wp - pw2 * 0.72) < 0.6)) pv = 0.02;
-      return isoTone(oak, pv - 0.42 * ao, x, y);
+      return isoTone(mood ? oakH : oak, pv - 0.42 * ao, x, y, mood ? 0.08 : 0.3);
     }
     if (floorK === "hall" || kind === "ruin") {
       // flagstones in staggered rows, each its own stone (a darker slate now and then), bevelled toward the light, cracked,
@@ -3811,7 +3893,7 @@ function roomMaterials(id, hw, wall, S) {
         if (sh > 0.9) return pxFbm(x * 0.4, y * 0.4) > 0.5 ? moss[1] : moss[0];
       }
       if (joint) val = 0.06; else if (wp < 2 || e < 2) val += 0.16; else if (wp > pw2 - 1.4 || e > pl - 1.4) val -= 0.15;
-      return isoTone(wallC, val - 0.42 * ao, x, y);
+      return isoTone(wallC, val - 0.42 * ao, x, y, mood ? 0.08 : 0.3);
     }
     if (kind === "cave") {
       // the rock itself: lumpy and uneven (lit where it rises toward the light), cracked, strewn with pebbles that each cast a
@@ -3819,9 +3901,15 @@ function roomMaterials(id, hw, wall, S) {
       const f = facet(u * hw, v * hw, 26 * S, 26 * S, seed + 5);
       let val = 0.44 + 0.22 * lk + 0.1 * (f.sh - 0.5) + 0.12 * (-f.ox * 0.6 - f.oy * 0.8) + 0.08 * (pxFbm(x * 0.12, y * 0.24) - 0.5);
       if (f.edge < 1 && f.sh > 0.45) val = 0.1; else if (f.edge < 2 && f.sh > 0.45) val += f.ox + f.oy < 0 ? -0.1 : 0.08;
+      // (at home, #307: stone by stone, see floorTex; moss in the gaps near the walls where something grows)
+      const ft = mood && floorTex(u, v, x, y, ao, lk);
+      if (ft) {
+        val = ft.v + 0.45 * ao;
+        if (ft.gap && grow.moss && Math.min(u, v) < 0.08 + 0.25 * grow.moss && pxHash(x, y + seed) > 0.35) return MOSS_HEX[pxHash(x + 1, y) > 0.7 ? 3 : 2];
+      }
       const gx = Math.floor(x / 9), gy = Math.floor(y / 5), ph = pxHash(gx + seed, gy * 3);
       let pebble = false;
-      if (ph > (mossy ? 0.8 : 0.6)) {
+      if (ph > (mossy || mood ? 0.86 : 0.6)) {
         const px0 = gx * 9 + 2 + pxHash(gx, gy) * 5, py0 = gy * 5 + 1 + pxHash(gy, gx) * 3, pr = 1 + (ph - 0.6) * 5, dx = (x + 0.5 - px0) / pr, dy = (y + 0.5 - py0) / (pr * 0.6);
         const dd = dx * dx + dy * dy;
         if (dd < 1) { val = 0.5 + 0.35 * (-dx * 0.6 - dy * 0.8) + 0.2 * lk; pebble = true; }
@@ -3856,7 +3944,7 @@ function roomMaterials(id, hw, wall, S) {
         if (m > 0.62) { const cu = facet(u * hw, v * hw, 7 * S, 7 * S, seed + 13); return isoTone(mossC, (cu.edge < 1 ? 0.18 : 0.38 + 0.3 * (-cu.ox * 0.6 - cu.oy * 0.8)) + 0.2 * lk - 0.45 * ao, x, y, 0.2); }
       }
       if (pxHash(x, y + seed) > 0.9975) return crys[2];
-      return isoTone(wallC, val - 0.45 * ao, x, y);
+      return isoTone(wallC, val - 0.45 * ao, x, y, mood ? 0.08 : 0.3);
     }
     // outdoors: the ground rolls a little (lit where it tips toward the light), grass in darker and paler patches, the
     // blades themselves come after; trodden paths of bare earth with pebbles, grass creeping in from their edges
@@ -3880,7 +3968,7 @@ function roomMaterials(id, hw, wall, S) {
     if (Math.max(u, v) > 0.985) val = 0.85; // a lit rim at the front edges
     return isoTone(ground, val, x, y, 0.5);
   };
-  return { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, garden, mood, mossy, mossC, ashlarPx, facet, rockPx, timberAt, timberPx, shoreAt, oakPx, ice, auroraG, auroraP, auroraAt, columnAt, plH, pathD, dirt, floorPx };
+  return { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, garden, mood, mossy, mossC, ashlarPx, facet, rockPx, timberAt, timberPx, shoreAt, oakPx, oakH, ice, auroraG, auroraP, auroraAt, columnAt, plH, rockTex, growthOn, pathD, dirt, floorPx };
 }
 /** Where the moss garden's own garden is, in floor units along its walls (see paintMossGarden): low against the walls and clear
  *  of the tunnels (DOOR_AT), so furniture still stands anywhere on the floor, in front of it; and where its shaft of light lands. */
@@ -4293,7 +4381,7 @@ function paintRoomIso(id) {
   const q = v => v / PX, cx = q(N.cx), top = q(N.isoTop), hw = q(N.isoW), hh = hw / 2, wall = q(N.isoWall), slab = Math.max(4, Math.round(hw / 16));
   // stones, planks and beams keep their proportions to the room whatever its size (a phone's room is about 180 pixels from corner to end)
   const S = Math.max(0.55, hw / 180);
-  const { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, garden, mood, mossy, mossC, ashlarPx, facet, rockPx, timberAt, timberPx, shoreAt, oakPx, ice, auroraG, auroraP, auroraAt, columnAt, plH, pathD, dirt, floorPx } = roomMaterials(id, hw, wall, S);
+  const { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, garden, mood, mossy, mossC, ashlarPx, facet, rockPx, timberAt, timberPx, shoreAt, oakPx, oakH, ice, auroraG, auroraP, auroraAt, columnAt, plH, rockTex, pathD, dirt, floorPx } = roomMaterials(id, hw, wall, S);
   const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
   const crypt = mood === "crypt";
   // where each pixel of the walls and the floor lies in the room (u, v along the floor, z up), for the light that falls on it
@@ -4328,7 +4416,7 @@ function paintRoomIso(id) {
     for (let k = 0; k < slab; k++) {
       const y = edgeY + k, al = Math.abs(x - cx);
       let col;
-      if (kind === "cave" && !crypt) col = isoTone(wallC, rockPx(al, slab - k + 400, left ? 1 : -1, x, y) - 0.12, x, y);
+      if (kind === "cave" && !crypt) col = isoTone(wallC, (mood ? rockTex(al, slab - k + 400, left ? 1 : -1, x, y).v ?? 0.4 : rockPx(al, slab - k + 400, left ? 1 : -1, x, y)) - 0.12, x, y);
       else {
         // a footing of squared stones, joints staggered course by course
         const row = Math.floor(k / Math.max(3, Math.round(slab / 2))), L = Math.round(12 * S), a = al + row * L * 0.5, fa = a % L;
@@ -4383,13 +4471,15 @@ function paintRoomIso(id) {
           // the gallery's rock is shored up with oak: posts against it, a cap along the top, a knee brace in each corner;
           // high up the aurora's cave the rock thins to ice, and the northern lights glow through it in bands
           const sh = mood === "gallery" && shoreAt(al, z, sl), ak = mood === "aurora" && !sh && auroraAt(al, z, sl);
-          if (sh) { ramp = oak; val = oakPx(sh, al, z, sl > 0 ? 0.44 : 0.3); }
+          if (sh) { ramp = oakH; val = oakPx(sh, al, z, sl > 0 ? 0.44 : 0.3); }
           else if (ak) { ramp = ak.ramp; val = ak.v; }
           else {
-            val = rockPx(al, z, sl, x, y) - 0.3 * Math.max(0, 1 - z / (6 * S));
-            // moss grows where it would: on the lit tops of the ledges, thickest low down and up under the roof (round the
-            // moonwell only low down, on the rock round its fallen stones)
-            if (mossy || mood === "moonwell") { const m = pxFbm(al * 0.05 + sl * 9 + seed, z * 0.06) + (z < wall * 0.14 ? 0.16 : 0) + (z > wall * 0.9 && mossy ? 0.1 : 0) - (mossy ? 0 : 0.08 + z / wall * 0.3); if (m > 0.56 && val > 0.42 - (m - 0.56) * 1.2) { ramp = mossC; val = val * 0.8 + 0.12 + (m > 0.62 ? 0.08 : 0); } }
+            // (at home, #307, stone by stone: rockTex, with what grows on each stone in its own colour)
+            const rt = mood && rockTex(al, z, sl, x, y);
+            if (rt && rt.col) { put(x, y, rt.col); mark(x, y, side < 0 ? 0 : tt, side < 0 ? tt : 0, z); continue; }
+            val = (rt ? rt.v : rockPx(al, z, sl, x, y)) - 0.3 * Math.max(0, 1 - z / (6 * S));
+            // in the moss garden (in the valley's way of drawing) moss grows on the lit tops of the ledges, thickest low down and up under the roof
+            if (!mood && garden) { const m = pxFbm(al * 0.05 + sl * 9 + seed, z * 0.06) + (z < wall * 0.14 ? 0.16 : 0) + (z > wall * 0.9 ? 0.1 : 0); if (m > 0.56 && val > 0.42 - (m - 0.56) * 1.2) { ramp = mossC; val = val * 0.8 + 0.12 + (m > 0.62 ? 0.08 : 0); } }
             // the shoring's shadow on the rock, down and to the right of each timber
             if (mood === "gallery" && (shoreAt(al + sl * 2, z + 2, sl) || shoreAt(al + sl, z + 1, sl))) val -= 0.16;
           }
@@ -4421,7 +4511,7 @@ function paintRoomIso(id) {
         else if (Math.abs(x - cx) < 1 && kind !== "timber") val = 0.05;     // the back corner
         if (al < 10 * S) val -= 0.14 * (1 - al / (10 * S));   // the corner's own shadow
         if (Math.abs(x - cx) > hw - 1) val = 0.1;      // the open ends
-        put(x, y, isoTone(ramp, val, x, y));
+        put(x, y, isoTone(ramp, val, x, y, mood ? 0 : 0.3));
         mark(x, y, side < 0 ? 0 : tt, side < 0 ? tt : 0, z);
       }
       // a cave's rock overhangs: stalactites drip from its ragged top

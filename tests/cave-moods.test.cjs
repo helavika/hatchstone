@@ -139,3 +139,21 @@ test('a room painted once is kept by what it shows: the mood, the room it is in,
   assert.match(save, /const key = `\$\{id\}\|\$\{floor\.toFixed\(3\)\}\|\$\{deep\}\|\$\{home\}`/);
 });
 
+test('the caves at home are textured stone by stone, in ramps shifted in hue, and quickly enough', () => {
+  const p = page(2, 'amethyst');
+  // a hue-shifted ramp: the shadows bluer than the lights, the lights warmer (redder) than the shadows
+  const m = p.roomMaterials('amethyst', 180, 150, 1), r = m.wallC;
+  assert.ok(r.length >= 6, 'six or more steps');
+  const blueShare = c => c[2] / (c[0] + c[1] + c[2] + 1), redShare = c => c[0] / (c[0] + c[1] + c[2] + 1);
+  assert.ok(blueShare(r[1]) > blueShare(r[r.length - 1]) && redShare(r[r.length - 1]) > redShare(r[1]));
+  // the valley's own grotto is drawn as before
+  assert.notDeepEqual(page(4, 'amethyst').roomMaterials('amethyst', 180, 150, 1).wallC, r);
+  // stones, not noise: a handful of shades per material
+  const c = p.paintRoomIso('amethyst'), cols = colours(c);
+  assert.ok(cols.size < 60, `a limited palette, not noise (${cols.size} colours)`);
+  // painting a room at home takes no more than a few times what it did (it's painted once and kept, see roomKey)
+  const t0 = process.hrtime.bigint();
+  for (const id of ['amethyst', 'smithy', 'abbey', 'churchyard', 'summit', 'glowcap']) page(2, id).paintRoomIso(id);
+  const ms = Number(process.hrtime.bigint() - t0) / 1e6 / 6;
+  assert.ok(ms < 600, `a room at home paints in ${ms.toFixed(0)} ms`);
+});
