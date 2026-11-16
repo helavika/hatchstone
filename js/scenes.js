@@ -412,17 +412,17 @@ const moonStone = () => { const ev = eventNow(); return ev ? Object.assign([...e
 
 const EVENTS = [
   { id: "bloom", name: "Spring Bloom", emoji: "🌸", from: [3, 20], to: [4, 15], sp: "petalpup", egg: ["#f6d3e4", "#c98fb0", "#fff4fa"],
-    fall: { c: ["#ffc2dc", "#fff0f6", "#f08cb8"], dir: 1, r: 2.2, n: 26 }, line: "Can you smell it? The moss is flowering. Spring Bloom is here!" },
+    fall: { c: ["#ffc2dc", "#fff0f6", "#f08cb8"], dir: 1, r: 2.2, n: 26 }, line: "Smell that? The moss is flowering. Spring Bloom has come." },
   { id: "fireflies", name: "Firefly Nights", emoji: "✨", from: [6, 20], to: [7, 15], sp: "glimmerbug", egg: ["#e4efb8", "#a8b86a", "#fbffe6"],
-    fall: { c: ["#e8ff8a", "#fbffd0", "#c8f060"], dir: 0, r: 2, n: 22, blink: true }, line: "The fireflies have come down into the grotto. It's Firefly Nights!" },
+    fall: { c: ["#e8ff8a", "#fbffd0", "#c8f060"], dir: 0, r: 2, n: 22, blink: true }, line: "The fireflies have come down into the grotto. Firefly Nights have begun." },
   { id: "harvest", name: "Harvest Moon", emoji: "🍂", from: [9, 15], to: [10, 10], sp: "acornet", egg: ["#ecd2b0", "#b88a5c", "#fff2e0"],
-    fall: { c: ["#e8913a", "#c45a2a", "#f2c45c"], dir: 1, r: 2.6, n: 22 }, line: "The moon is big and golden tonight. The Harvest Moon is up!" },
+    fall: { c: ["#e8913a", "#c45a2a", "#f2c45c"], dir: 1, r: 2.6, n: 22 }, line: "The moon is big and golden tonight. The Harvest Moon is up." },
   { id: "hollow", name: "Hollow Night", emoji: "🎃", from: [10, 20], to: [11, 3], sp: "gourdlet", egg: ["#f2c58f", "#c27a3c", "#fff0d8"],
-    fall: { c: ["#ff9d3c", "#ffd27a", "#ff7a2a"], dir: -1, r: 2.4, n: 16, blink: true }, line: "Little lanterns are floating up from the deep. Happy Hollow Night!" },
+    fall: { c: ["#ff9d3c", "#ffd27a", "#ff7a2a"], dir: -1, r: 2.4, n: 16, blink: true }, line: "Little lanterns are rising from the deep. It's Hollow Night. Keep yours lit." },
   { id: "frost", name: "First Frost", emoji: "❄️", from: [11, 8], to: [11, 30], sp: "rimeling", egg: ["#dfe6ff", "#a3b0e0", "#ffffff"],
-    fall: { c: ["#ffffff", "#e2ecff", "#c7d6ff"], dir: 1, r: 1.8, n: 48 }, line: "Brr! The first frost has reached the grotto. Look at the snow!" },
+    fall: { c: ["#ffffff", "#e2ecff", "#c7d6ff"], dir: 1, r: 1.8, n: 48 }, line: "The first frost has reached the grotto. Look at the snow. Even the stone feels it." },
   { id: "lights", name: "Winter Lights", emoji: "🎄", from: [12, 15], to: [1, 10], sp: "twinklet", egg: ["#f2d6d6", "#c08080", "#fff6e8"],
-    fall: { c: ["#ff6f7f", "#ffd36a", "#7fe0a0", "#8fb8ff"], dir: 0, r: 2, n: 28, blink: true, still: true }, line: "Every crystal in the grotto is twinkling. Winter Lights have begun!" },
+    fall: { c: ["#ff6f7f", "#ffd36a", "#7fe0a0", "#8fb8ff"], dir: 0, r: 2, n: 28, blink: true, still: true }, line: "Every crystal in the grotto is twinkling. Winter Lights have begun." },
 ];
 const EVENT = Object.fromEntries(EVENTS.map(e => [e.id, e]));
 // the test game can try any event: /staging/?event=bloom

@@ -236,10 +236,10 @@ test('the ripple leans on screen the way rippleLean says; with less motion it st
 
 test('Mossa tells of the silence in the second cave\'s talk, in a line of her own, within the talk\'s length; level 7 says it too', () => {
   const ch1 = cut(crack, '  ch1: () => [', ']],\n', 'ch1 should be in TALKS');
-  assert.match(ch1, /\[MOSSA, "It's a quiet stone: no glow at all down there\. But watch your ripples\. They lean towards the weak spot\."\]/);
+  assert.match(ch1, /\[MOSSA, "Down there the stone is quiet: no glow at all\. But your ripples lean towards the weak spot\. Watch them\."\]/);
   assert.ok(ch1.split('[MOSSA').length - 1 <= 5);
   assert.match(crack, /conf\.step === 7 && e\.silent \? tr\("silent stone: no glow here · watch which way the ripples lean"\)/);
   const i18n = read('i18n.js');
-  for (const k of ['It\'s a quiet stone: no glow at all down there. But watch your ripples. They lean towards the weak spot.', 'silent stone: no glow here · watch which way the ripples lean', 'closer…'])
+  for (const k of ['Down there the stone is quiet: no glow at all. But your ripples lean towards the weak spot. Watch them.', 'silent stone: no glow here · watch which way the ripples lean', 'closer…'])
     assert.ok(i18n.includes(JSON.stringify(k) + ':'), k);
 });

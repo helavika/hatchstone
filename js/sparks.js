@@ -37,7 +37,7 @@ const SPARK = Object.fromEntries(SPARKS.map(s => [s.id, s]));
 const SPARK_KINDS = [["song", "Songs"], ["colour", "Colours"], ["sight", "Sights"]];
 /** The faraway lands the sights show, and what Pip makes of them once both sights of a land are home. */
 const SPARK_LANDS = {
-  summit: { name: "The summit", pip: "Aurora, and a house with smoke in the chimney. Even up where it's coldest, someone keeps warm. So can we." },
+  summit: { name: "The summit", pip: "Aurora, and a house with smoke from the chimney. Even where it's coldest, someone keeps warm. So can we." },
   isle: { name: "The isle", pip: "A lighthouse, and boats following it home. Somebody out at sea keeps a light for people they've never met. I want to be like that." },
   frost: { name: "The snowfields", pip: "Footprints in the snow, and a door that glows. We're not the only ones out there. That makes the dark a little smaller." },
 };
@@ -313,8 +313,8 @@ function sparkPipLine() {
   if (n > s.pip) {
     const fresh = n - s.pip, last = Object.entries(s.got).sort((p, q) => q[1].t - p[1].t)[0];
     s.pip = n;
-    return fresh > 1 ? tr("Your glowlings brought home {0} new sparks! Songs, colours, faraway places. I've written them all in the Book.", fresh)
-      : tr("{0} came home with a spark in their eyes: “{1}”. I've written it in the Book, under Sparks.", last[1].by || "?", tr(SPARK[last[0]].name));
+    return fresh > 1 ? tr("{0} new sparks came home! Songs, colours, far places. I've written every one in the Book.", fresh)
+      : tr("{0} came home with a spark in their eyes: “{1}”. It's in the Book now, under Sparks.", last[1].by || "?", tr(SPARK[last[0]].name));
   }
   const told = Object.keys(s.lands);
   return told.length && Math.random() < 0.3 ? tr(SPARK_LANDS[pick(told)].pip) : null;

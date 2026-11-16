@@ -1177,36 +1177,36 @@ const spotEgg = () => game.scene === "crack" ? { x: L.ex0 - 8, y: L.ey0 - 8, w: 
 /** Each line is [who, words, what to point at, mood]: what to point at is a selector for a button or panel, one of the canvas spots above
  *  or null; the mood (optional, see the cast's `as` in portraits.js) picks the speaker's face, the calm one if it has none. */
 const TALKS = {
-  intro: () => [[MOSSA, "Oh! A visitor. Hello, hello."], [MOSSA, "I'm Mossa. I've watched over this grotto since before the moss was green."],
-    [MOSSA, "Glowlings sleep inside the stone eggs down here. Crack one open, and whoever's inside will need a home.", "#crackTab"],
-    [MOSSA, "This empty nest is yours. Let's go and find your first one!"]],
-  meet: () => [[MOSSA, "Oh! And we've never been properly introduced. What should I call you?"]],
+  intro: () => [[MOSSA, "Someone's here. Good. It's been quiet.", null, "warm"], [MOSSA, "I'm Mossa. I've kept watch over this grotto since before the moss was green."],
+    [MOSSA, "Glowlings sleep in the stone eggs down here. Crack one, and whoever wakes will need a home.", "#crackTab"],
+    [MOSSA, "This nest is yours. Empty, for now. Let's find who sleeps in the stone.", null, "warm"]],
+  meet: () => [[MOSSA, "We've never been properly introduced. What should I call you?", null, "warm"]],
   firstPet: () => { const cr = firstPet(), g = glowVoice(cr); return [[g, "Pip?", spotActor], [g, "...pip-pip! ♥", spotActor],
-    [MOSSA, tr("{0} likes you already. Glowlings remember a kind hand.", cr.name), spotActor],
-    [MOSSA, "Stroke it, feed it, play with it, and tuck it in when it's sleepy. That's how it grows.", "#nestBottom .acts"],
-    [MOSSA, "When you want another egg, the big Crack button is always right there. Your nest has room for many.", "#crackTab"]]; },
-  firstGrow: cr => [[glowVoice(cr), "Pip! Pip-pip-pip!", spotActor], [MOSSA, tr("Look at {0}! Not a baby anymore.", cr.name), spotActor],
-    [MOSSA, "Glowlings grow when they're loved. Keep it up, and one day it will be Radiant.", "#xpBar"]],
-  firstGrotto: () => [[MOSSA, "This is the Grotto. Every level is a geode, each a little harder than the last.", "#mapList .lvl.next"],
+    [MOSSA, tr("{0} trusts you already. Glowlings remember a kind hand.", cr.name), spotActor, "warm"],
+    [MOSSA, "Stroke it, feed it, play with it, tuck it in when it's sleepy. That's how it grows.", "#nestBottom .acts"],
+    [MOSSA, "Want another egg? The big Crack button is always right there. The nest has room for many.", "#crackTab"]]; },
+  firstGrow: cr => [[glowVoice(cr), "Pip! Pip-pip-pip!", spotActor], [MOSSA, tr("Look at {0}. Not a little one any more.", cr.name), spotActor, "warm"],
+    [MOSSA, "Glowlings grow when they're loved. Keep on, and one day it will be Radiant.", "#xpBar"]],
+  firstGrotto: () => [[MOSSA, "This is the Grotto. Each level is a geode, a little harder than the last.", "#mapList .lvl.next"],
     [MOSSA, "Find the weak spot and keep your taps on it. The truer your aim, the more stars.", "#mapList .lvl.next"],
-    [MOSSA, "And on the altar in the hall, a moon egg appears once a day. Something special sleeps in it."]],
-  firstExplore: cap => [[MOSSA, tr("The nest is cozy, but small: {0} glowlings fit at home at once.", cap)], [MOSSA, "The others are out exploring the grotto, having a lovely time. Tap the glowlings button below to see who lives where, and call them home.", "#residentsBtn"]],
-  firstPolish: () => [[MOSSA, "The inside is frosty. Rub it with your finger to make it shine.", spotEgg], [MOSSA, "The shinier it gets, the more shards you earn. Tap the button when you're happy with it.", "#polishDone"]],
-  firstForge: () => [[MOSSA, "Ah, the Forge. My old hammer is still here somewhere."],
-    [MOSSA, "Spend shards here and your taps hit harder, your eyes get keener. The deep stone will need it.", "#forgeList"]],
-  ch1: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[1])],
-    [MOSSA, "It's a quiet stone: no glow at all down there. But watch your ripples. They lean towards the weak spot."], [MOSSA, "The stone gets harder from here on. The Forge can help: it's on the map.", "#worldTab"]],
-  ch2: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[2])], [MOSSA, "Down there you find the weak spot by ear. Listen for the knocks that ring deep and hollow."],
-    [MOSSA, "The stone there grows in bands. When one breaks, the weak spot moves. Just find it again."]],
-  ch3: () => [[MOSSA, tr("Did you feel that? The {0} has opened up.", CAVES[3])], [MOSSA, "The oldest, toughest stone. And the rarest glowlings sleep in it."],
-    [MOSSA, "Its weak spot only flashes when you hit it. Keep hitting, and you won't lose it."]],
-  shiny: cr => [[glowVoice(cr), "✦ Pip! ✦"], [MOSSA, "Oh my. A shiny one! I've only seen a handful in all my years."]],
-  legendary: cr => [[glowVoice(cr), "...Pip."], [MOSSA, tr("A legendary glowling... They say {0} only wakes for someone kind. Well done, you.", cr.name)]],
-  allClear: () => [[MOSSA, "Every geode in the grotto, opened. I'm so proud of you."],
-    [MOSSA, "But the deep caves never end. Wander down whenever you like. I'll keep the moss warm.", "#mapList .wander"]],
+    [MOSSA, "On the altar in the hall, a moon egg appears once a day. Something special sleeps in it."]],
+  firstExplore: cap => [[MOSSA, tr("The nest is warm, but small: {0} glowlings fit at home at once.", cap)], [MOSSA, "The others are out exploring the grotto, and they're happy there. Tap the glowlings button below to see who lives where, and call them home.", "#residentsBtn"]],
+  firstPolish: () => [[MOSSA, "The inside is frosted. Rub it with a finger, and it will shine.", spotEgg], [MOSSA, "The more it shines, the more shards you earn. Tap the button when it's bright enough for you.", "#polishDone"]],
+  firstForge: () => [[MOSSA, "The Forge. My old hammer is in here somewhere. Ember won't say where.", null, "warm"],
+    [MOSSA, "Spend shards here: harder taps, keener eyes. The deep stone will ask for both.", "#forgeList"]],
+  ch1: () => [[MOSSA, tr("The stone has shifted. The {0} is open now.", CAVES[1]), null, "resolve"],
+    [MOSSA, "Down there the stone is quiet: no glow at all. But your ripples lean towards the weak spot. Watch them."], [MOSSA, "The stone is harder from here on. The Forge can help. It's on the map.", "#worldTab"]],
+  ch2: () => [[MOSSA, tr("The stone has shifted. The {0} is open now.", CAVES[2]), null, "resolve"], [MOSSA, "Down there, you find the weak spot by ear. Listen for the knock that rings deep and hollow."],
+    [MOSSA, "The stone there grows in bands. When one breaks, the weak spot moves. Find it again."]],
+  ch3: () => [[MOSSA, tr("The stone has shifted. The {0} is open now.", CAVES[3]), null, "resolve"], [MOSSA, "The oldest stone, and the hardest. The rarest glowlings sleep in it.", null, "concerned"],
+    [MOSSA, "Its weak spot flashes only when you strike it. Keep striking. You won't lose it."]],
+  shiny: cr => [[glowVoice(cr), "✦ Pip! ✦"], [MOSSA, "A shiny one. I've seen only a handful in all my years.", null, "warm"]],
+  legendary: cr => [[glowVoice(cr), "...Pip."], [MOSSA, tr("A legendary glowling. They say {0} wakes only for someone kind. They were right.", cr.name), null, "warm"]],
+  allClear: () => [[MOSSA, "Every geode in the grotto, opened. In all my watch, this is the best of it.", null, "warm"],
+    [MOSSA, "The deep caves never end. Go down whenever you like. I'll keep the moss warm.", "#mapList .wander", "warm"]],
   // Wick, on his bench in the hall, once the isle and its lighthouse are found: it is he who keeps that light (see talkMoments)
-  wickLight: () => [[WICK, "So you've found the isle. And the light on it."], [WICK, "Somebody has to trim that wick every night. I'm only saying."],
-    [WICK, "Not a word to Pip. He'd like to meet the keeper one day, and I do like being a mystery."]],
+  wickLight: () => [[WICK, "You found the isle. And… the light on it."], [WICK, "Someone trims that wick every night. Quietly. It's… not a big thing.", null, "confiding"],
+    [WICK, "Please don't tell Pip. He wants to meet the keeper. I'm not… ready to be met.", null, "flustered"]],
 };
 
 // ---------- the Gloom: a cold dark from the deep that seals the sparks in dead stone; at the end of each cave, one to rescue ----------
@@ -1247,24 +1247,24 @@ const GLOOM = { name: "the Gloom", icon: "gloom", face: mood => pxPortrait("gloo
 const GLOOM_STONE = Object.assign(["#3a2a52", "#1a1028", "#6b4fa8"], { gloom: true });
 /** Before the sealed geode at the end of cave k (1..4), the Gloom has its say; after it opens, your friends have theirs. */
 const GLOOM_TALKS = {
-  g1: () => [[GLOOM, "Little light. You are loud."], [GLOOM, "They are not kept. They are hidden. Hidden things do not get hurt."],
-    [MOSSA, "There's a spark asleep in there. Hidden things don't get to play, either."], [MOSSA, tr("Crack the seal, {0}, and let's wake it.", myName())]],
-  g1win: () => [[MOSSA, "You did it! That spark is awake now, and it has a home."],
-    [MOSSA, "The Gloom was here before the moss, and before me. And did you feel it? When the seal cracked, it let go."]],
-  g2: () => [[GLOOM, "I am what stayed when the light ran. I did not put it out."], [GLOOM, "Every one you wake can be hurt again. Have you counted that?"],
-    [MOSSA, "We have. We wake them anyway."]],
-  g2win: () => [[MOSSA, "Another spark is awake. Can you feel it? The stone is a little warmer."],
-    [MOSSA, "I don't think the Gloom is cruel. I think it's afraid of anyone getting hurt again."]],
-  g3: () => [[GLOOM, "The Heartlight did not run from me. It was hurting, and it hid."], [GLOOM, "It broke itself into a thousand pieces. I have hidden them ever since."],
-    [DORMA, "Oh... so that's why it gave itself away. It wasn't hiding from the Gloom. It was hiding from the hurt."],
-    [DORMA, "A book that stays shut is safe, too. But nobody ever gets to read it. Let's open this one."]],
-  g3win: () => [[WICK, "That spark woke up humming! I'm telling everyone."],
-    [WICK, "I had a joke about the Gloom all ready. I'm keeping it to myself."], [WICK, "All that time alone, looking after a thousand pieces. That's no joke."]],
-  g4: () => [[GLOOM, "This is the last one. The oldest spark of all."], [GLOOM, tr("Wake it, and nothing here is hidden any more. Can you stand to be seen, {0}?", myName())],
-    [MOSSA, "Not alone. That's why there are two of us."]],
-  g4win: () => [[MOSSA, "The oldest spark is awake, and the Gloom has drawn back from the deep caves. It isn't gone, only quieter."],
+  g1: () => [[GLOOM, "Little light. You are loud."], [GLOOM, "They are not kept. They are hidden. Hidden things do not get hurt.", null, "watching"],
+    [MOSSA, "A spark sleeps in there. Hidden things don't get to play, either.", null, "resolve"], [MOSSA, tr("Crack the seal, {0}. Let's wake it together.", myName()), null, "resolve"]],
+  g1win: () => [[MOSSA, "That spark is awake now. And it has a home.", null, "warm"],
+    [MOSSA, "The Gloom was here before the moss, and before me. When the seal cracked, it let go. Can you feel it?"]],
+  g2: () => [[GLOOM, "I am what stayed when the light ran. I did not put it out.", null, "watching"], [GLOOM, "Every one you wake can be hurt again. Have you counted that?", null, "questioning"],
+    [MOSSA, "We have. We wake them anyway.", null, "resolve"]],
+  g2win: () => [[MOSSA, "Another spark, awake. The stone is a little warmer now.", null, "warm"],
+    [MOSSA, "The Gloom isn't cruel, I think. It's afraid. Afraid that someone will be hurt again.", null, "concerned"]],
+  g3: () => [[GLOOM, "The Heartlight did not run from me. It was hurting, and it hid.", null, "watching"], [GLOOM, "It broke itself into a thousand pieces. I have hidden them ever since.", null, "withdrawing"],
+    [DORMA, "Hm… so that's why it gave itself away. It wasn't hiding from the Gloom. It was hiding from the hurt.", null, "realizing"],
+    [DORMA, "A book that stays shut is safe, too. But nobody ever gets to read it. Let's open this one.", null, "fond"]],
+  g3win: () => [[WICK, "That spark woke up humming. I'll… tell a few people. Quietly.", null, "glad"],
+    [WICK, "I thought of something funny to say about the Gloom. It didn't feel right."], [WICK, "All that time alone, keeping a thousand pieces. I know a little about that.", null, "sincere"]],
+  g4: () => [[GLOOM, "The last one. The oldest. Hidden longest."], [GLOOM, tr("Wake it, and nothing here is hidden any more. Can you stand to be seen, {0}?", myName()), null, "seen"],
+    [MOSSA, "Not alone. That's why there are two of us.", null, "resolve"]],
+  g4win: () => [[MOSSA, "The oldest spark is awake. The Gloom has drawn back from the deep caves. Not gone. Only quieter."],
     [MOSSA, "The dark will come again, the way it does. But every nest that glows keeps the dark gentle."],
-    [MOSSA, tr("Thank you, {0}. You're a true keeper now.", myName())]],
+    [MOSSA, tr("Thank you, {0}. You're a true keeper now.", myName()), null, "warm"]],
 };
 Object.assign(TALKS, GLOOM_TALKS);
 /** How many steps the Gloom's wheel takes through a quarter turn (after that it looks the same again). */
@@ -1365,44 +1365,44 @@ const DORMA = { name: "Dorma", face: mood => pxPortrait("dorma", mood), voice: {
 /** Each part opens with a level of the grotto and plays once; the book keeps them all to read again. */
 const STORY = [
   { id: "s1", at: 3, title: "The Heartlight", who: MOSSA, lines: () => [
-    [MOSSA, "You have a gentle touch. Shall I tell you why glowlings sleep in stone?"],
-    [MOSSA, "Long ago a great light lived at the very bottom of this grotto. We called it the Heartlight."],
-    [MOSSA, "One night it went quiet and scattered into a thousand sparks. Each spark curled up in the rock to keep warm."],
-    [MOSSA, "That's what a glowling is: a little piece of the Heartlight, dreaming."]] },
+    [MOSSA, "You have a gentle touch. Shall I tell you why glowlings sleep in stone?", null, "warm"],
+    [MOSSA, "Long ago a great light lived at the bottom of this grotto. We called it the Heartlight."],
+    [MOSSA, "One night it went quiet and scattered into a thousand sparks. Each one curled up in the rock to keep warm."],
+    [MOSSA, "That's what a glowling is: a little piece of the Heartlight, dreaming.", null, "warm"]] },
   { id: "s2", at: 7, title: "The lantern moth", who: WICK, lines: () => [
-    [WICK, "Psst! Up here! The name's Wick. I trade in glimmers and gossip."],
-    [WICK, "So the old stone told you about the Heartlight? Ha. Did she tell you who was keeping watch the night it went dark?"],
-    [MOSSA, "...That's enough, Wick."],
-    [WICK, "Touchy! I'll be around. I always am."]] },
+    [WICK, "Um. Hello. Up here. I'm Wick. I… trade in glimmers. And small news."],
+    [WICK, "Mossa told you about the Heartlight? Did she say… who kept watch that night? Sorry. Not mine to ask.", null, "confiding"],
+    [MOSSA, "Wick. Not now.", null, "grief"],
+    [WICK, "Sorry. I'll be… on the bench. I usually am.", null, "flustered"]] },
   { id: "s3", at: 10, title: "The keeper", who: MOSSA, lines: () => [
-    [MOSSA, "Wick isn't wrong. I was the Heartlight's keeper."],
-    [MOSSA, "That night sleep found me on my watch. When I woke, the light was gone."],
-    [MOSSA, "I've been listening for its sparks in the stone ever since, hoping someone kind would come and wake them."],
-    [MOSSA, "And then you came along."]] },
+    [MOSSA, "Wick asked a fair question. I was the Heartlight's keeper.", null, "grief"],
+    [MOSSA, "That night sleep found me on my watch. When I woke, the light was gone.", null, "grief"],
+    [MOSSA, "Ever since, I've listened for its sparks in the stone, hoping someone kind would come to wake them."],
+    [MOSSA, "And then you came.", null, "warm"]] },
   { id: "s4", at: 13, title: "The sleepy library", who: DORMA, lines: () => [
-    [DORMA, "Mm? Oh... a reader. How lovely. I'm Dorma. I keep the grotto's library."],
+    [DORMA, "Hm? …Someone come to read. Good. I'm Dorma. I keep the grotto's library."],
     [DORMA, "Most of the books are asleep. So am I, mostly."],
-    [DORMA, "But here's a page about the moon eggs. The moon was the Heartlight's oldest friend."],
-    [DORMA, "Every night she leaves an egg by a nest that glows, hoping it holds a spark she knows."]] },
+    [DORMA, "Here's a page about the moon eggs… The moon was the Heartlight's oldest friend.", null, "fond"],
+    [DORMA, "Every night she leaves an egg by a nest that glows, hoping it holds a spark she knows.", null, "fond"]] },
   { id: "s5", at: 16, title: "A gift", who: DORMA, lines: () => [
-    [DORMA, "I found another page. It was under my pillow, of all places."],
-    [DORMA, "It says the Heartlight didn't break by accident. It gave itself away."],
-    [DORMA, "The grotto was growing cold and lonely, and a thousand small lights can reach further than one big one."],
-    [MOSSA, "It gave itself away? All this time I thought I'd failed it..."]] },
+    [DORMA, "Another page. Under my pillow again. I've stopped asking how.", null, "puzzled"],
+    [DORMA, "It says the Heartlight didn't break by accident. It gave itself away.", null, "realizing"],
+    [DORMA, "The grotto was growing cold and lonely… and a thousand small lights reach further than one big one.", null, "sorrowful"],
+    [MOSSA, "It gave itself away? All this time I thought I'd failed it...", null, "grief"]] },
   { id: "s6", at: 19, title: "A hum in the deep", who: WICK, lines: () => [
-    [WICK, "Big news from the deep! The old hollow at the bottom of the Vault has started to hum."],
-    [WICK, "Nobody's heard it hum in a hundred years. I think it's waiting for something. Or someone."],
-    [MOSSA, "The Heartlight's hollow... Go carefully, friend."]] },
+    [WICK, "Um… news from the deep. The old hollow at the bottom of the Vault. It's started to hum.", null, "confiding"],
+    [WICK, "Not for a hundred years. I think it's waiting. Maybe… for someone.", null, "sincere"],
+    [MOSSA, "The Heartlight's hollow. Go carefully down there.", null, "concerned"]] },
   { id: "s7", at: 22, title: "Warm stone", who: MOSSA, lines: () => [
-    [MOSSA, "The deeper you go, the warmer the stone feels. Can you feel it too?"],
-    [MOSSA, "And your glowlings glow brighter every day. I think the sparks remember where they came from."]] },
+    [MOSSA, "The deeper you go, the warmer the stone. Can you feel it?"],
+    [MOSSA, "Your glowlings glow brighter every day. The sparks remember where they came from.", null, "warm"]] },
   { id: "s8", at: LEVELS + 1, title: "The Heartlight's hollow", who: MOSSA, lines: () => [
     [MOSSA, "So this is it. The Heartlight's hollow."],
-    [MOSSA, "It's empty... no, look! Your glowlings are lighting it up."],
-    [MOSSA, "The Heartlight never really went out. It lives in every nest that's loved. It lives in yours."],
-    [WICK, "Well, I'll be. I'm going to tell everyone!"],
-    [DORMA, "I'll write this one down... right after a little nap."],
-    [MOSSA, "Thank you, friend. I can finally rest easy on my watch."]] },
+    [MOSSA, "Empty, I thought. No, look! Your glowlings are lighting it up.", null, "warm"],
+    [MOSSA, "The Heartlight never really went out. It lives in every nest that's loved. It lives in yours.", null, "warm"],
+    [WICK, "It's… beautiful. I'll tell Pip. Some of it.", null, "glad"],
+    [DORMA, "I'll write this one down. Awake, for once.", null, "fond"],
+    [MOSSA, "Thank you. At last I can rest easy on my watch.", null, "warm"]] },
 ];
 // the Gloom's parts, told at the sealed geodes, join the story in the book once heard
 for (const [i, at] of [[1, 6], [2, 12], [3, 18], [4, 24]]) STORY.push({ id: "g" + i, at, title: ["The Gloom", "What stayed in the dark", "A thousand pieces", "The oldest spark"][i - 1], who: GLOOM, lines: GLOOM_TALKS["g" + i], gloom: true });
@@ -1530,13 +1530,13 @@ function talkMoments(scene) {
   const ev = eventNow();
   if (ev && save.creatures.length && eventToldOk()) {
     const id = `ev-${ev.id}-${new Date().getFullYear()}`;
-    TALKS[id] = () => [[MOSSA, ev.line], [MOSSA, tr("For {0} days a limited glowling, {1}, sleeps in the moon egg. It comes round again every year.", eventDaysLeft(ev), SP[ev.sp].name)]];
+    TALKS[id] = () => [[MOSSA, ev.line, null, "warm"], [MOSSA, tr("For {0} days, a limited glowling sleeps in the moon egg: {1}. It comes back every year.", eventDaysLeft(ev), SP[ev.sp].name)]];
     say(id);
   }
   // Wick comes to the grotto's hall every third day to top up its lanterns, and lets you know
   if (scene === "nest" && save.creatures.length && wickHere()) {
     const id = `wick-${dayNo()}`;
-    TALKS[id] = () => [[WICK, wickRoom() ? "Psst! Over here, on the bench. I'm topping up the hall's lanterns, and I've brought a few things to sell." : "Psst! I'm in the grotto today, on the bench, topping up the lanterns. I've a few things for sale, too. Here till midnight!", wickRoom() ? null : "#worldTab"]];
+    TALKS[id] = () => [[WICK, wickRoom() ? "Um, hello. I'm on the bench, topping up the hall's lanterns. I brought a few things to sell, if you'd like." : "Um, hello. I'm in the grotto today, on the bench, topping up the lanterns. A few things for sale, too. Until midnight.", wickRoom() ? null : "#worldTab"]];
     say(id);
     // on his bench, once you've found the isle, he lets slip whose light that is out at sea (Pip is not to know)
     if (wickRoom() && wardFound("isle")) say("wickLight");

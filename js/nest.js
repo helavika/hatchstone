@@ -512,16 +512,16 @@ const WICK_WARES = {
   } },
 };
 const WICK_GOSSIP = [
-  "They say a shiny glowling hums a different note when you pet it.",
-  "Mossa snores. Loudly. You didn't hear it from me.",
-  "Dorma's library has a book that reads itself. It's very boring.",
-  "The deeper the cave, the rarer the stone. And the grumpier.",
-  "A biteleaf only bites the ones it likes. Or so I'm told.",
-  "Hear a knock that rings deep? Hit there. Trust a moth.",
-  "The moon drops more eggs for nests that glow. Keep yours bright.",
+  "A shiny glowling hums a different note when you pet it. I… listen, that's all.",
+  "Mossa snores. Softly. Please don't tell her I said.",
+  "Dorma has a book that reads itself. It's very boring. I read along anyway.",
+  "Deeper cave, rarer stone. Grumpier, too. I'd be grumpy, so far down.",
+  "A biteleaf only bites the ones it likes. It's… never bitten me.",
+  "If a knock rings deep, hit there. Moths listen closely. It's… what we do.",
+  "The moon leaves more eggs by nests that glow. Keep yours bright, if you can.",
 ];
 /** One more, for those who have found the isle and its lighthouse (where he lives, though he'd rather not say so outright). */
-const WICK_HOME = "A lighthouse is only a very big lantern. Somebody still has to fill it.";
+const WICK_HOME = "A lighthouse is only a very big lantern. Someone still has to fill it. Every night.";
 const dayNo = (d = new Date()) => Math.floor((d - d.getTimezoneOffset() * 60e3) / 864e5);
 // the test game can call Wick any day: /staging/?wick
 const WICK_TRY = STAGING && /[?&]wick\b/.test(location.search);
@@ -663,7 +663,7 @@ function buyWare(id) {
   const w = WICK_WARES[id], t = wickToday();
   if (!w || t.sold.includes(id) || save.shards < w.cost) return;
   save.shards -= w.cost; save.wick.sold.push(id); w.give(); bump("wickBought");
-  sfx.levelUp(); toast(tr("Pleasure doing business! ✦ {0}", tr(w.name)));
+  sfx.levelUp(); toast(tr("Thank you. Truly. ✦ {0}", tr(w.name)));
   persist(); updateTopbar(); openWick();
 }
 
@@ -1058,39 +1058,42 @@ const EMBER = { name: "Ember", face: mood => pxPortrait("ember", mood), voice: {
 const PIP = { name: "Pip", face: mood => pxPortrait("pip", mood), voice: { f: 520, wave: "sine", spread: 0.35, glide: 1.15, gain: 0.07, len: 0.05 } };
 const FENNEL = { name: "Fennel", face: mood => pxPortrait("fennel", mood), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
 const OLLO = { name: "Ollo", face: mood => pxPortrait("ollo", mood), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
+/** A keeper's hello or line is its words, or [mood, words]: the mood is the face it is said with (see `as` in portraits.js);
+ *  the place bar shows the words beside the keeper's small crop, which has one face. */
+const heroWords = l => Array.isArray(l) ? l[1] : l;
 const HEROES = {
   shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.7, 0.5], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
-    hello: ["Welcome, welcome! Mind the sacks, they're full of seeds.", "Food, furniture, seeds: if it's on a shelf, it's for sale.", "Furniture goes into your chest. Food goes into your basket."],
-    lines: ["Fresh cookies today. Well, fresh-ish.", "One day I'll sell a hat. Just one. A very good hat.", "Moonberries are flying off the shelf!", "Starfruit? Oh no, that only grows in a garden. Not here.", "A tidy nest is a happy nest, I always say.", "Wick sells odd things. I sell sensible things."] },
+    hello: ["Welcome. Mind the sacks: seeds, all of them, and not for sitting on.", "Food, furniture, seeds. If it's on a shelf, it's for sale. Fair prices.", "Furniture to your chest, food to your basket. Easy to remember."],
+    lines: [["doubtful", "Fresh cookies today. Well, fresh-ish. I won't lie."], ["dreamy", "One day I'll sell a hat. Just one. Not sensible. Beautiful."], "Moonberries are going fast, dear. Take some while they last.", ["doubtful", "Starfruit? Not on my shelves. It only grows in a garden."], ["pleased", "A tidy nest is a happy nest, I always say."], ["doubtful", "Wick sells odd things. I sell sensible things. We're both very proud."]] },
   forge: { who: EMBER, eyes: [[5, 3, 2, 2, "#e0634f"], [9, 3, 2, 2, "#e0634f"]], quirk: "sparks", icon: "ember", at: [0.76, 0.26], role: "works the forge", act: [["hammer", "Forge", () => openForge()]],
-    hello: ["Hah! Another egg-cracker. Come in, it's warm.", "A better hammer cracks harder stone. Bring shards and I'll make you one.", "And spare geodes? Melt them down at my workbench."],
-    lines: ["Hot today. It's always hot today.", "I want to forge a bell that rings in every cave at once. One day.", "The deeper caves have stubborn stone. Sharpen up!", "I once forged a hammer so light it floated off. Never again.", "Tap where it glows. That's the weak spot. Everyone forgets."] },
+    hello: ["Another stone-breaker. Good. Come in, it's warm.", ["focused", "Better hammer, harder stone. Bring shards. I'll make you one."], "Spare geodes? My workbench. Melt them down. Nothing wasted."],
+    lines: [["laugh", "Hot today. It's always hot today."], "I'll cast a bell. One that rings in every cave at once. It's planned.", ["focused", "Deep stone won't forgive a sloppy tap. Aim first. Then strike."], ["laugh", "Made a hammer so light once, it floated off. Never again. Weight matters."], ["focused", "Strike where it glows. That's the weak spot. Everyone forgets. Don't."]] },
   camp: { who: PIP, eyes: [[5, 6, 1, 1, "#3d2866"], [10, 6, 1, 1, "#3d2866"]], quirk: "startle", icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
-    hello: ["Oh! Hello! I'm Pip, I map the tunnels. Well, I try.", "Send me a glowling and we'll go exploring for a few hours.", "We always come back with something: seeds, shards, the odd geode."],
-    lines: ["I've drawn this map three times. The tunnels keep moving.", "Do you think the Gloom has a map? I'd like to see it. From far away.", "Pack a snack. Exploring is hungry work.", "The fire's nice, isn't it? I'm scared of the dark. A bit.", "Somewhere past the moss there's a lake that glows. I'm sure of it."] },
+    hello: ["Hello. I'm Pip. I map the tunnels. They don't always agree.", "Send a glowling with me, and we'll explore for a few hours. I'll bring it back.", ["shy-pride", "We always come back with something. Seeds, shards. Sometimes a geode."]],
+    lines: [["thinking", "I've drawn this map three times. The tunnels keep moving. Or I do."], ["thinking", "Do you think the Gloom keeps a map? I'd like to see it. From very far away."], "Pack a snack. I always forget mine.", ["scared-but-steady", "The fire's nice, isn't it? I keep it going. I'm scared of the dark. A bit."], ["excited", "Somewhere past the moss there's a lake that glows. I'm sure of it."]] },
   yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "curl", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sprout", "Garden bed", () => openGarden()], ["walk", "A walk", () => openWalk()]],
-    hello: ["Oh. Hello. I was just telling the moon mint a story.", "Plant seeds in the bed, and I'll keep an eye on them. And an ear.", "Some things only grow here: berries for juice, mint for tea, starfruit. No shop can keep them."],
-    lines: ["Rain tomorrow, I hope. The leaves like rain. So do I.", "My dream? A garden as big as the grotto. With a pond. For me.", "I sang to the growcaps. They grew. Coincidence? No.", "Shh. The sunpetals are sleeping.", "Slow and steady. Like me. Like seeds.", "Wick brings seeds up from the deep. Odd ones. I plant them anyway."],
+    hello: [["listening", "Mm. Hello. I'm telling the moon mint a story. A slow one."], "Plant seeds in the bed. I'll watch them. And listen.", "Some things grow only here. Berries for juice. Mint for tea. Starfruit. No shop has them."],
+    lines: ["Rain tomorrow, I hope. Leaves like rain. So do I.", ["shy", "My dream? A garden as big as the grotto. A pond. Someone to sit by it."], ["glad", "I sang to the growcaps. They grew. Coincidence? No."], ["listening", "Shh. The sunpetals are sleeping."], "Mm. Slow and steady. Like seeds.", "Wick leaves seeds by the gate. Odd ones. He never knocks. I plant them anyway."],
     // his wishes, one at a time and in this order (see the errands below); the thanks for the last is the bed's fourth plot (see gardenSlots)
     mark: "leaf", thanks: "From Fennel: {0}", calm: "A harebell, a pond one pebble deep, and company. I don't need a thing. Stay a while, if you like.",
     asks: [
-      { ask: "If you pass a harebell on a walk... might I have it? The little blue bell. I'd like one near me.", wish: "Fennel would like a harebell from a walk.", btn: "Give Fennel the harebell", ks: "harebell",
+      { ask: "If you pass a harebell on a walk… might I have it? The little blue one. I'd like it near.", wish: "Fennel would like a harebell from a walk.", btn: "Give Fennel the harebell", ks: "harebell",
         have: () => jarOf(save.walks).harebell > 0, give: () => { save.walks.used.harebell = (save.walks.used.harebell || 0) + 1; },
         story: "My first garden was one cracked pot. A harebell came up in it by itself. All I did was not pull it out.",
         gift: ["Moon mint seeds ×2", () => { const g = garden().seeds; g.moonmint = (g.moonmint || 0) + 2; }] },
-      { ask: "Might I have one cup of moon mint tea, from your bed? I tell the mint stories. I'd like to know if it listens.", wish: "Fennel would like a cup of moon mint tea.", btn: "Give Fennel a cup of tea",
+      { ask: "Might I have a cup of moon mint tea… from your bed? I tell the mint stories. Does it listen? I'd like to know.", wish: "Fennel would like a cup of moon mint tea.", btn: "Give Fennel a cup of tea",
         have: () => ((save.pantry || {}).tea || 0) > 0, give: () => { save.pantry = { ...save.pantry, tea: save.pantry.tea - 1 }; },
         story: "Mm. It listened. I always tell the same one: somebody slow sets out last and gets there anyway. The mint never asks for another.",
         gift: ["A growcap seed, already sung to", () => { const g = garden().seeds; g.growcap = (g.growcap || 0) + 1; }] },
-      { ask: "One more thing, if it's no trouble. A shiny pebble from a walk. The stream always has one. I've started digging something. Slowly.", wish: "Fennel would like a shiny pebble from the stream.", btn: "Give Fennel the pebble", find: "pebble", found: "A shiny pebble for Fennel",
+      { ask: "One more, if it's no trouble… A shiny pebble from a walk. The stream always has one. I'm digging something. Slowly.", wish: "Fennel would like a shiny pebble from the stream.", btn: "Give Fennel the pebble", find: "pebble", found: "A shiny pebble for Fennel",
         have: () => ((save.pocket || {}).pebble || 0) > 0, give: () => { save.pocket = { ...save.pocket, pebble: save.pocket.pebble - 1 }; },
         story: "There. The pond is begun. One pebble deep. And the earth I dug out filled a fourth plot in the bed. That one is yours.",
         gift: ["A fourth plot in the garden bed", () => { garden(); }] },
     ] },
   grotto: { who: { name: "Grotto" }, icon: "grotto", none: true, role: "the hall before the tunnel", act: [["egg", "Into the tunnel", () => startLevel(nextLevel())], ["map", "Map of levels", () => setScene("map")]], hello: [], lines: [] },
   lab: { who: OLLO, eyes: [[3, 5, 3, 2, "#69b7d6"], [9, 5, 3, 2, "#69b7d6"]], quirk: "turn", icon: "ollo", at: [0.45, 0.58], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
-    hello: ["Hoo. A visitor. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby mixes them both.", "Stroke the egg to keep it warm. It hatches faster."],
-    lines: ["Fascinating. Truly fascinating. Hoo.", "I am writing the great book of glowlings. Chapter one is just you.", "No two mixed eggs are alike. I've checked. Many times.", "Glowlings glow brighter when they're happy. I measured it.", "Please don't touch the green jar."] },
+    hello: ["Hoo. A colleague, at last. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby takes after both. Every time.", "Stroke the egg to keep it warm. Warmth shortens the wait. Measurably."],
+    lines: [["curious", "Each glowling glows at its own pitch. Fascinating."], ["delighted", "I am writing the great book of glowlings. Chapter one is just you."], ["curious", "No two mixed eggs are alike. Checked forty times. Forty-one, now."], ["delighted", "Happy glowlings glow brighter. Measured. That is not nothing."], ["alarmed", "Please don't touch the green jar. It doesn't bite. Probably."]] },
 };
 // ---------- errands: each keeper keeps one wish at a time, with no hurry and no list; bringing it fills a mark on their bond ----------
 
@@ -1397,7 +1400,7 @@ function tapHero(auto = false) {
   const h = heroHere(); if (!h || h.none) return;
   for (let k = 0; k < 4; k++) setTimeout(() => sfx.voice(h.who.voice), k * 90);
   const kind = save.rooms[save.room].kind, seen = save.heroTalk?.[kind] || 0;
-  let line = tr(seen < h.hello.length ? h.hello[seen] : pick(h.lines));
+  let line = tr(heroWords(seen < h.hello.length ? h.hello[seen] : pick(h.lines)));
   // Pip wants to hear about every spark the glowlings bring home
   if (h.who === PIP && seen >= h.hello.length) line = sparkPipLine() || line;
   save.heroTalk = { ...save.heroTalk, [kind]: seen + 1 };
@@ -1414,7 +1417,7 @@ function tapHero(auto = false) {
     if (!told || (a && gap >= 3)) { line = tr(word); save.wishes = { ...save.wishes, [kind]: bondOf(kind) + 1 }; game.wishGap = { kind, n: 0 }; }
     else { game.wishGap = { kind, n: gap + 1 }; if (!a && Math.random() < 1 / (h.lines.length + 1)) line = tr(word); }
   }
-  if (curl) { line = tr(h.who === FENNEL ? "Mm. I'll just be in my shell a moment." : "Eep! Too much poking!"); game.heroPokes.list = []; sfx.knock && sfx.knock(0.4); }
+  if (curl) { line = tr(h.who === FENNEL ? "Mm. I'll just be in my shell a moment." : "Enough poking. Quills out."); game.heroPokes.list = []; sfx.knock && sfx.knock(0.4); }
   if (h.quirk === "sparks") placeBurst(18);
   if (h.quirk === "startle") setTimeout(() => sfx.voice({ ...h.who.voice, f: 900, len: 0.12, wave: "sawtooth", gain: 0.03 }), 120);
   game.hero = { t: game.time, line, room: save.room, curl, startle: h.quirk === "startle" };
@@ -1448,7 +1451,7 @@ function arriveAt(kind) {
   if (h && (!(save.heroTalk || {})[kind] || (h.who === PIP && sparkNews()))) setTimeout(() => tapHero(true), 500);
   else if (kind === "yard") {
     const g = garden(), dry = g.slots.map((q, i) => [q, i]).filter(([q, i]) => q && waterPlot(i, FENNEL));
-    if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
+    if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("Mm. I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
   }
 }
 // ---------- passages between rooms: tunnels cut through the rock from one cave to the next ----------

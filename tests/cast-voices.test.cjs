@@ -89,6 +89,80 @@ test('no mood, or one the speaker has no face for, falls back to the base face; 
   assert.equal(page.pxPortrait('nobody', 'warm'), 'icon:nobody');
 });
 
+// ---------- the lines ----------
+const UK = new Map([...read('i18n.js').matchAll(/^ {2}("(?:[^"\\]|\\.)*"): ("(?:[^"\\]|\\.)*"),?$/gm)].map(m => [JSON.parse(m[1]), JSON.parse(m[2])]));
+/** Where s[i] is an opening bracket, the index of its closing one (strings and nesting aware). */
+function close(s, i) {
+  let depth = 0, q = null;
+  for (; i < s.length; i++) {
+    const c = s[i];
+    if (q) { if (c === '\\') i++; else if (c === q) q = null; }
+    else if ('"\'`'.includes(c)) q = c;
+    else if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c) && --depth === 0) return i;
+  }
+  throw new Error('unclosed');
+}
+/** Top-level parts of s between a and b, split at commas. */
+function parts(s, a, b) {
+  const out = []; let depth = 0, q = null, from = a;
+  for (let i = a; i < b; i++) {
+    const c = s[i];
+    if (q) { if (c === '\\') i++; else if (c === q) q = null; }
+    else if ('"\'`'.includes(c)) q = c;
+    else if ('([{'.includes(c)) depth++;
+    else if (')]}'.includes(c)) depth--;
+    else if (c === ',' && depth === 0) { out.push(s.slice(from, i).trim()); from = i + 1; }
+  }
+  out.push(s.slice(from, b).trim());
+  return out;
+}
+const strings = src => [...src.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => JSON.parse(`"${m[1]}"`));
+/** Every talk line said by one of the cast in the game's scripts: [file, speaker, its words (string literals), its moods (literals), the words' code]. */
+const TALK_FILES = ['crack.js', 'inner.js', 'play.js', 'world.js', 'gifts.js', 'main.js', 'nest.js', 'sparks.js', 'scenes.js'];
+const talkLines = [];
+for (const f of TALK_FILES) {
+  const src = read(f);
+  for (const m of src.matchAll(/\[(MOSSA|WICK|DORMA|GLOOM|PIP|EMBER|TANSY|FENNEL|OLLO), /g)) {
+    const end = close(src, m.index), [, words, , mood] = parts(src, m.index + 1, end);
+    talkLines.push([f, SPEAKERS[m[1]], strings(words), mood ? strings(mood) : [], words]);
+  }
+}
+
+test('every talk line of the cast has its Ukrainian, and every mood on one is the speaker\'s', () => {
+  assert.equal(talkLines.length, 110, "every talk line of the cast is still said (a new one changes this count on purpose)");
+  let tagged = 0;
+  for (const [f, who, words, moods, raw] of talkLines) {
+    for (const w of words) assert.ok(UK.get(w), `${f}: no Ukrainian for ${JSON.stringify(w)}`);
+    if (moods.length) tagged++;
+    for (const mood of moods) assert.ok(BIBLE[who].includes(mood), `${f}: ${who} has no mood ${mood} (${raw.slice(0, 60)})`);
+  }
+  assert.ok(tagged >= 60, `only ${tagged} lines carry a mood`);
+});
+
+// the keepers' hellos and lines, as the game has them
+const nestJs = read('nest.js');
+const heroes = { pxPortrait: () => '', PX_ICON_MAPS: {} };
+vm.runInNewContext(cut(nestJs, 'const TANSY = ', '// ---------- errands', 'the keepers should sit in nest.js') + '\nthis.HEROES = HEROES; this.heroWords = heroWords;', heroes);
+
+test('a keeper\'s hello or line is words, or [mood, words] with one of the keeper\'s moods; each has its Ukrainian', () => {
+  let n = 0, tagged = 0;
+  for (const [kind, h] of Object.entries(heroes.HEROES)) {
+    if (h.none) continue;
+    const who = SPEAKERS[Object.keys(SPEAKERS).find(k => k.toLowerCase() === h.who.name.toLowerCase())];
+    for (const l of [...h.hello, ...h.lines]) {
+      n++;
+      const w = heroes.heroWords(l);
+      assert.equal(typeof w, 'string', kind);
+      assert.ok(UK.get(w), `${kind}: no Ukrainian for ${JSON.stringify(w)}`);
+      if (Array.isArray(l)) { tagged++; assert.equal(l.length, 2); assert.ok(BIBLE[who].includes(l[0]), `${kind}: ${who} has no mood ${l[0]}`); }
+    }
+    for (const a of h.asks || []) for (const w of [a.ask, a.story]) assert.ok(UK.get(w), w);
+  }
+  assert.equal(n, 42, 'five keepers, three hellos each, and their everyday lines: none lost');
+  assert.ok(tagged >= 15);
+});
+
 test('the talk box shows the face for the line\'s mood: nextLine passes it, the Book\'s retelling keeps it', () => {
   const crack = read('crack.js');
   assert.match(cut(crack, 'function nextLine(', '\n}\n', 'nextLine should sit in crack.js'), /const \[who, words, spot, mood\] = n\.lines\[n\.i\];[\s\S]*face = who\.face\(mood\)/);
@@ -96,7 +170,7 @@ test('the talk box shows the face for the line\'s mood: nextLine passes it, the 
   // every speaker of the cast speaks with its big portrait; the place bar keeps the keeper's small crop
   for (const [name, file] of [['MOSSA', 'crack.js'], ['WICK', 'crack.js'], ['DORMA', 'crack.js'], ['TANSY', 'nest.js'], ['EMBER', 'nest.js'], ['PIP', 'nest.js'], ['FENNEL', 'nest.js'], ['OLLO', 'nest.js']])
     assert.match(read(file), new RegExp(`const ${name} = \\{ name: "[^"]+", face: mood => pxPortrait\\("${name.toLowerCase()}", mood\\)`));
-  assert.match(read("nest.js"), /\$\("placeFace"\)\.src = h\.none \? pxIcon\(h\.icon\) : keeperFace\(h\.icon\);/);
+  assert.match(nestJs, /\$\("placeFace"\)\.src = h\.none \? pxIcon\(h\.icon\) : keeperFace\(h\.icon\);/);
   // and the portraits load before anyone speaks, and offline too
   const html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8'), sw = fs.readFileSync(path.join(__dirname, '../sw.js'), 'utf8');
   assert.ok(html.indexOf('js/pixel.js') < html.indexOf('js/portraits.js') && html.indexOf('js/portraits.js') < html.indexOf('js/crack.js'));

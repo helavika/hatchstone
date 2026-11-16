@@ -183,16 +183,16 @@ if (typeof addEventListener === "function") addEventListener("visibilitychange",
 
 /** Mossa's welcome home. kept: she looked in while you were away (see applyTime in save.js), so the warm words are true. */
 const BACK_TALK = kept => {
-  const hello = ["You came back. The light held.", "Welcome home. Everyone's here, and the light held."];
+  const hello = ["You came back. The light held.", "Welcome home. Everyone's here. The light held."];
   if (kept) hello.push("There you are. The nest kept warm for you.");
-  return [[MOSSA, hello[Math.floor(Date.now() / 864e5) % hello.length]],
-    ...(kept ? [[MOSSA, "I looked in at dusk. They're not hungry. They're just glad."]] : []),
+  return [[MOSSA, hello[Math.floor(Date.now() / 864e5) % hello.length], null, "warm"],
+    ...(kept ? [[MOSSA, "I looked in at dusk. They're not hungry. They're just glad.", null, "warm"]] : []),
     [MOSSA, "Coming back is strength too."]];
 };
 /** After a night or a working day away (six hours or more, under a day): Mossa looked in, and says so in one short line,
  *  a different one each time (they turn every six hours), as a toast that doesn't wait for a tap. */
-const MOSSA_KEPT = ["Mossa: I looked in on them. Everyone's fed and rested.", "Mossa: The nest stayed warm. I kept watch.",
-  "Mossa: All well here. They missed you.", "Mossa: They ate with me. Now they want you.", "Mossa: I tidied up a little. Go and say hello."];
+const MOSSA_KEPT = ["Mossa: I looked in on them. Fed and rested, all of them.", "Mossa: The nest stayed warm. I kept watch.",
+  "Mossa: All well here. They missed you.", "Mossa: They ate with me. Now they want you.", "Mossa: I tidied up a little. Go on, say hello."];
 const mossaKept = (now = Date.now()) => tr(MOSSA_KEPT[Math.floor(now / 216e5) % MOSSA_KEPT.length]);
 
 /** The little lantern Mossa hangs by the egg (the gift of keeper level 4): a candle in an iron frame. */
