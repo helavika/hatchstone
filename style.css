@@ -673,7 +673,7 @@ input, select, textarea, #backup textarea, #coopDialog input, #coopDialog select
 #homeList { max-height: 58vh; overflow-y: auto; }
 /* native-pixel pictures: always a whole number of screen pixels per art pixel */
 img.px2 { object-fit: fill; image-rendering: pixelated; }
-#libGrid .pg img.lib-px { width: 64px; height: 64px; object-fit: fill; image-rendering: pixelated; }
+#libGrid .pg img.lib-px { width: 78px; height: 78px; object-fit: fill; image-rendering: pixelated; }
 /* every card in the book the same size: names take at most two lines, the rarity sits on the same line at the bottom */
 #libGrid { grid-auto-rows: 1fr; }
 #libGrid button { display: flex; flex-direction: column; align-items: center; }
@@ -1012,7 +1012,7 @@ body:not(.scene-nest) #homePill { display: none; }
   .card.wide { width: min(700px, 100%); }
   #libGrid { grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); }
   #libGrid .pg img { height: 84px; }
-  #libGrid .pg img.lib-px { width: 96px; height: 96px; }
+  #libGrid .pg img.lib-px { width: 78px; height: 78px; }
 }
 
 /* ---------- small phones: everything a little tighter, so the nest has room to breathe ---------- */
