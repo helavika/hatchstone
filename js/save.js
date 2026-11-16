@@ -674,8 +674,8 @@ function currentTheme() {
   if (c) return c.moon ? "churchyard" : c.wander && !c.heart ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
   return roomTheme(save.room, save.theme);
 }
-/** The backdrop room i shows for the one picked for it: a pick that doesn't suit the room (a meadow saved in a room at
- *  home, from before every room there was a cave) is kept in the save but not shown, and the room shows its own instead. */
+/** The backdrop room i shows for the one picked for it: a pick that doesn't suit the room (a cave saved in the garden outside)
+ *  or isn't found yet is kept in the save but not shown, and the room shows its own instead. */
 function roomTheme(i, id) {
   const fits = roomThemes(i), own = ownTheme(i);
   return THEME[id] && (THEME[id].ok() || isPlace(i) || id === own) && fits.includes(id) ? id : own;
@@ -685,18 +685,15 @@ function ownTheme(i = save.room) {
   const kind = save.rooms && save.rooms[i] && ROOM_KINDS.find(k => k.id === save.rooms[i].kind), fits = roomThemes(i);
   return kind && !kind.place && fits.includes(kind.theme) ? kind.theme : fits[0];
 }
-/** Which backdrops suit the room you're in: every room at home is a cave (the moss garden's glowcaps grow in a grotto of their
- *  own there), outside is always under the sky, the map's places take any. */
+/** Which backdrops suit the room you're in: outside is always under the sky; every other room takes any, at home each
+ *  one a mood of the cave (HOME_ART: a meadow or a hall is drawn as a grotto, a gallery, a crypt...), in the valley as it always was. */
 function roomThemes(i = save.room) {
-  const kind = save.rooms && save.rooms[i] && save.rooms[i].kind, k = id => ROOM_KIND[id] || "cave";
-  const ids = THEMES.map(t => t.id), own = ROOM_KINDS.find(r => r.id === kind)?.theme;
-  if (kind === "yard") return ids.filter(id => k(id) === "wood" || k(id) === "yard");
-  if (kind && isPlace(i)) return ids;
-  return ids.filter(id => k(id) === "cave" || id === own);
+  const kind = save.rooms && save.rooms[i] && save.rooms[i].kind, k = id => ROOM_KIND[id] || "cave", ids = THEMES.map(t => t.id);
+  return kind === "yard" ? ids.filter(id => k(id) === "wood" || k(id) === "yard") : ids;
 }
 /** Is room i one of the caves at home (not the garden outside, nor a place in the valley)? */
 const atHome = (i = save.room) => !!(save.rooms && save.rooms[i]) && !isPlace(i);
-/** What sort of place a backdrop makes of room i: at home every one is a cave, elsewhere a hall, a ruin, a wood or a yard as it always was. */
+/** What sort of place a backdrop makes of room i: at home every one is a cave (of its own mood), elsewhere a hall, a ruin, a wood or a yard as it always was. */
 const lookOf = (id, i = save.room) => atHome(i) ? "cave" : ROOM_KIND[id] || "cave";
 
 // ---------- gothic little things: candles by the egg, bats in the dark ----------

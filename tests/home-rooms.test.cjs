@@ -35,9 +35,11 @@ function home(kinds, { found = true, theme, room = 0 } = {}) {
 const CAVES = ['amethyst', 'celestite', 'malachite', 'labradorite', 'frost'];
 const HOMES = ['nest', 'play', 'garden', 'study'];
 
-test('every room at home takes the cave backdrops only (the moss garden its glowcap grotto too); the garden outside and the valley keep theirs', () => {
+const MOODS = ['glowcap', 'smithy', 'abbey', 'churchyard', 'summit'];
+
+test('every room at home takes every backdrop, each a mood of its cave; the garden outside and the valley keep theirs', () => {
   const p = home(['nest', 'yard', ...HOMES.slice(1), 'shop', 'grotto']);
-  for (const kind of HOMES) assert.deepEqual([...p.roomThemes(p.save.rooms.findIndex(r => r.kind === kind))].sort(), [...CAVES, ...(kind === 'garden' ? ['glowcap'] : [])].sort(), kind);
+  for (const kind of HOMES) assert.deepEqual([...p.roomThemes(p.save.rooms.findIndex(r => r.kind === kind))].sort(), [...p.THEMES.map(t => t.id)].sort(), kind);
   // Fennel's garden is under the sky, and the places on the map take any backdrop, as before
   assert.deepEqual([...p.roomThemes(1)], ['glowcap', 'summit']);
   assert.equal(p.roomThemes(5).length, p.THEMES.length);
@@ -45,6 +47,7 @@ test('every room at home takes the cave backdrops only (the moss garden its glow
   // and at home every one of them is drawn as a cave: no meadow, wood or sky in any room there
   for (const kind of HOMES) for (const id of p.roomThemes(p.save.rooms.findIndex(r => r.kind === kind))) assert.equal(p.lookOf(id, p.save.rooms.findIndex(r => r.kind === kind)), 'cave', `${kind} ${id}`);
   assert.equal(p.lookOf('glowcap', 1), 'wood', 'outside the glowcaps are still a wood');
+  assert.equal(p.lookOf('smithy', 5), 'timber', 'the shop is still a timber hall');
 });
 
 test('the moss garden is its glowcap grotto from the start, even before the glowcaps are found; the study a blue cave', () => {
@@ -57,8 +60,8 @@ test('the moss garden is its glowcap grotto from the start, even before the glow
     const p = home(['nest', 'yard', 'play', 'garden', 'study'], { found, room: 4 });
     assert.equal(p.currentTheme(), 'celestite');
     assert.equal(home(['nest', 'play'], { found, room: 1 }).currentTheme(), 'amethyst');
-    // the glowcap grotto is the moss garden's own: not the other rooms' (yet)
-    assert.equal(home(['nest', 'play'], { found, room: 1, theme: 'glowcap' }).currentTheme(), 'amethyst');
+    // the glowcap grotto is any room's once the glowcaps are found, and only the moss garden's before
+    assert.equal(home(['nest', 'play'], { found, room: 1, theme: 'glowcap' }).currentTheme(), found ? 'glowcap' : 'amethyst');
   }
   // a cave picked for the moss garden shows; the glowcaps are still its own whatever it shows
   assert.equal(home(['nest', 'yard', 'play', 'garden'], { room: 3, theme: 'frost' }).currentTheme(), 'frost');
@@ -67,12 +70,20 @@ test('the moss garden is its glowcap grotto from the start, even before the glow
   assert.match(nest, /theme: kind\.theme \|\| null/);
 });
 
-test('a meadow or a hall saved in a room at home shows a cave, and stays in the save for later', () => {
-  for (const theme of ['smithy', 'abbey', 'churchyard', 'glowcap', 'summit']) {
-    const p = home(['nest', 'yard', 'play', 'garden'], { room: 2, theme });
-    assert.equal(p.currentTheme(), 'amethyst', theme);
-    assert.equal(p.save.theme, theme, 'the pick is kept');
-    assert.equal(p.roomTheme(3, theme), 'glowcap', 'the moss garden shows its own grotto for ' + theme);
+test('a hall or a meadow saved in a room at home comes back as its cave mood: the saved id is kept and shown', () => {
+  for (const theme of MOODS) {
+    for (const room of [0, 2, 3]) {
+      const p = home(['nest', 'yard', 'play', 'garden'], { room, theme });
+      assert.equal(p.currentTheme(), theme, `${theme} in room ${room}`);
+      assert.equal(p.save.theme, theme, 'the pick is kept');
+    }
+    // one not found yet waits in the save, and the room shows its own meanwhile
+    assert.equal(home(['nest', 'play'], { room: 1, theme, found: false }).currentTheme(), 'amethyst', theme);
+    assert.equal(home(['nest', 'play'], { room: 1, theme, found: false }).save.theme, theme);
+    // each has a name of its own at home, in both languages
+    const t = home(['nest']).THEMES.find(t => t.id === theme);
+    assert.ok(t.home && t.home !== t.name, theme + ' has a cave name at home');
+    assert.match(read('i18n.js'), new RegExp(`    ${theme}: \\{ name: "[^"]+", home: "[^"]+", how: "[^"]+" \\}`), theme + ' has its Ukrainian cave name');
   }
   // a cave picked for a room shows, and a cave not found yet doesn't
   assert.equal(home(['nest', 'play'], { room: 1, theme: 'frost' }).currentTheme(), 'frost');
@@ -81,6 +92,9 @@ test('a meadow or a hall saved in a room at home shows a cave, and stays in the 
   assert.equal(home(['nest', 'yard', 'forge'], { room: 2, theme: 'smithy' }).currentTheme(), 'smithy');
   assert.equal(home(['nest', 'yard', 'camp'], { room: 2, theme: 'glowcap', found: false }).currentTheme(), 'glowcap');
   assert.equal(home(['nest', 'yard'], { room: 1, theme: 'glowcap' }).currentTheme(), 'glowcap');
+  // the chest calls it a mood at home, a backdrop in the valley
+  assert.match(nest, /tr\(atHome\(\) \? "Cave mood" : "Backdrop"\)/);
+  assert.match(read('i18n.js'), /"Cave mood": "Настрій печери"/);
 });
 
 test('old saves: a moss garden built before the glowcaps were found gets its grotto; a cave picked for it stays', () => {
@@ -235,6 +249,6 @@ test('no switch between views is left: not in the chest, the save, the room\'s l
   assert.doesNotMatch(all, /\bN\.iso\b|roomView|setView|data-view|save\.view\b|paintRoom\(|stepRoom|roomNav/);
   assert.doesNotMatch(html, /roomNav|roomPrev|roomNext/);
   for (const gone of ['"Straight on"', '"Isometric"', 'seen straight on', 'straight-on', 'прямому вигляді', 'ізометрія чи прямо', '"Прямо"']) assert.ok(!all.includes(gone) && !i18n.includes(gone), gone);
-  // the Look tab goes straight to the backdrop
-  assert.match(cut(nest, 'if (st.tab === "look") {', '\n  } else', 'the Look tab should sit in openShop'), /body = `<h3>\$\{tr\("Backdrop"\)\}<\/h3>/);
+  // the Look tab goes straight to the backdrop (the cave's mood, at home)
+  assert.match(cut(nest, 'if (st.tab === "look") {', '\n  } else', 'the Look tab should sit in openShop'), /body = `<h3>\$\{tr\(atHome\(\) \? "Cave mood" : "Backdrop"\)\}<\/h3>/);
 });
