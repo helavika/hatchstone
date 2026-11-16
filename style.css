@@ -206,6 +206,12 @@ h3 { margin: 18px 0 8px; font-size: 13px; letter-spacing: 2px; text-transform: u
 .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 10px; }
 .stats.four { grid-template-columns: repeat(4, 1fr); }
 #polishDone { position: fixed; left: 50%; bottom: calc(var(--bottom) + 92px); transform: translateX(-50%); z-index: 2; }
+/* the polish's strokes, from level 4: a pixel pip each, just over the button; the one in hand drains as its cloth dries */
+#strokes { position: fixed; left: 50%; bottom: calc(var(--bottom) + 150px); transform: translateX(-50%); z-index: 2; display: flex; gap: 8px; pointer-events: none; }
+#strokes[hidden], #polishDone[hidden] + #strokes { display: none; }
+#strokes i { width: 14px; height: 14px; background: var(--px-ink); box-shadow: 0 0 0 3px var(--px-edge); }
+#strokes i.on { background: linear-gradient(to top, var(--px-gold) calc(var(--left, 1) * 100%), var(--px-ink) 0); }
+#strokes i.now { box-shadow: 0 0 0 3px #fff; }
 .stats div { border-radius: 14px; padding: 7px 2px; background: rgba(255, 255, 255, .08); }
 .stats b { display: block; font-size: 17px; }
 .stats span { font-size: 11px; color: var(--soft); }

@@ -181,6 +181,7 @@ function drawEgg() {
     if (rev !== e.innerRev) { e.innerRev = rev; e.innerAt = game.time; }
     drawBaked(cachedSprite(e, "innerSprite", `${size}|${e.innerRev}`, () => bakeSprite(L.ecx, L.ecy, half, () => {
       ctx.drawImage(e.interior, x, y, w, h);
+      drawFleck(ctx, e);
       if (e.matte) ctx.drawImage(e.matte.canvas, x, y, w, h);
     }, box)));
     if (e.state === "gleam" || e.state === "open") drawGleam(e, x, y, w, h);

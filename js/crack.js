@@ -977,6 +977,17 @@ function openEgg() {
 
 // ---------- polishing the cut face ----------
 
+/**
+ * From level 4 the cloth has a few strokes: one unbroken drag each, counted the moment it touches the frost. A stroke
+ * widens as it goes and dries out after STROKE_LEN egg widths, so a long curve that keeps to fresh frost clears far more
+ * than a few straight swipes, and the shine is whatever the strokes cleared. The first three levels (and a shared egg,
+ * where both hands rub one face) keep the open-ended rub, so the lesson of polishing lands first.
+ */
+const POLISH_STROKES = 4, STROKE_LEN = 3, STROKE_WARM = 1, STROKE_BRUSH = [0.7, 1.3];
+const polishBudget = conf => conf.coop || conf.step <= 3 ? Infinity : POLISH_STROKES;
+/** How wide the cloth is so far into a stroke (len in egg widths): narrow at the touch, full after STROKE_WARM. */
+const strokeBrush = len => lerp(STROKE_BRUSH[0], STROKE_BRUSH[1], clamp(len / STROKE_WARM, 0, 1));
+
 /** A frosted, matte film over the inside that rubbing wears away. */
 function startPolish() {
   const e = game.egg;
@@ -997,16 +1008,27 @@ function startPolish() {
     if (inside(eggPoly(L.ecx, L.ecy, L.ew - 24 * L.k, L.eh - 24 * L.k, 48), [x + cell / 2, y + cell / 2])) cells.push({ x: x + cell / 2, y: y + cell / 2, done: false });
   }
   // rev 1: the frosted face is drawn straight away (the picture of the inside was cached before the frost existed)
-  e.matte = { canvas: c, ctx: o, cells, done: 0, shine: 0, rev: 1 };
-  setHint(tr("rub the geode with your finger to polish it ✦"));
-  $("polishDone").hidden = false; polishLabel(0);
+  const budget = polishBudget(e.conf);
+  e.matte = { canvas: c, ctx: o, cells, done: 0, shine: 0, rev: 1, budget, used: 0, stroke: null };
+  // with a budget, one cell of the face hides a bright fleck: uncover it and it's a pinch of magic dust (see showFound)
+  if (budget < Infinity) e.matte.fleck = { i: Math.floor(Math.random() * cells.length), found: false };
+  const first = budget < Infinity && !tipDone("strokes");
+  setHint(first ? tr("only {0} strokes now · one long, curving stroke polishes the most", budget) : tr("rub the geode with your finger to polish it ✦"));
+  $("polishDone").hidden = false; polishLabel(0); strokePips();
   if (!e.conf.coop) talk("firstPolish");
 }
 
 function rub(x, y, d, dt) {
   const e = game.egg, m = e.matte;
   if (!m || e.state !== "polish") return;
-  const r = 22 * L.k, [sx, sy] = toShell(x, y);
+  const limited = m.budget < Infinity;
+  if (limited && !m.stroke) {
+    if (m.used >= m.budget) return;
+    m.stroke = { len: 0, on: false, dry: false };
+  }
+  const s = m.stroke;
+  if (limited && s.dry) return;
+  const r = 22 * L.k * (limited ? strokeBrush(s.len) : 1), [sx, sy] = toShell(x, y);
   m.ctx.save();
   m.ctx.globalCompositeOperation = "destination-out";
   const g = m.ctx.createRadialGradient(sx, sy, 1, sx, sy, r);
@@ -1015,16 +1037,60 @@ function rub(x, y, d, dt) {
   m.ctx.beginPath(); m.ctx.arc(sx, sy, r, 0, TAU); m.ctx.fill();
   m.ctx.restore();
   m.rev = (m.rev || 0) + 1;
+  let touched = false;
   for (const c of m.cells) {
     if (c.done || (c.x - x) ** 2 + (c.y - y) ** 2 > (r * 0.8) ** 2) continue;
+    touched = true;
     c.hits = (c.hits || 0) + 1;
     if (c.hits >= 3) { c.done = true; m.done++; }
   }
   m.shine = m.done / m.cells.length;
   polishLabel(m.shine);
   sfx.rubSet(m.shine, d / Math.max(dt, 0.008));
-  if (Math.random() < 0.25) game.sparks.push({ x: x + rand(-r, r) * 0.5, y: y + rand(-r, r) * 0.5, vx: 0, vy: -20, t: 0, life: 0.5, s: rand(3, 6), color: "#fff" });
-  if (m.shine >= 0.9) finishPolish();
+  if (Math.random() < 0.25 * (r / (22 * L.k))) game.sparks.push({ x: x + rand(-r, r) * 0.5, y: y + rand(-r, r) * 0.5, vx: 0, vy: -20, t: 0, life: 0.5, s: rand(3, 6), color: "#fff" });
+  if (m.fleck && !m.fleck.found && m.cells[m.fleck.i].done) fleckFound(m);
+  if (m.shine >= 0.9) { finishPolish(); return; }
+  if (!limited) return;
+  // the stroke counts from the moment it touches the frost, and from then on its length runs down the cloth
+  if (!s.on && touched) { s.on = true; m.used++; }
+  if (s.on) s.len += d / L.ew;
+  strokePips();
+  if (s.on && s.len >= STROKE_LEN) {
+    s.dry = true; sfx.rubOff(); sfx.tick();
+    if (m.used >= m.budget) finishPolish();
+  }
+}
+
+/** The finger lifts: that stroke is done (with the last one, so is the polishing). */
+function strokeEnd() {
+  const e = game.egg, m = e && e.matte;
+  if (!m || e.state !== "polish" || !m.stroke) return;
+  m.stroke = null;
+  strokePips();
+  if (m.used >= m.budget) finishPolish();
+}
+
+/** The fleck turns up: a glint and a chime where it was, and the dust goes into the pantry with the found card. */
+function fleckFound(m) {
+  m.fleck.found = true; m.rev++;
+  const c = m.cells[m.fleck.i];
+  burst(c.x, c.y, 14, ["#fff", "#ffe9a8", ...game.egg.crystal.c], 0.8);
+  pop("✨", c.x, c.y - 10 * L.k, "#ffe9a8", 1.3);
+  sfx.star(2); buzz(12);
+}
+/** The fleck itself, drawn under the frost (ox, oy: from the screen to where the picture is drawn): a few bright pixels, faint through it, brighter once uncovered. */
+function drawFleck(o, e, ox = 0, oy = 0) {
+  const m = e.matte, f = m && m.fleck;
+  if (!f) return;
+  const c = m.cells[f.i], p = Math.max(2, Math.round((f.found ? 3 : 2) * L.k)), x = Math.round(c.x + ox), y = Math.round(c.y + oy);
+  o.save();
+  o.globalAlpha = f.found ? 1 : 0.85;
+  o.fillStyle = "#fff";
+  o.fillRect(x - p / 2, y - p * 1.5, p, p * 3); o.fillRect(x - p * 1.5, y - p / 2, p * 3, p);
+  o.fillStyle = "#ffe9a8";
+  o.fillRect(x - p * 2.5, y - p / 2, p, p); o.fillRect(x + p * 1.5, y - p / 2, p, p);
+  o.fillRect(x - p / 2, y - p * 2.5, p, p); o.fillRect(x - p / 2, y + p * 1.5, p, p);
+  o.restore();
 }
 
 /** The button shows how shiny it is so far, so rubbing visibly does something. */
@@ -1032,16 +1098,30 @@ function polishLabel(shine) {
   const t = tr("✨ Shiny enough") + " · " + Math.round(shine * 100) + "%";
   if ($("polishDone").textContent !== t) $("polishDone").textContent = t;
 }
+/** A pixel pip for each stroke: full ones still to come, the one in hand drains as its cloth dries, spent ones dark. */
+function strokePips() {
+  const m = game.egg && game.egg.matte, el = $("strokes");
+  if (!el) return;
+  el.hidden = !m || m.budget === Infinity;
+  if (el.hidden) return;
+  const now = m.stroke && m.stroke.on ? m.used - 1 : -1, left = now >= 0 ? 1 - clamp(m.stroke.len / STROKE_LEN, 0, 1) : 1;
+  const html = Array.from({ length: m.budget }, (_, i) => i < m.used && i !== now ? "<i></i>" : i === now ? `<i class="on now" style="--left:${Math.ceil(left * 7) / 7}"></i>` : `<i class="on"></i>`).join("");
+  if (el.innerHTML !== html) el.innerHTML = html;
+  el.setAttribute("aria-label", tr("strokes left: {0}", m.budget - m.used + (now >= 0 ? 1 : 0)));
+}
 
 function finishPolish() {
   const e = game.egg;
   if (e.state !== "polish") return;
   markTip("polish");
+  if (e.matte.budget < Infinity) markTip("strokes");
   sfx.rubOff();
   e.state = "gleam"; e.t = 0;
-  // polished all the way: the last bits of frost vanish
-  if (e.matte.shine >= 0.9) { e.matte.ctx.clearRect(0, 0, e.matte.canvas.width, e.matte.canvas.height); e.matte.shine = 1; }
+  // polished all the way: the last bits of frost vanish (and with them whatever they hid)
+  if (e.matte.shine >= 0.9) { e.matte.ctx.clearRect(0, 0, e.matte.canvas.width, e.matte.canvas.height); e.matte.shine = 1; if (e.matte.fleck && !e.matte.fleck.found) fleckFound(e.matte); }
+  e.matte.stroke = null;
   $("polishDone").hidden = true;
+  strokePips();
   setHint("");
   sfx.gleam();
   burst(L.ecx, L.ecy, 20, ["#fff", ...e.crystal.c], 1.2);
@@ -1056,6 +1136,7 @@ function geodeImage(withCreature = true, width = 0) {
   const o = c.getContext("2d");
   o.scale(s, s);
   o.drawImage(e.interior, 0, 0, L.ew + PAD * 2, L.eh + PAD * 2);
+  drawFleck(o, e, PAD - L.ex0, PAD - L.ey0);
   if (e.matte) o.drawImage(e.matte.canvas, 0, 0, L.ew + PAD * 2, L.eh + PAD * 2);
   drawGloss(o, L.ew / 2 + PAD, L.eh / 2 + PAD, 0.3 + (e.matte ? e.matte.shine : 0) * 0.6);
   if (withCreature) drawCreature(o, L.ew / 2 + PAD, L.eh / 2 + PAD + L.eh * 0.04, L.ew * 0.34, e.species, { t: 1000, mood: "happy", shiny: e.shiny });
@@ -1161,6 +1242,9 @@ function showFound() {
   // now and then a bar turns up in the rubble
   const r = Math.random(), rubble = conf.coop || conf.moon ? null : r < 0.03 * (1 + skill("luck") * 0.25) ? "nut" : r < 0.13 * (1 + skill("luck") * 0.25) ? "firefly" : null;
   if (rubble) giveBar(rubble);
+  // the bright fleck under the frost, if the strokes uncovered it: a pinch of magic dust for the pantry
+  const fleck = !!(e.matte && e.matte.fleck && e.matte.fleck.found);
+  if (fleck) save.pantry = { ...save.pantry, feast: ((save.pantry || {}).feast || 0) + 1 };
   const { isNew, note, mine } = adopt(e);
   if (conf.gloom) { bump("rescued"); save.shards += 30; talkLater.push(["g" + conf.gloom + "win"]); }
   if (!conf.coop && e.shiny) talkLater.push(["shiny", mine]);
@@ -1182,7 +1266,7 @@ function showFound() {
   $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
-  $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? moonNote() : "") + (rubble ? tr(" · {0} in the rubble", barName(rubble)) : "") + (cheer ? tr(" · cheered on by {0}: +{1} ✦", buddy.name, cheer) : "");
+  $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? moonNote() : "") + (rubble ? tr(" · {0} in the rubble", barName(rubble)) : "") + (fleck ? tr(" · a pinch of magic dust under the frost ✨") : "") + (cheer ? tr(" · cheered on by {0}: +{1} ✦", buddy.name, cheer) : "");
   $("stShine").textContent = Math.round(shine * 100) + "%";
   // aim, and on a line of its own the mark of the next star up (of the third, once it is earned)
   $("stAim").textContent = aimShare(e) + "%";

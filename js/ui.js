@@ -61,13 +61,14 @@ function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (!remote && coopIsGuest()) { coopSendInput("up", x, y); pointer = null; return; }
   pointer = null;
   if (game.scene === "nest") { game.nest.petting = false; sfx.purrOff(); }
+  if (game.scene === "crack") strokeEnd();
   sfx.rubOff(); if (!tap) return;
   if (game.scene === "nest" && !calling && atIncubator(x, y)) { tapIncubator(); return; }
   if (game.scene === "nest" && decorHit) { if (decorHit.id !== "lights") playDecor(decorHit); return; }
   if (game.scene === "crack") { const egg = game.egg; if (egg.state === "open" && Math.hypot(x - L.ecx, y - L.ecy) < L.ew * 0.25) { egg.hop = 1; sfx.chirp(egg.species.voice); } }
   if (game.scene === "nest" && !calling) { const a = actorAt(x, y); if (a) fancyTell(a.id); if (a && a.id !== save.active) selectCreature(a.id); else if (a) { const cr = activeCreature(), v = actorView(a); if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); } } }
 }
-function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; lanternUp(); game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
+function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; if (game.scene === "crack") strokeEnd(); lanternUp(); game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
 cvs.addEventListener("pointerdown", e => { if (game.scene === "menu") return; try { cvs.setPointerCapture(e.pointerId); } catch {} handlePointerDown(e.clientX, e.clientY); });
 cvs.addEventListener("pointermove", e => handlePointerMove(e.clientX, e.clientY));
 cvs.addEventListener("pointerup", e => handlePointerUp(e.clientX, e.clientY));
@@ -533,7 +534,7 @@ const FAQ = [
   ["What is the lantern?", "Every trip into the Grotto takes a drop of lantern oil. The lantern holds 5 drops (6 from keeper level 6), and one comes back every 20 minutes. Bars fill it right away: a firefly square gives 1 drop, a nut bar 3, and a star bar fills it to the brim. Moon eggs, playing together and levels you already have ★★★ on don't use oil."],
   ["Where do I get bars?", "From daily tasks (finish them all for a nut bar), when a glowling reaches a new level, from moon eggs (every third night kept brings a star bar), from a new best in Echo song, from expeditions, and now and then from the rubble of a geode. Wick sells them too, and the workbench at the Forge makes them from spare geodes. Tap the lantern at the top to use one."],
   ["What are daily tasks?", "A few small things to do each day: tap the tasks counter at the top. Each one gives 10 shards, and finishing them all gives 15 more and a nut bar."],
-  ["Why polish a geode?", "When a geode opens, rub it with your finger to make it shine. The shinier it gets, the more shards you earn. Tap the button when you're happy with it."],
+  ["Why polish a geode?", "When a geode opens, rub it with your finger to make it shine. The shinier it gets, the more shards you earn. Tap the button when you're happy with it. From level 4 you have a few strokes (the squares over the button): a stroke lasts until you lift your finger, so one long, curving stroke polishes more than short dabs. A bright fleck hides under the frost: uncover it for a pinch of magic dust."],
   ["What are shards for?", "Food, furniture and seeds at the Shop, new rooms and more space at home (in the Shop's Renovation), and hammers at the Forge. You get them from geodes, daily tasks, the moon egg, awards, expeditions and the garden. A geode pays for the stone you break off, and hits on the weak spot in a row make a chain: the ring round the hammer grows and the stone pays up to twice as much. A miss breaks the chain, so aim rather than hurry."],
   ["What is the Keeper page?", "It's all about you: menu (⚙) → Keeper. Write your name there. Everything you do earns keeper XP, and each new level brings a skill point (and a few bring a small gift too): Strength makes your taps hit harder, Care helps glowlings grow faster, and Luck makes shinies and bars a little more likely."],
   ["How do I look after my glowling?", "Use the three buttons under the room: Hunger feeds it from your pantry, Boredom opens a game, and Sleepiness tucks it in when its eyes are closing. Stroke it with your finger too. The button for what it needs right now glows. Now and then a content glowling daydreams of something, in a little cloud over its head: tap it to hear what, and if the wish comes true it is glad and grows a little faster (if not, the dream simply drifts away). A happy glowling earns XP and grows up to level 20, and a well-rested, happy one cheers you on when you crack an egg: a few more shards."],
