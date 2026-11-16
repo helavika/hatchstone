@@ -252,3 +252,32 @@ test('no switch between views is left: not in the chest, the save, the room\'s l
   // the Look tab goes straight to the backdrop (the cave's mood, at home)
   assert.match(cut(nest, 'if (st.tab === "look") {', '\n  } else', 'the Look tab should sit in openShop'), /body = `<h3>\$\{tr\(atHome\(\) \? "Cave mood" : "Backdrop"\)\}<\/h3>/);
 });
+
+test('the help, the hints and the toasts speak of tunnels and cave moods, in both languages', () => {
+  const ui = read('ui.js'), i18n = read('i18n.js'), uk = s => { const m = i18n.match(new RegExp('\\n  ' + JSON.stringify(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ': "([^"]+)"')); assert.ok(m, 'no Ukrainian for: ' + s.slice(0, 60)); return m[1]; };
+  const faq = q => JSON.parse(line(ui, new RegExp('^  \\[' + JSON.stringify(q).replace(/[?]/g, '\\?') + ', ("(?:[^"\\\\]|\\\\.)+")\\],$', 'm'), q).replace(/^.*?", /, '').replace(/\],$/, ''));
+  const rooms = faq('How do rooms work?');
+  assert.match(rooms, /Every room at home is a cave/);
+  assert.match(rooms, /joined by tunnels/);
+  assert.match(rooms, /name over each tunnel says where it goes/);
+  assert.match(rooms, /moss garden is a garden underground/);
+  assert.match(uk(rooms), /тунел.*мохова оранжерея — це сад під землею.*настрій печери/i);
+  for (const q of ['How do I decorate the nest?', 'What\'s in the Chest?']) {
+    assert.match(faq(q), /cave mood/, q + ' should say cave mood');
+    assert.match(uk(faq(q)), /настрій печери/, q + ' in Ukrainian');
+  }
+  // nothing in the help or the toasts sends you to doors, arrows or the straight-on view any more
+  for (const gone of ['a doorway', 'Tap a doorway', 'the arrows', 'Keep the doorway clear', 'in Decor', 'перемикай їх стрілками', 'Торкнись дверей', 'біля дверей гнізда']) {
+    for (const f of ['ui.js', 'i18n.js', 'data.js']) assert.ok(!read(f).includes(gone), `${f} still says: ${gone}`);
+  }
+  assert.match(iso, /tr\(d\.door \? "Keep the tunnel clear"/);
+  assert.equal(uk('Keep the tunnel clear'), 'Не загороджуй тунель');
+  // a new backdrop is a new cave mood at home, and the music box calls its songs that too
+  assert.match(pixel, /tr\(atHome\(\) \? "New cave mood: \{0\} · choose it in the Chest ✦" : "New backdrop/);
+  uk('New cave mood: {0} · choose it in the Chest ✦');
+  for (const s of ['{0} of {1} songs unlocked. Each new cave mood brings one more.', 'The cave\'s own song', 'changes with the cave mood']) {
+    assert.ok(nest.includes(JSON.stringify(s)), 'the music box should say: ' + s);
+    uk(s);
+  }
+  assert.match(read('crack.js'), /decor: \{ text: "Decorate the nest or change its cave mood"/);
+});

@@ -3081,7 +3081,7 @@ function arrangeUp() {
     if (d.wall) setLayout(d.id, { wall: d.wall, s: d.s });
     else if (d.id === "rug") setLayout("rug", { u: d.u, v: d.v });
     else { const p = isoLayout().placed[d.id]; if (p && (d.i !== p.i || d.j !== p.j || d.flip !== p.flip)) placePiece(d.id, d.i, d.j, d.flip); }
-  } else if (d) toast(tr(d.door ? "Keep the doorway clear" : "That spot is taken"));
+  } else if (d) toast(tr(d.door ? "Keep the tunnel clear" : "That spot is taken"));
   arrange.drag = null; arrangeUi();
 }
 /** Turn the chosen piece: a floor piece faces the other wall (where it is if it fits, or the nearest free spot); a wall piece goes to the other wall. */
