@@ -29,7 +29,7 @@ what's glowing inside. 🎧 Best with headphones.
   Strength
 - Like an old handheld pet, glowlings call for you when they're hungry, sleepy or lonely,
   and dust bunnies gather in the nest until you tap them away
-- Knock on the stone to find its hollow spot, and polish each opened geode to a shine
+- Knock on the stone to find its hollow spot, and polish each opened geode to a shine with a few well-planned strokes
 - The nest is a little cave room, seen from the corner, where all your glowlings roam, nap,
   dance, visit each other and come when you call. The shop carves more caves beside it (a
   playroom, a moss garden that is a garden underground, a crystal study), joined in a row
