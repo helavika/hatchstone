@@ -60,10 +60,20 @@ function update(dt) {
     p.dx += p.vx * dt; p.dy += p.vy * dt; p.rot += p.vrot * dt;
   }
   game.pieces = game.pieces.filter(p => p.t < 2.2);
+  const stage = game.scene === "crack" && game.egg ? stageNow() : null;
   for (const c of game.chips) {
+    if (c.rest && stage) {
+      // (one already fallen past the slab's edge comes down on the floor in front instead of jumping back up onto it)
+      c.floor = chipFloorAt(stage, c.x, c.depth);
+      if (c.y > c.floor + 8) { c.depth = Math.max(c.depth, 0.5); c.floor = chipFloorAt(stage, c.x, c.depth); if (c.y > c.floor + 8) c.floor = Infinity; }
+    }
     c.t += dt; c.vy += GRAVITY * dt; c.vx *= drag;
     c.x += c.vx * dt; c.y += c.vy * dt; c.rot += c.vrot * dt;
-    if (c.y > c.floor && c.vy > 0) { c.y = c.floor; c.vy *= -0.3; c.vx *= 0.5; c.vrot *= 0.4; }
+    if (c.y > c.floor && c.vy > 0) {
+      c.y = c.floor; c.vy *= -0.3; c.vx *= 0.5; c.vrot *= 0.4;
+      // on the cave floor a chip that has stopped bouncing stays where it lies, for the rest of the level (see restChip)
+      if (c.rest && c.vy > -40) c.t = restChip(game.egg, c) ? c.life : Math.min(c.t, c.life - 0.4);
+    }
   }
   game.chips = game.chips.filter(c => c.t < c.life);
   const sparkDrag = Math.exp(-1.8 * dt);
@@ -120,24 +130,6 @@ function updateClock() {
 function eggOffset() {
   const e = game.egg;
   return e.state === "entering" ? -(1 - easeOutBounce(clamp(e.t / 0.9, 0, 1))) * (L.ecy + L.eh) : 0;
-}
-
-function drawCushion(cx, y, w) {
-  const sh = ctx.createRadialGradient(cx, y + 6, 4, cx, y + 6, w * 1.1);
-  sh.addColorStop(0, "rgba(5,0,20,.55)");
-  sh.addColorStop(1, "rgba(5,0,20,0)");
-  ctx.fillStyle = sh;
-  ctx.fillRect(cx - w * 1.2, y - 20, w * 2.4, 60);
-  const ry = 18 * Math.max(1, w / 150);
-  drawBaked(cachedSprite(roomSprites, "cushion" + Math.round(w), `${cx}|${y}|${w}|${PX}`, () => bakeSprite(cx, y + 4, w, () => {
-    // a velvet cushion: a lit top, a darker rim, a sheen where the light falls
-    ctx.fillStyle = "#2e1d4f";
-    ctx.beginPath(); ctx.ellipse(cx, y + 4 + ry * 0.25, w, ry, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = "#523a85";
-    ctx.beginPath(); ctx.ellipse(cx, y + 4, w * 0.96, ry * 0.8, 0, 0, TAU); ctx.fill();
-    ctx.fillStyle = "#6b4fa8";
-    ctx.beginPath(); ctx.ellipse(cx - w * 0.2, y + 4 - ry * 0.25, w * 0.5, ry * 0.32, 0, 0, TAU); ctx.fill();
-  }, { up: (ry * 1.3) / w + 0.04, down: (ry * 1.5) / w + 0.04, side: 1.04 })));
 }
 
 function drawGloss(c, cx, cy, a = 1) {
@@ -695,12 +687,18 @@ function frame(now) {
   if (game.scene !== "walk") drawBackground();
   if (game.scene !== "menu" && game.scene !== "walk") drawBats(dt);
   if (game.scene === "crack" && game.egg) {
+    // the stage stands still (the plinth, the nest, the floor and the chips on it); only the egg shakes in its nest
+    drawStage();
+    drawRest();
+    const [c0, c1] = stageNow().candles;
+    drawCandle(c0.x, c0.y, 12, 0); (keeperGift("lantern") ? drawEggLantern : drawCandle)(c1.x, c1.y, 8, 2.1);
     ctx.save();
     if (game.shake > 0.3 && !opts().calm) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
-    drawCushion(L.ecx, L.floor + 4, L.ew * 0.62);
-    const cx = Math.min(L.ew * 0.66, W / 2 - 8 * PX);
-    drawCandle(L.ecx - cx, L.floor + 8, 12, 0); (keeperGift("lantern") ? drawEggLantern : drawCandle)(L.ecx + cx, L.floor + 10, 8, 2.1);
     drawEgg();
+    ctx.restore();
+    drawStageLip();
+    ctx.save();
+    if (game.shake > 0.3 && !opts().calm) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     drawPieces();
     ctx.restore();
     drawGloom();

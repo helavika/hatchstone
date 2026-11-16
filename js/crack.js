@@ -507,12 +507,14 @@ function carveChip(x, y, r, sides = 0) {
 }
 
 function spawnChips(x, y, n, spread = 1, colors = game.egg ? game.egg.stone : ["#fff"]) {
+  // while cracking, chips come down on the cave floor in front of the plinth and stay there (see restChip)
+  const rest = game.scene === "crack" && !!game.egg;
   for (let i = 0; i < n; i++) {
     const a = rand(-Math.PI, 0), v = rand(40, 170) * spread;
     game.chips.push({
       x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 40, s: rand(1.5, 4) * Math.max(1, L.k),
-      rot: rand(0, 6), vrot: rand(-8, 8), color: pick(colors), t: 0, life: rand(0.9, 1.5),
-      floor: game.scene === "crack" ? L.floor + 6 : game.scene === "nest" ? N.y1 : Infinity,
+      rot: rand(0, 6), vrot: rand(-8, 8), color: pick(colors), t: 0, life: rest ? 4 : rand(0.9, 1.5), rest,
+      floor: game.scene === "nest" ? N.y1 : Infinity, depth: Math.random(),
     });
   }
 }
