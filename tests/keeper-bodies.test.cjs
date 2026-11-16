@@ -106,3 +106,14 @@ test('the place bar\'s crop holds the whole face: every pixel the blink closes, 
     }
   }
 });
+
+// Ember, Tansy, Pip and Fennel wear their heads from the first cast collage again: the blink has to find those eyes.
+test('the blink shuts the collage heads\' eyes: no eye colour is left in the face', () => {
+  const EYES = { ember: ['#ffc94e', '#fff4d4', '#f07a24'], tansy: ['#fff8ea'], pip: ['#ffc23d', '#fff3d0', '#c46a1f'], fennel: ['#fff4c8', '#e8a23a', '#d06a2a'] };
+  for (const [id, eyes] of Object.entries(EYES)) {
+    const k = KN[id], [[sx, sy, sw, sh]] = page.keeperFace(id).draws;
+    const count = px => { let n = 0; for (let y = sy; y < sy + sh; y++) for (let x = sx; x < sx + sw; x++) if (eyes.includes(k.pal[px[y * k.w + x]])) n++; return n; };
+    assert.ok(count(k.frames[0]) >= 3, `${id}'s eyes are open, inside the place bar's crop`);
+    assert.equal(count(k.blink), 0, `${id}'s blink closes both eyes`);
+  }
+});
