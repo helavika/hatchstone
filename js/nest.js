@@ -1182,7 +1182,7 @@ function drawHero() {
   if (me && me.curl && since < 2600) {
     // poked once too often: Tansy rolls into a ball of spines, Fennel pulls into his shell
     const wob = Math.sin(t * 0.03) * px, r = s * 0.36, shell = h.who === FENNEL;
-    if (KEEPER_PIX[h.icon] && KEEPER_PIX[h.icon][shell ? "shell" : "curl"]) {
+    if ((KEEPER_NATIVE[h.icon] || KEEPER_PIX[h.icon])?.[shell ? "shell" : "curl"]) {
       const ball = pose(false, shell ? "shell" : "curl");
       ctx.drawImage(ball, Math.round((left + wob) / PX) * PX, Math.round((y - hgt) / PX) * PX, wid, hgt);
     } else {
@@ -1195,8 +1195,9 @@ function drawHero() {
   } else {
     // Ollo looks the other way now and then
     const turned = h.quirk === "turn" && Math.sin(t * 0.0011) > 0.75;
-    const back = turned && KEEPER_PIX[h.icon] && KEEPER_PIX[h.icon].turn, flip = turned && !back;
-    const fright = me && me.startle && since < 900, jumpy = fright && KEEPER_PIX[h.icon] && KEEPER_PIX[h.icon].startle;
+    const own = KEEPER_NATIVE[h.icon] || KEEPER_PIX[h.icon];
+    const back = turned && own && own.turn, flip = turned && !back;
+    const fright = me && me.startle && since < 900, jumpy = fright && own && own.startle;
     if (flip) { ctx.save(); ctx.translate(left * 2 + wid, 0); ctx.scale(-1, 1); }
     ctx.drawImage(jumpy ? pose(false, "startle") : back ? pose(false, "turn") : img, left, top, wid, hgt);
     if (flip) ctx.restore();
