@@ -8,17 +8,20 @@ const read = f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8');
 const cut = (src, a, b, what) => { const from = src.indexOf(a), to = src.indexOf(b, from); assert.ok(from >= 0 && to > from, what); return src.slice(from, to); };
 const line = (src, re, what) => { const m = src.match(re); assert.ok(m, what); return m[0]; };
 
-// play.js needs the whole game around it, so only the Gloom's visit is run here, over a pretend nest seen straight on (a
-// floor 800 wide and 400 deep, a glowling 100 across): the visit from its numbers down to the end of gloomEnd, with
-// areFriends and the diary's remember as they stand in nest.js, the charms and the one hung on the wall as gifts.js has them,
-// and the back wall as save.js measures it
-const playJs = read('play.js'), nestJs = read('nest.js'), i18n = read('i18n.js'), giftsJs = read('gifts.js'), saveJs = read('save.js');
+// play.js needs the whole game around it, so only the Gloom's visit is run here, over a pretend nest (a diamond of floor
+// wide enough to hold a stretch 800 across and 400 deep, a glowling 100 across): the visit from its numbers down to the end
+// of gloomEnd, with areFriends and the diary's remember as they stand in nest.js, the charms and the one hung on the wall
+// as gifts.js has them, and the walls' pieces as iso.js has them (no tunnel in the nest's walls here)
+const playJs = read('play.js'), nestJs = read('nest.js'), i18n = read('i18n.js'), giftsJs = read('gifts.js'), saveJs = read('save.js'), isoJs = read('iso.js');
 const visitSrc = [
   line(nestJs, /^const areFriends = .*$/m, 'areFriends should be one line in nest.js'),
   cut(nestJs, '/** A glowling\'s diary keeps', '/** A first worth', 'the diary and its remember should sit in nest.js'),
   line(giftsJs, /^const CHARMS = .*$/m, 'the charms should be one line in gifts.js'),
   line(giftsJs, /^const charmHung = .*$/m, 'charmHung should be one line in gifts.js'),
-  line(saveJs, /^const wallAt = .*$/m, 'wallAt should be one line in save.js'),
+  line(saveJs, /^const isoAt = .*$/m, 'isoAt should be one line in save.js'),
+  line(isoJs, /^const ISO_G = .*$/m, 'ISO_G should be one line in iso.js'),
+  line(isoJs, /^const WALL_ITEMS = .*$/m, 'WALL_ITEMS should be one line in iso.js'),
+  line(isoJs, /^const wallSlot = .*$/m, 'wallSlot should be one line in iso.js'),
   cut(playJs, 'const GLOOM_WAIT = ', '/** Where the huddle is for a glowling', 'the Gloom\'s visit should sit together in play.js, down to gloomEnd'),
   'Object.assign(this, { GLOOM_HELP, GLOOM_TIE, GLOOM_TIE_R, gloomNow, gloomArt, gloomCome, updateGloom, gloomEnd, gloomSegDist, gloomOnThread, areFriends, GLOOM_CHARM, GLOOM_CHARM_R, GLOOM_CHARM_LOW, charmSpot, charmAt, gloomInCharm });',
 ].join('\n');
@@ -35,12 +38,13 @@ function visit({ friends = [], at = { 1: [300, 300], 2: [500, 300], 3: [400, 380
   for (const [p, q, n = 5] of friends) creatures.find(c => c.id === p).pals[q] = n;
   const actors = new Map(creatures.map(c => [c.id, { id: c.id, x: at[c.id][0], y: at[c.id][1] }]));
   const page = {
-    Math, Date, TAU: Math.PI * 2, W: 800, H: 600, N: { iso: false, base: B, x0: 0, x1: 800, y0: 0, y1: 400, cx: 400, hb: 400, back: 0, wallTop: -300, win: { x: 400, y: -150, r: 90 }, dk: 1, ...wall },
+    Math, Date, TAU: Math.PI * 2, W: 800, H: 600, N: { base: B, x0: 0, x1: 800, y0: 0, y1: 400, cx: 400, isoW: 900, isoH: 450, isoTop: -250, isoWall: 300, dk: 1, ...wall },
     save: { creatures, shards: 0, room: 0, dust: [], ...save }, actors, game: { scene: 'nest', sparks: did.sparks, time: 0 },
     clamp: (v, a, b) => Math.max(a, Math.min(b, v)), lerp: (a, b, t) => a + (b - a) * t, rand: (a, b) => (a + b) / 2, pick: arr => arr[0],
     sfx: { ready: () => false }, opts: () => ({ calm }), document: { hidden: false }, setTimeout: () => 0, $$: () => [],
     talkNow: null, talkQueue: [], giftNow: null, coopSession: null, pointer: null, arrange: { on: false }, startedEmpty: false,
     emote: (a, text) => did.emotes.push([a.id, text]), toast: t => did.toasts.push(t), tr: fill, persist: () => did.saved++,
+    isoLayout: () => ({ key: '', placed: {} }), wallInDoor: () => false,
     nestRoom: () => 0, hasDecor: id => !!decor[id], residents: () => creatures, cnt: () => 1, bump: () => {}, tipDone: () => true, dayKey: () => 'today', keeperGift: () => false,
     setHint: () => {}, nestHint: () => '', renderNest: () => {}, updateTopbar: () => {}, checkAwards: () => {}, floatText: () => {}, buzz: () => {}, talk: () => {},
   };
@@ -385,16 +389,16 @@ test('old saves, and whatever else turns up where the hung charm is kept', () =>
   assert.match(cut(saveJs, 'function migrate(', '\n}\n', 'migrate should sit in save.js'), /const hung = hungSaveOf\(d\.hung\);\n\s*if \(hung\) d\.hung = hung; else delete d\.hung;/);
 });
 
-/** A visit in a nest with a charm on its wall: seen straight on, the charm's light falls on the floor at (580, 10), and a
+/** A visit in a nest with a charm on its wall: hung on the right wall, its light falls on the floor at (835, 58), and a
  *  glowling stands close by, so a wisp there doesn't drift off after someone further away. */
-const HUNG = { c: 'heart', from: 'Vika', at: 1 }, LIGHT = [580, 10];
-const charmVisit = (o = {}) => { const v = visit({ at: { 1: [580, 100] }, ...o, save: { hung: HUNG, ...o.save } }); v.page.gloomArt.R = 10; v.page.gloomArt.P = 2; return v; };
+const HUNG = { c: 'heart', from: 'Vika', at: 1 }, LIGHT = [835, 58];
+const charmVisit = (o = {}) => { const v = visit({ at: { 1: [835, 148] }, ...o, save: { hung: HUNG, ...o.save } }); v.page.gloomArt.R = 10; v.page.gloomArt.P = 2; return v; };
 
 test('the charm\'s light wears a wisp thin, slowly, with no lantern on it; and only within its reach', () => {
   const v = charmVisit(), g = v.g, reach = B * v.page.GLOOM_CHARM_R;
   const at = v.page.charmSpot();
   assert.deepEqual([Math.round(at.fx), Math.round(at.fy)], LIGHT);
-  assert.ok(at.y < 0 && at.x > 400 + B && at.x < 800 - B * 0.5, 'it hangs up on the back wall, to the right of the window');
+  assert.ok(at.wall === 'R' && at.x > 400 + B && at.y < at.fy - B, 'it hangs up on the right wall, the one with no window in it');
   // one in the light, one a good way out of it
   v.wisp(0, LIGHT[0], LIGHT[1] + 20); v.wisp(1, 150, 300);
   v.run(1);
@@ -427,7 +431,7 @@ test('the charm never frees a wisp: it leaves that to your lantern, so nothing i
   assert.equal(g.on, false);
   assert.equal(v.page.save.shards, 0); assert.deepEqual(v.did.toasts, []);
   // your lantern on one the charm has worn thin: it lets go sooner than a whole one would
-  const worn = charmVisit({ last: true }), whole = visit({ at: { 1: [580, 100] }, last: true });
+  const worn = charmVisit({ last: true }), whole = visit({ at: { 1: [835, 148] }, last: true });
   worn.wisp(0, LIGHT[0], LIGHT[1] + 20); worn.run(8);
   assert.equal(worn.g.wisps[0].hp, low);
   let tw = 0, th = 0;
@@ -460,25 +464,12 @@ test('no charm on the wall, or not in this room: the same visit, frame for frame
   assert.notEqual(go(visit({ save: { hung: HUNG } })), bare);
   // no charm: no place for one, nothing under a finger
   const v = visit();
-  assert.equal(v.page.charmSpot(), null); assert.equal(v.page.charmAt(580, -180), false);
+  assert.equal(v.page.charmSpot(), null); assert.equal(v.page.charmAt(925, -150), false);
   // hung, it is there in the nest and under a finger, and nowhere in another room
   const h = visit({ save: { hung: HUNG } }), at = h.page.charmSpot();
   assert.equal(h.page.charmAt(at.x + 5, at.y - 5), true); assert.equal(h.page.charmAt(at.x + B, at.y), false);
   h.page.save.room = 1;
   assert.equal(h.page.charmSpot(), null); assert.equal(h.page.charmAt(at.x, at.y), false);
-});
-
-test('seen straight on, the charm finds a clear patch of wall: right of the window, else left, else over the shelf', () => {
-  const spot = o => { const at = visit({ save: { hung: HUNG }, ...o }).page.charmSpot(); return [Math.round(at.x), Math.round(at.y)]; };
-  // a wide wall: right of the window, a little closer to it when the swing's ropes hang there
-  assert.deepEqual(spot({}), [580, -180]);
-  assert.deepEqual(spot({ decor: { swing: 1 } }), [561, -180]);
-  // a narrow one with the swing up: no room on the right, so left of the window
-  assert.deepEqual(spot({ decor: { swing: 1 }, wall: { hb: 250 } }), [245, -180]);
-  // the shelf up as well and the wall tall: over the shelf, a little higher
-  assert.deepEqual(spot({ decor: { swing: 1, shelf: 1 }, wall: { hb: 250 } }), [252, -210]);
-  // and on a short wall it keeps to the wider gap by the window
-  assert.deepEqual(spot({ decor: { swing: 1, shelf: 1 }, wall: { hb: 250, wallTop: -200 } }), [501, -120]);
 });
 
 test('the charm glows while the shadows are in, and settles again after', () => {

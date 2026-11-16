@@ -118,25 +118,12 @@ function freeFloorPoint() {
 
 /** Keep a glowling on the floor and out of the furniture (the one riding the swing or asleep on the bed is placed by hand). */
 function keepInRoom(a, dt) {
-  if (N.iso) {
-    // (lying on the bed, a sleeper may lie closer to the wall than anyone walks: the bed fills its corner)
-    const m = a.onBed && (a.state === "sleep" || a.state === "toBed") ? bedMargin() : isoMargin(0.42), x0 = a.x, y0 = a.y; let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
-    if (a.state !== "visit" || (a.decor !== "swing" && a.decor !== "mushrooms")) pushOutOfPieces(a);
-    [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
-    // a little slide happens at once; a big one (stepping off the swing or the caps, a piece put down on it) is a quick eased shuffle, not a jump
-    if (dt && Math.hypot(a.x - x0, a.y - y0) > N.base * 0.04) { a.x = lerp(x0, a.x, Math.min(1, dt * 5)); a.y = lerp(y0, a.y, Math.min(1, dt * 5)); }
-    return;
-  }
-  a.y = clamp(a.y, N.y0, N.y1);
-  const h = N.iso ? N.isoW : floorHalf(a.y) - N.base * 0.42;
-  a.x = clamp(a.x, N.cx - h, N.cx + h);
-  if (a.alt > N.base * 0.3 || a.state === "sleep" || a.state === "toBed" || a.state === "visit") return;
-  for (const o of game.nest.obst || []) {
-    if (o.id === a.decor || o.id === a.goal || (o.id === "bed" && a.state === "nap")) continue;
-    const dx = (a.x - o.x) / o.rx, dy = (a.y - o.y) / o.ry, d = Math.hypot(dx, dy);
-    if (d < 1) { const k = d > 0.01 ? 1 / d : 1; a.x = o.x + dx * k * o.rx; a.y = o.y + (d > 0.01 ? dy * k : 1) * o.ry; }
-  }
-  a.y = clamp(a.y, N.y0, N.y1);
+  // (lying on the bed, a sleeper may lie closer to the wall than anyone walks: the bed fills its corner)
+  const m = a.onBed && (a.state === "sleep" || a.state === "toBed") ? bedMargin() : isoMargin(0.42), x0 = a.x, y0 = a.y; let [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+  if (a.state !== "visit" || (a.decor !== "swing" && a.decor !== "mushrooms")) pushOutOfPieces(a);
+  [u, v] = isoFrom(a.x, a.y); [a.x, a.y] = isoAt(clamp(u, m, 1 - m), clamp(v, m, 1 - m));
+  // a little slide happens at once; a big one (stepping off the swing or the caps, a piece put down on it) is a quick eased shuffle, not a jump
+  if (dt && Math.hypot(a.x - x0, a.y - y0) > N.base * 0.04) { a.x = lerp(x0, a.x, Math.min(1, dt * 5)); a.y = lerp(y0, a.y, Math.min(1, dt * 5)); }
 }
 /**
  * A floor point (CSS pixels) moved to where a walker can really stand: off the walls and out of every piece's footprint,
@@ -144,12 +131,11 @@ function keepInRoom(a, dt) {
  * (each step in, the piece pushes it back out a few pixels short).
  */
 function standSpot(x, y) {
-  if (!N.iso) return [x, y];
   const a = { x, y, state: "walk" };
   keepInRoom(a); keepInRoom(a); // (twice: pushed off one piece, it may brush the next)
   return [a.x, a.y];
 }
-const depth = y => N.iso ? (W < 520 ? 0.74 : 0.66) : lerp(0.72, 1, clamp((y - N.y0) / (N.y1 - N.y0), 0, 1));
+const depth = () => W < 520 ? 0.74 : 0.66;
 
 function syncActors() {
   const list = roomCreatures(), ids = new Set(list.map(c => c.id));
@@ -239,7 +225,7 @@ function chooseNext(a, list) {
     a.state = "idle"; a.t = rand(3, 6) * linger(cr); return;
   }
   // outside, hoppers and swimmers like the garden best: they walk over and water a thirsty plant
-  const gp = isOutside() && N.iso && isoLayout().placed.garden;
+  const gp = isOutside() && isoLayout().placed.garden;
   if (gp && ["hop", "swim"].includes(a.beh) && Math.random() < 0.25) {
     // (its front can be boxed in, by the skep and the cold frame in the yard: then a side a way really leads to)
     const sides = [[0.8, 0.8], [gp.fw / 2 + 0.4, 0], [0, -gp.fd / 2 - 0.4], [-gp.fw / 2 - 0.4, 0], [0, gp.fd / 2 + 0.4]];
@@ -251,7 +237,7 @@ function chooseNext(a, list) {
   const loved = DECOR.filter(d => hasDecor(d.id) && d.lovers.includes(b));
   if (loved.length && Math.random() < 0.4) { goVisit(a, pick(loved)); return; }
   // hoppers like bouncing on the bed now and then
-  if (N.iso && b === "hop" && r < 0.15 && isoLayout().placed.bed) {
+  if (b === "hop" && r < 0.15 && isoLayout().placed.bed) {
     const p = isoLayout().placed.bed; [a.tx, a.ty] = isoAt((p.i + p.fw * rand(0.3, 0.7)) / ISO_G, (p.j + p.fd * rand(0.3, 0.7)) / ISO_G);
     a.state = "walk"; emote(a, "♪", 1.2); return;
   }
@@ -318,7 +304,7 @@ function habitArrive(a, cr) {
   else if (plan === "collect") {
     // a pebble found: picked up, and carried off to bed
     emote(a, "💎", 2.6); a.hop = 1;
-    const p = N.iso && isoLayout().placed.bed;
+    const p = isoLayout().placed.bed;
     [a.tx, a.ty] = p ? standSpot(...isoPieceAt(p, rand(0.9, 1.3))) : [clamp(N.bedX + rand(-0.6, 0.6) * N.base, N.x0, N.x1), N.bedY];
     a.state = "walk"; a.plan = "carry";
   } else if (plan === "carry") { emote(a, "♥", 1.4); a.hop = 1; }
@@ -326,12 +312,11 @@ function habitArrive(a, cr) {
 /** Its own favourite spot on the floor, the same one every time (moved off any piece standing there now). */
 function faveSpot(cr) {
   const u = 0.2 + (idHash(cr.id, 1) % 1000) / 1000 * 0.6, v = 0.2 + (idHash(cr.id, 2) % 1000) / 1000 * 0.6;
-  if (!N.iso) return floorAt(u, v);
   const m = isoMargin(0.42), [x, y] = isoAt(lerp(m, 1 - m, u), lerp(m, 1 - m, v));
   return standSpot(x + rand(-0.06, 0.06) * N.base, y + rand(-0.03, 0.03) * N.base);
 }
 /** A free spot near the room's edge: the farthest from the middle of a few tries. */
-function cornerPoint(from = N.iso ? isoAt(0.5, 0.5) : floorAt(0.5, 0.5)) {
+function cornerPoint(from = isoAt(0.5, 0.5)) {
   let best = null, far = -1;
   for (let k = 0; k < 6; k++) { const p = roomPoint(), d = Math.hypot(p[0] - from[0], (p[1] - from[1]) * 2); if (d > far) { far = d; best = p; } }
   return best;
@@ -403,7 +388,7 @@ const faceNow = a => !a.face ? "" : a.face.kind === "blink" ? (a.face.t % 0.25 <
 
 function updateActors(dt) {
   syncActors();
-  game.nest.obst = N.iso ? roomObstacles() : frontBedObstacle(roomObstacles());
+  game.nest.obst = roomObstacles();
   const list = [...actors.values()], call = game.nest.call;
   // a finger held still on the floor keeps calling (moving it is not needed)
   if (call && pointer && pointer.call) call.t = game.time;
@@ -479,7 +464,7 @@ function updateActors(dt) {
     // the way around the furniture (this also moves a goal that's inside a piece to the free spot beside it)
     // (the last stretch to bed goes straight to the sleeping spot: a way around the bed would stop beside it, never in it)
     const tucking = a.state === "toBed" && Math.hypot(a.tx - a.x, a.ty - a.y) < N.base * 0.9;
-    const walking = N.iso && !tucking && !["nap", "dance", "eat", "sleep", "visit"].includes(a.state) && !(a.id === save.active && game.nest.petting);
+    const walking = !tucking && !["nap", "dance", "eat", "sleep", "visit"].includes(a.state) && !(a.id === save.active && game.nest.petting);
     const wp = walking ? nextWaypoint(a, dt) : null;
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
     if (a.state === "toBed" && d <= 8) { a.state = "sleep"; a.hop = 1; } // close enough: lie down (the room's edge may keep the exact spot just out of reach)
@@ -534,15 +519,14 @@ function updateActors(dt) {
     } else if (a.state === "toBed" && d <= 8) a.state = "sleep";
     keepInRoom(a, dt);
     // standing on the bed (it fills its corner, so there's no "behind" it): up on its soft top, with a little hop on the way up
-    // (straight on: lying in the bed at its own place there, see frontInBed)
-    const onBed = N.iso ? isoOnBed(a.x, a.y) : frontInBed(a);
+    const onBed = isoOnBed(a.x, a.y);
     if (onBed && !a.onBed) a.hop = 1;
     a.onBed = onBed;
-    a.perch = lerp(a.perch || 0, onBed ? (N.iso ? isoBedTop() : frontBedTop(a)) : 0, Math.min(1, dt * 10));
+    a.perch = lerp(a.perch || 0, onBed ? isoBedTop() : 0, Math.min(1, dt * 10));
     // fliers hover, swimmers glide, hoppers bounce
     const ease = (to, k) => { a.alt = lerp(a.alt, to, Math.min(1, dt * k)); };
     if (a.state === "sleep") ease(0, 4);
-    else if (N.iso && a.state === "nap" && a.decor === "cushion") { const c = cloudSpot(); ease(a.y - c.bodyY + N.isoW / ISO_G * 0.75, 5); }
+    else if (a.state === "nap" && a.decor === "cushion") { const c = cloudSpot(); ease(a.y - c.bodyY + N.isoW / ISO_G * 0.75, 5); }
     // a doze anywhere else: fliers and swimmers settle down to the floor instead of sleeping in mid-air
     else if (a.state === "nap") ease(0, 4);
     else if (a.state === "visit" && (a.decor === "swing" || a.decor === "spring")) { /* set above */ }
@@ -605,40 +589,17 @@ function updateActors(dt) {
 }
 
 /** What the room's walls and floor are painted from: when it changes, they're painted again. */
-const roomKey = () => `${currentTheme()}|${save.rooms[save.room]?.kind || ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}${N.iso}`;
+const roomKey = () => `${currentTheme()}|${save.rooms[save.room]?.kind || ""}|${W}|${H}|${PX}|${hasDecor("swing")}|${hasDecor("lights")}|${hasDecor("shelf")}|${hasDecor("painting")}|${JSON.stringify(wallSlot("painting"))}|${save.paintScene || 0}`;
 function drawRoom() {
   // the walls and floor of this backdrop, painted once in art pixels (or ahead of time: see bakeAhead), and kept a while
   // after you leave, so walking back in is smooth too
   const rk = roomKey();
   if (roomCanvas.key !== rk) {
     if (roomCanvas.c && roomCanvas.key) keepAhead(roomAhead, roomCanvas.key, roomCanvas.c, 8);
-    roomCanvas.key = rk; roomCanvas.c = roomAhead.get(rk) || (N.iso ? paintRoomIso(currentTheme()) : paintRoom(currentTheme()));
+    roomCanvas.key = rk; roomCanvas.c = roomAhead.get(rk) || paintRoomIso(currentTheme());
   }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
-  if (N.iso) return drawRoomIso();
-  // a round woven rug in the middle of the floor (or the starry one), in pixels
-  const [rcx, rcy] = roomSpot("rug"), [rrx, rry] = rugSize();
-  drawBaked(frontRug(rcx, rcy, rrx, rry, hasDecor("rug")));
-  // furniture from the back of the room to the front, so nearer things overlap farther ones
-  const items = [...frontBedItems(),
-    ...(incHere() ? [{ y: incSpot()[1], draw: drawIncubator }] : [])];
-  // pieces made only as isometric pixel art stand in the room as they are, at their own spots
-  for (const d of DECOR) if (hasDecor(d.id) && d.iso && !d.wall && !DRAW_DECOR[d.id] && ISO_ART[d.id]) {
-    const [x, y] = decorSpot(d.id), k = depthK(y), tw = Math.max(6, Math.round(N.base * k * 0.6 / PX)), pad = Math.ceil(tw * 1.2) + 3;
-    const w = Math.ceil(2 * tw + pad * 2), h = tw + tw * 3.2 + pad, ax0 = tw + pad, ay = tw * 3.2 + pad / 2;
-    const extra = pieceExtra({ id: d.id });
-    items.push({ y, draw: () => drawBaked(cachedSprite(roomSprites, d.id, `front|${x}|${y}|${tw}|${PX}|${JSON.stringify(extra)}`,
-      () => ({ c: isoArt(w, h, T => ISO_ART[d.id](tw, T, ax0, ay, extra)), x: Math.round(x / PX - ax0) * PX, y: Math.round(y / PX - ay - tw) * PX }))) });
-  }
-  for (const d of DECOR) if (hasDecor(d.id) && d.id !== "rug" && DRAW_DECOR[d.id]) {
-    const [x, y] = decorSpot(d.id);
-    // the swing and the lights move every frame, so they're put together from their parts as they're drawn; the rest are kept
-    if (d.id === "swing" || d.id === "lights") { items.push({ y: d.id === "lights" ? -1 : N.back, draw: () => DRAW_DECOR[d.id](x, y) }); continue; }
-    const k = d.id === "shelf" ? N.dk : depthK(y);
-    // (each paints itself in art pixels and keeps its frames: see frontArt)
-    items.push({ y: d.id === "shelf" ? -1 : y, draw: () => { decorK = k; DRAW_DECOR[d.id](x, y); decorK = 1; } });
-  }
-  return items;
+  return drawRoomIso();
 }
 const roomSprites = {}, roomCanvas = {};
 // ---------- isometric pixel furniture ----------
@@ -960,7 +921,7 @@ function isoPieceAt(p, front = 0) { return isoAt((p.i + p.fw / 2 + front) / ISO_
 const MUSHROOMS = [[-0.36, 0.0, 0.95, 0.27], [0.12, -0.08, 1.35, 0.32], [0.38, 0.06, 0.7, 0.22], [-0.12, 0.12, 0.55, 0.18], [0.22, 0.16, 0.36, 0.13], [-0.45, 0.16, 0.32, 0.11], [0.5, -0.04, 0.48, 0.14]];
 /** Where the tops of the bigger caps are in the room (CSS pixels), lowest first: platforms to hop across. */
 function mushroomCaps() {
-  const p = N.iso && isoLayout().placed.mushrooms;
+  const p = isoLayout().placed.mushrooms;
   if (!p) return [];
   const t = N.isoW / ISO_G / PX, [cx, cy] = isoAt((p.i + 0.5) / ISO_G, (p.j + 0.5) / ISO_G), m = p.flip ? -1 : 1;
   return MUSHROOMS.filter(q => q[2] >= 0.48).map(([dx, dy, h, r]) => {
@@ -1182,7 +1143,7 @@ const ISO_ART = {
     // hanging under it for the bulb and another for the finial. Switched off, the shade goes dusky and the glow goes out
     const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), H = Math.round(t * 2.2), on = !o.off;
     const zs = H - Math.round(t * 0.62), sh = on ? [IC.white, IC.y0, pxHex("#f8d890"), IC.y1, pxHex("#c88a48")] : ["#d8cce6", "#b4a6c8", "#8a7aa6", "#5e507a", "#3d3358"].map(pxHex);
-    if (on && !o.soft) { T.glow(x, y - zs, t * 1.35, IC.y0, 0.34); T.glow(x, y - zs + t * 0.3, t * 0.8, IC.y0, 0.3); }
+    if (on) { T.glow(x, y - zs, t * 1.35, IC.y0, 0.34); T.glow(x, y - zs + t * 0.3, t * 0.8, IC.y0, 0.3); }
     // the foot: a mossy stone, and three roots gripping it
     isoLathe(T, x, y, 0, Math.round(t * 0.14), z => t * (0.36 - z / t * 0.7), [IC.s0, IC.s1, IC.s2, IC.s3, IC.s4]);
     decoMoss(T, x - t * 0.18, y - t * 0.14, t * 0.14);
@@ -1254,8 +1215,7 @@ const ISO_ART = {
   spring(t, T, ax, ay, o) {
     // a little moon pond: a ring of rounded stones, water dark in the deep middle and light at the shallow rim,
     // lily pads with a pink flower, reeds at the back and the moon shining on the water
-    // (o.flat: how flat the pond lies, seen from the front of the room instead of from the corner)
-    const cx = ax, cy = ay + t / 2, rx = t * 0.78, fl = o.flat || 0.5, ry = rx * fl, f = o.frame || 0;
+    const cx = ax, cy = ay + t / 2, rx = t * 0.78, fl = 0.5, ry = rx * fl, f = o.frame || 0;
     const stones = Math.max(9, Math.round(rx / 1.6));
     for (let k = 0; k < stones; k++) {
       const an = k / stones * TAU, sx = cx + Math.cos(an) * (rx - 0.5), sy = cy + Math.sin(an) * (ry - 0.25), r = Math.max(1.6, rx * 0.13) + pxHash(k, 9) * Math.max(1, rx * 0.06);
@@ -2701,11 +2661,10 @@ function bedCrystal(T, x, y, h, w, lean = 0, ramp = [IC.white, IC.l0, IC.l1, IC.
  * "post") is drawn again over whoever sleeps in it, so they lie down in the hollow instead of on top of it.
  * look: R (outer radius), H (rim height), F (how high the soft bottom is), Ri/Rf (the hollow at the rim and at the bottom,
  * as parts of R), shell(x, y, lit), rim(d, x, y), wall(s, f, x, y) (s: down the wall, f: across a crystal or a strand),
- * floor(x, y, lit, edge), blanket (a ramp), and back/front extras; q, how tall its rings stand for how wide they are
- * (a half on the isometric floor, flatter seen straight on from a little above).
+ * floor(x, y, lit, edge), blanket (a ramp), and back/front extras; q, how tall its rings stand for how wide they are.
  */
 function bedBowl(T, t, ax, ay, o, look) {
-  const lipOnly = o.part === "post", cx = ax, cy = ay + t, { R, H, F } = look, Ri = R * look.Ri, Rf = R * look.Rf, q = look.q ?? 0.5;
+  const lipOnly = o.part === "post", cx = ax, cy = ay + t, { R, H, F } = look, Ri = R * look.Ri, Rf = R * look.Rf, q = look.q;
   const ell = (x, y, z, r) => Math.hypot((x + 0.5 - cx) / r, (y + 0.5 - cy + z) / (r * q));
   const shellR = z => R * (0.68 + 0.32 * Math.sin(z / H * Math.PI / 2));
   // the shell: rings stacked up to the rim, rounded under like a bowl, lit from the left and catching more light higher up
@@ -2780,7 +2739,7 @@ const BED_ART = {
     // the geode cradle: half a geode lying open side up, its knobbly crust outside, rings of agate round the cut rim,
     // amethyst points lining the hollow; a bed of moss at its bottom, a fleece pillow and a teal felt blanket from the
     // keepers, spilling over the front; a few crystals standing up from the back of the rim, glowing softly
-    const R = t * 1.6, H = Math.round(t * 0.58), F = Math.round(t * 0.28), q = o.q ?? 0.5;
+    const R = t * 1.6, H = Math.round(t * 0.58), F = Math.round(t * 0.28), q = 0.5;
     bedBowl(T, t, ax, ay, o, {
       R, H, F, q, Ri: 0.8, Rf: 0.64, blanket: BED_FELT,
       shell: (x, y, lit) => BED_CRUST[1 + bedBand(lit - 0.15 + (pxNoise(x * 0.3, y * 0.55) - 0.5) * 0.8, [0.35, -0.05, -0.45], x, y)],
@@ -2811,7 +2770,7 @@ const BED_ART = {
   basket(t, T, ax, ay, o = {}) {
     // the root nest: roots woven into a deep round nest, a braided rim, lined with fleece; moss at the bottom, a rose felt
     // blanket over the front, glowcaps growing out of the weave at the back
-    const R = t * 1.5, H = Math.round(t * 0.42), F = Math.round(t * 0.22), q = o.q ?? 0.5;
+    const R = t * 1.5, H = Math.round(t * 0.42), F = Math.round(t * 0.22), q = 0.5;
     const weave = (x, y) => (Math.floor((x + 2 * y) / 5) + Math.floor((x - 2 * y + 400) / 5)) & 1;
     bedBowl(T, t, ax, ay, o, {
       R, H, F, q, Ri: 0.78, Rf: 0.7, blanket: BED_ROSE,
@@ -2970,182 +2929,6 @@ function bedThumb(id) {
   const t = 14, c = isoArt(t * 4 + 8, Math.round(t * 4.4 + 8), T => ISO_ART.bed(t, T, t * 2 + 4, 4 + t * 2.2, { style: id }));
   return bedThumbs[id] = c.toDataURL();
 }
-// ---------- the beds seen straight on (the front view) ----------
-// Straight on and from a little above, each bed is the same piece as on the isometric floor: the same felt, fleece, moss,
-// crystal and glowcaps, cel-shaded and inked in plum, on the art grid. Its rings lie flatter (FRONT_Q) and its boxes show a
-// front face under a shallow top. Each is drawn with (cx, cy) at the middle of its footprint on the floor, t art pixels to a tile.
-const FRONT_Q = 0.34;
-const FRONT_BED_ART = {
-  nest: (t, T, cx, cy, o) => BED_ART.nest(t, T, cx, cy - t, { ...o, q: FRONT_Q }),
-  basket: (t, T, cx, cy, o) => BED_ART.basket(t, T, cx, cy - t, { ...o, q: FRONT_Q }),
-  // (the hammock is slung across the view already: straight on it hangs between its glowcaps just the same, a size down to fit the corner)
-  hammock: (t, T, cx, cy, o) => BED_ART.hammock(t * 0.84, T, cx, cy - t * 0.84 * 1.12, o),
-  canopy(t, T, cx, cy, o = {}) {
-    // a low bed of root-wood with a carved headboard, the mossy mattress, fleece pillows and a rose felt quilt, under a great
-    // glowcap growing from behind its far left corner and arching over it. Whoever sleeps there is tucked in: the quilt and
-    // the frame's front (o.part "post") go over them, and the cap ("roof") over everything
-    const base = !o.part || o.part === "base", quilt = !o.part || o.part === "post", roof = !o.part || o.part === "roof";
-    const w = t * 1.5, d = t * 0.5, hb = Math.round(t * 0.16), hm = Math.round(t * 0.12), zt = hb + hm, yB = cy - d, yF = cy + d;
-    const sx = cx - w + t * 0.18, sy = yB - 1, kx = cx + t * 0.05, ky = cy - t * 2.6, Hs = sy - ky;
-    const capDraw = () => {
-      const rx = t * 1.45, ry = t * 0.66;
-      T.disc(kx, ky + 1, rx, (x) => ((x - kx) % 3 === 0 ? BED_GLOW[3] : BED_GLOW[2]), rx * 0.24);
-      for (let y = Math.floor(ky - ry); y <= ky; y++) for (let x = Math.floor(kx - rx); x <= Math.ceil(kx + rx); x++) {
-        const dx = (x + 0.5 - kx) / rx, dy = (y + 0.5 - ky) / ry;
-        if (dx * dx + dy * dy > 1) continue;
-        T.px(x, y, Math.abs(dx) > 0.88 || y === ky ? BED_GLOW[1] : BED_GLOW[1 + bedBand(-dx * 0.6 - dy * 0.5 - 0.1, [0.4, -0.05, -0.45], x, y)]);
-      }
-      { const gx = kx - rx * 0.4, gy = ky - ry * 0.62; T.disc(gx, gy, rx * 0.2, IC.white, ry * 0.14); }
-      for (const [dx, dy] of [[-0.62, 0.3], [0.2, 0.5], [0.55, 0.22], [-0.15, 0.2]]) T.px(kx + dx * rx, ky - dy * ry, BED_GLOW[0]);
-      for (let k = 0; k < 6; k++) { const x = kx + (pxHash(k, 3) - 0.5) * rx * 1.6, y = ky + 4 + pxHash(3, k) * t * 0.9; T.px(x, y, k % 2 ? BED_GLOW[0] : BED_GLOW[1]); }
-    };
-    const hy = yB - zt, hh = t * 0.5;
-    if (base) {
-      T.glow(kx, ky + t * 0.4, t * 2.1, BED_GLOW[4], 0.3);
-      // the stem: thick at its foot, curving out over the bed, pale and glowing from inside
-      for (let k = 0; k <= Hs + 2; k++) {
-        const f = k / Hs, x = sx + (kx - sx) * f * f, sw = Math.max(2, t * (0.2 - 0.08 * f)) + (k < 3 ? 2 : 0);
-        for (let q = -sw; q <= sw; q++) T.px(x + q, sy - k, q < -sw * 0.4 ? BED_GLOW[1] : q < sw * 0.35 ? BED_GLOW[0] : BED_GLOW[2]);
-      }
-      bedPlush(T, sx, sy, t * 0.42, t * 0.18, BED_MOSS, { gloss: false });
-      // the headboard: a board of root-wood with a rounded top between two posts, a knot or two in it
-      T.grain(1, () => {
-        for (let x = Math.floor(cx - w + 2); x <= Math.ceil(cx + w - 2); x++) {
-          const f = (x + 0.5 - cx) / w, yt = hy - hh * (0.75 + 0.25 * Math.sqrt(Math.max(0, 1 - f * f)));
-          for (let y = Math.floor(yt); y <= hy; y++) T.px(x, y, y < yt + 1.5 ? BED_ROOT[0] : BED_ROOT[f < -0.2 ? 1 : f < 0.5 ? 2 : 3]);
-        }
-      });
-      for (const [kx2, ky2] of [[-0.45, 0.45], [0.3, 0.6]]) { T.px(cx + kx2 * w, hy - hh * ky2, BED_ROOT[4]); T.px(cx + kx2 * w + 1, hy - hh * ky2, BED_ROOT[3]); }
-      for (const px of [cx - w, cx + w]) for (let y = Math.round(hy - hh - 3); y <= yF; y++) for (let q = -1; q <= 1; q++) T.px(px + q, y, y < hy - hh - 1 ? BED_ROOT[0] : BED_ROOT[px < cx ? 1 + q + 1 : 2 + q + 1]);
-      // the mattress: its mossy top running back to the headboard, its front above the frame; pillows along the headboard
-      for (let y = Math.floor(yB - zt); y < yF - hb; y++) for (let x = Math.floor(cx - w + 2); x <= Math.ceil(cx + w - 2); x++) {
-        const top = y < yF - zt, f = (x + 0.5 - cx) / w;
-        T.px(x, y, BED_MOSS[top ? bedBand(0.3 - f * 0.4 - (y - yB + zt) / (2 * d) * 0.3 + (pxNoise(x * 0.4, y * 0.8) - 0.5) * 0.5, [0.4, -0.05], x, y) + 1 : f < 0.6 ? 2 : 3]);
-      }
-      for (const u of [-0.55, 0.55]) bedPlush(T, cx + u * w, hy + t * 0.04, t * 0.46, t * 0.22, BED_FLEECE, { curls: true });
-    }
-    if (quilt) {
-      // the frame's front in root-wood, the posts at its corners
-      T.grain(1, () => {
-        for (let y = yF - hb; y <= yF; y++) for (let x = Math.floor(cx - w + 2); x <= Math.ceil(cx + w - 2); x++) T.px(x, y, y === yF - hb ? BED_ROOT[1] : y >= yF - 1 ? BED_ROOT[3] : BED_ROOT[x < cx + w * 0.6 ? 2 : 3]);
-      });
-      for (const px of [cx - w, cx + w]) for (let y = Math.round(yF - zt - t * 0.14); y <= yF; y++) for (let q = -1; q <= 1; q++) T.px(px + q, y, y < yF - zt - t * 0.14 + 2 ? BED_ROOT[0] : BED_ROOT[px < cx ? 2 + q : 3 + Math.min(0, q)]);
-      // the quilt pulled up over the sleepers, turned down in fleece at the top: rose felt quilted in plump squares, each
-      // lit from the top left like a little cushion, stitched between; over the front edge it hangs in a stitched hem
-      const yq = Math.round(yB - zt + d * 0.9), yE = yF - zt, cw = Math.max(6, Math.round(t * 0.42)), ch = Math.max(4, Math.round((yE - yq - 4) / 2));
-      for (let x = Math.floor(cx - w + 2); x <= Math.ceil(cx + w - 2); x++) {
-        const f = (x + 0.5 - cx) / w, hem = yF - Math.round(hb * 0.45) + (Math.abs(f) > 0.93 ? -1 : 0) + ((x >> 2) & 1);
-        for (let y = yq - ((x >> 3) & 1 ? 1 : 0); y <= hem; y++) {
-          const e = y - yq;
-          let col;
-          if (e < 3) col = e < 1 ? BED_FLEECE[0] : e < 2 ? BED_FLEECE[1] : BED_FLEECE[2];
-          else if (y >= hem - 1) col = y === hem ? BED_ROSE[4] : (x % 3 === 0 ? BED_FLEECE[0] : BED_ROSE[3]);
-          else if (y >= yE) col = BED_ROSE[2 + bedBand(-f * 0.6 + Math.sin((x + 0.5 - cx) / cw * Math.PI) * 0.3 - 0.05, [0.0], x, y)];
-          else {
-            // which square, and where in it (the stitching runs between them)
-            const sy = (e - 3) / ch, sx = (x - Math.floor(cx - w + 2)) / cw + (Math.floor(sy) & 1) * 0.5, u = sx - Math.floor(sx), v = sy - Math.floor(sy);
-            if (u < 1 / cw || v < 1 / ch) col = BED_ROSE[2];
-            else col = BED_ROSE[1 + bedBand(0.3 - (u - 0.5) * 0.7 - (v - 0.5) * 0.9 - f * 0.35 - Math.floor(sy) * 0.15, [0.55, -0.25], x, y)];
-          }
-          T.px(x, y, col);
-        }
-      }
-    }
-    if (roof) capDraw();
-  },
-  gazebo(t, T, cx, cy, o = {}) {
-    // a wooden deck, four posts of root-wood, a peaked roof thatched with moss, crystal lights round its front eave and
-    // plush cushions of felt and fleece inside. The front posts (o.part "post") and the roof ("roof") go over whoever is in it
-    const base = !o.part || o.part === "base", front = !o.part || o.part === "post", roof = !o.part || o.part === "roof";
-    const A = t * 1.55, D = t * 0.56, dh = Math.max(3, Math.round(t * 0.2)), ph = Math.round(t * 2.75), pa = A * 0.86, pd = D * 0.78;
-    const yB = cy - D, yF = cy + D;
-    const post = (px, py, h) => { for (let k = 0; k < h; k++) { T.px(px - 2, py - k, BED_ROOT[0]); T.px(px - 1, py - k, BED_ROOT[1]); T.px(px, py - k, BED_ROOT[1]); T.px(px + 1, py - k, BED_ROOT[2]); T.px(px + 2, py - k, BED_ROOT[3]); } };
-    const pyB = Math.round(cy - pd - dh), pyF = Math.round(cy + pd - dh);
-    if (base) {
-      // the deck: boards running across its top, lit at the front edge, its front face in shade
-      T.grain(1, () => {
-        for (let y = Math.round(yB - dh); y <= yF; y++) for (let x = Math.floor(cx - A); x <= Math.ceil(cx + A); x++) {
-          const onTop = y < yF - dh, f = (x + 0.5 - cx) / A;
-          T.px(x, y, onTop ? (y === Math.round(yF - dh) - 1 ? IC.w0 : (y - Math.round(yB - dh)) % 4 === 3 ? IC.w2 : IC.w1) : y >= yF - 1 ? IC.w3 : f < 0.55 ? IC.w2 : IC.w3);
-        }
-      });
-      post(Math.round(cx - pa), pyB, ph); post(Math.round(cx + pa), pyB, ph);
-      // cushions heaped along the back, a small one at the front
-      for (const [dx, dy, r, ramp] of [[0, -0.75, 0.5, BED_ROSE], [-0.62, -0.5, 0.42, BED_FELT], [0.62, -0.5, 0.42, BED_MOSS], [-0.25, -0.15, 0.32, BED_FLEECE], [0.45, 0.1, 0.28, BED_ROSE]])
-        bedPlush(T, cx + dx * A, cy + dy * D - dh - t * 0.12, t * r, t * r * 0.66, ramp, { curls: ramp === BED_FLEECE });
-    }
-    if (front) { post(Math.round(cx - pa), pyF, ph); post(Math.round(cx + pa), pyF, ph); }
-    if (!roof) return;
-    // the roof: a peak over the middle, its eaves out past the posts; the front slope faces you, the sides show as slivers
-    const ex = A * 1.08, eF = pyF - ph + 1, eB = pyB - ph + 1, apex = [cx, (eF + eB) / 2 - t * 0.95];
-    const mid = (p, q, u) => [p[0] + (q[0] - p[0]) * u, p[1] + (q[1] - p[1]) * u];
-    // (moss laid in overlapping rows like thatch: each row lit along its top, its lower edge in lumpy tufts over the next)
-    const rh = Math.max(4, Math.round(t * 0.2)), y0 = Math.round(apex[1]);
-    const thatch = lit => (xx, yy) => {
-      const lump = Math.round(pxHash(Math.floor(xx / 3), Math.floor((yy - y0) / rh)) * 2), v = ((yy - y0 + lump) % rh) / rh;
-      return BED_MOSS[Math.min(3, bedBand(lit + 0.3 - v * 0.75 + (pxNoise(xx * 0.3, yy * 0.5) - 0.5) * 0.3, [0.35, -0.1, -0.5], xx, yy))];
-    };
-    const L0 = [cx - ex, eB], L1 = [cx - ex, eF + 1], R0 = [cx + ex, eB], R1 = [cx + ex, eF + 1];
-    T.poly([L0, L1, apex], thatch(0.55)); T.poly([R0, R1, apex], thatch(-0.45));
-    T.poly([L1, R1, apex], thatch(0.12));
-    T.line(...apex, ...L1, BED_MOSS[0]);
-    T.line(L1[0], L1[1], R1[0], R1[1], BED_MOSS[1]); T.line(L1[0], L1[1] + 1, R1[0], R1[1] + 1, BED_ROOT[2]);
-    // crystal lights hanging in little loops under the front eave, glowing
-    for (let k = 1; k < 11; k++) { const [lx, ly] = mid(L1, R1, k / 11), sag = 2 + Math.round(Math.sin((k % 3) / 3 * Math.PI) * 2), [c0, c1] = k % 3 ? [BED_GLOW[1], BED_GLOW[2]] : [IC.l0, IC.l2]; T.px(lx, ly + sag, c0); T.px(lx + 1, ly + sag, c1); T.px(lx, ly + sag + 1, c1); T.glow(lx, ly + sag, 3, c1, 0.35); }
-    bedCrystal(T, apex[0], apex[1] + 1, Math.max(5, t * 0.4), Math.max(1.5, t * 0.09));
-  },
-};
-/**
- * Each bed straight on: where its sleepers lie by how many, [across, forward] from its middle in tiles (as many as its soft
- * top holds), how high each lies there (top, by how far across; below zero, down in a bowl behind its front), how far it
- * reaches either side, and the layers drawn again over them when they aren't the isometric ones (BED_LAYERS).
- */
-const FRONT_BED = {
-  nest: { slots: [[[0, 0]], [[-0.62, 0], [0.62, 0.04]], [[-1.0, -0.04], [0, 0.08], [1.0, 0]]], top: () => -0.3, reach: 1.75 },
-  basket: { slots: [[[0, 0]], [[-0.6, 0], [0.6, 0.04]], [[-0.95, -0.04], [0, 0.08], [0.95, 0]]], top: () => -0.24, reach: 1.65 },
-  // (tucked in under the quilt, which is drawn again over them)
-  canopy: { slots: [[[0, -0.1]], [[-0.62, -0.12], [0.62, -0.08]], [[-0.95, -0.14], [0, -0.06], [0.95, -0.12]]], top: () => 0.12, reach: 1.6, layers: ["post", "roof"] },
-  gazebo: { slots: [[[0, 0.12]], [[-0.6, 0.1], [0.6, 0.14]]], top: () => 0.2, reach: 1.75 },
-  // (in the sling: lowest in the middle, a little higher toward each end)
-  hammock: { slots: [[[0, 0]], [[-0.55, 0], [0.55, 0.04]], [[-0.85, -0.03], [0, 0.06], [0.85, 0]]], reach: 2.05,
-    top: a => { const T = 0.84 * 1.12, S = clamp(0.5 + a / (2 * 1.24 * T), 0, 1); return T * (1.02 - 0.55 * Math.sin(Math.PI * S)) - 0.1; } },
-};
-const FRONT_BED_BACK = 0.3, FRONT_BED_FRONT = 0.25; // where its layers sort, in tiles behind and in front of its middle: just round its sleepers
-/** How big the bed is drawn straight on: art pixels to a tile, by its depth in the room (about as big beside a glowling as on the isometric floor). */
-const frontBedT = () => Math.max(8, Math.round(N.base * depthK(N.bedY) * 0.72 / PX));
-/** Where the bed stands straight on (the middle of its footprint): at its spot in the corner, moved in as far as it takes to stay on the floor. */
-function frontBedAt() {
-  const u = frontBedT() * PX, F = FRONT_BED[bedStyle()] || FRONT_BED.nest, y = Math.min(N.bedY, N.y1 - 0.42 * u), e = floorHalf(y) - N.base * 0.08 - F.reach * u;
-  return [Math.round(clamp(N.bedX, N.cx - e, N.cx + e)), Math.round(y)];
-}
-/** One layer of the bed straight on, baked: the whole bed ("base"), or what goes over whoever sleeps in it ("post", "roof"). */
-function frontBedPiece(style, part) {
-  const t = frontBedT(), [bx, by] = frontBedAt(), w = Math.ceil(t * 5.4) + 12, h = Math.ceil(t * 6.2) + 12, ax = Math.round(w / 2), ay = Math.round(t * 5.2) + 6;
-  return cachedSprite(roomSprites, "bed" + part, `${style}|${t}|${bx}|${by}|${PX}`,
-    () => ({ c: isoArt(w, h, T => FRONT_BED_ART[style](t, T, ax, ay, { part, style })), x: Math.round(bx / PX - ax) * PX, y: Math.round(by / PX - ay) * PX }));
-}
-/** The bed's layers for the front view's back-to-front order: the bed itself just behind its sleepers, its front and roof just in front of them. */
-function frontBedItems() {
-  const style = FRONT_BED_ART[bedStyle()] ? bedStyle() : "nest", u = frontBedT() * PX, by = frontBedAt()[1];
-  return [{ y: by - FRONT_BED_BACK * u, draw: () => drawBaked(frontBedPiece(style, "base")) },
-    ...(FRONT_BED[style].layers || BED_LAYERS[style] || []).map((part, k) => ({ y: by + FRONT_BED_FRONT * u + k * 0.01, draw: () => drawBaked(frontBedPiece(style, part)) }))];
-}
-/** Straight on, walkers keep off the whole bed where it really stands (it's wider than the cushion its spot was made for). */
-function frontBedObstacle(obst) {
-  const o = obst.find(o => o.id === "bed");
-  if (!o) return obst;
-  const F = FRONT_BED[bedStyle()] || FRONT_BED.nest, u = frontBedT() * PX, [x, y] = frontBedAt();
-  Object.assign(o, { x, y, rx: F.reach * u * 0.9, ry: Math.max(o.ry, 0.4 * u) });
-  return obst;
-}
-/** Straight on: is this sleeper lying in the bed (at its own place there, not curled up on the floor beside it)? */
-function frontInBed(a) {
-  if (a.state !== "sleep" && a.state !== "toBed") return false;
-  const at = bedPlaces(), s = at.get(a.id);
-  return !!s && !!at.up && at.up.has(a.id) && Math.hypot(a.x - s[0], a.y - s[1]) < N.base * 0.3;
-}
-/** How high a sleeper lies in the bed straight on (the sling holds them up off the floor, the canopy's mattress a little). */
-const frontBedTop = a => bedPlaces().up?.get(a.id) || 0;
 /** The baked picture of one placed piece, in CSS pixels ready for drawBaked. */
 function isoPiece(p, extra = {}, ahead = false) {
   const tw = N.isoW / ISO_G / PX, pad = Math.ceil(tw * 1.2) + 3, base = pieceDims(p.id, false);
@@ -3385,8 +3168,6 @@ function bakePlace(kind, part) {
   if (added) { save.rooms.push({ kind, on: [], theme: ROOM_KINDS.find(k => k.id === kind).theme }); i = save.rooms.length - 1; }
   try {
     asIfIn(i, () => {
-      // (the same view and pixel grid as when you get there, or there's nothing to gain)
-      if ((roomView() === "iso") !== !!N.iso || !N.iso) return;
       if (part === "room") {
         bgFor("nest");
         const key = roomKey();
@@ -3474,7 +3255,7 @@ function drawCloudShadow() {
   ctx.fillStyle = "rgba(5,0,20,.16)"; ctx.beginPath(); ctx.ellipse(c.x, c.y, r * 1.2, r * 0.6, 0, 0, TAU); ctx.fill();
 }
 function cloudAt(x, y) {
-  if (!N.iso || !hasDecor("cushion")) return false;
+  if (!hasDecor("cushion")) return false;
   const c = cloudSpot(), f = cloudSprite();
   return spriteHit(f.c, Math.round(c.x / PX - f.w / 2) * PX, Math.round(c.bodyY / PX - f.h / 2) * PX, x, y, 5);
 }
@@ -3501,7 +3282,7 @@ function startWeather() {
   else for (let k = 0; k < 5; k++) sfx.tone(t + k * 0.55 + rand(0, 0.2), pick(NOTES) * 2, 0.015, 1.2, "sine", null, true);
 }
 const WEATHER_MS = 2800;
-const weatherOn = () => N.iso && hasDecor("cushion") && game.time < weather.until + 600;
+const weatherOn = () => hasDecor("cushion") && game.time < weather.until + 600;
 /** Off to a spot under the cloud, hurrying. */
 function playInWeather(a) {
   // (except one with the habit: it runs off to the far side of the room, away from the cloud)
@@ -3512,7 +3293,7 @@ function playInWeather(a) {
   a.state = "walk"; a.goal = a.friend = null; a.rain = true;
 }
 function updateWeather(dt) {
-  const on = N.iso && hasDecor("cushion"), c = on && cloudSpot(), tile = N.isoW / ISO_G, snow = weather.kind === "snow";
+  const on = hasDecor("cushion"), c = on && cloudSpot(), tile = N.isoW / ISO_G, snow = weather.kind === "snow";
   if (on && game.time < weather.until) {
     // a light shower that swells and fades away: fewer drops at the start and the end
     const k = clamp((game.time - weather.t0) / WEATHER_MS, 0, 1);
@@ -3564,7 +3345,7 @@ function drawWeatherAir() {
 
 /** Is this floor point on the (isometric) bed? and how high its soft top is. */
 function isoOnBed(x, y) {
-  const p = N.iso && isoLayout().placed.bed;
+  const p = isoLayout().placed.bed;
   if (!p) return false;
   const [u, v] = isoFrom(x, y), U = u * ISO_G, V = v * ISO_G;
   // (the hammock is only its sling, straight across the middle: walking under it at either side stays on the floor)
@@ -3576,7 +3357,7 @@ const BED_TOP = { gazebo: 0.14, nest: 0.28, basket: 0.24, hammock: 0.47, canopy:
 const isoBedTop = () => N.isoW / ISO_G * (BED_TOP[bedStyle()] ?? 0.22);
 /** The gazebo's four posts, as floor points in tiles: nobody walks through them. */
 function gazeboPosts() {
-  const p = N.iso && bedStyle() === "gazebo" && isoLayout().placed.bed;
+  const p = bedStyle() === "gazebo" && isoLayout().placed.bed;
   if (!p) return [];
   const cu = p.i + p.fw / 2, cv = p.j + p.fd / 2;
   return [[-1, -1], [1, -1], [-1, 1], [1, 1]].map(([su, sv]) => [cu + su * GAZEBO_A, cv + sv * GAZEBO_A]);
@@ -3606,24 +3387,12 @@ let bedPlacesCache = null;
  */
 function bedPlaces(r = save.room) {
   const sleepers = sleepOrder(save.creatures.filter(c => c.sleeping && !c.out && roomOf(c) === r).map(c => c.id).sort((p, q) => p - q));
-  const p = N.iso && isoLayout().placed.bed, style = bedStyle();
-  const key = [r, style, sleepers.join(","), p ? isoLayout().key : "front", N.isoW, N.base, N.bedX, N.bedY, PX].join("|");
+  const p = isoLayout().placed.bed, style = bedStyle();
+  const key = [r, style, sleepers.join(","), p ? isoLayout().key : "", N.isoW, N.base, N.bedX, N.bedY, PX].join("|");
   if (bedPlacesCache && bedPlacesCache.key === key) return bedPlacesCache.at;
   const at = new Map();
-  if (!p) {
-    // seen straight on: side by side in the bed as many as it holds (see FRONT_BED), each at its height there (at.up),
-    // and the rest curled up on the floor beside it, toward the middle of the room (in front of its layers: nothing of it hides them)
-    const F = FRONT_BED[style] || FRONT_BED.nest, u = frontBedT() * PX, size = N.base * depth(N.bedY), [bx, by] = frontBedAt();
-    const slots = F.slots[Math.min(sleepers.length, F.slots.length) - 1] || [];
-    at.up = new Map();
-    sleepers.forEach((id, k) => {
-      if (k < slots.length) { const [a, b] = slots[k]; at.set(id, [bx + a * u, by + b * u]); at.up.set(id, F.top(a) * u); return; }
-      const j = k - slots.length;
-      at.set(id, [bx - F.reach * u - size * (0.42 + j * 0.8), by + FRONT_BED_FRONT * u + 2 + (j % 2) * size * 0.12]);
-    });
-    bedPlacesCache = { key, at };
-    return at;
-  }
+  // (no bed out: nobody has a place on it, see bedSpot)
+  if (!p) { bedPlacesCache = { key, at }; return at; }
   const G = ISO_G, cu = p.i + p.fw / 2, cv = p.j + p.fd / 2, size = N.base * depth(0), top = isoBedTop();
   const mB = bedMargin() * G, mF = isoMargin(0.42) * G, posts = gazeboPosts();
   // on the floor nobody lies over another's face: a little apart from each other, well clear of the faces on the bed
@@ -4042,7 +3811,7 @@ const MOSS_GARDEN = { bedL: [0.32, 0.62], bedR: [0.06, 0.3], basin: 0.17, light:
 const CAP_BLUE = ["#13304e", "#1d5276", "#3383a8", "#69b7d6", "#b8e6f5", "#f0fbff"], CAP_PINK = ["#3a1530", "#8f3460", "#c25586", "#e88bb1", "#ffd8e6", "#fff4f8"];
 const CAVE_FLOWERS = ["#f4f0ff", "#c9a8ff", "#fff0b5", "#ffb8d8", "#9fe4f4"];
 /** Is this the moss garden, seen from the corner? (its light and its fireflies go over everything in it) */
-const mossGardenHere = () => N.iso && game.scene === "nest" && save.rooms[save.room]?.kind === "garden";
+const mossGardenHere = () => game.scene === "nest" && save.rooms[save.room]?.kind === "garden";
 /** The crack in the vault the light comes down through, in art pixels: just left of the back corner, where the rock's ragged top is
  *  (the same top paintRoomIso gives a cave's walls), and the seed of the cave it's in. */
 function mossCrack(seed) {
@@ -4611,7 +4380,6 @@ function paintRoomIso(id) {
   g.putImageData(img, 0, 0);
   return c;
 }
-let decorK = 1;
 
 /** The isometric room's furniture, back to front: the pixel pieces on the floor, then the swing and the lights on the walls. */
 function drawRoomIso() {
@@ -4648,7 +4416,7 @@ function drawRoomIso() {
     items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); if (PROP_CUES[p.id]) propCue(p.id, f, bob); } });
   }
   if (hasDecor("shelf")) items.push({ y: -2, draw: drawShelfIso });
-  if (hasDecor("lights")) items.push({ y: -1, draw: () => DRAW_DECOR.lights() });
+  if (hasDecor("lights")) items.push({ y: -1, draw: lightsIso });
   if (weather.drops.length) items.push({ y: 1e6, top: true, draw: drawWeatherAir });
   if (hasDecor("cushion")) items.push({ y: 1e6, top: true, id: "cushion", draw: drawCloud });
   if (mossGardenHere()) items.push({ y: 1e6, top: true, draw: drawMossLight });
@@ -4657,405 +4425,6 @@ function drawRoomIso() {
 
 /** What sort of place each backdrop is: a hollow in the cave wall, an abbey hall, or a clearing under the sky. */
 const ROOM_KIND = { smithy: "timber", amethyst: "cave", celestite: "cave", malachite: "cave", labradorite: "cave", frost: "cave", abbey: "hall", churchyard: "ruin", glowcap: "wood", summit: "yard" };
-
-/** The room seen straight on, in art pixels, for one backdrop: the same materials as the isometric room (roomMaterials), laid
- *  on a back wall that faces you, two side walls running toward you and a floor that widens toward you, lit by the window in
- *  the back wall and from the top left. Caves are faceted rock with a rough opening and crystals in the corners; the abbey
- *  dressed stone with a Gothic window, lanterns and the moonlight it lets in laid across the flagstones; the timber hall an oak
- *  frame with daub over boards and a leaded window; the ruins broken walls in moss with an empty arch; outdoors grass inside a
- *  wattle fence or a dry-stone wall. */
-function paintRoom(id) {
-  const w = Math.ceil(W / PX), h = Math.ceil(H / PX), c = document.createElement("canvas"); c.width = w; c.height = h;
-  const g = c.getContext("2d"), img = g.createImageData(w, h), d = img.data;
-  const q = v => v / PX, cx = q(N.cx), back = Math.round(q(N.back)), front = Math.round(q(N.front)), hb = q(N.hb), hf = q(N.hf), top = Math.round(q(N.wallTop));
-  const wallH = back - top, S = Math.max(0.55, hb / 165);
-  // the materials are cut for a wall 1.2 back-halves long: five timber bays across the back wall, planks and stones the size
-  // they are in the isometric room
-  const MW = hb * 1.2;
-  const { kind, night, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, wallC, wood, garden, mossC, dirt, ashlarPx, rockPx, timberPx, floorPx } = roomMaterials(id, MW, wallH, S);
-  const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (!col || x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
-  const get = (x, y) => { const i = (y * w + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
-  const has = (x, y) => x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0;
-  const ink = pxHex("#0b0614"), bay = (y, x) => PX_BAYER[(y & 3) * 4 + (x & 3)];
-  // depth: t runs from the back (0) to the front (1); things there are s times as big as at the back wall
-  const tAt = y => clamp((y - back) / (front - back), 0, 1), sAt = t => lerp(1, hf / hb, t), half = y => lerp(hb, hf, tAt(y));
-  // how far back a floor row is, in art pixels as the back wall measures them (the floor is seen foreshortened, nearer rows larger)
-  const F = 0.6, depthAt = y => (y - back) / F / ((1 + sAt(tAt(y))) / 2), depth = depthAt(front);
-  const winX = cx, winZ = back - q(N.win.y), winR = q(N.win.r);
-
-  // ---- the walls: al runs along a wall, z up it from the floor, zt is how high the wall stands there; sl as in the isometric
-  //      room (+1 where a larger al is further left on screen), so blocks keep their lit edge to the top left
-  const plH = Math.round(13 * S);
-  const wallPx = (al, z, sl, x, y, zt) => {
-    let val, ramp = wallC;
-    if (kind === "cave") val = rockPx(al, z, sl, x, y) - 0.3 * Math.max(0, 1 - z / (6 * S));
-    else if (kind === "timber") { const m = timberPx(al, z, sl, x, y); ramp = m.ramp; val = m.v; }
-    else if (kind === "ruin") {
-      // old blocks with moss on whatever still stands on top, ivy trailing down, moss creeping up from the floor
-      const ivy = pxNoise(x * 0.35 + seed, 2) > 0.62 && zt - z < wallH * 0.55 * pxNoise(x * 0.2, seed + 1);
-      if (zt - z < 2.5 || ivy) return { col: moss[ivy ? (pxHash(x, y) > 0.5 ? 1 : 0) : 2] };
-      if (z < 5 * S && pxHash(x, y) > 0.55) return { col: moss[pxHash(x + 1, y) > 0.5 ? 1 : 0] };
-      val = ashlarPx(al, z, sl, x, y, sl > 0 ? 0.52 : 0.32);
-    } else {
-      // the abbey: a plinth of big blocks with a lit ledge along its top, then dressed courses, damp streaks low down
-      if (z < plH) val = z >= plH - 2 ? 0.86 - (plH - 1 - z) * 0.12 : ashlarPx(al * 0.6, z + 400, sl, x, y, sl > 0 ? 0.46 : 0.3) - 0.06;
-      else {
-        val = ashlarPx(al, z, sl, x, y, sl > 0 ? 0.58 : 0.38) - 0.14 * (z / wallH);
-        if (pxNoise(al * 0.11 + sl * 5 + seed, 1.3) > 0.66 && z < wallH * (0.2 + 0.3 * pxNoise(al * 0.08, 4))) val -= 0.1;
-        if (z < plH + 3) val -= 0.12 * (plH + 3 - z) / 3;
-      }
-    }
-    if (zt - z < 2) { val = sl > 0 ? 0.8 : 0.6; if (kind === "timber") ramp = oak; }   // the lit top of the wall
-    return { ramp, val };
-  };
-  // how high the back wall stands across (du from -1 at the left corner to 1 at the right): a cave's rock bulges up in the
-  // middle and juts along its top; the ruins are broken off in steps toward the ends
-  const ruinStep = (k, sd) => Math.floor(pxNoise(k * 7 + seed, sd) * 4) / 4;
-  const backTop = (du, x) => kind === "cave" ? wallH * (0.94 + 0.08 * (1 - du * du)) + 0.06 * wallH * (pxNoise(x * 0.05, seed) - 0.5) + 4 * pxNoise(x * 0.3, seed + 4) - 2
-    : kind === "ruin" ? wallH * clamp(1 - 0.3 * clamp((Math.abs(du) - 0.5) / 0.5, 0, 1) - 0.12 * ruinStep(du, 3) * (Math.abs(du) > 0.3 ? 1 : 0), 0.4, 1) : wallH;
-  const sideTop = (t, x) => kind === "cave" ? wallH * (0.92 - 0.1 * t) + 0.05 * wallH * (pxNoise(x * 0.07, seed + 2) - 0.5) + 3 * pxNoise(x * 0.4, seed) - 1
-    : kind === "ruin" ? wallH * clamp(0.66 - 0.32 * t - 0.2 * ruinStep(t * 3, 5), 0.18, 1) : wallH;
-  const tone = (ramp, v, x, y) => isoTone(ramp, v, x, y);
-
-  // ---- the floor: X across it from the left wall and Z back to front, both in back-wall pixels, so stones and boards keep their
-  //      size; light pools under the window and it's dark where the floor meets a wall, deepest in the back corners
-  const floorUV = (x, y) => { const hw = half(y), X = (x - cx + hw) / hw * hb, Z = depthAt(y); return [X, Z]; };
-  const lightAt = (X, Z) => Math.exp(-(((X - hb) / (hb * 0.62)) ** 2) - (((Z / depth) - 0.36) / 0.55) ** 2);
-  const aoAt = (X, Z) => indoor ? Math.min(1, Math.exp(-Z / (4 * S)) + Math.exp(-X / (4 * S)) + Math.exp(-(2 * hb - X) / (4 * S)) + 0.6 * Math.exp(-(Z + Math.min(X, 2 * hb - X)) / (10 * S))) : 0;
-  for (let y = back; y <= front; y++) {
-    const hw = half(y);
-    for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
-      const [X, Z] = floorUV(x + 0.5, y);
-      if (X < 0 || X > 2 * hb) continue;
-      const lk = lightAt(X, Z), ao = aoAt(X, Z);
-      // the boards run toward you; flagstones lie in courses across the room; outdoors the ground is a clearing
-      let col;
-      if (kind === "timber") col = floorPx(X / MW, Z / MW, x, y, ao, lk);
-      else if (indoor) col = floorPx(Z / MW, X / MW, x, y, ao, lk);
-      else {
-        col = floorPx(0.98 * X / (2 * hb), 0.98 * Z / depth, x, y, 0, lk);
-        if (y >= front - 1 || Math.abs(x - cx) > hw - 1.5) col = ground[Math.min(ground.length - 1, 3)];   // a lit rim at the edges
-      }
-      put(x, y, col);
-    }
-  }
-  if (!indoor) {
-    // blades of grass in tufts and a few small flowers, as outdoors in the isometric room
-    for (let y = back + 2; y <= front - 2; y++) {
-      const hw = half(y);
-      for (let x = Math.floor(cx - hw + 2); x <= Math.ceil(cx + hw - 2); x++) {
-        const lush = pxFbm(x * 0.05 + seed, y * 0.1), hsh = pxHash(x * 7 + seed, y * 3);
-        if (hsh > 0.06 + 0.12 * lush) continue;
-        const [X, Z] = floorUV(x, y), lk = lightAt(X, Z), tall = Math.round((2 + pxHash(x, y + 1) * 2 + lush * 1.5) * sAt(tAt(y))), lean = pxHash(y, x) > 0.5 ? 1 : -1;
-        for (let k = 0; k < tall; k++) {
-          const col = k === tall - 1 ? ground[Math.min(ground.length - 1, lk > 0.45 ? 4 : 3)] : k === 0 ? ground[1] : ground[Math.min(ground.length - 1, 2 + (lk > 0.6 ? 1 : 0))];
-          put(x + (k === tall - 1 && tall > 2 ? lean : 0), y - k, col);
-        }
-        if (pxHash(x + 3, y) > 0.92) { put(x - 1, y - 1, ground[2]); put(x + 1, y - 1, ground[3]); }
-      }
-    }
-    for (let k = 0; k < 40; k++) {
-      const fy = Math.round(lerp(back + 4, front - 3, pxHash(seed + 2, k))), hw = half(fy) - 4, fx = Math.round(cx + (pxHash(k, seed + 1) * 2 - 1) * hw);
-      const col = pxHex(["#fff0b5", "#ffc4da", "#d2bfff", "#ffffff"][k % 4]);
-      put(fx, fy - 2, col); put(fx - 1, fy - 1, col); put(fx + 1, fy - 1, col); put(fx, fy - 1, pxHex("#eec26a")); put(fx, fy, ground[1]);
-    }
-  } else {
-    // the slab the room stands on: its front face under the floor's front edge, lit along the top, ink at the bottom
-    const slab = Math.max(4, Math.round(hb / 22));
-    for (let k = 0; k < slab; k++) for (let x = Math.floor(cx - hf); x <= Math.ceil(cx + hf); x++) {
-      const y = front + 1 + k, al = x - (cx - hf);
-      let v;
-      if (kind === "cave") v = rockPx(al, slab - k + 400, 1, x, y) - 0.16;
-      else {
-        const rh = Math.max(3, Math.round(slab / 2)), row = Math.floor(k / rh), L = Math.round(12 * S), a = al + row * L * 0.5, fa = a % L;
-        v = k % rh === 0 || fa < 1 ? 0.08 : 0.42 + 0.15 * (pxHash(Math.floor(a / L), row) - 0.5) + (fa > L - 2 ? -0.08 : fa < 2 ? 0.08 : 0);
-      }
-      put(x, y, k === slab - 1 ? ink : k === 0 ? tone(kind === "cave" ? wallC : wallC.length > 5 ? wallC : ruinStone, 0.72, x, y) : tone(kind === "timber" ? ruinStone : wallC, v, x, y));
-    }
-  }
-
-  if (indoor) {
-    // the side walls: each column is one depth t along the wall; the wall rises from the floor's edge there, as tall as the back
-    // wall but nearer, so larger. The left one catches the light, the right one is in shade; their open ends face you
-    const along = (hf - hb) * 1.8;
-    for (let x = Math.floor(cx - hf); x <= Math.ceil(cx + hf); x++) {
-      const dx = Math.abs(x + 0.5 - cx), side = Math.sign(x + 0.5 - cx);
-      if (dx < hb) continue;
-      const t = clamp((dx - hb) / (hf - hb), 0, 1), s = sAt(t), yF = lerp(back, front, t), zt = sideTop(t, x), sl = side < 0 ? 1 : -1, al = t * along;
-      for (let y = Math.floor(yF - zt * s); y <= yF; y++) {
-        const z = (yF - y) / s;
-        if (z < 0) continue;
-        const m = wallPx(al, z, sl, x, y, zt);
-        if (m.col) { put(x, y, m.col); continue; }
-        let v = m.val;
-        if (al < 8 * S) v -= 0.12 * (1 - al / (8 * S));   // the corner's own shadow
-        if (Math.abs(Math.abs(x - cx) - hf) < 1) v = zt - z < 2 ? 0.5 : 0.1;   // the open end
-        put(x, y, tone(m.ramp, v, x, y));
-      }
-    }
-    // the back wall, lit a little round the window
-    for (let x = Math.floor(cx - hb); x <= Math.ceil(cx + hb); x++) {
-      const du = (x - cx) / hb, zt = backTop(du, x), al = cx + hb - x;
-      for (let y = Math.floor(back - zt); y < back; y++) {
-        const z = back - y, m = wallPx(al, z, 1, x, y, zt);
-        if (m.col) { put(x, y, m.col); continue; }
-        let v = m.val - 0.06 + 0.12 * Math.exp(-((Math.hypot(x - winX, (z - winZ) * 0.8) / (winR * 2.2)) ** 2));
-        const dc = Math.min(x - (cx - hb), cx + hb - x);
-        if (dc < 10 * S) v -= 0.14 * (1 - dc / (10 * S));   // the corners' shadows
-        if (kind !== "cave" && dc < 1) v = 0.05;
-        put(x, y, tone(m.ramp, v, x, y));
-      }
-      // a cave's rock overhangs: stalactites drip from its ragged top
-      if (garden) {
-        // in the moss garden the roof drips moss instead: curtains of it, long where the rock hangs low, and now and then a root
-        // that found its way down through the rock, twisting, lit on its left
-        const hs = pxHash(x, seed + 5), curtain = pxNoise(x * 0.09, seed + 7);
-        if (hs > 0.42 - 0.3 * curtain) {
-          const len = Math.round((2 + 14 * curtain * curtain + 4 * pxHash(x + 3, seed)) * S) + 1;
-          for (let k = 0; k < len; k++) put(x, back - zt + 1 + k, k === len - 1 ? mossC[pxHash(x, 9) > 0.6 ? 6 : 5] : mossC[clamp(3 + 0 - (k > len * 0.6 ? 1 : 0) + (pxHash(x, k) > 0.85 ? 1 : 0), 0, 6)]);
-        } else if (hs < 0.06) {
-          const len = Math.round((10 + 16 * pxHash(x, seed + 2)) * S);
-          for (let k = 0; k < len; k++) { const rx = x + Math.round(Math.sin(k * 0.35 + x) * 1.2); put(rx, back - zt + 1 + k, dirt[k === len - 1 ? 3 : 2]); put(rx - 1, back - zt + 1 + k, dirt[k % 5 ? 4 : 3]); }
-        }
-      } else if (kind === "cave" && pxHash(x, seed + 5) > 0.82) {
-        const len = 2 + Math.round(pxHash(x + 3, seed) * 5 * S);
-        for (let k = 0; k < len; k++) put(x, back - zt + 2 + k, pxPick(wallC, 0.62 - k * 0.07, x, k));
-      }
-    }
-    const sky = (night ? night.sky : ["#0d0a2a", "#160c33", "#2d2468", "#463592"]).map(pxHex), white = pxHex("#ffffff"), moon = pxHex("#fff8d6");
-    if (kind === "hall") {
-      // the Gothic window, face on: a pointed arch cut deep and splayed, both its sides showing, a broad stone seat, lancets
-      // with trefoil heads under lozenges, and the night behind; an iron lantern on a bracket either side
-      const { rise, arch, zb, seatUp, zA, wi, wo, zs, zg, lav, vio, glassAt, skyV, isGlass } = gothicWindow(wallH, Math.max(hb * 1.45, winR * 5.6), S, seed);
-      const xc = Math.round(winX), sp = wo - wi;
-      const openF = (a, z, t) => arch(a + 0.5, z, wo - sp * t, zb + seatUp * t, zs);
-      for (let x = xc - wo - 9; x <= xc + wo + 9; x++) for (let y = back - zA - 10; y <= back - zb + 1; y++) {
-        const a = x - xc, z = back - y, ac = a + 0.5;
-        if (openF(a, z, 0)) {
-          if (openF(a, z, 1)) {
-            const gk = glassAt(a, z);
-            if (gk > 0) { put(x, y, isoTone(vio, skyV(a, z, x, y, gk), x, y)); continue; }
-            let v = 0.32;
-            if (gk === -1 && !arch(ac, z, wi - 1, zg + 1, zs)) v = 0.42;
-            else if (isGlass(a - 1, z)) v = 0.58; else if (isGlass(a, z + 1)) v = 0.55; else if (isGlass(a + 1, z)) v = 0.18; else if (isGlass(a, z - 1)) v = 0.22;
-            put(x, y, tone(wallC, v, x, y)); continue;
-          }
-          // the splay: how far in this pixel is, and which face it's on (the seat below, the near sides, the soffit up top)
-          let t = 0; while (t < 1 && openF(a, z, t + 1 / 24)) t += 1 / 24;
-          const tn = t + 1 / 24;
-          let v;
-          if (z < zb + seatUp * tn) v = 0.74 - 0.12 * t;
-          else if (z > zs && Math.abs(a) < (wo - sp * tn) * 0.5) v = 0.2 - 0.06 * t;
-          else if (a > 0) v = (z < zs ? 0.3 : 0.24) - 0.08 * t - (((z % 11) + 11) % 11 < 1 ? 0.18 : 0);
-          else v = (z < zs ? 0.62 : 0.5) - (((z % 11) + 11) % 11 < 1 ? 0.2 : 0);
-          if (t < 1 / 24) v += a > 0 ? 0.14 : 0.2;
-          if (t > 0.9 && z >= zb + seatUp) { put(x, y, tone(wallC, 0.06, x, y)); continue; }
-          const col = tone(wallC, v, x, y);
-          put(x, y, a > 0 && z >= zb + seatUp * tn ? col : mixHex(col, lav, t > 0.5 ? 0.22 : 0.1));
-          continue;
-        }
-        // round the opening: a chamfered surround of voussoirs, and a hood mould over the arch
-        if (z < zb) continue;
-        const ring = r => arch(ac, z, wo + r, zb, zs);
-        if (ring(1)) put(x, y, tone(wallC, ac < 0 || z > zs + rise(wo) * 0.6 ? 0.84 : 0.46, x, y));
-        else if (ring(4)) {
-          const jt = z < zs ? ((z - zb) % 9 === 0) : Math.abs(((Math.atan2(z - zs, Math.abs(ac) + wo) / 0.13) % 1) - 0.5) > 0.42;
-          put(x, y, tone(wallC, jt ? 0.1 : ac < 0 ? 0.62 : 0.5, x, y));
-        } else if (ring(5) && z > zs - 3) put(x, y, tone(wallC, 0.08, x, y));
-        else if (ring(7) && z > zs - 3) put(x, y, tone(wallC, ring(6) ? 0.66 : 0.86, x, y));
-      }
-      // the seat sticks out under the window: its top lit, its front in half light, a shadow on the wall beneath
-      const E = Math.max(2, Math.round(3 * S)), sh = Math.max(2, Math.round(4 * S)), y0 = back - zb;
-      for (let x = xc - wo - 4; x <= xc + wo + 4; x++) {
-        for (let e = 0; e < E; e++) put(x, y0 - e, tone(wallC, e === E - 1 ? 0.9 : 0.74, x, y0 - e));
-        for (let k = 1; k <= sh; k++) put(x, y0 + k, tone(wallC, k === sh ? 0.08 : x < xc - wo - 2 ? 0.62 : 0.48, x, y0 + k));
-        for (let k = 1; k <= 2; k++) if (y0 + sh + k < back) put(x, y0 + sh + k, tone(wallC, 0.12, x, y0 + sh + k));
-      }
-      // two iron lanterns on brackets, each with a soft lavender glow on the stone round it
-      const ironC = { k: IC.m4, m: IC.m3, h: IC.m2, W: IC.white, A: IC.l0, B: IC.l1 };
-      for (const side of [-1, 1]) {
-        const lw = LANTERN.reduce((m, r) => Math.max(m, r.length), 0), xw = side < 0 ? xc - wo - 7 - lw : xc + wo + 7, yw = back - (zs + Math.round(4 * S));
-        const lx = xw + (side < 0 ? lw - 10 : 9), gy = yw + 13, R = Math.round(13 * S);
-        for (let y = gy - R; y <= gy + R; y++) for (let x = lx - R; x <= lx + R; x++) {
-          const dd = Math.hypot(x - lx, (y - gy) * 1.15) / R + (bay(y, x) - 0.5) * 0.16;
-          if (dd >= 1 || y >= back || !has(x, y)) continue;
-          put(x, y, mixHex(get(x, y), lav, dd < 0.4 ? 0.34 : 0.17));
-        }
-        LANTERN.forEach((row, r) => [...row].forEach((ch, k) => { if (ironC[ch]) put(side < 0 ? xw + lw - 1 - k : xw + k, yw + r - 1, ironC[ch]); }));
-      }
-      // the moonlight it lets in, laid out across the flagstones toward you, each light long and pale, tracery shadows between
-      for (let y = back + 1; y <= front; y++) {
-        const hw = half(y), Z = depthAt(y), s = sAt(tAt(y)), gz = Math.round(zg + Z * 0.95 - 2);
-        if (gz > zA) break;
-        for (let x = Math.floor(cx - hw); x <= Math.ceil(cx + hw); x++) {
-          const ga = Math.round((x - xc) / s);
-          if (!isGlass(ga, gz)) continue;
-          const f = 1 - Z / (depth * 0.8), edge = !isGlass(ga + 1, gz) || !isGlass(ga - 1, gz) || !isGlass(ga, gz + 2) || !isGlass(ga, gz - 2);
-          const k = f + (bay(y, x) - 0.5) * 0.2 > 0.55 ? 0.5 : 0.34;
-          put(x, y, mixHex(get(x, y), lav, edge ? k * 0.6 : k));
-        }
-      }
-    } else if (garden) {
-      // the moss garden has no window: a shaft of light comes down from a crack in the vault, in dithered bands, and lies in
-      // a warm pool on the moss (the same light as in the isometric room, drawn into the room here)
-      const warm = pxHex("#f6e9a8"), y0 = Math.round(q(N.wallTop)), yP = Math.round(lerp(back, front, 0.32)), x0 = cx - hb * 0.12, xP = cx - hb * 0.04;
-      for (let y = Math.max(0, y0); y <= yP + hb * 0.12; y++) for (let x = Math.floor(cx - hb * 0.6); x <= cx + hb * 0.4; x++) {
-        const t = (y - y0) / (yP - y0), b = PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5;
-        let I = 0;
-        if (t <= 1) { const mid = x0 + (xP - x0) * t, half = hb * (0.05 + 0.13 * t), dx = (x - mid) / half; if (Math.abs(dx) < 1) I = (1 - dx * dx) * 0.6; }
-        const pd = Math.hypot((x - xP) / (hb * 0.26), (y - yP) / (hb * 0.07));
-        if (pd < 1) I = Math.max(I, (1 - pd) * 0.9);
-        const lv = Math.floor(I * 3.2 + b * 0.9);
-        if (lv <= 0 || x < 0 || y < 0 || x >= w || y >= h) continue;
-        const k = (y * w + x) * 4; put(x, y, mixHex([d[k], d[k + 1], d[k + 2]], warm, [0, 0.14, 0.24, 0.34][Math.min(3, lv)]));
-      }
-    } else {
-      // a cave's opening hacked through the rock (ragged, no frame, a short tunnel to the sky); the timber hall's square-headed
-      // under an oak lintel, glazed in leaded diamonds; the ruins' a broken pointed arch, empty, the night itself behind it
-      const hwW = kind === "timber" ? Math.round(hb * 0.2 - Math.max(2, Math.round(5 * S)) - 2) : Math.round(winR * (kind === "cave" ? 0.78 : 0.7));
-      const hhW = Math.round(Math.min(wallH * 0.3, hwW * (kind === "timber" ? 1.35 : 1.6))), zc = Math.round(clamp(winZ, hhW + wallH * 0.18, wallH * 0.86 - hhW));
-      // how far out a point is in a pointed opening (1 on its edge): two arcs meeting at the top, a round foot
-      const pointed = (lx, ly) => { const a = Math.abs(lx); return ly > 0 ? Math.hypot(a + 0.6, ly * 1.48) / 1.6 : Math.hypot(a, ly); };
-      // a built window's arch: straight sides up to the springing, then a pointed head
-      const archAt = (lx, ly) => { const a = Math.abs(lx); return ly < 0.3 ? a : Math.hypot(a + 0.6, (ly - 0.3) * 2.12) / 1.6; };
-      const glazed = kind === "timber", sillC = glazed ? [oak[1], oak[4]] : [wallC[1], wallC[Math.min(4, wallC.length - 1)]];
-      const mx = winX + hwW * 0.38, mz = zc + hhW * 0.42, mr = Math.max(2.5, hwW * 0.17);
-      for (let x = winX - hwW - 4; x <= winX + hwW + 4; x++) for (let y = back - zc - hhW - 6; y <= back - zc + hhW + 6; y++) {
-        const lx = (x + 0.5 - winX) / hwW, ly = (back - y - zc) / hhW;
-        let col = null;
-        if (kind === "cave") {
-          const rough = 0.14 * pxNoise(x * 0.3 + seed, y * 0.3) + 0.08 * pxNoise(x * 0.9, y * 0.9 + seed), r = pointed(lx, ly);
-          if (r > 1.08 + rough) continue;
-          if (r > 0.92 + rough) { put(x, y, wallC[lx < 0 && ly < 0.2 ? 4 : lx > 0.3 || ly > 0.5 ? 0 : 1]); continue; }
-          // the rock is thick: you look up a short tunnel to the sky, its sides lit from inside on the left
-          const ri = pointed(lx * 1.3, (ly - 0.12) * 1.3);
-          if (ri > 1 + rough * 0.6) { const k = clamp((r - 0.35) / 0.55, 0, 1); put(x, y, tone(wallC, ly < -0.3 ? 0.55 - 0.2 * k : lx < 0 ? 0.2 + 0.45 * k : 0.08 + 0.12 * k, x, y)); continue; }
-        } else {
-          // the sill: a ledge under the window, a little wider than it, its top lit, its front in shade, a shadow under it
-          if (ly < -1 && ly >= -1 - 4 / hhW && Math.abs(lx) < 1.18) { put(x, y, ly > -1 - 2 / hhW ? sillC[1] : sillC[0]); continue; }
-          if (ly < -1 - 4 / hhW && ly >= -1 - 6 / hhW && Math.abs(lx) < 1.14) { put(x, y, tone(glazed ? daub : wallC, 0.15, x, y)); continue; }
-          if (ly < -1) continue;
-          if (glazed) {
-            // the oak lintel over the opening
-            if (ly > 1 && ly <= 1 + 5 / hhW && Math.abs(lx) < 1.22) { put(x, y, oak[ly > 1 + 4 / hhW ? 5 : ly < 1 + 1.5 / hhW ? 1 : 3]); continue; }
-            if (Math.abs(lx) > 1 || ly > 1) continue;
-          } else {
-            const r = archAt(lx, ly);
-            if (r > 1.16 || ly > 1.2) continue;
-            if (r > 1) { put(x, y, tone(wallC, lx < 0 ? 0.84 : 0.3, x, y)); continue; }   // the arris round the arch
-          }
-          // the reveal: the wall's thickness, its sides and the sill's top
-          const inner = glazed ? Math.abs(lx) > 0.9 || ly < -0.9 : archAt(lx * 1.12, ly - 0.12) > 1 || ly < -0.88;
-          if (inner) col = ly < -0.85 ? (glazed ? daub[4] : wallC[3]) : glazed ? (lx > 0 ? daub[1] : daub[4]) : lx > 0 ? wallC[1] : wallC[4];
-          else if (glazed && (Math.abs(lx) > 0.8 || ly > 0.88 || ly < -0.78)) col = oak[lx > 0 ? 2 : 4];   // the frame
-          else if (glazed) {
-            // lead cames in diamonds
-            const P = 8 * S, da = x - winX, db = back - y, m1 = ((db + da * 1.4) / P % 1 + 1) % 1, m2 = ((db - da * 1.4) / P % 1 + 1) % 1;
-            if (m1 * P < 1.3 || m2 * P < 1.3) col = ruinStone[1];
-            else if (Math.abs(lx) < 0.05) col = oak[2];
-          } else if (kind === "ruin") {
-            // nothing left in it: the night outside shows through
-            const i = (y * w + x) * 4; if (x >= 0 && y >= 0 && x < w && y < h) d[i + 3] = 0;
-            continue;
-          }
-        }
-        if (!col) {
-          // the night outside: far hills, stars, the moon
-          col = pxPick(sky, 0.2 + (ly + 1) * 0.42, x, y);
-          if (ly < -0.62 + 0.08 * Math.sin(lx * 4 + seed) + 0.04 * Math.sin(lx * 11)) col = pxPick([sky[0], sky[1]], 0.35, x, y);
-          else {
-            const st = pxHash(x, y + seed);
-            if (st > 0.985) col = white; else if (st > 0.96) col = sky[3];
-            const md = Math.hypot(x - mx, back - y - mz) / mr;
-            if (md < 1) col = md > 0.7 && pxHash(x, y) > 0.6 ? sky[3] : moon; else if (md < 1.5 && bay(y, x) < 0.4) col = sky[3];
-          }
-          // the glass catches the room's light a little
-          if (glazed && bay(y, x) < 0.12) col = oak[4];
-        }
-        put(x, y, col);
-      }
-      // the moonlight it lets in: a pale, sparse patch on the floor below it, growing toward you
-      for (let y = back + 1; y <= front; y++) {
-        const Z = depthAt(y), k = Z / depth;
-        if (k > 0.55) break;
-        const s = sAt(tAt(y)), hwP = hwW * s * (0.8 + k * 0.8);
-        for (let x = Math.floor(winX - hwP); x <= Math.ceil(winX + hwP); x++)
-          if (bay(y, x) < 0.2 * (1 - k / 0.55)) put(x, y, glazed ? oak[5] : sky[3]);
-      }
-    }
-    if (kind === "cave") {
-      // crystals growing at the foot of the walls, in the back corners and by the front ones: facets lit on the left, a pale tip
-      const yF1 = lerp(back, front, 0.8);
-      for (const [bx, by, n, k0] of [[cx - hb + 4 * S, back, 5, 0], [cx + hb - 4 * S, back, 4, 7], [cx - half(yF1) + 3 * S, yF1, 3, 13], [cx + half(yF1) - 3 * S, yF1, 3, 19]]) {
-        const sc = sAt(tAt(by)) * S;
-        for (let k = 0; k < n; k++) {
-          const ox = bx + (k - (n - 1) / 2) * 2.6 * sc * (bx < cx ? 1 : -1), hgt = Math.round((5 + pxHash(k + k0, seed) * 10 - k) * sc), ww = (1.4 + pxHash(k + k0, 3)) * sc;
-          for (let yy = 0; yy < hgt; yy++) { const hw2 = ww * (1 - yy / hgt), lean = (bx < cx ? 1 : -1) * yy * 0.12; for (let xx = -Math.ceil(hw2); xx <= Math.ceil(hw2); xx++) put(ox + xx + lean, by + 1 - yy, yy >= hgt - 1 ? crys[4] : xx < 0 ? crys[3] : xx === 0 ? crys[2] : crys[1]); }
-        }
-      }
-    }
-    if (kind === "ruin") {
-      // tufts of grass along the foot of the back wall, and a fallen block or two
-      for (let k = 0; k < 26; k++) {
-        const fx = Math.round(cx + (pxHash(k, seed) * 2 - 1) * (hb - 3));
-        for (let j = 0; j < 3; j++) put(fx + j - 1, back - (j === 1 ? 2 : 1), moss[j === 1 ? 2 : 1]);
-      }
-      for (const [du, t] of [[-0.82, 0.18], [0.78, 0.86]]) {
-        const by = Math.round(lerp(back, front, t)), bx = Math.round(cx + du * half(by)), r = Math.round(5 * sAt(t) * S);
-        for (let yy = 0; yy < r; yy++) for (let xx = -r - 1; xx <= r + 1; xx++) put(bx + xx, by - yy, pxPick(ruinStone, yy === r - 1 ? 0.8 : xx < 0 ? 0.55 : 0.35, xx, yy));
-        for (let xx = -r - 1; xx <= r + 2; xx++) put(bx + xx, by + 1, ruinStone[0]);
-      }
-    }
-  } else {
-    // outdoors the back and both sides of the clearing are fenced: a low dry-stone wall, or woven wattle on stakes
-    const fenceH = Math.round((kind === "yard" ? 8 : 11) * S), st = 12 * S, along = (hf - hb) * 2.6;
-    const fence = (al, z, sl, x, y, sc) => {
-      if (kind === "yard") {
-        const r = Math.floor(z / 3), fz = Math.floor(z) % 3, L = 6 + Math.round(pxHash(r, 5) * 3), a = al + r * 3.5, fa = ((a % L) + L) % L, si = Math.floor(a / L);
-        let v = (sl > 0 ? 0.55 : 0.4) + 0.2 * (pxHash(si, r + seed) - 0.5);
-        if (fz === 0 || fa < 1) v = 0.05; else if (fz === 2 || fa > L - 1.5) v += 0.2;
-        return z >= fenceH - 1 ? ruinStone[3] : isoTone(ruinStone.slice(0, 4), v, x, y);
-      }
-      const sa = ((al % st) + st) % st;
-      if (sa < 1.6 * S) return z >= fenceH + 1 ? oak[4] : oak[sa < 0.8 * S ? 3 : 1];
-      if (z >= fenceH) return null;
-      const row = Math.floor(z / 2), over = (Math.floor(al / st) + row) % 2, mid = Math.abs(sa - st / 2) / (st / 2);
-      let v = (over ? 0.62 : 0.42) - (over ? 0 : mid * 0.2) + (Math.floor(z) % 2 ? 0.12 : -0.1);
-      if (pxHash(Math.floor(al), row + seed) > 0.9) v -= 0.15;
-      return z >= fenceH - 1 ? oak[4] : isoTone(oak, v + (sl < 0 ? -0.08 : 0), x, y);
-    };
-    for (const side of [-1, 1]) for (let x = Math.floor(cx - hf); x <= Math.ceil(cx + hf); x++) {
-      const dx = Math.abs(x + 0.5 - cx);
-      if (dx < hb || Math.sign(x + 0.5 - cx) !== side) continue;
-      const t = clamp((dx - hb) / (hf - hb), 0, 1), s = sAt(t), yF = lerp(back, front, t), al = t * along;
-      for (let z = 0; z < (fenceH + 2) * s; z++) put(x, Math.round(yF - z), fence(al, z / s, side < 0 ? 1 : -1, x, Math.round(yF - z), s));
-    }
-    for (let x = Math.floor(cx - hb); x <= Math.ceil(cx + hb); x++) {
-      for (let z = 0; z < fenceH + 2; z++) put(x, back - z, fence(x - (cx - hb), z, 1, x, back - z, 1));
-      put(x, back + 1, ground[1]);
-    }
-  }
-
-  // what holds things up: a hook for the swing and pegs for the lights on a wall; outdoors, wooden posts
-  const post = (x, y0, y1) => { for (let y = Math.round(y1); y <= Math.round(y0); y++) { put(x - 1, y, wood[0]); put(x, y, wood[2]); put(x + 1, y, wood[1]); } };
-  const sx = q(wallAt(0.9, 0)[0]), lx0 = q(N.cx - N.hb + N.base * 0.3), lx1 = q(N.cx + N.hb - N.base * 0.3);
-  const iron = [IC.m4, IC.m2, IC.m1];
-  if (hasDecor("swing")) {
-    if (indoor) { for (const dx of [-1, 0, 1]) put(sx + dx, top + 1, iron[1]); put(sx, top + 2, iron[2]); put(sx, top + 3, iron[0]); }
-    else { const px = sx + q(N.base * 0.55); post(px, back - 1, top); for (let x = Math.round(sx - q(N.base * 0.4)); x <= px; x++) { put(x, top, wood[2]); put(x, top + 1, wood[0]); } }
-  }
-  if (hasDecor("lights")) {
-    if (indoor) for (const x of [lx0, lx1]) { put(x, top + 2, iron[2]); put(x, top + 3, iron[1]); put(x + 1, top + 3, iron[0]); }
-    else for (const x of [lx0, lx1]) post(x, back - 1, top + 2);
-  }
-  if (hasDecor("shelf") && !indoor) {
-    // outdoors the shelf stands on two legs
-    const [shx, shy] = roomSpot("shelf"), sw = q(N.base * 1.2 * N.dk) / 2, py = q(shy - N.base * 0.95 * N.dk);
-    for (const x of [q(shx) - sw + 2, q(shx) + sw - 2]) post(Math.round(x), back - 1, py);
-  }
-  g.putImageData(img, 0, 0);
-  return c;
-}
 
 const geodeImgs = new Map();
 function geodeImg(id) {
@@ -5068,7 +4437,7 @@ function geodeImg(id) {
 }
 
 function swingSeat() {
-  const p = N.iso && isoLayout().placed.swing;
+  const p = isoLayout().placed.swing;
   if (p) {
     const tw = N.isoW / ISO_G, [cx, cy] = isoAt((p.i + 0.5) / ISO_G, (p.j + 0.5) / ISO_G), top = cy - (Math.round(tw / PX * 1.8) + 1) * PX;
     const len = (cy - top) * 0.72, a = Math.sin(game.time * 0.0012 * (1 + swingPush)) * (0.18 + swingPush);
@@ -5076,212 +4445,11 @@ function swingSeat() {
     const sw = p.flip ? [0.894, 0.447] : [-0.894, 0.447], bar = p.flip ? [-tw * 0.3, N.isoH / ISO_G * 0.3] : [tw * 0.3, N.isoH / ISO_G * 0.3];
     return [cx + sw[0] * Math.sin(a) * len * 0.8, top + Math.cos(a) * len + sw[1] * Math.sin(a) * len * 0.8, a, top, bar, cx, cy];
   }
-  const [x, y] = decorSpot("swing"), top = N.iso ? isoWallTop(x) + 3 : N.wallTop + 3;
+  // (out, but with no room on the floor for it: hung from the wall above its spot)
+  const [x, y] = decorSpot("swing"), top = isoWallTop(x) + 3;
   const len = y - N.base * 0.95 - top, a = Math.sin(game.time * 0.0012 * (1 + swingPush)) * (0.18 + swingPush);
   return [x + Math.sin(a) * len, top + Math.cos(a) * len, a, top];
 }
-
-// ---------- the straight-on room's decorations, in pixels like the isometric room's ----------
-/** Frames of each front-view piece, kept by what they show, so a gentle loop (a flicker, a ripple, twinkling) is painted once. */
-const frontFrames = {};
-/**
- * A front-view piece painted in art pixels (see isoArt) and kept: its art point (ax, ay) lands on (x, y), on the pixel grid.
- * base is what the piece looks like (when it changes, its frames are painted again), frame which moment of its loop this is.
- * sq squashes it about that point for a moment ([wide, tall]: a bounce when tapped), in whole art pixels still.
- */
-function frontArt(slot, x, y, w, h, ax, ay, base, frame, paint, { sq = null, ...opts } = {}) {
-  const key = `${Math.round(x)},${Math.round(y)}|${w}x${h}|${PX}|${base}`;
-  let fr = frontFrames[slot];
-  if (!fr || fr.key !== key) fr = frontFrames[slot] = { key, f: new Map() };
-  const id = `${frame}|${sq ? sq.join(",") : ""}`;
-  let f = fr.f.get(id);
-  if (!f) {
-    let c = isoArt(w, h, paint, opts);
-    if (sq) {
-      const m = document.createElement("canvas"); m.width = c.width; m.height = c.height;
-      const g = m.getContext("2d"); g.imageSmoothingEnabled = false;
-      g.translate(ax, ay); g.scale(sq[0], sq[1]); g.translate(-ax, -ay); g.drawImage(c, 0, 0); c = m;
-    }
-    f = { c, x: Math.round(x / PX - ax) * PX, y: Math.round(y / PX - ay) * PX };
-    if (fr.f.size > 40) fr.f.clear();
-    fr.f.set(id, f);
-  }
-  return f;
-}
-/** A soft shadow on the floor in whole art pixels: rows of translucent dark, stepped like a pixel ellipse. Given a light colour it paints a glow the same way. */
-function pxShadow(x, y, rx, ry, a = 0.3, rgb = "10,4,24") {
-  const cx = Math.round(x / PX), cy = Math.round(y / PX), R = rx / PX, Ry = Math.max(1, ry / PX);
-  ctx.fillStyle = `rgba(${rgb},${a})`;
-  for (let j = -Math.ceil(Ry); j < Math.ceil(Ry); j++) {
-    const hw = Math.round(R * Math.sqrt(Math.max(0, 1 - ((j + 0.5) / Ry) ** 2)));
-    if (hw > 0) ctx.fillRect((cx - hw) * PX, (cy + j) * PX, hw * 2 * PX, PX);
-  }
-}
-/** A ring of dots lying on the floor round (x, y), from angle a0 to a1, one art pixel each with a pixel's gap between. */
-function pxRing(x, y, rx, ry, a0, a1, col) {
-  const n = Math.max(8, Math.round((a1 - a0) * (rx + ry) / PX / 2.6));
-  ctx.fillStyle = col;
-  let last = "";
-  for (let k = 0; k <= n; k++) {
-    const an = a0 + (a1 - a0) * k / n, px = Math.round((x + Math.cos(an) * rx) / PX), py = Math.round((y + Math.sin(an) * ry) / PX), at = px + "," + py;
-    if (at !== last) ctx.fillRect(px * PX, py * PX, PX, PX);
-    last = at;
-  }
-}
-/** A four-pointed twinkle in art pixels: a dot, a cross, or a long cross with a white heart. */
-function pxTwinkle(T, x, y, size, col, hi) {
-  x = Math.round(x); y = Math.round(y);
-  T.px(x, y, size > 1 ? IC.white : hi);
-  for (let k = 1; k <= size; k++) for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) T.px(x + dx * k, y + dy * k, k === 1 ? hi : col);
-}
-
-/** The rug on the floor of the straight-on room: woven rings in the rose cloth of the isometric rug, or (bought) the starry
- *  one, deep night blue with a gold border and stars that blink in whole steps (on, bright, off). */
-function frontRug(x, y, rx, ry, starry) {
-  const R = rx / PX, Ry = ry / PX, w = Math.ceil(R * 2) + 6, h = Math.ceil(Ry * 2) + 6, cx = w / 2, cy = h / 2;
-  // each star's state now: 0 off, 1 on, 2 bright
-  const stars = starry ? Array.from({ length: 12 }, (_, i) => { const tw = Math.sin(game.time * 0.0015 + i); return tw < -0.6 ? 0 : tw > 0.5 ? 2 : 1; }) : [];
-  return frontArt("rug", x, y, w, h, cx, cy, `${R.toFixed(1)}|${Ry.toFixed(1)}|${starry}`, stars.join(""), T => {
-    const ring = (px, py) => Math.hypot((px + 0.5 - cx) / R, (py + 0.5 - cy) / Ry);
-    if (starry) {
-      const night = pxHex("#0f2f4a");
-      T.disc(cx, cy, R, (px, py) => { const d = ring(px, py); return d > 0.9 ? (d > 0.96 ? IC.b3 : IC.b2) : d > 0.86 ? IC.b3 : pxHash(px, py) > 0.985 ? IC.b2 : night; }, Ry);
-      // a gold cord round the border, stitched in short runs
-      const n = Math.round((R + Ry) * 3.2);
-      for (let k = 0; k < n; k++) { if (k % 5 === 4) continue; const an = k / n * TAU; T.px(cx + Math.cos(an) * R * 0.93, cy + Math.sin(an) * Ry * 0.93, an > Math.PI ? IC.y0 : IC.y1); }
-      stars.forEach((st, i) => {
-        if (!st) return;
-        const an = i * 2.4, d = 0.22 + (i % 5) * 0.13, size = Math.max(0, Math.min(Math.round(R / 14), 2) - (i % 3 === 0 ? 1 : 0)) + (st === 2 ? 1 : 0) - 1;
-        pxTwinkle(T, cx + Math.cos(an) * R * d, cy + Math.sin(an) * Ry * d, Math.max(0, size), IC.y1, st === 2 ? IC.y0 : IC.y1);
-      });
-      // and a little crescent moon sewn near the edge
-      const mx = cx - R * 0.55, my = cy - Ry * 0.35, mr = Math.max(2, R * 0.07);
-      T.disc(mx, my, mr, (px, py) => Math.hypot(px + 0.5 - mx - mr * 0.5, (py + 0.5 - my + mr * 0.2) / 0.62) < mr * 0.9 ? night : IC.y0, mr * 0.62);
-    } else {
-      // braided rings, the cord twisting along each one, darker at the rim and lightest in the middle band
-      const bands = [IC.p3, IC.p2, IC.p1, IC.p2, IC.p3, IC.p2];
-      T.disc(cx, cy, R, (px, py) => {
-        const d = ring(px, py), b = Math.min(bands.length - 1, Math.floor((1 - d) / 0.17)), seam = ((1 - d) / 0.17) % 1;
-        const c = bands[b], twist = ((Math.round(px / 2) + py * 2) % 4 === 0);
-        if (seam < 0.12 && b > 0) return IC.p3;
-        return twist ? (c === IC.p1 ? IC.p2 : IC.p3) : c;
-      }, Ry);
-      T.disc(cx, cy, R * 0.1, IC.p1, Ry * 0.1);
-    }
-  }, { light: false });
-}
-
-const DRAW_DECOR = {
-  lamp(x, y) {
-    // the isometric room's standard lamp (it looks the same from any side), its light flickering softly
-    const t = Math.max(8, Math.round(N.base * decorK * 0.7 / PX)), off = !!save.decor.lamp.off;
-    const fl = off ? 0 : Math.round((Math.sin(game.time * 0.002) * 0.5 + 0.5) * 4);
-    const w = Math.ceil(t * 3.4) + 6, h = Math.ceil(t * 3.8) + 6, ax = Math.round(w / 2), ay = h - Math.ceil(t * 0.6) - Math.round(t / 2), zs = Math.round(t * 2.2) - Math.round(t * 0.62);
-    pxShadow(x + PX, y + PX, t * 0.5 * PX, t * 0.16 * PX);
-    // its halo on the wall behind: a few soft steps of warm light rather than the isometric room's speckle, which is harsh on a flat wall
-    if (!off) [1, 0.84, 0.68, 0.52, 0.36].forEach(k => { const r = t * (1.5 + fl * 0.04) * k * PX; pxShadow(x, y - zs * PX, r, r, 0.034 + fl * 0.003, "255,226,150"); });
-    drawBaked(frontArt("lamp", x, y, w, h, ax, ay + t / 2, `${t}|${off}`, 0, T => ISO_ART.lamp(t, T, ax, ay, { off, soft: true })));
-  },
-  mushrooms(x, y) {
-    // the isometric room's glowing mushroom cluster, spores drifting up, bouncing when tapped
-    const t = Math.max(8, Math.round(N.base * decorK * 0.62 / PX)), w = Math.ceil(t * 3.2) + 8, h = Math.ceil(t * 2.8) + 8, ax = Math.round(w / 2), fy = Math.ceil(t * 2.35) + 4;
-    const k = fxAge("mushrooms"), boing = k < 0.7 ? Math.round(Math.sin(k * Math.PI * 6) * (1 - k / 0.7) * 5) / 5 : 0;
-    drawBaked(frontArt("mushrooms", x, y, w, h, ax, fy, t, Math.floor(game.time / 300) % 12, T => ISO_ART.mushrooms(t, T, ax, fy - t / 2, { frame: Math.floor(game.time / 300) % 12 }),
-      { sq: boing ? [1 + boing * 0.1, 1 - boing * 0.14] : null }));
-  },
-  cushion(x, y) {
-    // the cloud cushion, resting on the floor: the isometric room's cumulus (see paintCloud), squishing when tapped
-    const s = Math.max(8, Math.round(N.base * decorK * 0.6 / PX)), cw = s * 2 + 12, ch = s + 14, pad = Math.ceil(s * 0.2) + 2, w = cw + pad * 2, h = ch + pad * 2;
-    const fx = pad + cw / 2, fy = pad + ch / 2 + s * 0.33;
-    const k = fxAge("cushion"), squish = k < 0.6 ? Math.round(Math.sin(k * Math.PI * 4) * (1 - k / 0.6) * 5) / 5 : 0;
-    pxShadow(x, y + PX, s * 0.95 * PX, s * 0.2 * PX);
-    drawBaked(frontArt("cushion", x, y, w, h, fx, fy, s, 0, T => paintCloud({ ...T, px: (px, py, c) => T.px(px + pad, py + pad, c) }, s, cw, ch),
-      { outline: false, sq: squish ? [1 + squish * 0.12, 1 - squish * 0.2] : null }));
-  },
-  shelf(x, y) {
-    // a thick oak plank with a moulded front edge on two scrolled brass brackets, seen from the front a little from above,
-    // moss trailing off one end with a glowcap in it, and your three shiniest geodes standing on it in their own colours
-    const tb = N.base * decorK / PX, L = Math.round(tb * 1.2), th = Math.max(3, Math.round(tb * 0.1)), dep = Math.max(2, Math.round(tb * 0.07));
-    const best = Object.entries(save.geodes).filter(([id]) => CRYSTAL[id]).sort((p, q) => (q[1].shine || 0) - (p[1].shine || 0)).slice(0, 3).map(([id]) => CRYSTAL[id].c.map(pxHex));
-    const gems = best.length ? best : [[IC.l0, IC.l2, IC.l4], [IC.b0, IC.b1, IC.b3], [IC.p0, IC.p1, IC.p3]];
-    const k = fxAge("shelf"), spark = k < 0.9 ? Math.floor(k / 0.3) : -1;
-    const padX = Math.ceil(tb * 0.25) + 4, up = Math.ceil(tb * 0.62) + 4, w = L + padX * 2, h = up + th + Math.ceil(tb * 0.34) + 6, x0 = padX, top = up;
-    drawBaked(frontArt("shelf", x, y - N.base * 0.95 * decorK, w, h, x0 + L / 2, top, `${L}|${JSON.stringify(gems)}`, spark, T => {
-      const R = BED_ROOT;
-      // the brackets: a brass bar down the wall under each end, curling into a scroll at the foot, a stay up to the plank
-      for (const f of [0.16, 0.84]) {
-        const bx = Math.round(x0 + L * f), d = Math.round(tb * 0.26);
-        for (let j = 0; j < d; j++) { T.px(bx - 1, top + th + j, BRASS[1]); T.px(bx, top + th + j, BRASS[2]); T.px(bx + 1, top + th + j, BRASS[3]); }
-        for (let a = 0; a < 9; a++) T.px(bx + Math.round(Math.cos(a * 0.75 + 1.6) * 2.2), top + th + d + Math.round(Math.sin(a * 0.75 + 1.6) * 2), a < 5 ? BRASS[1] : BRASS[3]);
-        T.px(bx - 1, top + th, BRASS[0]);
-      }
-      // the plank: its top (lit, the grain running along it), then the moulded front edge, darker under the lip
-      T.grain(1, () => {
-        for (let j = 0; j < dep; j++) for (let i = 0; i < L; i++) T.px(x0 + i, top - dep + j, j === 0 ? IC.w1 : IC.w1);
-        for (let j = 0; j < th; j++) for (let i = 0; i < L; i++) T.px(x0 + i, top + j, j === 0 ? IC.w0 : j === th - 1 ? IC.w3 : j === 1 ? IC.w1 : IC.w2);
-      });
-      // its ends, end grain showing
-      for (let j = -dep; j < th; j++) { T.px(x0, top + j, j < 0 ? IC.w1 : IC.w2); T.px(x0 + L - 1, top + j, IC.w3); }
-      // moss draped over the right end, strands hanging down, a glowcap in it
-      { const mx = x0 + L - 3, my = top - 1; decoMoss(T, mx, my, Math.max(2, tb * 0.1), Math.max(1.5, tb * 0.06)); for (let k2 = 0; k2 < 5; k2++) T.px(mx + 2 + (k2 & 1), top + th + k2, BED_MOSS[k2 > 2 ? 3 : 2]); }
-      // the geodes, standing along the plank
-      gems.slice(0, 3).forEach((g, i) => {
-        const r = Math.max(4, tb * (i === 1 ? 0.17 : 0.14)), ry = r * 1.12;
-        halfGeode(T, x0 + L * (0.2 + i * 0.3), top - dep * 0.5 - ry * 0.92, r, ry, g, spark === i);
-      });
-      // a pinch of moss and a root curl at the other end, so it sits in the nest
-      T.px(x0 + 2, top - dep - 1, BED_MOSS[1]); T.px(x0 + 3, top - dep - 1, BED_MOSS[2]); T.px(x0 + 1, top + th, R[3]);
-    }));
-  },
-  spring(x, y) {
-    // the isometric room's moon pond, lying as flat as the floor does from the front, a ripple running out across it
-    const t = Math.max(8, Math.round(N.base * decorK * 0.96 / PX)), rx = t * 0.78, flat = 0.32, w = Math.ceil(rx * 2.5) + 8, h = Math.ceil(rx * flat * 2 + t * 0.75) + 12;
-    const ax = Math.round(w / 2), cy = h - Math.ceil(rx * flat) - 5;
-    drawBaked(frontArt("spring", x, y, w, h, ax, cy, t, Math.floor(game.time / 370) % 6, T => ISO_ART.spring(t, T, ax, cy - t / 2, { frame: Math.floor(game.time / 370) % 6, flat })));
-  },
-  swing() {
-    // two ropes, plaited light and dark, from the hook to the moon seat (see moonSeat) swinging under it
-    const [sx, sy, , top] = swingSeat(), b = N.base, hx = decorSpot("swing")[0], R = Math.round(b * 0.4 / PX);
-    const rope = [pxHex("#e4dfe8"), pxHex("#8a8494")].map(c => `rgb(${c})`);
-    for (const d of [-1, 1]) {
-      const x0 = hx + d * b * 0.3, x1 = sx + d * b * 0.3, n = Math.max(1, Math.round((sy - top) / PX));
-      for (let k = 0; k <= n; k++) {
-        const px = Math.round(lerp(x0, x1, k / n) / PX) * PX, py = Math.round(lerp(top, sy, k / n) / PX) * PX;
-        ctx.fillStyle = "#22143a"; ctx.fillRect(px - PX, py, PX * 3, PX);
-        ctx.fillStyle = rope[k % 3 === 0 ? 1 : 0]; ctx.fillRect(px, py, PX, PX);
-      }
-    }
-    const m = cachedSprite(roomSprites, "frontMoonseat", `${R}|${PX}`, () => ({ c: isoArt(R * 2 + 6, R + 8, T => moonSeat(T, R + 3, 3, R)) }));
-    drawBaked({ c: m.c, x: Math.round(sx / PX - R - 3) * PX, y: Math.round(sy / PX - 3) * PX });
-  },
-  lights() {
-    if (N.iso) return lightsIso();
-    // a dark wire looped along the wall, pixel by pixel, and little glass bulbs in brass caps hanging off it, each in a halo
-    // of dithered light that swells and fades (brighter for a moment when tapped)
-    const n = Math.max(20, Math.round(N.hb * 2 / PX));
-    let last = "";
-    for (let k = 0; k <= n; k++) {
-      const [px, py] = lightsLine(k / n), gx = Math.round(px / PX), gy = Math.round(py / PX);
-      if (gx + "," + gy !== last) { ctx.fillStyle = "#0b0614"; ctx.fillRect(gx * PX, (gy + 1) * PX, PX, PX); ctx.fillStyle = "#5d5666"; ctx.fillRect(gx * PX, gy * PX, PX, PX); }
-      last = gx + "," + gy;
-    }
-    const ramps = [[IC.y0, IC.y1, IC.w1], [IC.p0, IC.p1, IC.p2], [IC.b0, IC.b1, IC.b2], [IC.g0, IC.g1, IC.g2], [IC.l0, IC.l2, IC.l3]];
-    for (let i = 1; i < 14; i++) {
-      const [bx, by] = bulbPos(i), c = i % ramps.length, rung = fxAge("bulb" + i), lit = rung < 0.7 ? 1 - rung / 0.7 : 0;
-      const glow = Math.round(Math.min(1, 0.55 + 0.45 * Math.sin(game.time * 0.003 + i * 1.3) + lit) * 4), big = lit > 0.3 ? 1 : 0;
-      const r = Math.round((14 + big * 10) / PX) + 2, gx = Math.round(bx / PX), gy = Math.round(by / PX);
-      const halo = cachedSprite(roomSprites, `frontHalo${c}`, `${glow}|${big}|${PX}`, () => ({ c: isoArt(r * 2 + 1, r * 2 + 1, T => T.glow(r, r, r, ramps[c][1], 0.12 + glow * 0.09), { outline: false, texture: false, light: false }) }));
-      drawBaked({ c: halo.c, x: (gx - r) * PX, y: (gy - r) * PX });
-      const bulb = cachedSprite(roomSprites, `frontBulb${c}`, `${big}|${PX}`, () => ({ c: isoArt(9, 10, T => {
-        // the brass cap on the wire, the glass under it lit from the top left, a white glint
-        T.px(3, 2, BRASS[1]); T.px(4, 2, BRASS[2]); T.px(5, 2, BRASS[3]);
-        T.ball(4, 5, 2.1, big ? IC.white : ramps[c][0], big ? ramps[c][0] : ramps[c][1], ramps[c][big ? 1 : 2], 2.4);
-        T.px(3, 4, IC.white);
-      }, { texture: false }) }));
-      drawBaked({ c: bulb.c, x: (gx - 4) * PX, y: (gy - 3) * PX });
-    }
-  },
-};
 
 /** The fairy lights strung round the isometric room's walls, each bulb in its own soft glow. */
 function lightsIso() {

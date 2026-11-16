@@ -30,16 +30,16 @@ const fill = (s, ...a) => a.length ? s.replace(/\{(\d)\}/g, (_, i) => a[i]) : s;
 /** A glowling: fed, rested and glad unless told otherwise. */
 const glowling = (id, sp, o = {}) => ({ id, name: 'G' + id, sp, level: 3, xp: 0, tummy: 80, joy: 60, energy: 70, sleeping: false, room: 0, ...o });
 
-/** A pretend room seen straight on (600 by 400 of floor): its glowlings, the pieces out in it, and a dice for every choice. */
+/** A pretend room (its floor laid out flat here, 600 by 400): its glowlings, the pieces out in it, and a dice for every choice. */
 function room(creatures, pieces = [], seed = 7) {
   const roll = dice(seed);
   const page = {
-    roll, LANG: 'en', N: { iso: false, base: 60, x0: 0, x1: 600, y0: 100, y1: 500, cx: 300, bedX: 520, bedY: 460 },
+    roll, LANG: 'en', N: { base: 60, x0: 0, x1: 600, y0: 100, y1: 500, cx: 300, bedX: 520, bedY: 460 },
     save: { creatures, decor: Object.fromEntries(pieces.map(id => [id, { on: true }])), active: 0 },
     game: { nest: {}, time: 0 }, tr: fill, clamp: (v, a, b) => Math.max(a, Math.min(b, v)), lerp: (a, b, k) => a + (b - a) * k, TAU: Math.PI * 2,
     specOf: () => ({ voice: 1 }), callOf: () => '', calmOf: () => ({ rest: 1, go: 1, fidget: 1, hop: 1 }),
     isOutside: () => false, weatherOn: () => false, isoLayout: () => ({ placed: {} }), rugSize: () => [80, 40],
-    floorAt: (u, v) => [u * 600, 100 + v * 400], standSpot: (x, y) => [x, y], emote: () => {}, setTimeout: () => {}, sfx: { stretch: () => {}, ready: () => false },
+    isoAt: (u, v) => [u * 600, 100 + v * 400], isoMargin: () => 0, standSpot: (x, y) => [x, y], emote: () => {}, setTimeout: () => {}, sfx: { stretch: () => {}, ready: () => false },
   };
   // each piece stands at its own place on the floor
   page.decorSpot = id => { const k = [...id].reduce((h, c) => h * 31 + c.charCodeAt(0), 7); return [60 + (k % 480), 140 + ((k >> 4) % 320)]; };

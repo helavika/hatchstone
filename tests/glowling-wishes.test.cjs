@@ -42,7 +42,7 @@ const ALL_PIECES = ['cushion', 'spring', 'birdbath', 'drum', 'painting', 'telesc
 function nest(creatures, pieces = [], roll = () => 0) {
   const toasts = [], xp = [], saves = [];
   const page = {
-    roll, PX_ICON_MAPS: {}, LANG: 'en', N: { iso: true }, actors: new Map(),
+    roll, PX_ICON_MAPS: {}, LANG: 'en', N: {}, actors: new Map(),
     save: { creatures, decor: Object.fromEntries(pieces.map(id => [id, { on: true }])), rooms: [{ kind: 'nest' }, { kind: 'play' }], room: 0, dust: [], tips: { pet: 1 } },
     game: { scene: 'nest', time: 0 }, arrange: { on: false }, gloomNow: { on: false }, talkNow: null, talkQueue: [], coopSession: null, overlays: [],
     clamp: (v, a, b) => Math.max(a, Math.min(b, v)), tr: fill, specOf: c => c.mix ? { beh: c.mix.beh, voice: 1 } : { voice: 1 },
@@ -161,12 +161,12 @@ test('a daydream is only ever of something that can come true here and now', () 
   assert.deepEqual(of(full, 'hop'), ['catch', 'bounce']);
   assert.deepEqual(of(full, 'flutter'), ['twinkle', 'snow']);
   assert.deepEqual(KINDS.flatMap(k => of(full, k)).sort(), [...w.FANCIES].map(f => f.id).sort(), 'and nothing on the list is out of reach');
-  // a piece put away, a lamp already off, a room seen straight on (no showers there): not offered
+  // a piece put away, a lamp already off, the cloud put away (no showers then): not offered
   full.save.decor.mushrooms.on = false;
   assert.deepEqual(of(full, 'hop'), ['catch']);
   full.save.decor.lamp.off = true;
   assert.deepEqual(of(full, 'nap'), ['swing']);
-  full.page.N.iso = false;
+  full.save.decor.cushion.on = false;
   assert.deepEqual(of(full, 'swim'), ['splash']);
   assert.deepEqual(of(full, 'flutter'), ['twinkle']);
   // over many daydreams with half the pieces out, each one was on offer at the moment it began

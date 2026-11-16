@@ -140,12 +140,11 @@ const rowSrc = [
   line(nest, /^const isOutside = .*$/m, 'isOutside should be one line in nest.js'),
   line(nest, /^const isPlace = .*$/m, 'isPlace should be one line in nest.js'),
   line(nest, /^const roomOpen = .*$/m, 'roomOpen should be one line in nest.js'),
-  cut(nest, 'function stepRoom(', '\n}\n', 'stepRoom should sit in nest.js') + '\n}',
   cut(nest, 'function roomDoors(', '\n}\n', 'roomDoors should sit in nest.js') + '\n}',
   cut(nest, 'function passageShape(', '\n}\n', 'passageShape should sit in nest.js') + '\n}',
   line(nest, /^const intoWall = .*$/m, 'intoWall should be one line in nest.js'),
   line(nest, /^const onScreen = .*$/m, 'onScreen should be one line in nest.js'),
-  'Object.assign(this, { stepRoom, roomDoors, passageShape, intoWall, onScreen });',
+  'Object.assign(this, { roomDoors, passageShape, intoWall, onScreen });',
 ].join('\n');
 /** The row at home on a screen this wide: the nest, the garden outside, the playroom, the shop, the garden room and the study. */
 function row(room, Wd = 390) {
@@ -156,20 +155,15 @@ function row(room, Wd = 390) {
   return page;
 }
 
-test('the arrows stop at both ends of the row of caves, and go where the tunnels go', () => {
-  assert.equal(row(0).stepRoom(-1), 0, 'nothing before the nest');
-  assert.equal(row(5).stepRoom(1), 5, 'nothing past the study');
-  // through the rooms of home only, skipping the garden outside and the shop
-  assert.equal(row(0).stepRoom(1), 2);
-  assert.equal(row(2).stepRoom(1), 4);
-  assert.equal(row(4).stepRoom(-1), 2);
-  for (const r of [0, 2, 4, 5]) {
-    const p = row(r), doors = Object.fromEntries(p.roomDoors().map(d => [d.wall, d.to]));
-    assert.equal(doors.L ?? r, p.stepRoom(-1), 'the left tunnel and the back arrow lead to the same room');
-    assert.equal(doors.R ?? r, p.stepRoom(1), 'the right tunnel and the forward arrow lead to the same room');
-  }
-  // the straight-on view hides the arrow at an end
-  assert.match(nest, /\$\(id\)\.style\.visibility = to === save\.room \? "hidden" : ""/);
+test('the tunnels stop at both ends of the row of caves, through the rooms of home only', () => {
+  const doors = r => Object.fromEntries(row(r).roomDoors().map(d => [d.wall, d.to]));
+  // nothing before the nest, nothing past the study; the garden outside and the shop are skipped
+  assert.deepEqual(doors(0), { R: 2 });
+  assert.deepEqual(doors(2), { L: 0, R: 4 });
+  assert.deepEqual(doors(4), { L: 2, R: 5 });
+  assert.deepEqual(doors(5), { L: 4 });
+  // a tunnel's two ends join the same pair of rooms
+  for (const r of [0, 2, 4, 5]) for (const [wall, to] of Object.entries(doors(r))) assert.equal(doors(to)[wall === 'L' ? 'R' : 'L'], r);
 });
 
 test('both ends of a tunnel are cut alike: the same size and outline, in a mirror', () => {
@@ -204,4 +198,43 @@ test('a tunnel\'s label stays whole on a phone screen', () => {
     assert.ok(c - w / 2 >= 0 && c + w / 2 <= 390, `label at ${x} sits at ${c}`);
   }
   assert.equal(p.onScreen(195, 100), 195, 'a label that fits stays over its tunnel');
+});
+
+// ---------- one way of seeing a room: from the corner ----------
+
+const plain = v => JSON.parse(JSON.stringify(v));
+/** A save as it comes through the door, loaded the way the game loads it. */
+function load(d) {
+  const { sparkSaveOf } = require('../js/sparks.js'), { keeperMigrate } = require('../js/inner.js'), { KEEPSAKES, KEEP_WEAR, walkSaveOf } = require('../js/walk.js'), { wardSaveOf } = require('../js/wards.js');
+  const page = {
+    SAVE_KEY: 'k', BAK_KEY: 'k.bak', localStorage: { getItem: k => k === 'k' && d ? JSON.stringify(d) : null, setItem: () => {} },
+    sparkSaveOf, keeperMigrate, walkSaveOf, wardSaveOf, KEEP_WEAR, KS: Object.fromEntries(KEEPSAKES.map(k => [k.id, k])),
+  };
+  vm.runInNewContext(cut(save, 'const SAVE_VERSION', 'const save = loadSave();', 'the save\'s way in should sit at the top of save.js') + '\nthis.loaded = loadSave(); this.migrate = migrate;', page);
+  return { save: plain(page.loaded), migrate: page.migrate };
+}
+
+test('a save that looked at its rooms straight on sees them from the corner now, its rooms and furniture as they were', () => {
+  const rooms = [{ kind: 'nest', on: ['lamp', 'rug'], theme: 'amethyst' }, { kind: 'yard', on: [] }, { kind: 'play', on: ['swing'], bed: 'hammock' }];
+  const old = { v: 1, stars: { 1: 3 }, creatures: [], seen: {}, shards: 40, view: 'front', rooms, room: 2, decor: { lamp: { on: false }, rug: { on: false }, swing: { on: true } } };
+  const { save: s, migrate } = load(old);
+  assert.equal('view' in s, false, 'the choice of view is gone from the save');
+  assert.deepEqual(s.rooms, rooms); assert.equal(s.room, 2); assert.deepEqual(s.decor, old.decor); assert.equal(s.shards, 40);
+  // once is enough: loaded again, nothing changes
+  assert.deepEqual(plain(migrate(plain(s))), s);
+  // and a save that was isometric all along (or never chose) loads just the same (but for the day its diary starts from)
+  const same = d => { const { diaryFrom, ...rest } = d; return rest; };
+  assert.deepEqual(same(load({ ...old, view: 'iso' }).save), same(s));
+  const { view, ...never } = old;
+  assert.deepEqual(same(load(never).save), same(s));
+});
+
+test('no switch between views is left: not in the chest, the save, the room\'s layout or the help', () => {
+  const all = ['save.js', 'nest.js', 'iso.js', 'play.js', 'ui.js', 'main.js'].map(read).join('\n'), html = fs.readFileSync(path.join(__dirname, '../index.html'), 'utf8');
+  const i18n = read('i18n.js');
+  assert.doesNotMatch(all, /\bN\.iso\b|roomView|setView|data-view|save\.view\b|paintRoom\(|stepRoom|roomNav/);
+  assert.doesNotMatch(html, /roomNav|roomPrev|roomNext/);
+  for (const gone of ['"Straight on"', '"Isometric"', 'seen straight on', 'straight-on', 'прямому вигляді', 'ізометрія чи прямо', '"Прямо"']) assert.ok(!all.includes(gone) && !i18n.includes(gone), gone);
+  // the Look tab goes straight to the backdrop
+  assert.match(cut(nest, 'if (st.tab === "look") {', '\n  } else', 'the Look tab should sit in openShop'), /body = `<h3>\$\{tr\("Backdrop"\)\}<\/h3>/);
 });
