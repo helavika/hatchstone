@@ -130,7 +130,7 @@ for (const f of TALK_FILES) {
 }
 
 test('every talk line of the cast has its Ukrainian, and every mood on one is the speaker\'s', () => {
-  assert.equal(talkLines.length, 111, "every talk line of the cast is still said (a new one changes this count on purpose)");
+  assert.equal(talkLines.length, 112, "every talk line of the cast is still said (a new one changes this count on purpose)");
   let tagged = 0;
   for (const [f, who, words, moods, raw] of talkLines) {
     for (const w of words) assert.ok(UK.get(w), `${f}: no Ukrainian for ${JSON.stringify(w)}`);
