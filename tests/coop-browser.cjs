@@ -274,6 +274,8 @@ test("two isolated devices share a real WebRTC egg without replacing solo saves"
 
     await stage("latest upstream interactive nest decorations still respond to real pointer input", async () => {
       const spot=await host.eval(`(() => {
+        // (everyone tucked in bed first, so nobody wanders onto the lamp and takes the tap)
+        for (const c of save.creatures) c.sleeping=true;
         save.decor.lamp={on:true}; save.backupAt=Date.now(); persist(); setScene('nest');
         const [x,y]=decorSpot('lamp'); return [x,y-N.base*.75];
       })()`);
