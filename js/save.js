@@ -785,8 +785,10 @@ function bgFor(scene) {
   const deep = scene === "nest" || scene === "menu";
   // the shop looks out on the river from its open front (#278): a backdrop of its own, level with its counter
   const shop = scene === "nest" && save.rooms?.[save.room]?.kind === "shop" && kind === "timber" ? shopRiverY() : null;
-  const key = `${id}|${floor.toFixed(3)}|${deep}|${home}` + (shop === null ? "" : `|shop${shop}`);
-  if (!bgCache.has(key)) bgCache.set(key, shop === null ? paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor, deep, home) : paintShopBackdrop(Math.ceil(W / PX), Math.ceil(H / PX), floor, shop, Math.max(0.55, N.isoW / PX / 180)));
+  // the garden and the camp sit in their meadow (#277): the ground round the plot is laid to meet it, its path going on out
+  const site = scene === "nest" && outdoor && !home && N.isoW ? { cx: N.cx / PX, top: N.isoTop / PX, hw: N.isoW / PX, kind: save.rooms?.[save.room]?.kind } : null;
+  const key = `${id}|${floor.toFixed(3)}|${deep}|${home}` + (shop === null ? "" : `|shop${shop}`) + (site ? `|site:${site.kind}:${[site.cx, site.top, site.hw].map(v => v.toFixed(1))}` : "");
+  if (!bgCache.has(key)) bgCache.set(key, shop === null ? paintTheme(id, Math.ceil(W / PX), Math.ceil(H / PX), floor, deep, home, site) : paintShopBackdrop(Math.ceil(W / PX), Math.ceil(H / PX), floor, shop, Math.max(0.55, N.isoW / PX / 180)));
   return [id, key];
 }
 function drawBackground() {
