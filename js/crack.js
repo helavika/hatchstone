@@ -171,10 +171,12 @@ function newEgg(conf, animate = true) {
     silent: !!conf.silent && (!conf.wander || !!conf.coop),
     // the Labradorite's stone (on the same terms again): the weak spot shows only in a flash, right after a blow lands on it
     sheen: !!conf.sheen && (!conf.wander || !!conf.coop),
+    // the Gloom's first seal (level 6, only until it is cleared: see startLevel): it lays patches of shadow as you go
+    shade: conf.gloom === 1, patches: [], shadeLaid: 0,
   };
   const e = game.egg;
   // Quarry Eye's pings, fresh for every egg (yours alone, even on a shared one: they change nothing the friend sees)
-  e.eyeLeft = eyeCharges(); game.ping = null; game.sheen = null;
+  e.eyeLeft = eyeCharges(); game.ping = null; game.sheen = null; game.shadeFx = null;
   if (e.eyeLeft && save.eyeNote && animate) {
     delete save.eyeNote; persist();
     setTimeout(() => toast(save.eyeThanks ? tr("Quarry Eye listens now: tap the eye for a ring that shows where to listen. One more ping per geode, as thanks ✦") : tr("Quarry Eye listens now: tap the eye for a ring that shows where to listen ✦")), 1400);
@@ -254,6 +256,32 @@ function sheenGlow(a, calm) {
   return calm ? 0.8 : Math.min(1, a / 0.04) * (1 - clamp((a - 0.3) / (SHEEN_LIFE - 0.3), 0, 1) ** 2);
 }
 
+// The Gloom's first seal (level 6, the first time only) fights back: after every third blow it lays a soft patch of
+// shadow on the shell, near where the last blow fell. A blow under a patch breaks half the stone; a blow on the weak
+// spot burns away every patch beside it. There are never more than three at once (under a quarter of the shell), and
+// the middle of the weak spot is always left clear, so a true aim is never softened and the stars stay about aim.
+const SHADE_EVERY = 3, SHADE_MAX = 3, SHADE_CLEAR = 0.025, SHADE_BURN = 0.1;
+/** The patch under (u, v), if any. */
+const shadeAt = (e, u, v) => (e.patches || []).find(p => Math.hypot(u - p.u, v - p.v) < p.r);
+/**
+ * Where the Gloom lays its next patch, after blow number i fell at (u, v): a little way off it, on the face, clear of
+ * the spot's middle and not over another patch. From the egg's seed and the blow's number alone, so a guest replaying
+ * the host's hits lays the very same ones; null when there is no room.
+ */
+function shadePatch(e, u, v, i) {
+  const R = seeded(e.seed + ":" + i + ":shade"), [sx, sy] = e.spot;
+  for (let k = 0; k < 16; k++) {
+    const r = 0.11 + R() * 0.03, a = R() * TAU, d = 0.04 + R() * 0.14;
+    let pu = u + Math.cos(a) * d, pv = v + Math.sin(a) * d;
+    // pushed off the spot's middle, the way it lay from it
+    const off = Math.hypot(pu - sx, pv - sy), need = r + SHADE_CLEAR + R() * 0.03;
+    if (off < need) { const b = off > 1e-6 ? Math.atan2(pv - sy, pu - sx) : a; pu = sx + Math.cos(b) * need; pv = sy + Math.sin(b) * need; }
+    if (!inside(EGG_UNIT, [pu, pv]) || e.patches.some(p => Math.hypot(pu - p.u, pv - p.v) < (p.r + r) * 0.8)) continue;
+    return { u: pu, v: pv, r, id: e.shadeLaid };
+  }
+  return null;
+}
+
 /**
  * One tap, the way a real eggshell breaks: where the blow lands the shell is crushed into a little cone, straight
  * cracks run out from it like spokes, and as the blows go on, rings of cracks join the spokes into a spider web.
@@ -265,7 +293,7 @@ function crackHit(e, p, power, rng) {
   const net = e.net, [u, v] = p;
   net.impacts = net.impacts || []; net.dents = net.dents || [];
   const weak = clamp(1 - Math.hypot(u - e.spot[0], v - e.spot[1]) / 0.2, 0, 1);
-  const crit = weak > 0.45, dmg = power * (1 + weak * 2.2);
+  const crit = weak > 0.45, soft = !!shadeAt(e, u, v), dmg = power * (1 + weak * 2.2) * (soft ? 0.5 : 1);
   // (on silent stone, which way this knock's ripple leans: from where the spot is before the blow)
   const lean = e.silent ? rippleLean(e, u, v, e.hits ? e.hits.length - 1 : 0) : null;
   let budget = dmg * 0.2, grown = 0;
@@ -337,7 +365,14 @@ function crackHit(e, p, power, rng) {
   }
   // on the Labradorite's stone a blow on the weak spot lights it up: the hit decides, so host and guest flash alike
   const flash = !!e.sheen && crit;
-  return { dmg, crit, weak, grown, band, lean, flash };
+  // on the Gloom's first seal a blow on the weak spot burns away the patches beside it, and every third blow it lays one
+  let burnt = [], laid = null;
+  if (e.shade) {
+    if (crit) { burnt = e.patches.filter(q => Math.hypot(u - q.u, v - q.v) < q.r + SHADE_BURN); e.patches = e.patches.filter(q => !burnt.includes(q)); }
+    const i = e.hits ? e.hits.length - 1 : 0;
+    if ((i + 1) % SHADE_EVERY === 0 && e.damage < e.hp && e.patches.length < SHADE_MAX && (laid = shadePatch(e, u, v, i))) { e.patches.push(laid); e.shadeLaid++; }
+  }
+  return { dmg, crit, weak, grown, band, lean, flash, soft, burnt, laid };
 }
 
 /** Draw what's new on the shell: crushed spots where blows landed, then the cracks (dark, with a pale lit lip). */
@@ -430,6 +465,23 @@ function bandBreak(e) {
     const [x, y] = fromEgg(...pts[j]);
     if (inside(L.egg, [x, y])) spawnChips(x, y, 2, 1.2, greens);
   }
+}
+
+/** The Gloom lays a patch (crackHit chose where): it seeps in over a moment, with a low hush. The first one says what it does. */
+function shadeLay(e, p) {
+  p.shown = game.time;
+  if (sfx.ready()) sfx.wash(sfx.ac.currentTime, 0.7, 520, 150, 0.8, 0.14, "lowpass");
+  if (e.shadeLaid === 1) floatText(tr("a shadow: blows under it land soft"), L.ecx, L.ey0 + 24 * L.k, "#c9b8f0");
+}
+
+/** A blow on the weak spot burns patches away: each flares up in the crystal's light and is gone. With less motion, only a soft glow that fades. */
+function shadeBurn(e, burnt) {
+  const calm = opts().calm;
+  game.shadeFx = (game.shadeFx || []).filter(f => f.e === e).concat(burnt.map(p => ({ e, p, t: game.time, calm })));
+  sfx.shimmer();
+  if (!e.shadeBurnt) { e.shadeBurnt = true; floatText(tr("the light burns the shadow away"), L.ecx, L.ey0 + 24 * L.k, "#ffe9a8"); }
+  if (calm) return;
+  for (const p of burnt) { const [x, y] = fromEgg(p.u, p.v); burst(x, y, 8, ["#fff", e.crystal.c[1], "#d2bfff"], 0.7); }
 }
 
 function carveChip(x, y, r, sides = 0) {
@@ -830,11 +882,14 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   if (res.band) bandBreak(e);
   // the Labradorite's flash: lit by a blow on the weak spot, put out by a miss (see drawSheen)
   if (e.sheen) game.sheen = res.flash ? { e, t: game.time, calm: opts().calm } : null;
+  // the Gloom's patches: a flare where the light burns one away, and a shadow seeping in where one is laid (see drawShade)
+  if (res.burnt && res.burnt.length) shadeBurn(e, res.burnt);
+  if (res.laid) shadeLay(e, res.laid);
   const prog = clamp(e.damage / e.hp, 0, 1);
   e.wob = 0.02 + prog * 0.04 + (res.crit ? 0.03 : 0); e.wobT = 0; e.squash = 1;
   game.shake = Math.min(14, game.shake + (res.crit ? 7 : 3) + prog * 3) * Math.max(0.5, L.k);
   if (res.crit && !opts().calm) game.freeze = 0.06;
-  pop(res.crit ? tr("CRIT {0}", res.dmg.toFixed(1)) : res.dmg.toFixed(1), x, y - 14 * L.k, res.crit ? "#ffe9a8" : "#ffffff", res.crit ? 1.5 : 1);
+  pop(res.crit ? tr("CRIT {0}", res.dmg.toFixed(1)) : res.dmg.toFixed(1), x, y - 14 * L.k, res.crit ? "#ffe9a8" : res.soft ? "#c9b8f0" : "#ffffff", res.crit ? 1.5 : 1);
   // the chain is a ring round the hammer that grows with every link; a miss breaks the ring it had
   if (e.combo || e.lost > 1) e.ring = { x, y, n: e.combo || e.lost, from: e.combo && e.ring && !e.ring.broken ? e.ring.n : 0, broken: !e.combo, t: game.time };
   if (echo) {
@@ -1248,7 +1303,8 @@ const GLOOM_STONE = Object.assign(["#3a2a52", "#1a1028", "#6b4fa8"], { gloom: tr
 /** Before the sealed geode at the end of cave k (1..4), the Gloom has its say; after it opens, your friends have theirs. */
 const GLOOM_TALKS = {
   g1: () => [[GLOOM, "Little light. You are loud."], [GLOOM, "They are not kept. They are hidden. Hidden things do not get hurt.", null, "watching"],
-    [MOSSA, "A spark sleeps in there. Hidden things don't get to play, either.", null, "resolve"], [MOSSA, tr("Crack the seal, {0}. Let's wake it together.", myName()), null, "resolve"]],
+    [MOSSA, "A spark sleeps in there. Hidden things don't get to play, either.", null, "resolve"],
+    [MOSSA, "Where the Gloom lays a shadow, blows land soft. Strike the glow beside it. The shadow burns.", null, "concerned"], [MOSSA, tr("Crack the seal, {0}. Let's wake it together.", myName()), null, "resolve"]],
   g1win: () => [[MOSSA, "That spark is awake now. And it has a home.", null, "warm"],
     [MOSSA, "The Gloom was here before the moss, and before me. When the seal cracked, it let go. Can you feel it?"]],
   g2: () => [[GLOOM, "I am what stayed when the light ran. I did not put it out.", null, "watching"], [GLOOM, "Every one you wake can be hurt again. Have you counted that?", null, "questioning"],

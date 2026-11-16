@@ -285,4 +285,5 @@ const xpNeed = level => 20 + level * 15;
 const MAX_LEVEL = 20;
 
 const CAVES = ["Amethyst Hollow", "Celestite Grotto", "Malachite Deep", "Labradorite Vault"];
-const CAVE_NOTES = ["Soft stone · the weak spot hides from level 4", "Harder stone · rare crystals", "Find the weak spot by ear · a chance of legendary", "The toughest stone and the rarest geodes"];
+// each cave's note on the map names its stone's own rule (see levelConf, and the Gloom's first seal in crackHit)
+const CAVE_NOTES = ["Soft stone · the weak spot hides from level 4 · the seal casts shadows", "Silent stone: no glow, the ripples lean to the spot · rare crystals", "Banded stone: when a band breaks, the spot moves · find it by ear", "Flashing stone: the spot shows only when you hit it · the rarest geodes"];
