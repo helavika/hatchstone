@@ -599,6 +599,8 @@ function drawRoom() {
     roomCanvas.key = rk; roomCanvas.c = roomAhead.get(rk) || paintRoomIso(currentTheme());
   }
   ctx.drawImage(roomCanvas.c, 0, 0, W, H);
+  // (a place's fire lights the floor and the wall round it, under whoever stands there)
+  if (isPlace()) drawPlaceGlow();
   return drawRoomIso();
 }
 const roomSprites = {}, roomCanvas = {};
@@ -4421,6 +4423,203 @@ function drawMossLight(sh = SHAFTS.warm) {
   }
   ctx.restore();
 }
+// ---------- places that breathe: firelight on the floor and walls, sparks off the anvil, steam from the glass, dust in the window light ----------
+// Drawn each frame over the room's baked picture, and small: the light is a baked pool redrawn a little brighter or dimmer, the
+// rest a handful of single pixels. With less motion (or on a slow device) only the light stays, breathing slower; nothing flies.
+
+/** Each place's living things, in tiles from its piece's back corner (z in tiles up from the floor): where the fire's light
+ *  comes from (the hearth's mouth, the burner's front, a little lower than the flame so the floor gets its share) and how far it reaches, where sparks pop, which glass steams, and the window's light that the dust drifts in (from the
+ *  window, u = 0 on the left wall, to where it lands on the floor). */
+const BREATH = {
+  forge: { fire: { id: "furnace", at: [1.45, 1.45], z: 0.7, r: 3.2, col: "#ffa04e" }, sparks: { id: "anvil", at: [0.5, 0.5], z: 1.4 },
+    win: { v: 0.5, z: 0.56, to: [0.17, 0.55], wide: 0.1 } },
+  lab: { fire: { id: "labdesk", at: [0.62, 0.8], z: 0.9, r: 2.6, col: "#ffb45e" }, steam: [{ id: "labdesk", at: [0.82, 0.42], z: 2.25, n: 4 }, { id: "labdesk", at: [1.85, 0.3], z: 1.95, n: 2 }],
+    win: { v: 0.42, z: 0.5, to: [0.25, 0.5], wide: 0.08 } },
+  shop: { win: { v: 0.5, z: 0.56, to: [0.17, 0.55], wide: 0.1 }, sign: { u: 3.75, z: 0.62 } },
+};
+/** At most this many of each in the air at once. */
+const BREATH_CAP = { spark: 8, steam: 6, dust: 8 };
+const BREATH_DUST = 7, SPARK_EVERY = 0.9, SPARK_LIFE = 0.75;
+
+/** How the fire flickers at t seconds (0 to 1): a few slow waves over one another; with less motion one slow breath. It sets how
+ *  far the light reaches (three steps), so the pool's rim creeps in and out. */
+const fireFlicker = (t, still) => still ? 0.5 + 0.35 * Math.sin(t * 0.5) : clamp(0.5 + 0.28 * Math.sin(t * 1.7) + 0.14 * Math.sin(t * 3.1 + 1) + 0.08 * Math.sin(t * 5.3 + 2), 0, 1);
+
+/**
+ * What breathes in a place at t seconds: its firelight (how bright, and which of three reaches), and the sparks, puffs of steam,
+ * motes of dust and the sign's swing, each where it is in the room (u and v across the floor from 0 to 1, z up in art pixels).
+ * room: { tile, wall } in art pixels, and piece(id) → the placed piece { i, j, flip } or nothing.
+ */
+function placeBreath(kind, t, room, still) {
+  const B = BREATH[kind], out = { light: [], spark: [], steam: [], dust: [], sway: 0 };
+  if (!B) return out;
+  const { tile, wall, piece } = room;
+  // a point on a piece, as a place on the floor (a turned piece is mirrored: its two axes swap)
+  const spot = (id, [du, dv]) => { const p = piece(id); return p && (p.flip ? [(p.i + dv) / ISO_G, (p.j + du) / ISO_G] : [(p.i + du) / ISO_G, (p.j + dv) / ISO_G]); };
+  const inRoom = q => q.u >= 0 && q.v >= 0 && q.u <= 1 && q.v <= 1 && q.z >= 0 && q.z <= wall;
+  if (B.fire) {
+    const at = spot(B.fire.id, B.fire.at), k = fireFlicker(t, still);
+    if (at) out.light.push({ u: at[0], v: at[1], z: B.fire.z * tile, r: B.fire.r * tile, col: B.fire.col, k, step: still ? (k > 0.5 ? 1 : 0) : k > 0.66 ? 2 : k > 0.36 ? 1 : 0 });
+  }
+  if (still) return out;
+  // sparks: now and then the anvil pops a few, which arc out and fall to the floor (this burst and the one before can overlap)
+  const S = B.sparks && spot(B.sparks.id, B.sparks.at);
+  if (S) for (let n = Math.floor(t / SPARK_EVERY) - 1; n <= Math.floor(t / SPARK_EVERY); n++) {
+    if (pxHash(n, 3) < 0.55) continue;
+    const t0 = n * SPARK_EVERY + pxHash(n, 5) * 0.3, m = 2 + Math.floor(pxHash(n, 7) * 3);
+    for (let k = 0; k < m; k++) {
+      const a = t - t0, life = SPARK_LIFE * (0.6 + 0.4 * pxHash(n, k + 11));
+      if (a < 0 || a > life) continue;
+      const ang = pxHash(n, k + 21) * TAU, sp = (0.5 + pxHash(n, k + 31)) * 0.035, up = (30 + 30 * pxHash(n, k + 41)) / tile;
+      const fly = a => ({ u: S[0] + Math.cos(ang) * sp * a * 3, v: S[1] + Math.sin(ang) * sp * a * 3, z: (B.sparks.z + up * a - 4.5 * a * a) * tile });
+      // (with where it was a moment ago, for a short streak behind it)
+      const q = { ...fly(a), age: a / life, was: fly(Math.max(0, a - 0.05)) };
+      if (inRoom(q) && out.spark.length < BREATH_CAP.spark) out.spark.push(q);
+    }
+  }
+  // steam: little puffs leave the glass, grow, curl and thin out as they rise (like the chimney smoke on the map)
+  for (const s of B.steam || []) {
+    const at = spot(s.id, s.at); if (!at) continue;
+    for (let k = 0; k < s.n; k++) {
+      const a = (t / 2.6 + k / s.n + pxHash(k, at[0] * 97 | 0) * 0.2) % 1, rise = a * 1.1 * tile;
+      const q = { u: at[0] + Math.sin(a * 5 + k * 2.1 + t * 0.6) * 0.012 + a * 0.012, v: at[1] - a * 0.01, z: s.z * tile + rise, age: a };
+      if (inRoom(q) && out.steam.length < BREATH_CAP.steam) out.steam.push(q);
+    }
+  }
+  // dust: a few motes drifting slowly down the window's light and out of it, glinting as they turn
+  const w = B.win;
+  if (w) for (let k = 0; k < BREATH_DUST; k++) {
+    const s = (pxHash(k, 51) + t * (0.012 + 0.01 * pxHash(k, 53))) % 1, side = (pxHash(k, 55) - 0.5) * 2 * w.wide;
+    const q = { u: w.to[0] * s + Math.sin(t * 0.4 + k) * 0.01, v: w.v + (w.to[1] - w.v) * s + side + Math.sin(t * 0.3 + k * 2) * 0.012,
+      z: wall * w.z * (1 - s) + Math.sin(t * 0.5 + k * 1.3) * 2, age: s, glint: Math.max(0, Math.sin(t * 1.3 + k * 2.4)) };
+    if (inRoom(q) && out.dust.length < BREATH_CAP.dust) out.dust.push(q);
+  }
+  // the shop's sign swings a little on its bracket
+  if (B.sign) out.sway = 0.1 * Math.sin(t * 1.15) + 0.03 * Math.sin(t * 2.6 + 1);
+  return out;
+}
+
+/** Where each art pixel of the room lies: on the floor (z = 0) or up one of the two walls (u or v = 0), or nowhere in the room.
+ *  G is the room in art pixels: { cx, top, hw, hh, wall }. */
+function roomSurf(G, x, y) {
+  const a = (x - G.cx) / G.hw, b = (y - G.top) / G.hh, u = (a + b) / 2, v = (b - a) / 2;
+  if (u >= 0 && v >= 0 && u <= 1 && v <= 1) return [u, v, 0];
+  if (a <= 0 && a >= -1) { const z = G.top - a * G.hh - y; return z > 0 && z <= G.wall ? [0, -a, z] : null; }
+  if (a > 0 && a <= 1) { const z = G.top + a * G.hh - y; return z > 0 && z <= G.wall ? [a, 0, z] : null; }
+  return null;
+}
+/**
+ * A fire's pool of light on the floor and the walls round it, in art pixels: three steps falling off from the fire with a
+ * dithered seam between them, cut to the box it can reach (never the whole canvas). grow stretches its reach a little.
+ * Returns { x0, y0, w, h, lv } with lv the step (0 to 3) of each pixel in the box.
+ */
+function breathPool(G, L, grow = 1) {
+  const R = L.r * grow, sx = G.cx + (L.u - L.v) * G.hw, sy = G.top + (L.u + L.v) * G.hh;
+  const x0 = Math.max(0, Math.floor(sx - R * 1.5)), x1 = Math.min(G.w, Math.ceil(sx + R * 1.5));
+  const y0 = Math.max(0, Math.floor(sy - L.z - R - 2)), y1 = Math.min(G.h, Math.ceil(sy + R));
+  const w = Math.max(0, x1 - x0), h = Math.max(0, y1 - y0), lv = new Uint8Array(w * h);
+  for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+    const s = roomSurf(G, x + 0.5, y + 0.5); if (!s) continue;
+    const dd = Math.hypot((s[0] - L.u) * G.hw, (s[1] - L.v) * G.hw, s[2] - L.z) / R;
+    if (dd >= 1) continue;
+    lv[(y - y0) * w + x - x0] = clamp(Math.floor((1 - dd) ** 0.8 * 3.6 + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * 0.6), 0, 3);
+  }
+  return { x0, y0, w, h, lv };
+}
+/** How strongly each step of the pool tints what's under it toward the fire's colour (out of 255). */
+const POOL_TINT = [0, 50, 92, 136];
+
+const breath = { at: -1, plan: null, pools: {}, sign: null };
+const breathRoom = () => {
+  const q = v => v / PX;
+  return { cx: q(N.cx), top: q(N.isoTop), hw: q(N.isoW), hh: q(N.isoH), wall: q(N.isoWall), w: Math.ceil(W / PX), h: Math.ceil(H / PX) };
+};
+/** This frame's plan for the place you're in (worked out once a frame). */
+function breathNow() {
+  if (breath.at === game.time && breath.kind === save.rooms[save.room]?.kind) return breath.plan;
+  const kind = save.rooms[save.room]?.kind, placed = isoLayout().placed;
+  breath.at = game.time; breath.kind = kind;
+  return breath.plan = placeBreath(kind, game.time / 1000, { tile: N.isoW / ISO_G / PX, wall: N.isoWall / PX, piece: id => placed[id] }, opts().calm || quality.low);
+}
+/** The firelight, right over the room's picture and under everything standing in it. */
+function drawPlaceGlow() {
+  const plan = breathNow(); if (!plan.light.length) return;
+  const G = breathRoom(), was = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  for (const L of plan.light) {
+    const key = `${L.u.toFixed(4)}|${L.v.toFixed(4)}|${L.col}|${W}|${H}|${PX}|${N.isoTop}|${N.isoW}|${N.isoWall}|${L.step}`;
+    let P = breath.pools[key];
+    if (!P) {
+      const pool = breathPool(G, L, [0.92, 1, 1.07][L.step]), c = document.createElement("canvas"); c.width = Math.max(1, pool.w); c.height = Math.max(1, pool.h);
+      const g = c.getContext("2d"), img = g.createImageData(c.width, c.height), col = pxHex(L.col);
+      pool.lv.forEach((l, i) => { if (l) { img.data[i * 4] = col[0]; img.data[i * 4 + 1] = col[1]; img.data[i * 4 + 2] = col[2]; img.data[i * 4 + 3] = POOL_TINT[l]; } });
+      g.putImageData(img, 0, 0);
+      // (only the three reaches of the places' two fires are ever kept)
+      if (Object.keys(breath.pools).length > 12) breath.pools = {};
+      P = breath.pools[key] = { c, x: pool.x0 * PX, y: pool.y0 * PX };
+    }
+    // (the pool's edges creep in and out a step at a time; its strength stays, so only the rim changes, the pixel-art way)
+    ctx.globalAlpha = 0.9;
+    ctx.drawImage(P.c, P.x, P.y, P.c.width * PX, P.c.height * PX);
+  }
+  ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = was;
+}
+/** The sparks, steam and dust, over everything in the place. */
+function drawPlaceBreath() {
+  const plan = breathNow(), s = Math.max(1, Math.round(PX));
+  if (!plan.spark.length && !plan.steam.length && !plan.dust.length) return;
+  const at = q => { const [x, y] = isoAt(q.u, q.v); return [Math.round(x / s) * s, Math.round((y - q.z * PX) / s) * s]; };
+  ctx.save();
+  for (const q of plan.dust) { const [x, y] = at(q); ctx.globalAlpha = Math.sin(q.age * Math.PI) * (0.25 + 0.5 * q.glint); ctx.fillStyle = "#efe6ff"; ctx.fillRect(x, y, s, s); }
+  for (const q of plan.steam) {
+    const [x, y] = at(q), r = s * (q.age < 0.35 ? 1 : 2);
+    ctx.globalAlpha = (1 - q.age) * 0.5 * Math.min(1, q.age * 6); ctx.fillStyle = "#e4dfe8"; ctx.fillRect(x, y, r, r);
+  }
+  for (const q of plan.spark) {
+    const [x, y] = at(q), [x0, y0] = at(q.was), fade = q.age < 0.7 ? 1 : (1 - q.age) / 0.3;
+    if (x0 !== x || y0 !== y) { ctx.globalAlpha = fade * 0.5; ctx.fillStyle = "#c8452f"; ctx.fillRect(x0, y0, s, s); }
+    ctx.globalAlpha = fade; ctx.fillStyle = q.age < 0.3 ? "#ffd25e" : q.age < 0.6 ? "#ff943a" : "#e0634f"; ctx.fillRect(x, y, s, s);
+  }
+  ctx.restore();
+}
+/**
+ * The shop's hanging sign: an iron bracket out of the right wall with a little painted board on two links, a lilac gem on it.
+ * The bracket stays put; the board swings a pixel or two each way (row by row, more the lower it hangs).
+ */
+function drawShopSign() {
+  const B = BREATH.shop.sign, t = N.isoW / ISO_G / PX, U = t / 2, bh = Math.max(6, Math.round(t * 0.4)), La = 0.8 * U;
+  const key = `${t.toFixed(2)}|${PX}`;
+  if (breath.sign?.key !== key) {
+    const w = Math.ceil(2 * La + 10), h = Math.ceil(La + bh + 16), x0 = w - 4, y0 = 6;
+    const bracket = isoArt(w, h, T => {
+      const K = isoKit(T, x0, y0);
+      K.faceV(0, -0.07 * U, 0.07 * U, -7, 3, IC.m3);
+      K.seg([0, 0, 1], [0, La, 1], IC.m1); K.seg([0, 0, 0], [0, La, 0], IC.m3);
+      K.seg([0, 0, -6], [0, La * 0.6, -1], IC.m3);
+      K.dot(0, La + 0.04 * U, 1, IC.m2); K.dot(0, La + 0.08 * U, 0, IC.m2); K.dot(0, La + 0.04 * U, -1, IC.m3);
+    }, { texture: false });
+    const board = isoArt(w, h, T => {
+      const K = isoKit(T, x0, y0), v0 = 0.12 * U, v1 = La - 0.02 * U, zt = -3;
+      for (const v of [v0 + 0.05 * U, v1 - 0.05 * U]) { K.dot(0, v, -1, IC.m2); K.dot(0, v, -2, IC.m3); }
+      K.faceU(0, v0, v1, zt - bh, zt, IC.w3);
+      K.faceU(0, v0 + 0.03 * U, v1 - 0.03 * U, zt - bh + 1, zt - 1, IC.w1);
+      K.seg([0, v0 + 0.03 * U, zt - 1], [0, v1 - 0.03 * U, zt - 1], IC.w0);
+      // the gem painted on it: a little lilac diamond, lit at its top left
+      const [gx, gy] = K.P(0, (v0 + v1) / 2, zt - bh / 2), gem = [[0, -2, IC.l0], [-1, -1, IC.l1], [0, -1, IC.l1], [1, -1, IC.l2], [-2, 0, IC.l1], [-1, 0, IC.l2], [0, 0, IC.l2], [1, 0, IC.l3], [2, 0, IC.l3], [-1, 1, IC.l3], [0, 1, IC.l3], [1, 1, IC.l4], [0, 2, IC.l4]];
+      for (const [dx, dy, col] of gem) T.px(gx + dx, gy + dy - dx / 2, col);
+    }, { texture: false });
+    breath.sign = { key, bracket, board, x0, y0, w, h };
+  }
+  const S = breath.sign, [wx, wy] = isoAt(B.u / ISO_G, 0), ox = Math.round(wx / PX) - S.x0, oy = Math.round(wy / PX - N.isoWall / PX * B.z) - S.y0;
+  const sway = breathNow().sway, was = ctx.imageSmoothingEnabled;
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(S.bracket, ox * PX, oy * PX, S.w * PX, S.h * PX);
+  if (!sway) ctx.drawImage(S.board, ox * PX, oy * PX, S.w * PX, S.h * PX);
+  // (it swings about its bracket: each row below it moves toward the room and back, the lowest the most)
+  else for (let r = 0; r < S.h; r++) ctx.drawImage(S.board, 0, r, S.w, 1, (ox + Math.round(2 * Math.sin(sway) * Math.max(0, r - S.y0))) * PX, (oy + r) * PX, S.w * PX, PX);
+  ctx.imageSmoothingEnabled = was;
+}
+
 /** The isometric room in art pixels: a diamond floor on a thick slab, and (indoors) a lit left wall and a shaded right one.
  *  Every surface is a material laid along its own plane, lit from the top left: caves are layered rock with ledges and
  *  fissures over a pebbly floor; the abbey dressed stone in courses over flagstones; the timber hall an oak frame with
@@ -4847,6 +5046,7 @@ function drawRoomIso() {
     items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); if (PROP_CUES[p.id]) propCue(p.id, f, bob); } });
   }
   if (hasDecor("shelf")) items.push({ y: -2, draw: drawShelfIso });
+  if (save.rooms[save.room]?.kind === "shop") items.push({ y: -3, draw: drawShopSign });
   if (hasDecor("lights")) items.push({ y: -1, draw: lightsIso });
   if (weather.drops.length) items.push({ y: 1e6, top: true, draw: drawWeatherAir });
   if (hasDecor("cushion")) items.push({ y: 1e6, top: true, id: "cushion", draw: drawCloud });
