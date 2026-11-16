@@ -779,7 +779,8 @@ function bgFor(scene) {
   // in the nest the land goes on around the room: outdoors the horizon lies behind the room, so the clearing is part of the
   // meadow and the hills, trees and mushrooms stand beyond it; a cave room stands on a rock shelf on the cave floor, crystals around it
   const home = scene === "nest" && atHome(), kind = scene === "nest" ? lookOf(id) : ROOM_KIND[id] || "cave", outdoor = kind === "yard" || kind === "wood";
-  const floor = scene !== "nest" || !N.back ? 0.86 : outdoor ? (N.isoTop - N.isoWall * 0.35) / H : (kind === "cave" ? N.front : N.back + 1) / H;
+  // (while cracking the cave floor meets the plinth's stage: see stageGeom)
+  const floor = scene === "crack" && game.egg ? stageNow().horizon / H : scene !== "nest" || !N.back ? 0.86 : outdoor ? (N.isoTop - N.isoWall * 0.35) / H : (kind === "cave" ? N.front : N.back + 1) / H;
   // in the nest and on the title the cave floor runs on down behind the needs and the tabs, and under the title card (no dark band there)
   const deep = scene === "nest" || scene === "menu";
   const key = `${id}|${floor.toFixed(3)}|${deep}|${home}`;
