@@ -612,8 +612,9 @@ function wickMoment(ms) {
 }
 /** Where Wick sits (his sprite's top left corner) and how big one of his pixels is on screen. */
 function wickBox() {
-  const k = WICK_NATIVE, S = Math.max(1, Math.floor(Math.round(N.base * 1.55 / PX) / 104 + 0.2)), u = S * PX, [x, y] = wickSeat(k.at);
-  return { S, u, left: x - k.ax * u, top: y - k.seat * u };
+  // (on coarse room pixels he would come out too big pixel for pixel, so then S is a fraction and his pictures are shrunk to it)
+  const k = WICK_NATIVE, f = Math.round(N.base * 1.55 / PX) / 104, S = f >= 0.8 ? Math.max(1, Math.floor(f + 0.2)) : f, u = S * PX, [x, y] = wickSeat(k.at);
+  return { S, u, left: Math.round((x - k.ax * u) / PX) * PX, top: Math.round((y - k.seat * u) / PX) * PX };
 }
 /** The bench's lanterns and, on his days, Wick at work on them (drawn right after the bench itself). */
 function drawWick() {
@@ -633,15 +634,16 @@ function drawWick() {
   };
   const lamp = (state, x, y) => {
     if (state !== "dark") glow(x + 4 * u, y + 6 * u, (state === "low" ? 9 : 15) * u, state === "low" ? 0.14 : 0.24);
-    ctx.drawImage(wickLamp(state, S), x, y, k.lampW * u, 10 * u);
+    ctx.drawImage(S < 1 ? pixShrink(wickLamp(state, 1), Math.round(10 * S), `wicklamp|${state}`) : wickLamp(state, S), x, y, k.lampW * u, 10 * u);
   };
   ctx.imageSmoothingEnabled = false;
-  const at = j => { const [x, y] = wickSeat(k.row + j * 0.27); return [x - 4 * u, y - 9 * u]; };
+  const at = j => { const [x, y] = wickSeat(k.row + j * 0.27); return [Math.round((x - 4 * u) / PX) * PX, Math.round((y - 9 * u) / PX) * PX]; };
   if (here) {
     // his wings open and fold again, slowly, over every other lantern he has lit; now and then he blinks
     const w = busy && turn % 2 === 0 && ms >= 3600 && ms < 4720 ? [1, 2, 2, 1][Math.floor((ms - 3600) / 280)] : 0;
     if (lap && lap !== "dark") glow(left + (k.lap[0] + 4) * u, top + (k.lap[1] + 6) * u, (lap === "spark" ? 26 : 22) * u, lap === "spark" ? 0.42 : 0.3);
-    ctx.drawImage(wickFrame(w, (t + 1300) % 4100 < 140, pose, lap, S), left, top, k.w * u, k.h * u);
+    const bl = (t + 1300) % 4100 < 140;
+    ctx.drawImage(S < 1 ? pixShrink(wickFrame(w, bl, pose, lap, 1), Math.round(k.h * S), `wick|${w}|${bl}|${pose}|${lap}`) : wickFrame(w, bl, pose, lap, S), left, top, k.w * u, k.h * u);
   }
   for (let j = 0; j < 3; j++) { const st = slot(j); if (st) lamp(st, ...at(j)); }
   if (fly) { const [x, y] = at(turn % 3), lx = left + k.lap[0] * u, ly = top + k.lap[1] * u; lamp(fly, Math.round((x + lx) / 2 / PX) * PX, Math.round((y + ly) / 2 / PX) * PX); }
@@ -1145,13 +1147,20 @@ const heroImgs = {};
  */
 const keeperSizedCache = {};
 function keeperSized(id, blink, f, S, tall) {
-  // drawn at full size by hand: shown pixel for pixel (doubled only on a screen with room for it)
-  if (KEEPER_NATIVE[id]) return keeperNative(id, blink, f, Math.max(1, Math.floor(tall / KEEPER_NATIVE[id].h + 0.2)));
+  // drawn at full size by hand: shown pixel for pixel (doubled only on a screen with room for it), shrunk only when the room's pixels are coarse
+  if (KEEPER_NATIVE[id]) {
+    const n = KEEPER_NATIVE[id].h;
+    return tall >= n * 0.8 ? keeperNative(id, blink, f, Math.max(1, Math.floor(tall / n + 0.2))) : pixShrink(keeperNative(id, blink, f), tall, `native|${id}|${blink ? 1 : 0}|${f}`);
+  }
   const fine = KEEPER_PIX[id] ? keeperCanvas(id, blink, 2, f) : null;
   if (!fine || tall >= fine.height) return keeperCanvas(id, blink, S, f);
-  const key = `${id}|${blink ? 1 : 0}|${f}|${tall}`;
+  return pixShrink(fine, tall, `${id}|${blink ? 1 : 0}|${f}`);
+}
+/** Pixel art made smaller without blur: each new pixel takes the colour that covers most of it (dark ink counts for more, so outlines hold). */
+function pixShrink(src, tall, id) {
+  const key = `${id}|${tall}`;
   if (keeperSizedCache[key]) return keeperSizedCache[key];
-  const sw = fine.width, sh = fine.height, k = tall / sh, tw = Math.round(sw * k), d = fine.getContext("2d").getImageData(0, 0, sw, sh).data;
+  const sw = src.width, sh = src.height, k = tall / sh, tw = Math.round(sw * k), d = src.getContext("2d").getImageData(0, 0, sw, sh).data;
   const c = document.createElement("canvas"); c.width = tw; c.height = tall; const g = c.getContext("2d"), im = g.createImageData(tw, tall);
   for (let y = 0; y < tall; y++) for (let x = 0; x < tw; x++) {
     const x0 = x / k, x1 = (x + 1) / k, y0 = y / k, y1 = (y + 1) / k, seen = new Map(); let solid = 0;
