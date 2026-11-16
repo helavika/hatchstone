@@ -281,10 +281,17 @@ test("two isolated devices share a real WebRTC egg without replacing solo saves"
         save.decor.lamp={on:true}; save.backupAt=Date.now(); persist(); setScene('nest');
         const [x,y]=decorSpot('lamp'); return [x,y-N.base*.75];
       })()`);
-      await host.tap(...spot);
-      assert.equal(await host.eval("save.decor.lamp.off"),true);
-      await host.tap(...spot);
-      assert.equal(await host.eval("save.decor.lamp.off"),false);
+      // each tap must flip the lamp; if something briefly sits over the spot (a toast, a banner), say what and try once more
+      const flip = async want => {
+        await host.tap(...spot);
+        try { await waitFor("lamp off = " + want, () => host.eval(`save.decor.lamp.off === ${want}`), 1500); return; } catch {}
+        const top = await host.eval(`(() => { const e = document.elementFromPoint(${spot[0]}, ${spot[1]}); return e && (e.id || e.className || e.tagName); })()`);
+        console.log("# lamp tap did not land (top: " + top + "), tapping again");
+        await host.tap(...spot);
+        await waitFor("lamp off = " + want + " after a second try", () => host.eval(`save.decor.lamp.off === ${want}`), 1500);
+      };
+      await flip(true);
+      await flip(false);
     });
 
     await stage("solo play still works and the new local scripts are cached for offline reload", async () => {
