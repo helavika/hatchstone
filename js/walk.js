@@ -1,6 +1,6 @@
 "use strict";
 // Hatchstone · a walk outside: you take a glowling (or two) out along a little path for a minute or two.
-// Tap where to go and they stroll there; find berries, seeds, a shiny pebble, a feather, a flower, now and then a spark,
+// Tap where to go (or hold an arrow) and they stroll there; find berries, seeds, a shiny pebble, a feather, a flower, now and then a spark,
 // and once each walk clear a tangle of Gloom-thorn with your light, which opens the short way. No enemies, no hurry,
 // nothing to lose: the path is drawn to match the garden's backdrop and the season, and they come home tired and happy.
 // The rules (paths, the save, what a walk gives) are plain functions at the top, so the tests can load them in Node.
@@ -231,6 +231,9 @@ if (typeof window === "object") {
     "Everyone's asleep or too tired for a walk. Maybe after a nap 🌙": "Усі сплять або втомилися. Може, після дрімоти 🌙",
     "Not during a shared egg": "Не під час спільного яйця",
     "Tap where to go": "Торкнися, куди йти",
+    "Tap where to go, or hold an arrow": "Торкнися, куди йти, або тримай стрілку",
+    "Walk left": "Йти ліворуч",
+    "Walk right": "Йти праворуч",
     "Something rustles in that bush. Tap it": "У тому кущі щось шарудить. Торкнися його",
     "Gloom-thorn has tangled the hollow way. Tap it with your light": "Терен Мли заплів нижню стежку. Торкнися його світлом",
     "The thorns loosen in the light. The short way is open ✦": "Терен слабне у світлі. Коротка стежка відкрита ✦",
@@ -322,10 +325,10 @@ function startWalk(path) {
   // the backdrop's key and chords, with the walk's own light texture (see PLACES.walk in music.js)
   bgTheme = theme; sfx.music(theme);
   setScene("walk");
-  $("walkHud").classList.remove("done");
+  $("walkHud").classList.remove("done"); $("walkPad").classList.remove("done");
   $("walkName").textContent = tr(WALKS[path].name);
   walkBag();
-  setTimeout(() => walkSay(tr("Tap where to go"), "go"), 300);
+  setTimeout(() => walkSay(tr("Tap where to go, or hold an arrow"), "go"), 300);
 }
 /** A hint, once per walk each. */
 function walkSay(text, id) {
@@ -884,7 +887,16 @@ const walkCr = id => save.creatures.find(c => c.id === id);
 /** How fast a glowling strolls, in art pixels a second: by its kind and its age, like at home. */
 function walkPace(p) {
   const cr = walkCr(p.id), sp = cr && specOf(cr), calm = calmOf(cr?.level), g = game.walk;
-  return (sp && (sp.beh === "flutter" || sp.beh === "swim") ? 60 : sp?.beh === "nap" ? 36 : 48) * g.geo.s / 100 * calm.go;
+  return (sp && (sp.beh === "flutter" || sp.beh === "swim") ? 60 : sp?.beh === "nap" ? 36 : 48) * WALK_SPEED * g.geo.s / 100 * calm.go;
+}
+/** Outside they step out livelier than at home. */
+const WALK_SPEED = 1.6;
+/** Where holding an arrow leads: a little ahead that way, or over the stream the next stone (or bank) that way. */
+function walkAhead(geo, x, dir) {
+  const st = geo.stream, ahead = clamp(x + dir * geo.s * 1.2, 8, geo.end);
+  if (!st || !walkIn(ahead, st.x0 - 3, st.x1 + 3) && !walkIn(x, st.x0 - 3, st.x1 + 3)) return ahead;
+  const h = walkHops(st), next = dir > 0 ? h.find(q => q > x + 0.5) : [...h].reverse().find(q => q < x - 0.5);
+  return next === undefined ? ahead : next;
 }
 /** Where the stream's hops go: the near bank, each stone, the far bank. */
 const walkHops = st => [st.x0 - 3, ...st.stones, st.x1 + 3];
@@ -896,6 +908,8 @@ function updateWalk(dt) {
   if (!g || !g.geo || g.ended) return;
   g.t += dt;
   const geo = g.geo, lead = g.pals[0], calm = opts().calm, st = geo.stream, hl = geo.hill;
+  // an arrow held down (on screen or on the keyboard): the one you lead keeps walking that way
+  if (g.hold && !g.reached) { lead.tx = walkAhead(geo, lead.x, g.hold); g.dir = g.hold; }
   g.pals.forEach((p, i) => {
     const cr = walkCr(p.id), sp = cr && specOf(cr);
     if (i) p.tx = walkSnap(geo, clamp(g.pals[i - 1].x - g.dir * geo.s * 0.85, -geo.s * 2, geo.end));
@@ -1068,7 +1082,7 @@ function finishWalk() {
   if (!g || g.ended) return;
   g.ended = true;
   setHint(""); walkWater(0);
-  $("walkHud").classList.add("done");
+  $("walkHud").classList.add("done"); $("walkPad").classList.add("done"); g.hold = 0;
   const w = save.walks, p = WALKS[g.path], n = g.got.length, mood = walkMood(g.path, n, g.freed), crs = g.who.map(walkCr).filter(Boolean);
   for (const cr of crs) {
     applyTime(cr);
@@ -1322,5 +1336,23 @@ function drawWalk() {
 if (typeof window === "object") {
   $("walkSheetClose").addEventListener("click", () => show("walkSheet", false));
   $("walkQuit").addEventListener("click", ev => { ev.stopPropagation(); sfx.tick(); finishWalk(); });
+  // walking by arrows: the two on screen while a finger is on them, ← → (or A, D) on a keyboard
+  const hold = d => {
+    const g = game.walk;
+    if (!g) return;
+    // let go: a step or so more to slow down, not the whole way to where the arrow was leading
+    if (!d && g.hold && g.geo && !g.reached) { const p = g.pals[0]; p.tx = walkSnap(g.geo, clamp(p.x + g.hold * g.geo.s * 0.3, 8, g.geo.end)); }
+    g.hold = d;
+  };
+  for (const [id, d] of [["walkLeft", -1], ["walkRight", 1]]) {
+    const el = $(id);
+    el.addEventListener("pointerdown", ev => { ev.stopPropagation(); ev.preventDefault(); el.setPointerCapture?.(ev.pointerId); hold(d); });
+    for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) el.addEventListener(t, () => { if (game.walk?.hold === d) hold(0); });
+    el.addEventListener("contextmenu", ev => ev.preventDefault());
+  }
+  const KEY = { ArrowLeft: -1, ArrowRight: 1, a: -1, d: 1, A: -1, D: 1 };
+  addEventListener("keydown", ev => { if (game.scene !== "walk" || !(ev.key in KEY) || ev.altKey || ev.metaKey || ev.ctrlKey) return; ev.preventDefault(); hold(KEY[ev.key]); });
+  addEventListener("keyup", ev => { if (ev.key in KEY && game.walk?.hold === KEY[ev.key]) hold(0); });
+  addEventListener("blur", () => hold(0));
   $("walkHome").addEventListener("click", () => { sfx.tick(); walkHome(); });
 }

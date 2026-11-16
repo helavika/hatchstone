@@ -126,3 +126,20 @@ test('a crown takes three flowers in their colours, a pin two feathers and shows
     for (const [k, n] of Object.entries(plan.take)) { assert.equal(KEEPSAKES.find(q => q.id === k).kind, t.kind); assert.ok(n <= jar[k]); }
   }
 });
+
+test('holding an arrow leads a little ahead, and over the stream from stone to stone, never into the water', () => {
+  const fs = require('node:fs'), vm = require('node:vm'), src = fs.readFileSync(require.resolve('../js/walk.js'), 'utf8');
+  const cut = (a, b) => src.slice(src.indexOf(a), src.indexOf(b, src.indexOf(a)));
+  const ctx = vm.createContext({ clamp: (v, a, b) => Math.max(a, Math.min(b, v)) });
+  vm.runInContext(cut('const walkIn =', '\n') + '\n' + cut('const WALK_SPEED', '\nfunction updateWalk') + '\nthis.walkAhead = walkAhead; this.WALK_SPEED = WALK_SPEED;', ctx);
+  assert.ok(ctx.WALK_SPEED > 1, 'outside they walk faster than at home');
+  const geo = { s: 20, end: 400, stream: { x0: 100, x1: 160, stones: [115, 130, 145] } };
+  assert.equal(ctx.walkAhead(geo, 40, 1), 64);
+  assert.equal(ctx.walkAhead(geo, 40, -1), 16);
+  assert.equal(ctx.walkAhead(geo, 395, 1), 400);
+  // at the bank, then each stone in turn, then the far bank; and back the same way
+  let x = 90; const right = [];
+  for (let i = 0; i < 6; i++) { x = ctx.walkAhead(geo, x, 1); right.push(x); }
+  assert.deepEqual(right.slice(0, 5), [97, 115, 130, 145, 163]);
+  assert.equal(ctx.walkAhead(geo, 130, -1), 115);
+});
