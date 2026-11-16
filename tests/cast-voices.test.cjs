@@ -176,3 +176,9 @@ test('the talk box shows the face for the line\'s mood: nextLine passes it, the 
   assert.ok(html.indexOf('js/pixel.js') < html.indexOf('js/portraits.js') && html.indexOf('js/portraits.js') < html.indexOf('js/crack.js'));
   assert.ok(sw.includes('"js/portraits.js"'));
 });
+
+test('the collage-head portraits (Ember, Tansy, Pip, Fennel) change only the face between moods', () => {
+  for (const name of ['ember', 'tansy', 'pip', 'fennel'])
+    for (const [face, runs] of Object.entries(P[name].moods))
+      for (const [y] of runs) assert.ok(y >= 8 && y <= 27, `${name}.${face} paints row ${y}, off the face`);
+});
