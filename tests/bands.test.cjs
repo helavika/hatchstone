@@ -31,7 +31,7 @@ const src = [
   line(hit, /^  const gems = blowPay\(.*$/m, 'hitEgg should pay for the blow in one line'),
   '  return res;',
   '}',
-  'const forgeLvl = () => 0, paintNet = () => {}, hitFeedback = () => {}, fromEgg = (u, v) => [u, v];',
+  'const forgeLvl = () => 0, buddyCatch = () => false, paintNet = () => {}, hitFeedback = () => {}, fromEgg = (u, v) => [u, v];',
   cut(coop, '/** Replay shared hits', 'function installCoopRound(', 'coopReplayHits should sit just before installCoopRound'),
   'function guestTake(e, state) {',
   line(apply, /^  if \(coopIsGuest\(\) \|\| initial\) coopReplayHits\(.*$/m, 'a guest should replay the host\'s hits').replace('coopIsGuest() || initial', 'true').replace('!initial', 'false'),

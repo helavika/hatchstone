@@ -31,7 +31,7 @@ const src = [
   line(hit, /^  const gems = blowPay\(.*$/m, 'hitEgg should pay for the blow in one line'),
   line(hit, /^  e\.gems \+= gems;$/m, 'hitEgg should keep the shards'),
   '}',
-  'const forgeLvl = () => 0;',
+  'const forgeLvl = () => 0, buddyCatch = () => false;',
   line(scenes, /^const tripCosts = .*$/m, 'tripCosts should be one line in scenes.js'),
   cut(scenes, 'function startLevel(', '\n}\n', 'startLevel should sit in scenes.js') + '\n}',
   cut(scenes, '// ---------- the stone that waits', '/** Where the six levels of a chapter sit', 'the stone that waits should have a section of its own in scenes.js, before the map'),
