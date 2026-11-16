@@ -193,6 +193,45 @@ function drawEgg() {
   drawSealFx(e);
 }
 
+/**
+ * Where the glowling that came along sits (see buddyFor): small, on the floor in front of the plinth, to the left. On a
+ * wide, low screen there's no floor in front, so it sits beside the plinth's foot instead, past the cave's prop there.
+ */
+function buddySeat() {
+  const G = stageNow(), s = G.e * 0.2, front = G.foot + 0.17 * G.e;
+  if (front <= G.quiet - 4) return { x: clamp(G.cx - 0.42 * G.e, s, W - s), y: front - s * 0.42, s };
+  const prop = G.props.find(p => p.side < 0 && p.kind !== "pool"), s2 = s * 0.8;
+  const x = (prop ? prop.box[0] : G.cx - G.plinth.frx) - s2 * 0.7;
+  return { x: clamp(x, s2, W - s2), y: Math.min(G.base + 0.03 * G.e, G.quiet - 4) - s2 * 0.42, s: s2 };
+}
+
+/**
+ * The glowling by the stone. Rested and happy it looks on brightly; tired or glum it just watches, with its own face.
+ * Its help (see buddyHelped) is a hop: the common one's towards the weak spot's side, looking that way for a moment
+ * (straight up when the spot is in the middle), the others' on the spot. With less motion it doesn't hop: a soft glow
+ * swells and fades instead, on the side it would have hopped to.
+ */
+function drawBuddy(e) {
+  const b = e && e.buddy;
+  if (!b) return;
+  const { x, y, s } = buddySeat(), a = b.done ? (game.time - b.at) / 1000 : Infinity, now = a < BUDDY_HINT;
+  const side = b.help === "hop" ? b.side : 0, calm = opts().calm;
+  let dx = 0, hop = 0;
+  if (now && calm) {
+    const gx = x + side * s * 0.75, r = s * 0.8, k = Math.sin(Math.PI * a / BUDDY_HINT), c = palOf(b.sp)[1];
+    const g = ctx.createRadialGradient(gx, y, 1, gx, y, r);
+    g.addColorStop(0, `rgba(255,255,255,${0.7 * k})`); g.addColorStop(0.35, hexA(c, 0.6 * k)); g.addColorStop(1, hexA(c, 0));
+    ctx.save(); ctx.globalCompositeOperation = "lighter"; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(gx, y, r, 0, TAU); ctx.fill(); ctx.restore();
+  } else if (now) {
+    // a hop out to the side and, once the hint has been seen, a hop back
+    const out = clamp(a / 0.35, 0, 1), back = clamp((a - (BUDDY_HINT - 0.35)) / 0.35, 0, 1);
+    dx = side * s * 0.6 * (out - back);
+    hop = a < 0.35 ? 1 - out : back > 0 ? 1 - back : 0;
+  }
+  const face = now && b.help === "hop" ? (side < 0 ? "lookL" : side > 0 ? "lookR" : "think") : "";
+  drawSprite(Math.round((x + dx) / PX) * PX, y, s, b.sp, { level: b.level, shiny: b.shiny, acc: b.acc, mood: b.ready ? "happy" : b.mood, hop, face });
+}
+
 /** As the egg gives way, the glow inside starts to seep out through the cracks. */
 function drawCrackLight(e, prog) {
   if (prog < 0.3 || !e.net.segs.length) return;
@@ -760,6 +799,7 @@ function frame(now) {
     drawEgg();
     ctx.restore();
     drawStageLip();
+    drawBuddy(game.egg);
     ctx.save();
     if (game.shake > 0.3 && !opts().calm) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     drawPieces();

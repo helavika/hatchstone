@@ -175,6 +175,8 @@ function newEgg(conf, animate = true) {
     shade: conf.gloom === 1, patches: [], shadeLaid: 0,
   };
   const e = game.egg;
+  // the glowling that comes along (see buddyFor), sitting by the stone from the start
+  e.buddy = buddyFor(conf);
   // Quarry Eye's pings, fresh for every egg (yours alone, even on a shared one: they change nothing the friend sees)
   e.eyeLeft = eyeCharges(); game.ping = null; game.sheen = null; game.shadeFx = null; game.sealFx = null;
   if (e.eyeLeft && save.eyeNote && animate) {
@@ -874,12 +876,14 @@ const SACK_PAY = 1 / 3;
  * to the next blow. It keeps the chain as it goes. Host, guest and solo all count this way, blow by blow in the same
  * order, so a shared egg pays the same on both screens.
  */
-function blowPay(e, res, sack = 0) {
+function blowPay(e, res, sack = 0, held = false) {
   // the last blow is paid for the stone that was left, not for how hard it fell
   const broke = Math.min(res.dmg, e.hp - (e.damage - res.dmg));
-  e.lost = res.crit ? 0 : e.combo;
-  e.combo = res.crit ? e.combo + 1 : 0;
-  e.chain = res.crit ? e.chain + broke : 0;
+  // (held: a rare glowling caught this miss, see buddyCatch; the chain stays as it was, and the miss pays as a miss)
+  const keep = held && !res.crit;
+  e.lost = res.crit || keep ? 0 : e.combo;
+  e.combo = res.crit ? e.combo + 1 : keep ? e.combo : 0;
+  e.chain = res.crit ? e.chain + broke : keep ? e.chain : 0;
   e.owed += broke * STONE_PAY * (1 + (res.crit ? Math.min(1, e.chain / CHAIN_FULL) + sack * SACK_PAY : 0));
   const gems = Math.floor(e.owed + 1e-9);
   e.owed -= gems;
@@ -914,12 +918,88 @@ function hitEgg(x, y) {
   const res = crackHit(e, [hit[0], hit[1] * EGG_R], power, seeded(e.seed + ":" + (e.hits.length - 1)));
   e.taps++;
   if (res.crit) e.crits++;
-  const gems = blowPay(e, res, e.conf.coop ? 0 : forgeLvl("magpie"));
+  const gems = blowPay(e, res, e.conf.coop ? 0 : forgeLvl("magpie"), buddyCatch(e, res));
   e.gems += gems;
+  // the glowling by the stone: the legendary one's second blow, and the common one's hop after a search that misses
+  const twice = buddyDouble(e, gems);
+  e.gems += twice;
+  buddyHop(e);
   markTip("tap");
   if (e.taps === 3 && e.conf.step === 1) setHint("");
-  hitFeedback(e, x, y, res, gems, echo);
+  hitFeedback(e, x, y, res, gems + twice, echo);
+  if (twice) pop("×2", x + 30 * L.k, y - 34 * L.k, "#ffe9a8", 1.3);
   if (e.damage >= e.hp) openEgg();
+}
+
+// ---------- a glowling comes along ----------
+
+// The glowling you had picked sits by the stone while you crack it (see drawBuddy) and, rested and happy, helps once a
+// stone, each rarity in its own way: a common one hops towards the side the weak spot lies on, once a search has missed
+// it a couple of times (a hint, not the spot: you still find it by ear); a rare one catches one miss, so the chain holds;
+// a legendary one doubles the last blow. A tired or unhappy one just watches, and nothing is lost. Aim is never touched:
+// the hop is no blow, and a caught miss is still a miss on the aim meter (hitEgg counts taps and hits before any help).
+// Never on a shared egg: there the friend's screen replays the blows, and a held chain would pay differently on it.
+const BUDDY_HELP = { common: "hop", rare: "catch", moon: "catch", legendary: "double" };
+// the hop comes after this many knocks of the search that missed; a chain is worth catching from this many links
+const BUDDY_HOP_AFTER = 2, BUDDY_CATCH_FROM = 2;
+// how long the hop's hint lasts on screen (seconds): long enough to see which way, and gone well before the next stone
+const BUDDY_HINT = 2.4;
+
+/** Rested and happy, by the nest's own marks: awake, not ready for bed (SLEEPY_AT) and with a happy face (moodOf). */
+const buddyReady = cr => !cr.out && !cr.sleeping && cr.energy >= SLEEPY_AT && moodOf(cr) === "happy";
+
+/** Who comes along to this stone: the active glowling, if it's home and awake. Nobody on a shared egg. */
+function buddyFor(conf) {
+  const cr = !conf.coop && activeCreature();
+  if (!cr) return null;
+  applyTime(cr);
+  if (cr.out || cr.sleeping) return null;
+  const sp = specOf(cr);
+  // (its face as it watches: a tired one, below bedtime, looks sleepy even before moodOf would call it that)
+  const mood = moodOf(cr) === "ok" && cr.energy < SLEEPY_AT ? "sleepy" : moodOf(cr);
+  return { id: cr.id, name: cr.name, sp, level: cr.level, shiny: cr.shiny, acc: cr.acc, mood,
+    help: BUDDY_HELP[rarityOf(sp)] || "hop", ready: buddyReady(cr), done: false, at: 0, side: 0, extra: 0 };
+}
+
+/** Whether the buddy can still help this stone, in this way (helped: the stone's one help is spent, kept if it waits). */
+const buddyCan = (e, help) => !!e.buddy && e.buddy.ready && !e.buddy.done && !e.helped && e.buddy.help === help;
+
+/** Its one help is spent: a chirp, and the moment drawBuddy plays from. */
+function buddyHelped(e) {
+  const b = e.buddy;
+  b.done = e.helped = true; b.at = game.time;
+  sfx.chirp(b.sp.voice);
+}
+
+/** The rare one: a miss that would break a chain of a few links is caught, and the chain holds (see blowPay). */
+function buddyCatch(e, res) {
+  if (res.crit || !buddyCan(e, "catch") || e.combo < BUDDY_CATCH_FROM) return false;
+  buddyHelped(e);
+  const { x, y, s } = buddySeat();
+  floatText(tr("chain held ♥"), x, y - s * 0.9, "#ffe9a8");
+  return true;
+}
+
+/** The legendary one: the blow that opens the stone pays twice. Returns the shards it adds. */
+function buddyDouble(e, gems) {
+  if (e.damage < e.hp || !buddyCan(e, "double")) return 0;
+  buddyHelped(e);
+  return e.buddy.extra = Math.max(1, gems);
+}
+
+/** The common one: after a search that keeps missing, it hops towards the side the weak spot is on (0: the middle). */
+function buddyHop(e) {
+  if (e.found || e.search < BUDDY_HOP_AFTER || e.damage >= e.hp || !buddyCan(e, "hop")) return;
+  const du = e.spot[0] - 0.5;
+  e.buddy.side = Math.abs(du) < 0.07 ? 0 : Math.sign(du);
+  buddyHelped(e);
+}
+
+/** What the buddy did, for the found card's note ("" when it only watched). */
+function buddyNote(b) {
+  if (!b || !b.done) return "";
+  if (b.help === "double") return tr(" · {0} doubled the last blow: +{1} ✦", b.name, b.extra);
+  return b.help === "catch" ? tr(" · {0} caught a miss: the chain held", b.name) : tr(" · {0} hopped towards the weak spot", b.name);
 }
 
 // ---------- Quarry Eye: a knock that listens for you ----------
@@ -1321,11 +1401,6 @@ function showFound() {
   const shine = e.matte ? e.matte.shine : 0;
   const moonBonus = conf.moon ? finishMoon() : 0;
   let shards = 8 + stars * 10 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + e.gems + Math.round(shine * 10) + moonBonus;
-  // a well-rested, happy glowling cheers you on: a few more shards (the one you'd picked before this egg)
-  const buddy = !conf.coop && activeCreature();
-  let cheer = 0;
-  if (buddy && !buddy.out && !buddy.sleeping) { applyTime(buddy); if (buddy.energy >= 75 && buddy.joy >= 70) cheer = Math.max(2, Math.round(shards * 0.15)); }
-  shards += cheer;
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
   save.shards += shards;
   // now and then a bar turns up in the rubble
@@ -1360,7 +1435,7 @@ function showFound() {
   $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
-  $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? moonNote() : "") + (rubble ? tr(" · {0} in the rubble", barName(rubble)) : "") + (fleck ? tr(" · a pinch of magic dust under the frost ✨") : "") + (cheer ? tr(" · cheered on by {0}: +{1} ✦", buddy.name, cheer) : "");
+  $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? moonNote() : "") + (rubble ? tr(" · {0} in the rubble", barName(rubble)) : "") + (fleck ? tr(" · a pinch of magic dust under the frost ✨") : "") + buddyNote(e.buddy);
   $("stShine").textContent = Math.round(shine * 100) + "%";
   // aim, and on a line of its own the mark of the next star up (of the third, once it is earned)
   $("stAim").textContent = aimShare(e) + "%";

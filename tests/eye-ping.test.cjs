@@ -30,7 +30,7 @@ function scene(save, level = 12) {
     sfx: { ping: at => heard.push(at), tick: () => heard.push('tick') }, buzz: () => {}, floatText: t => said.push(t),
     rand: (a, b) => (a + b) / 2, pick: a => a[0], clamp: (v, a, b) => Math.max(a, Math.min(b, v)), inside: () => true,
     skill: () => 0, rollCrystal: () => ({ id: 'quartz' }), SPECIES: [{ crystal: 'quartz' }], STONES: ['grey'], coopId: () => 'seed',
-    refitEgg: () => {}, updateDots: () => {}, EGG_UNIT: [], EGG_R: 1.28,
+    refitEgg: () => {}, updateDots: () => {}, buddyFor: () => null, EGG_UNIT: [], EGG_R: 1.28,
     fromEgg: (u, v) => [page.L.ecx - 80 + u * 160, page.L.ey0 + v * 160],
     levelConf: n => ({ n, step: n, spotGlow: n < 4 ? 1 : n < 10 ? 0.45 : n < 18 ? 0.2 : 0, hp: 20, rare: 0, legendary: 0 }),
   };

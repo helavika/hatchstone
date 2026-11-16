@@ -35,7 +35,7 @@ const src = [
   '  return res;',
   '}',
   // the guest's side: the shared hits replayed, then the host's count taken as it came
-  'const forgeLvl = () => 0, paintNet = () => {}, hitFeedback = () => {}, fromEgg = (u, v) => [u, v];',
+  'const forgeLvl = () => 0, buddyCatch = () => false, paintNet = () => {}, hitFeedback = () => {}, fromEgg = (u, v) => [u, v];',
   cut(coop, '/** Replay shared hits', 'function installCoopRound(', 'coopReplayHits should sit just before installCoopRound'),
   'function guestTake(e, state) {',
   line(apply, /^  if \(coopIsGuest\(\) \|\| initial\) coopReplayHits\(.*$/m, 'a guest should replay the host\'s hits').replace('coopIsGuest() || initial', 'true').replace('!initial', 'false'),

@@ -674,7 +674,7 @@ function startLevel(n) {
 const stoneKeeps = conf => !!conf && !conf.coop && !conf.moon && !conf.heart && Number.isInteger(conf.n) && conf.n >= 0 && conf.n <= LEVELS;
 /** What a waiting stone keeps besides its level, crystal, glowling, shell and cracks: everything the blows so far have done. */
 const STONE_KEEP = ["shiny", "hp", "damage", "taps", "crits", "search", "found", "gems", "combo", "chain", "owed", "hits", "seed", "spot",
-  "bands", "banded", "silent", "sheen", "shade", "patches", "shadeLaid", "shadeBurnt", "eyeLeft", "paid", "rest"];
+  "bands", "banded", "silent", "sheen", "shade", "patches", "shadeLaid", "shadeBurnt", "eyeLeft", "paid", "rest", "helped"];
 /** The crack network as plain data: a spoke is both a live tip and a ray of its impact, so each is written once and named by number. */
 function netOut(net) {
   const all = [...new Set([...net.tips, ...(net.impacts || []).flatMap(m => m.rays)])], at = new Map(all.map((t, i) => [t, i]));
