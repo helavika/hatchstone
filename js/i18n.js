@@ -92,6 +92,7 @@ const UK = {
   "Continue": "Продовжити",
   "The Grotto": "Грот",
   "geode opened": "жеоду відкрито",
+  "freed from the Gloom": "звільнено від Мли",
   "The glowling you hatched": "Глоулінг, який вилупився",
   "✦ new in your Glowpedia ✦": "✦ новий у Глоупедії ✦",
   "aim": "влучність",

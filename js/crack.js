@@ -176,7 +176,7 @@ function newEgg(conf, animate = true) {
   };
   const e = game.egg;
   // Quarry Eye's pings, fresh for every egg (yours alone, even on a shared one: they change nothing the friend sees)
-  e.eyeLeft = eyeCharges(); game.ping = null; game.sheen = null; game.shadeFx = null;
+  e.eyeLeft = eyeCharges(); game.ping = null; game.sheen = null; game.shadeFx = null; game.sealFx = null;
   if (e.eyeLeft && save.eyeNote && animate) {
     delete save.eyeNote; persist();
     setTimeout(() => toast(save.eyeThanks ? tr("Quarry Eye listens now: tap the eye for a ring that shows where to listen. One more ping per geode, as thanks ✦") : tr("Quarry Eye listens now: tap the eye for a ring that shows where to listen ✦")), 1400);
@@ -198,6 +198,8 @@ function refitEgg(e) {
   e.shell = makeShell(e.stone);
   e.interior = makeInterior(e.crystal, e.stone);
   e.painted = 0; e.dentsPainted = 0; e.bandsPainted = -1;
+  // (the chains already off a sealed egg stay off, with no clank: see sealCheck)
+  e.sealShown = sealLeft(e);
   paintNet(e);
 }
 
@@ -482,6 +484,88 @@ function shadeBurn(e, burnt) {
   if (!e.shadeBurnt) { e.shadeBurnt = true; floatText(tr("the light burns the shadow away"), L.ecx, L.ey0 + 24 * L.k, "#ffe9a8"); }
   if (calm) return;
   for (const p of burnt) { const [x, y] = fromEgg(p.u, p.v); burst(x, y, 8, ["#fff", e.crystal.c[1], "#d2bfff"], 0.7); }
+}
+
+// ---------- the seal on the egg: the Gloom's chains round a sealed geode, and the dawn when it opens ----------
+
+// A sealed geode (the end of each cave, the first time only: see startLevel; never a shared egg) wears the seal on its
+// shell: three of the Gloom's chains, dark iron with a violet sheen, wrapped across it at a slant, so they never read as
+// the Malachite's level green rings. Each lets go at its share of the stone (SEAL_AT, between the Malachite's thirds):
+// it splits where the blow fell and the halves drop away. Only a look: the stone, the spot and the pay are as they were.
+const SEAL_AT = [0.25, 0.5, 0.75], SEAL_LINK = 0.06;
+// where each chain crosses the face (u, v in egg units) and how it slants
+const SEAL_WAYS = [[0.5, 0.5, 0.7], [0.5, 0.86, -0.64], [0.58, 0.68, 1.32]];
+const SEAL_EGG = eggPoly(0.5, EGG_R / 2, 1.02, EGG_R * 1.02, 48);
+/** Is this egg under one of the Gloom's seals? */
+const sealed = e => !!e && !!e.conf.gloom && !e.conf.coop;
+/** Is chain i still whole? They go in order, the first at a quarter of the stone. */
+const sealWhole = (e, i) => sealed(e) && e.damage < e.hp * SEAL_AT[i];
+/** How many chains are still on the egg. */
+const sealLeft = e => SEAL_AT.filter((_, i) => sealWhole(e, i)).length;
+/**
+ * Chain i's links across the face of the egg, in egg units, with the way each one points: a straight run sagging a
+ * little as it wraps round the stone, a shade different on every egg (from its seed, so it never jumps on a resize).
+ */
+function sealLinks(e, i) {
+  const R = seeded(e.seed + ":seal" + i), [cu, cv, a0] = SEAL_WAYS[i];
+  const a = a0 + (R() - 0.5) * 0.16, ou = (R() - 0.5) * 0.05, ov = (R() - 0.5) * 0.05, bow = 0.03 + R() * 0.02;
+  const ca = Math.cos(a), sa = Math.sin(a), out = [];
+  for (let s = -1; s <= 1.0001; s += SEAL_LINK) {
+    const sag = bow * (1 - s * s), u = cu + ou + ca * s - sa * sag, v = cv + ov + sa * s + ca * sag;
+    if (inside(SEAL_EGG, [u, v])) out.push({ u, v, a: a - Math.atan(2 * bow * s) });
+  }
+  return out;
+}
+
+// The opening of a sealed geode, second by second: the Gloom's eyes shut one by one, DAWN_EYES apart, the dark pulls
+// back into the corners and the colour comes back to the cave; only then do the egg's rays start. With less motion it
+// is the same, DAWN_CALM times slower, and the dark only fades where it is: nothing moves, nothing flashes.
+const DAWN_EYE = 0.22, DAWN_EYES = 0.26, DAWN_PULL = [0.45, 1.35], DAWN_GREY = [0.7, 1.45], DAWN_RAYS = 1.5, DAWN_CALM = 1.3;
+// how much colour the cave has lost round a sealed geode (the egg itself keeps all of its own)
+const SEAL_GREY = 0.8;
+/**
+ * The dawn `t` seconds into the opening: how many eyes have shut (the first eye first), how far the dark has drawn back
+ * (reach, 0 to 1) and how dark it still is, how grey the cave still is, how much of the wheel is left, and how long the
+ * rays have been out (below 0: not yet).
+ */
+function dawnAt(t, calm) {
+  const s = t / (calm ? DAWN_CALM : 1), span = (a, b) => clamp((s - a) / (b - a), 0, 1), pull = span(...DAWN_PULL);
+  return {
+    shut: clamp(Math.floor((s - DAWN_EYE) / DAWN_EYES) + 1, 0, 4),
+    reach: calm ? 0 : 1 - (1 - pull) ** 2, dark: calm ? 1 - pull : 1 - pull ** 3,
+    grey: 1 - span(...DAWN_GREY), wheel: 1 - span(DAWN_EYE + DAWN_EYES * 3, DAWN_PULL[1] + 0.1),
+    rays: (s - DAWN_RAYS) * (calm ? DAWN_CALM : 1),
+  };
+}
+/** How long the shell takes to open before the polishing starts: on a seal, long enough for the dawn and its rays. */
+const openLen = (e, calm) => sealed(e) ? DAWN_RAYS * (calm ? DAWN_CALM : 1) + 1.1 : 1.6;
+/** The found card's header: its own for a glowling freed from the Gloom. */
+const foundHead = conf => conf.gloom && !conf.coop ? "freed from the Gloom" : "geode opened";
+
+/** After a blow: any chain whose share of the stone is now broken comes off (see sealBreak). */
+function sealCheck(e, x, y) {
+  const left = sealLeft(e);
+  for (let i = SEAL_AT.length - (e.sealShown ?? left); i < SEAL_AT.length - left; i++) sealBreak(e, i, x, y);
+  e.sealShown = left;
+}
+
+/**
+ * Chain i lets go: it splits at the link nearest the blow, with a clank, and the two halves fall away off the egg, link
+ * by link, a few violet motes where it broke. With less motion it only fades where it was.
+ */
+function sealBreak(e, i, x, y) {
+  const calm = opts().calm, k = Math.max(1, L.k), links = sealLinks(e, i).map(l => ({ ...l, xy: fromEgg(l.u, l.v) }));
+  if (!links.length) return;
+  const at = links.reduce((b, l, j) => Math.hypot(l.xy[0] - x, l.xy[1] - y) < Math.hypot(links[b].xy[0] - x, links[b].xy[1] - y) ? j : b, 0);
+  game.sealFx = (game.sealFx || []).filter(f => f.e === e).concat({ e, t: game.time, calm, links: links.map((l, j) => {
+    const side = j < at ? -1 : 1, near = 1 / (1 + Math.abs(j - at) * 0.08);
+    return { x: l.xy[0], y: l.xy[1], a: l.a, j, vx: calm ? 0 : side * rand(30, 90) * near * k, vy: calm ? 0 : -rand(20, 80) * near * k, va: calm ? 0 : rand(-5, 5) };
+  }) });
+  if (sfx.ready()) { sfx.tok(); sfx.tone(sfx.ac.currentTime + 0.03, 1250, 0.05, 0.45, "triangle", 880, true); }
+  buzz(calm ? 8 : [10, 24, 10]);
+  if (calm) return;
+  game.shake = Math.min(14, game.shake + 3 * Math.max(0.5, L.k));
+  burst(...links[at].xy, 10, ["#d2bfff", "#8a6cc9", "#fff"], 0.8);
 }
 
 function carveChip(x, y, r, sides = 0) {
@@ -887,6 +971,8 @@ function hitFeedback(e, x, y, res, gems, echo = false) {
   // the Gloom's patches: a flare where the light burns one away, and a shadow seeping in where one is laid (see drawShade)
   if (res.burnt && res.burnt.length) shadeBurn(e, res.burnt);
   if (res.laid) shadeLay(e, res.laid);
+  // the seal's chains come off as the stone gives (see drawSeal)
+  if (sealed(e)) sealCheck(e, x, y);
   const prog = clamp(e.damage / e.hp, 0, 1);
   e.wob = 0.02 + prog * 0.04 + (res.crit ? 0.03 : 0); e.wobT = 0; e.squash = 1;
   game.shake = Math.min(14, game.shake + (res.crit ? 7 : 3) + prog * 3) * Math.max(0.5, L.k);
@@ -1257,6 +1343,11 @@ function showFound() {
   if (shine >= 0.8) taskDone("polish");
   if (!conf.coop) { bump("cracked"); if (e.shiny) bump("shiny"); if (e.waited) stoneHome(); habitTried(); }
 
+  // a glowling freed from the Gloom: its own header and frame, and a chord that opens like morning
+  const freed = foundHead(conf) !== "geode opened";
+  $("foundHead").textContent = tr(foundHead(conf));
+  $("found").classList.toggle("freed", freed);
+  if (freed) setTimeout(() => sfx.freed(), 120);
   $("stars").innerHTML = [0, 1, 2].map(i => i < stars ? `<b style="animation-delay:${0.3 + i * 0.25}s">★</b>` : "★").join("");
   for (let i = 0; i < stars; i++) setTimeout(() => sfx.star(i), 300 + i * 250);
   $("foundImg").src = geodeImage();
@@ -1469,16 +1560,39 @@ function bakeGloomWheel(R) {
 const gloomWheel = { R: 0 };
 
 /**
- * The cold creeping in round a sealed geode: dark at the edges that breathes, and the Gloom itself hanging in it, up and
- * to the left, clear of the geode and the buttons: its wheel turns a notch at a time, its corona breathes with the dark,
- * and its eyes open one by one, then all shut.
+ * The colour drained out of the cave round a sealed geode, and coming back at the dawn: a grey wash in "saturation" over
+ * the stage, drawn before the egg, so the egg, its chains and its flying shell keep every colour of their own.
+ */
+function drawGloomGrey() {
+  const e = game.egg;
+  if (!e || !e.conf.gloom || quality.low || !["entering", "cracking", "opening"].includes(e.state)) return;
+  const grey = e.state === "opening" ? dawnAt(e.t, opts().calm).grey : 1;
+  if (grey < 0.01) return;
+  ctx.save();
+  ctx.globalCompositeOperation = "saturation"; ctx.globalAlpha = SEAL_GREY * grey;
+  ctx.fillStyle = "#808080"; ctx.fillRect(0, 0, W, H);
+  ctx.restore();
+}
+
+/**
+ * The cold creeping in round a sealed geode: the cave's colour drained (see drawGloomGrey), dark at the edges that
+ * breathes, and the Gloom itself hanging in it, up and to the left, clear of the geode and the buttons: its wheel turns
+ * a notch at a time, its corona breathes with the dark, and its eyes open one by one, then all shut. When the seal
+ * breaks it is dawn (see dawnAt): the wheel stops, all four eyes look, then shut one by one; the dark draws back into the
+ * corners, the colour comes back, and the Gloom is gone before the egg's rays start.
  */
 function drawGloom() {
   const e = game.egg;
-  if (!e || !e.conf.gloom || e.state === "opening" || e.state === "done") return;
-  const k = 0.75 + 0.25 * Math.sin(game.time * 0.0017), g = ctx.createRadialGradient(L.ecx, L.ecy, L.ew * 0.55, L.ecx, L.ecy, Math.max(W, H) * 0.75);
-  g.addColorStop(0, "rgba(10,4,20,0)"); g.addColorStop(1, `rgba(10,4,20,${0.85 * k})`);
-  ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  if (!e || !e.conf.gloom || !["entering", "cracking", "opening"].includes(e.state)) return;
+  const calm = opts().calm, d = e.state === "opening" ? dawnAt(e.t, calm) : null;
+  const k = d ? 0.75 : 0.75 + 0.25 * Math.sin(game.time * 0.0017);
+  const far = Math.max(W, H) * 0.75, near = L.ew * 0.55, dark = d ? d.dark : 1;
+  if (dark > 0.01) {
+    const g = ctx.createRadialGradient(L.ecx, L.ecy, lerp(near, far * 0.92, d ? d.reach : 0), L.ecx, L.ecy, far);
+    g.addColorStop(0, "rgba(10,4,20,0)"); g.addColorStop(1, `rgba(10,4,20,${0.85 * k * dark})`);
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+  }
+  if (d && d.wheel <= 0) return;
   const P = PX * Math.max(1, Math.round(2 / PX));
   let r = clamp(Math.min(W, H) * 0.15, 54, 120);
   const x0 = Math.max(W * 0.16, r + 6), y0 = Math.max(H * 0.22, r + 60);
@@ -1486,18 +1600,22 @@ function drawGloom() {
   while (r > 24 && ((x0 - L.ecx) / (L.ew / 2 + r)) ** 2 + ((y0 - L.ecy) / (L.eh / 2 + r)) ** 2 < 1) r *= 0.9;
   const R = Math.round(r / P), A = gloomWheel;
   if (A.R !== R) Object.assign(A, bakeGloomWheel(R));
-  const turn = Math.floor(game.time / 1600), wake = (game.time / 3000) % 7, cx = Math.round(x0 / P) * P, cy = Math.round(y0 / P) * P;
-  const smooth = ctx.imageSmoothingEnabled;
+  // (at the dawn the wheel stands where it was when the shell broke, and draws back a little as it goes)
+  const turn = Math.floor((game.time - (d ? e.t * 1000 : 0)) / 1600), wake = (game.time / 3000) % 7;
+  const cx = Math.round(x0 / P) * P, cy = Math.round((y0 - (d && !calm ? (1 - d.wheel) * r * 0.25 : 0)) / P) * P;
+  const smooth = ctx.imageSmoothingEnabled, alpha = ctx.globalAlpha;
   ctx.imageSmoothingEnabled = false;
+  if (d) ctx.globalAlpha = d.wheel;
   const put = (c, ax, ay) => ctx.drawImage(c, cx + Math.round(ax - c.width / 2) * P, cy + Math.round(ay - c.height / 2) * P, c.width * P, c.height * P);
   put(A.wheels[turn % GLOOM_TURNS], 0, 0);
-  put(A.hubs[k > 0.9 ? 2 : k > 0.65 ? 1 : 0], 0, 0);
+  put(A.hubs[d ? 0 : k > 0.9 ? 2 : k > 0.65 ? 1 : 0], 0, 0);
   // an eye rides in each gap between the blades: one more wakes every three seconds, then they all shut together
+  // (at the dawn all four are open, and shut one by one, the first eye first)
   for (let i = 0; i < 4; i++) {
     const a = (turn / GLOOM_TURNS + i) * Math.PI / 2;
-    put(wake > i + 1 && wake < 6.85 ? A.open : A.shut, Math.sin(a) * R * 0.86, -Math.cos(a) * R * 0.86);
+    put((d ? i >= d.shut : wake > i + 1 && wake < 6.85) ? A.open : A.shut, Math.sin(a) * R * 0.86, -Math.cos(a) * R * 0.86);
   }
-  ctx.imageSmoothingEnabled = smooth;
+  ctx.imageSmoothingEnabled = smooth; ctx.globalAlpha = alpha;
 }
 
 // ---------- the story: why the glowlings sleep in stone, told a little at a time as you go deeper ----------

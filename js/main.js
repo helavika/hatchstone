@@ -28,7 +28,9 @@ function update(dt) {
     if (!guestOwned && e.state === "opening") {
       e.open = Math.min(1, e.t / 1.1);
       if (!e.cooed && e.t > 0.55) { e.cooed = true; sfx.chirp(e.species.voice); }
-      if (e.t > 1.6) startPolish();
+      // on a seal, each of the Gloom's eyes shuts with a soft low note, a step lower each time (see dawnAt)
+      if (sealed(e)) { const shut = dawnAt(e.t, opts().calm).shut; if (shut > (e.shutHeard || 0)) { e.shutHeard = shut; if (sfx.ready()) sfx.tone(sfx.ac.currentTime, [196, 174.61, 155.56, 130.81][shut - 1], 0.07, 0.6, "sine", null, true); } }
+      if (e.t > openLen(e, opts().calm)) startPolish();
     }
     if (!guestOwned && e.state === "gleam" && e.t > 1.1) { e.state = "open"; e.t = 0; showFound(); }
     e.hop = Math.max(0, e.hop - dt * 2.5);
@@ -184,9 +186,11 @@ function drawEgg() {
     drawBaked(cachedSprite(e, "shellSprite", `${size}|${e.painted}|${e.dentsPainted}|${e.chips || 0}|${e.bandsPainted ?? 0}|${e.shell.canvas.width}`, () => bakeSprite(L.ecx, L.ecy, half, () => ctx.drawImage(e.shell.canvas, x, y, w, h), box)));
     drawCrackLight(e, prog);
     drawGloss(ctx, L.ecx, L.ecy);
+    drawSeal(e);
     if (e.state !== "entering") { drawSpot(e); drawSheen(e); drawPing(e); drawBandBreak(e); drawShade(e); }
   }
   ctx.restore();
+  drawSealFx(e);
 }
 
 /** As the egg gives way, the glow inside starts to seep out through the cracks. */
@@ -224,6 +228,61 @@ function drawSpot(e) {
   const w = (game.time * 0.0008) % 1;
   ctx.strokeStyle = hexA(e.crystal.c[2], 0.7 * a * (1 - w)); ctx.lineWidth = 2 * Math.max(1, L.k);
   ctx.beginPath(); ctx.arc(x, y, (8 + w * 22) * L.k, 0, TAU); ctx.stroke();
+}
+
+/**
+ * The Gloom's seal on the shell (see sealLinks): each chain still whole lies across the egg on a soft band of the Gloom's
+ * dark, its links turning face-on and edge-on like real chain, dark iron lit violet from above. Where the weak spot
+ * glows the links thin out over it, so the seal never hides what you aim for; the patches and the spot draw on top.
+ */
+function drawSeal(e) {
+  if (!sealLeft(e) || !["entering", "cracking"].includes(e.state)) return;
+  const k = Math.max(1, L.k), hl = SEAL_LINK * L.ew * 0.62;
+  const glow = e.conf.spotGlow && !e.silent && !e.sheen ? fromEgg(...e.spot) : null;
+  ctx.save();
+  tracePoly(ctx, L.egg); ctx.clip();
+  ctx.lineCap = "round"; ctx.lineJoin = "round";
+  for (let i = 0; i < SEAL_AT.length; i++) {
+    if (!sealWhole(e, i)) continue;
+    const links = sealLinks(e, i).map(l => ({ ...l, xy: fromEgg(l.u, l.v) }));
+    ctx.globalAlpha = 1;
+    ctx.strokeStyle = "rgba(11,6,20,.48)"; ctx.lineWidth = hl * 1.7;
+    ctx.beginPath(); links.forEach(({ xy }, j) => (j ? ctx.lineTo(...xy) : ctx.moveTo(...xy))); ctx.stroke();
+    links.forEach((l, j) => {
+      const fade = glow ? clamp((Math.hypot(l.xy[0] - glow[0], l.xy[1] - glow[1]) - 16 * k) / (20 * k), 0.15, 1) : 1;
+      sealLink(l.xy[0], l.xy[1], l.a, j, hl, k, fade);
+    });
+  }
+  ctx.restore();
+}
+
+/** One link of the Gloom's chain at (x, y), pointing a: face-on (an open ring) on even links, edge-on (a bar) on odd ones. */
+function sealLink(x, y, a, j, hl, k, alpha) {
+  ctx.save();
+  ctx.translate(x, y); ctx.rotate(a); ctx.globalAlpha = alpha;
+  if (j % 2 === 0) {
+    ctx.beginPath(); ctx.ellipse(0, 0, hl, hl * 0.55, 0, 0, TAU);
+    ctx.strokeStyle = "#0b0614"; ctx.lineWidth = 3.4 * k; ctx.stroke();
+    ctx.strokeStyle = "#523a85"; ctx.lineWidth = 1.6 * k; ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(0, 0, hl, hl * 0.55, 0, Math.PI * 1.08, Math.PI * 1.7);
+    ctx.strokeStyle = "#ad91e6"; ctx.lineWidth = 1 * k; ctx.stroke();
+  } else {
+    ctx.fillStyle = "#0b0614"; ctx.fillRect(-hl * 0.9, -1.9 * k, hl * 1.8, 3.8 * k);
+    ctx.fillStyle = "#6b4fa8"; ctx.fillRect(-hl * 0.9 + k, -1.1 * k, hl * 1.8 - 2 * k, 1.2 * k);
+  }
+  ctx.restore();
+}
+
+/** A chain coming off (see sealBreak): its links fall away from the split, turning, and fade; with less motion they only fade. */
+function drawSealFx(e) {
+  const fx = (game.sealFx || []).filter(f => f.e === e && (game.time - f.t) / 1000 < (f.calm ? 0.8 : 1.1));
+  game.sealFx = fx.length ? fx : null;
+  if (!fx.length) return;
+  const k = Math.max(1, L.k), hl = SEAL_LINK * L.ew * 0.62;
+  for (const f of fx) {
+    const a = (game.time - f.t) / 1000, fade = f.calm ? 1 - a / 0.8 : 1 - clamp((a - 0.5) / 0.6, 0, 1);
+    for (const l of f.links) sealLink(l.x + l.vx * a, l.y + l.vy * a + (f.calm ? 0 : GRAVITY * 0.5 * a * a), l.a + l.va * a, l.j, hl, k, fade);
+  }
 }
 
 /**
@@ -428,7 +487,10 @@ function drawLean(r) {
 }
 
 function drawRays(e) {
-  const k = e.state === "opening" ? e.open : 1;
+  // on a sealed geode the rays wait for the dawn (see dawnAt), then come up as on any other
+  const dawn = e.state === "opening" && sealed(e) ? dawnAt(e.t, opts().calm).rays : null;
+  if (dawn !== null && dawn <= 0) return;
+  const k = e.state === "opening" ? (dawn !== null ? clamp(dawn / 1.1, 0, 1) : e.open) : 1, up = dawn !== null ? clamp(dawn / 0.4, 0, 1) : 1;
   ctx.save();
   ctx.globalCompositeOperation = "lighter";
   ctx.translate(L.ecx, L.ecy);
@@ -436,7 +498,7 @@ function drawRays(e) {
   const r = Math.max(W, H) * 0.7;
   ctx.fillStyle = e.crystal.c[1];
   for (let i = 0; i < 14; i++) {
-    ctx.globalAlpha = (e.state === "opening" ? 0.12 * (1 - k) + 0.05 : 0.05) * (i % 2 ? 0.7 : 1);
+    ctx.globalAlpha = (e.state === "opening" ? 0.12 * (1 - k) + 0.05 : 0.05) * (i % 2 ? 0.7 : 1) * up;
     ctx.rotate(TAU / 14);
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(r, -r * 0.08); ctx.lineTo(r, r * 0.08); ctx.closePath(); ctx.fill();
   }
@@ -692,6 +754,7 @@ function frame(now) {
     drawRest();
     const [c0, c1] = stageNow().candles;
     drawCandle(c0.x, c0.y, 12, 0); (keeperGift("lantern") ? drawEggLantern : drawCandle)(c1.x, c1.y, 8, 2.1);
+    drawGloomGrey();
     ctx.save();
     if (game.shake > 0.3 && !opts().calm) ctx.translate(rand(-1, 1) * game.shake, rand(-1, 1) * game.shake);
     drawEgg();

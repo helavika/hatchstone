@@ -263,6 +263,15 @@ const sfx = {
     for (let i = 0; i < n; i++) this.tone(t + 0.25 + i * 0.11, notes[i], 0.08, 2.2, "sine", null, true);
   },
 
+  /** A glowling freed from the Gloom: its low note, and over it a chord all at once that opens out like morning, then a high bell. */
+  freed() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.tone(t, 98, 0.14, 0.9, "triangle", 130.81);
+    [261.63, 329.63, 392, 587.33].forEach((f, i) => this.tone(t + 0.14 + i * 0.025, f, 0.055, 2.8, "sine", null, true));
+    this.tone(t + 0.55, 1174.66, 0.035, 1.8, "sine", null, true);
+  },
+
   /** The echo game's crystals: one clear bell note each. */
   note(i) {
     if (!this.ready()) return;
