@@ -249,17 +249,21 @@ const sfx = {
     for (let i = 0; i < 5; i++) this.tone(t + i * 0.09, rand(2400, 4200), 0.02, 0.5, "sine", null, true);
   },
 
-  /** The shell bursting open: a big crunch cascade and a rising crystal arpeggio. */
-  burst(rarity) {
+  /**
+   * The shell bursting open: a big crunch cascade and a rising crystal arpeggio (left out, with tune false, when the music
+   * plays its own in the song's key instead). The music steps aside under it.
+   */
+  burst(rarity, tune = true) {
     if (!this.ready()) return;
     const t = this.ac.currentTime;
+    if (typeof music !== "undefined") music.duck();
     this.grain(t, 0.35, 200, 0.7, 0.5, "lowpass");
     for (let i = 0; i < 70; i++) {
       const k = Math.pow(Math.random(), 1.7);
       this.grain(t + k * 1.1, rand(0.01, 0.05), rand(900, 6000), rand(1, 4), rand(0.06, 0.22) * (1 - k * 0.6));
     }
     const notes = [523.25, 659.25, 783.99, 1046.5, 1318.5, 1568];
-    const n = rarity === "legendary" ? 6 : rarity === "rare" ? 5 : 4;
+    const n = !tune ? 0 : rarity === "legendary" ? 6 : rarity === "rare" ? 5 : 4;
     for (let i = 0; i < n; i++) this.tone(t + 0.25 + i * 0.11, notes[i], 0.08, 2.2, "sine", null, true);
   },
 

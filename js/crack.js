@@ -1058,7 +1058,8 @@ function openEgg() {
   }
   burst(L.ecx, L.ecy, 36, ["#fff", ...e.crystal.c], 1.6);
   spawnChips(L.ecx, L.ecy, 24, 1.8);
-  sfx.burst(e.crystal.rarity);
+  // the crack scene's tune resolves on the home chord, its arpeggio in the song's key in place of the burst's own
+  sfx.burst(e.crystal.rarity, !music.sting("open", e.crystal.rarity));
   buzz([20, 40, 20]);
   setHint("");
 }

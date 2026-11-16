@@ -1392,7 +1392,7 @@ function tapIncubator() {
   const [x, y] = incSpot(), a = actors.get(cr.id);
   if (a) { a.x = x + N.base * 0.4; a.y = y; a.tx = a.x; a.ty = a.y; a.hop = 1; emote(a, "♥", 2.5); }
   burst(x, y - N.base * 0.5, 40, ["#fff", ...inc.mix.pal], 1.5);
-  sfx.burst("rare");
+  sfx.burst("rare", !music.sting("hatch")); // (with the music on, its phrase in the song's key over the crunch)
   setTimeout(() => sfx.chirp(inc.mix.voice), 500);
   toast(inc.surprise ? tr("{0} hatched, with a surprise trait! ✦", cr.name) : tr("{0} hatched! ✦", cr.name));
   renderNest(true);
