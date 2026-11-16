@@ -630,6 +630,9 @@ const TEX_RAMPS = [
   ["wood", ["w3", "w2", "w1", "w0"]], ["stone", ["s4", "s3", "s2", "s1", "s0"]], ["steel", ["m4", "m3", "m2", "m1", "m0"]], ["crystal", ["l4", "l3", "l2", "l1", "l0"]],
   ["cloth", ["p3", "p2", "p1", "p0"]], ["metal", ["b3", "b2", "b1", "b0"]], ["leaf", ["g3", "g2", "g1", "g0"]], ["cloth", ["r3", "r2", "r1"]],
 ];
+// the keepers' own woods and stone, off the palette (see DECO_ROSEWOOD, BED_ROOT, BED_CRUST): textured like the rest, darkest
+// first; their brightest shade stays as it is, since on these it is a lit edge, not a board's face
+const TEX_OWN = () => [["wood", BED_ROOT.slice().reverse()], ["wood", DECO_ROSEWOOD.slice().reverse()], ["stone", BED_CRUST.slice().reverse()]];
 let texIndex = null;
 /** A pixel's place along and across the grain of the face it was drawn on (dir: 0 flat, 1 along u, 2 along v, 3 upright;
  *  4 more is the same grain on one solid piece, a panel or a beam, with no seams between boards). */
@@ -660,13 +663,17 @@ function texShade(kind, x, y, dir = 0) {
   return 0;
 }
 function texturize(d, w, h, glowPx, dirs) {
-  if (!texIndex) { texIndex = new Map(); for (const [kind, ramp] of TEX_RAMPS) ramp.forEach((k, i) => { const c = IC[k]; texIndex.set((c[0] << 16) | (c[1] << 8) | c[2], { kind, ramp: ramp.map(n => IC[n]), i }); }); }
+  if (!texIndex) {
+    texIndex = new Map();
+    for (const [kind, ramp] of TEX_RAMPS) ramp.forEach((k, i) => { const c = IC[k]; texIndex.set((c[0] << 16) | (c[1] << 8) | c[2], { kind, ramp: ramp.map(n => IC[n]), i }); });
+    for (const [kind, ramp] of TEX_OWN()) ramp.forEach((c, i) => texIndex.set((c[0] << 16) | (c[1] << 8) | c[2], { kind, ramp, i, own: true }));
+  }
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
     const o = (y * w + x) * 4; if (d[o + 3] === 0 || glowPx.has(y * w + x)) continue;
     const m = texIndex.get((d[o] << 16) | (d[o + 1] << 8) | d[o + 2]); if (!m) continue;
     const dir = dirs ? dirs[y * w + x] : 0;
     // wood's brightest shade drops a step (real timber is brown, not orange); the others keep their contrast
-    let sh = texShade(m.kind, x, y, dir) + (m.kind === "wood" && m.i === m.ramp.length - 1 ? -1 : 0);
+    let sh = texShade(m.kind, x, y, dir) + (m.kind === "wood" && !m.own && m.i === m.ramp.length - 1 ? -1 : 0);
     // a wide wooden face is made of boards (staves when it stands upright): a dark seam every few pixels across the grain,
     // only where the face is broad enough on both sides to be more than one board
     if (m.kind === "wood" && dir && dir < 4) {
@@ -694,6 +701,8 @@ function isoArt(w, h, paint, { outline = true, texture = true, light = true } = 
     /** Draw with the grain running this way (0 flat, 1 along u, 2 along v, 3 upright), then go back to how it was. */
     grain(dir, fn) { const was = T.dir; T.dir = dir; fn(); T.dir = was; },
     has(x, y) { return x >= 0 && y >= 0 && x < w && y < h && d[(y * w + x) * 4 + 3] > 0; },
+    /** Paint only over what is already there (not its glow): grain, seams and glints that leave the outline as it was. */
+    on(x, y, col) { x = Math.round(x); y = Math.round(y); if (T.has(x, y) && !T.glowPx.has(y * w + x)) T.px(x, y, col); },
     /** Fill a polygon by testing each pixel's center (clean 2:1 steps on the iso edges). */
     poly(pts, col) {
       const xs = pts.map(p => p[0]), ys = pts.map(p => p[1]);
@@ -1054,6 +1063,9 @@ function isoLathe(T, x, y, z0, z1, r, ramp, { lid = true, lit = 0, band = null }
   const rt = r(z1);
   if (lid && rt > 0.4) T.disc(x, y - z1, rt, typeof lid === "function" ? lid : (xx, yy) => ramp[Math.min(n, bedBand(-(xx + 0.5 - x) / rt * 0.6 - (yy + 0.5 - y + z1) / rt + 0.25, [0.3, -0.5], xx, yy))]);
 }
+/** One crisp highlight on metal, glass or water, laid only on the thing itself: a bright pixel with a paler one either side
+ *  along a short stroke (n long, slanting with the light from the top left). */
+function decoGlint(T, x, y, n = 2, pale = IC.y0) { for (let k = 0; k < n; k++) T.on(x + k, y - (k >> 1), k ? pale : IC.white); T.on(x - 1, y + 1, pale); }
 /** A little glint, the way the glowlings shine: a short bright stroke and a dot. */
 function decoGloss(T, x, y, n = 2) { for (let k = 0; k < n; k++) T.px(x + k, y - (k >> 1), IC.white); T.px(x + n + 1, y - (n >> 1), IC.white); }
 /** A tuft of moss lying on something, and now and then a glowcap growing out of it. */
@@ -1153,6 +1165,7 @@ const ISO_ART = {
     for (let z = zf; z < zs; z++) { const sx = x + Math.round(Math.sin(z * 0.22) * 0.8); T.px(sx - 1, y - z, BED_ROOT[1]); T.px(sx, y - z, (z & 3) ? BED_ROOT[2] : BED_ROOT[3]); T.px(sx + 1, y - z, BED_ROOT[3]); }
     isoLathe(T, x, y, Math.round(zs * 0.42), Math.round(zs * 0.42) + 2, () => 2.6, BRASS);
     isoLathe(T, x, y, zs - 3, zs, () => 2.2, BRASS);
+    decoGlint(T, x - 2, y - Math.round(zs * 0.42) - 1, 1);
     // the bulb: an amethyst point hanging under the shade
     for (let k = 0; k < 4; k++) for (let q = -1; q <= 1; q++) if (Math.abs(q) <= (3 - k) * 0.5 + 0.2) T.px(x + q, y - zs + 1 + k, on ? (q < 0 ? IC.white : q ? IC.y1 : IC.y0) : (q < 0 ? IC.l1 : IC.l3));
     // the shade: a bell of pleated felt, wider at the bottom, its lower rim lit brightest from inside
@@ -1220,8 +1233,14 @@ const ISO_ART = {
     for (let k = 0; k < stones; k++) {
       const an = k / stones * TAU, sx = cx + Math.cos(an) * (rx - 0.5), sy = cy + Math.sin(an) * (ry - 0.25), r = Math.max(1.6, rx * 0.13) + pxHash(k, 9) * Math.max(1, rx * 0.06);
       T.ball(sx, sy - 1, r + 0.5, IC.s1, IC.s2, IC.s3, r * 0.8);
+      // wet stones: a pale lit edge up toward the light on some, a dark seam where each meets the next
+      if (k % 3 === 0) { T.on(sx - r * 0.5, sy - r * 0.6 - 1, IC.s0); T.on(sx - r * 0.5 + 1, sy - r * 0.6 - 1, IC.s0); }
+      T.on(sx + r * 0.9, sy - 1, IC.s4);
     }
-    T.disc(cx, cy, rx - 1.5, (x, y) => { const d = Math.hypot((x - cx) / (rx - 1.5), (y - cy) / (ry - 0.75)); return d > 0.78 ? IC.b1 : d > 0.45 ? IC.b2 : IC.b3; }, ry - 0.75);
+    // the water: shallow and light at the near rim, deep in the middle, and in the shade of the stones along its back edge
+    T.disc(cx, cy, rx - 1.5, (x, y) => { const d = Math.hypot((x - cx) / (rx - 1.5), (y - cy) / (ry - 0.75)); return d > 0.7 && y + 0.5 < cy - ry * 0.15 ? IC.b3 : d > 0.78 ? IC.b1 : d > 0.45 ? IC.b2 : IC.b3; }, ry - 0.75);
+    // one bright streak of light lying on the water
+    for (let k = 0; k < 4; k++) T.on(cx - rx * 0.62 + k, cy + ry * 0.35, k === 1 ? IC.white : IC.b0);
     // reeds at the back edge
     for (const [dx, hgt] of [[-0.45, 0.8], [-0.35, 1.05], [-0.25, 0.7]]) { const rxp = cx + dx * rx * 2, ryp = cy - ry * 0.75; for (let k = 0; k < hgt * t * 0.6; k++) T.px(rxp + (k > hgt * t * 0.4 ? 1 : 0), ryp - k, k > hgt * t * 0.5 ? IC.w2 : IC.g2); }
     // lily pads with a notch, and one pink flower
@@ -1330,6 +1349,7 @@ const ISO_ART = {
       }
       K.dot(u, v1, z, col);
     }
+    { const [gx, gy] = K.P(ua + 0.3, v1, arch(ua + 0.3) - 2); decoGlint(T, gx, gy, 1); }
     // bulbs round the arch, chasing round it while it plays
     const bars = [IC.p0, IC.y0, IC.g0, IC.b0, IC.l1];
     for (let k = 0, u = ua + 0.3; u <= ub - 0.3; u += 1, k++) K.dot(u, v1, arch(u) + 1, o.quiet ? BRASS[3] : bars[(k + f) % bars.length]);
@@ -1364,6 +1384,7 @@ const ISO_ART = {
       for (let j = 0; j < d; j++) { T.px(bx, by + j, BRASS[2]); T.px(bx + 1, by + j, BRASS[3]); }
       for (let j = 0; j <= w; j++) T.px(bx + j, by - j * 0.5, BRASS[1]);
       for (let a = 0; a < 7; a++) T.px(bx + 2 + Math.round(Math.cos(a * 0.9) * 2), by + 4 - Math.round(Math.sin(a * 0.9) * 2), a < 4 ? BRASS[1] : BRASS[2]);
+      T.px(bx, by, IC.white);
     }
     T.box(...at(0, 0, 0), len, dep, th, IC.w1, IC.w1, IC.w2);
     for (let k = 0; k <= len * 2; k++) { const [x, y] = at(k / 2, dep, th - 1); T.px(x, y, IC.w0); const [x2, y2] = at(k / 2, dep, 0); T.px(x2, y2 + 1, IC.w3); }
@@ -1461,6 +1482,7 @@ const ISO_ART = {
       K.box(u0, vm - hv * k, zb + z, u1 - u0, 2 * hv * k, 1, R[0], front, side, false);
       for (const su of straps) K.box(su, vm - hv * k - 0.02 * U, zb + z, sw, 2 * hv * k + 0.04 * U, 1, BRASS[1], z < Rz * 0.5 ? BRASS[2] : BRASS[1], BRASS[3], false);
     }
+    { const [gx, gy] = K.P(straps[0] + sw * 0.3, vm + hv * 0.6, zb + Rz * 0.8); decoGlint(T, gx, gy, 2); }
     // the straps down the front, with rivets, and brass corners
     for (const su of straps) { K.faceV(v1 + 0.02 * U, su, su + sw, 2, zb, BRASS[2], 0); K.faceV(v1 + 0.02 * U, su, su + sw * 0.4, 2, zb, BRASS[1], 0); for (const z of [4, zb - 3]) K.dot(su + sw * 0.5, v1 + 0.02 * U, z, BRASS[0]); }
     for (const z of [2, zb - 1]) { K.seg([u1 - 0.12 * U, v1, z], [u1, v1, z], BRASS[1]); K.seg([u1, v1, z], [u1, v1 - 0.12 * U, z], BRASS[3]); K.seg([u0, v1, z], [u0 + 0.12 * U, v1, z], BRASS[1]); }
@@ -2533,7 +2555,16 @@ const ISO_ART = {
     for (const [dx, dy] of [[-0.46, 0.04], [0.44, 0.02], [0.02, 0.26]]) for (let k = 0; k < 2; k++) { T.line(x + k, y - Math.round(t * 0.16), x + dx * t * 0.7 + k, y + dy * t - 1, BED_ROOT[k ? 3 : 1]); T.line(x + dx * t * 0.7 + k, y + dy * t - 1, x + dx * t + k, y + dy * t, BED_ROOT[k ? 3 : 2]); }
     const W = [IC.w0, IC.w1, IC.w1, IC.w2, IC.w3];
     isoLathe(T, x, y, 1, H - 4, z => { const f = z / H; return t * (0.06 + 0.07 * Math.exp(-(((f - 0.22) / 0.12) ** 2)) + 0.04 * Math.exp(-(((f - 0.82) / 0.08) ** 2))); }, W, { lid: false });
-    isoLathe(T, x, y, H - 3, H, () => rx, W, { lid: (xx, yy) => { const d = Math.hypot(xx + 0.5 - x, (yy + 0.5 - y + H) * 2) / rx; return d > 0.92 ? IC.w0 : Math.round(d * 7) % 2 ? IC.w1 : IC.w2; } });
+    // the top: boards laid side by side with a dark seam between, each lit a touch along its upper edge, the grain running
+    // along them, and a rounded rim lit toward the light and shaded on its far side
+    isoLathe(T, x, y, H - 3, H, () => rx, W, { lid: (xx, yy) => {
+      const dx = xx + 0.5 - x, dy = (yy + 0.5 - y + H) * 2, d = Math.hypot(dx, dy) / rx, a = (dx + dy) / 2 + rx, b = Math.floor(a / 5), f = a - b * 5;
+      // (the lit edges in the root-wood's pale shade: the texture keeps oak from ever reaching its own brightest)
+      if (d > 0.9) return -dx - dy > rx * 0.2 ? BED_ROOT[0] : dx + dy > rx * 0.5 ? IC.w2 : IC.w1;
+      if (f < 1) return IC.w3;
+      const g = pxNoise((dx - dy) * 0.18, b * 3.7 + f * 0.6);
+      return f < 2 && g > 0.4 ? BED_ROOT[0] : g > 0.72 || (pxHash(b, Math.floor((dx - dy) / 4)) > 0.9 && f > 3) ? IC.w2 : IC.w1;
+    } });
     // the doily, its scalloped edge in white
     T.disc(x - 1, y - H, rx * 0.52, (xx, yy) => ((xx * 2 + yy * 3) % 7 ? IC.s0 : IC.s1));
     for (let k = 0; k < 16; k++) { const a = k / 16 * TAU; T.px(x - 1 + Math.cos(a) * rx * 0.56, y - H + Math.sin(a) * rx * 0.28, k % 2 ? IC.white : IC.s1); }
@@ -2589,6 +2620,9 @@ const ISO_ART = {
       for (let xx = Math.floor(tx - rx + 1); xx <= Math.ceil(tx + rx - 1); xx++) T.px(xx, gy, Math.abs(xx - tx) > rx - 2 ? B.white : (xx - tx) % 2 === 0 ? B.deep : B.pale);
       if (rx > 4) for (let xx = Math.floor(tx - rx * 0.6); xx <= Math.ceil(tx + rx * 0.6); xx += 2) T.px(xx, gy + 1, B.mid);
       T.px(tx, top - ry, B.white);
+      // a wet shine on the cap's lit shoulder, and its darker crown speckled with paler spots
+      if (rx > 3) { T.on(tx - rx * 0.55, top - ry * 0.45, IC.white); T.on(tx - rx * 0.55 + 1, top - ry * 0.45 - (ry > 1 ? 1 : 0), B.pale); }
+      if (rx > 5) for (const [sx, sy] of [[0.15, -0.6], [0.45, -0.3], [-0.2, -0.75]]) T.on(tx + sx * rx, top + sy * ry, B.lit);
     }
     // spores drifting up through the light
     for (let i = 0; i < 7; i++) { if ((i + f) % 3 === 0) continue; T.px(cx + Math.round((pxHash(i, 5) - 0.5) * t * 1.5), cy - Math.round(t * (1.1 + pxHash(5, i) * 1.0)) - ((i + f) % 4), i % 2 ? B.white : B.pale); }
@@ -3466,17 +3500,33 @@ function decorThumb(d) {
   return `<img class="em px-thumb" src="${decorThumbs[d.id]}" alt="">`;
 }
 
+// the rugs' yarns, ramps that shift hue the way the light does: warm in the light, cooler and deeper in the shade
+const RUG_ROSE = ["#f0c4cc", "#dc8aa6", "#b85a84", "#8c3d68", "#5e2952", "#341634"].map(pxHex);
+const RUG_NIGHT = ["#3a5a8e", "#26406e", "#1b2e56", "#142242", "#0e1832", "#060b1e"].map(pxHex);
 /** The rug, in pixel rings on the floor (a 2:1 ellipse, as circles on the floor are). */
 function isoRug(starry) {
   const [rx, ry] = rugSize(), [cx, cy] = roomSpot("rug"), art = Math.ceil(rx / PX) * 2 + 6;
   return cachedSprite(isoPieces, "rug", `${rx}|${Math.round(cx)},${Math.round(cy)}|${PX}|${starry}|${starry ? Math.floor(game.time / 400) : ""}`, () => {
     const R = rx / PX, c = isoArt(art, art / 2 + 4, T => {
       const ox = art / 2, oy = art / 4 + 2;
-      if (starry) {
-        T.disc(ox, oy, R, IC.b3); T.disc(ox, oy, R - 2, IC.b2 && pxHex("#0f2f4a"));
-        for (let k = 0; k < 360; k += 4) { const an = k * Math.PI / 180; T.px(ox + Math.cos(an) * (R - 1), oy + Math.sin(an) * (R - 1) / 2, IC.y1); }
-        for (let i = 0; i < 12; i++) { const an = i * 2.4, d = 0.25 + (i % 5) * 0.13, tw = Math.sin(game.time * 0.0015 + i); if (tw < -0.6) continue; T.px(ox + Math.cos(an) * R * d, oy + Math.sin(an) * R * d / 2, tw > 0.5 ? IC.y0 : IC.y1); }
-      } else [IC.p3, IC.p2, IC.p1, IC.p2, IC.p3].forEach((col, i) => T.disc(ox, oy, R * (1 - i * 0.19), col));
+      // a rug of coiled cord: rings stitched side by side, each lit on its side toward the light, the whole rug brighter toward
+      // the top left, a dark binding round the edge. The starry one is woven in night blue
+      // edged in gold, with stars that twinkle
+      const ramp = starry ? RUG_NIGHT : RUG_ROSE, rings = starry ? [2, 2, 1, 2, 3, 2, 2, 1, 2, 2] : [2, 1, 2, 3, 1, 2, 2, 1, 2, 3];
+      T.disc(ox, oy, R, (x, y) => {
+        const nx = (x + 0.5 - ox) / R, ny = (y + 0.5 - oy) / (R / 2), d = Math.hypot(nx, ny), rp = d * R / 4, ring = Math.floor(rp), f = rp - ring;
+        if (d > 1 - 1.6 / R) return ramp[ramp.length - 1];
+        // each ring a round cord: its side facing the light (top left) lit, its far side shaded, a dark groove between rings,
+        // and the stitches that hold it, a paler tick every few pixels round it
+        const dn = d || 1, side = (f - 0.5) * (-(nx + ny) / dn), n = Math.max(6, Math.round(TAU * d * R * 0.5 / 5)), an = (Math.atan2(ny, nx) / TAU + 1) % 1;
+        let k = rings[ring % rings.length];
+        if (f < 0.18) k += 2; else if (side > 0.12) k -= 1; else if (side < -0.12) k += 1; else if ((an * n + ring * 0.5) % 1 < 0.22) k -= 1;
+        k += -nx * 0.35 - ny * 0.45 > 0.35 ? -1 : nx * 0.35 + ny * 0.45 > 0.35 ? 1 : 0;
+        return ramp[clamp(k, 0, ramp.length - 2)];
+      });
+      // (the starry one's edge is a cord of gold)
+      if (starry) for (let k = 0; k < 360; k += 4) { const an = k * Math.PI / 180; T.px(ox + Math.cos(an) * (R - 1), oy + Math.sin(an) * (R - 1) / 2, Math.sin(an) + Math.cos(an) < -0.6 ? IC.y0 : IC.y1); }
+      if (starry) for (let i = 0; i < 12; i++) { const an = i * 2.4, d = 0.25 + (i % 5) * 0.13, tw = Math.sin(game.time * 0.0015 + i); if (tw < -0.6) continue; const sx = ox + Math.cos(an) * R * d, sy = oy + Math.sin(an) * R * d / 2; T.px(sx, sy, tw > 0.5 ? IC.white : IC.y0); if (tw > 0.5) { T.px(sx - 1, sy, IC.y1); T.px(sx + 1, sy, IC.y1); } }
     }, { outline: false });
     return { c, x: Math.round(cx / PX - art / 2) * PX, y: Math.round(cy / PX - art / 4 - 2) * PX };
   });
@@ -4753,6 +4803,9 @@ function paintRoomIso(id) {
   return c;
 }
 
+/** How wide each piece's contact shadow is, in tiles across (pieces that stand on legs or roots, or sit squat on the floor). */
+const CONTACT = { bed: 1.5, lamp: 0.42, table: 0.62, chest: 0.82, musicbox: 0.74, swing: 0.9, mushrooms: 0.78, armchair: 0.8, bookcase: 0.72,
+  plant: 0.44, keepjar: 0.4, drum: 0.55, blocks: 0.7, telescope: 0.6, bench: 0.8, lamppost: 0.4, birdbath: 0.5 };
 /** The isometric room's furniture, back to front: the pixel pieces on the floor, then the swing and the lights on the walls. */
 function drawRoomIso() {
   if (!isPlace()) drawBaked(isoRug(hasDecor("rug")));
@@ -4766,6 +4819,12 @@ function drawRoomIso() {
     if (["rack", "wallmap", "halllamp", "swing", "shelves", "shelves2", "jars", "bed"].includes(p.id)) continue;
     const g0 = ISO_G, k = 0.28, pts = [[p.i + k, p.j], [p.i + p.fw + k, p.j], [p.i + p.fw + k, p.j + p.fd], [p.i + k, p.j + p.fd]].map(([u, v]) => isoAt(u / g0, v / g0));
     ctx.beginPath(); pts.forEach(([x, y], n) => n ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.fill();
+  }
+  // and where it touches the floor, a soft contact shadow: a dark core right under it fading out in two steps
+  for (const p of Object.values(isoLayout().placed)) {
+    const r = CONTACT[p.id]; if (!r) continue;
+    const [x, y] = isoAt((p.i + p.fw / 2 + 0.06) / ISO_G, (p.j + p.fd / 2 + 0.06) / ISO_G), rx = r * N.isoW / ISO_G;
+    for (const [k, a] of [[1, 0.14], [0.68, 0.18], [0.4, 0.2]]) { ctx.fillStyle = `rgba(10,4,24,${a})`; ctx.beginPath(); ctx.ellipse(x, y, rx * k, rx * k / 2, 0, 0, TAU); ctx.fill(); }
   }
   ctx.restore();
   for (const p of Object.values(isoLayout().placed)) {
