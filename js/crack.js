@@ -1156,21 +1156,10 @@ function showFound() {
   if (conf.coop) coopBroadcast(true); // deliver the result before a host can send the next egg
 }
 
-// ---------- dialogs: Mossa, the old stone who keeps the grotto, talks you through the big moments ----------
+// ---------- dialogs: Mossa, the stone-folk elder who keeps the grotto, talks you through the big moments ----------
 
-// Mossa's portrait: one big round pale stone under a cap of mossy clumps that creeps down her brow,
-// two happy closed eyes exactly alike with a warm glow under the lids, rosy lichen cheeks, a small pale flower.
-// Drawn by designs/mossa/portrait-v2/mossa_v2.py: a symmetric core, then the flower and a lichen patch to one side.
-PX_PORTRAITS.mossa = { pal: { k: "#160c26", a: "#fbf7f0", b: "#e4dfe8", c: "#b9b1c9", d: "#857b9f", M: "#cbe98b", m: "#82c66a", n: "#57ad6a", o: "#2f6d57", p: "#1d4449", w: "#fff6cf", g: "#e08f35", s: "#ffdf9c", r: "#e88bb1" }, rows: [
-  "..........................", ".................w........", "..........kkkkkkwgw.......", ".......kkkMMMMmmkwk.......",
-  "......kMnMMMMmmmnnmk......", "....kkMMnnMMmmmmnnmmkk....", "...kMMMmmnmmmmmnnmmmmnk...", "...kmmmmmmmmmmnnnmmmnnk...",
-  "..knnmmmmpmmnnnnpmmnnnnk..", "..kmpmmmpcppppppcpnnnpnk..", ".kmpcpppcbccccccbcpppcpnk.", ".kmcbcccbbbbbbbbbbcccbbnk.",
-  "..kaabbkkkbbbbbbkkkbbbck..", "..kaabkssskbbbbkssskbbck..", "..kaabbcccbbbbbbcccbbcck..", "..karrrbbbbbccbbbbbrrrck..",
-  "..karrrbbbbbbbbbbbbrrrck..", "...kabbbbbkbbbbkbbcccck...", "...kabbbbbbkkkkbbccccdk...", "....kcbbbbbbcccccMMddk....",
-  "..kkmkccccccccccccmmknkk..", ".kmmnmkcccccccccdddknnnnk.", ".knnnnmkkkddddddkkknnonnk.", ".knnonnmmmkkkkkknnnnooook.",
-  ".koooonnnnmmmnnnnnnoooook.", ".kooooonnnnnnnnnooooooook.",
-] };
-const MOSSA = { name: "Mossa", face: () => pxPortrait("mossa"), voice: { f: 190, wave: "triangle", spread: 0.22, glide: 0.92, gain: 0.07, len: 0.07 } };
+// Mossa's face, and every other speaker's but the Gloom's, is in portraits.js.
+const MOSSA = { name: "Mossa", face: mood => pxPortrait("mossa", mood), voice: { f: 190, wave: "triangle", spread: 0.22, glide: 0.92, gain: 0.07, len: 0.07 } };
 const glowVoice = cr => ({ name: cr.name, face: () => creatureImage(specOf(cr), { art: 32, level: cr.level, shiny: cr.shiny }),
   voice: { f: 640 * (specOf(cr).voice || 1), wave: "square", spread: 0.4, glide: 1.3, gain: 0.03, len: 0.05 } });
 const firstPet = () => save.creatures[0];
@@ -1185,7 +1174,8 @@ function spotActor() {
 }
 const spotEgg = () => game.scene === "crack" ? { x: L.ex0 - 8, y: L.ey0 - 8, w: L.ew + 16, h: L.eh + 16, round: true } : null;
 
-/** Each line is [who, words, what to point at]: a selector for a button or panel, or one of the canvas spots above. */
+/** Each line is [who, words, what to point at, mood]: what to point at is a selector for a button or panel, one of the canvas spots above
+ *  or null; the mood (optional, see the cast's `as` in portraits.js) picks the speaker's face, the calm one if it has none. */
 const TALKS = {
   intro: () => [[MOSSA, "Oh! A visitor. Hello, hello."], [MOSSA, "I'm Mossa. I've watched over this grotto since before the moss was green."],
     [MOSSA, "Glowlings sleep inside the stone eggs down here. Crack one open, and whoever's inside will need a home.", "#crackTab"],
@@ -1253,7 +1243,7 @@ PX_PORTRAITS.gloom = {
     "..........................",
   ],
 };
-const GLOOM = { name: "the Gloom", icon: "gloom", face: () => pxPortrait("gloom"), voice: { f: 95, wave: "sawtooth", spread: 0.12, glide: 0.8, gain: 0.05, len: 0.1 } };
+const GLOOM = { name: "the Gloom", icon: "gloom", face: mood => pxPortrait("gloom", mood), voice: { f: 95, wave: "sawtooth", spread: 0.12, glide: 0.8, gain: 0.05, len: 0.1 } };
 const GLOOM_STONE = Object.assign(["#3a2a52", "#1a1028", "#6b4fa8"], { gloom: true });
 /** Before the sealed geode at the end of cave k (1..4), the Gloom has its say; after it opens, your friends have theirs. */
 const GLOOM_TALKS = {
@@ -1370,69 +1360,8 @@ function drawGloom() {
 
 // ---------- the story: why the glowlings sleep in stone, told a little at a time as you go deeper ----------
 
-// Dialog portraits of Wick and Dorma, hand-pixelled 26x26 (see pxPortrait in pixel.js). Wick faces us squarely: one half drawn and mirrored,
-// then the lantern in his left paw, the light from the upper left and the lantern's warm rim added on one side only.
-PX_PORTRAITS.wick = { pal: { B: "#5e3a1c", W: "#ffffff", b: "#946027", c: "#f7d98a", d: "#3a2238", f: "#ffb54a", g: "#eec26a", h: "#fff0b5", k: "#160c26", o: "#c98f3a", r: "#e88bb1" }, rows: [
-  "..........................",
-  "...ooooo..........ooooo...",
-  "....g.g.o........o.g.g....",
-  "....g.g.go......og.g.g....",
-  "........ggo.kk.ogg........",
-  ".........kokhhkok.........",
-  ".......kkhhhhhhhhkk.......",
-  "......khhhhhhhhhhhhk......",
-  ".....khhhhhhhhhhhhhhk.....",
-  "....khhhhhhhhhhhhhhhhk....",
-  "...khhhhhhhhhhhhhhhhcck...",
-  "...khhhhhhhhhhhhhhhhcck...",
-  "...khhhhkkhhhhhhkkhccck...",
-  "...khhhkWkkhhhhkWkkccck...",
-  "...khhhdkkdhhhhdkkdccck...",
-  "..kBbhhhddhhhhhcddcccbBk..",
-  ".kBbbbrrhhBhhccBccrrkkbBk.",
-  ".kBbbbbhhhcBBBBcccckhhkBk.",
-  "kBbbhbbggccccccccckccckook",
-  "kBbhdhbchgggggggghkkkkkkok",
-  "kBbbhbbchhghhhhghhBhWWhBok",
-  "kBbbbbboccoccccochBfhhfBok",
-  "kBbbbbboggoggggogcBffffBok",
-  ".kooooobggggggggcckoobbkk.",
-  ".kBbbbbgggggggggggckkkkok.",
-  "..kBbbbgggggggggggcooook..",
-] };
-// Dorma's portrait: the sleepy owl seen from the front, one round lilac head under her teal nightcap,
-// two heavy lids exactly alike, the gold beak on the centre line, the book she dozed off over.
-// Drawn by designs/dorma/portrait-v2/dorma_v2.py: a symmetric core, then the cap's tip and pompom to one side.
-PX_PORTRAITS.dorma = { pal: { h: "#efe6ff", L: "#d2bfff", l: "#ad91e6", m: "#8a6bc8", p: "#6b4fa8", D: "#3d2866", k: "#160c26", S: "#b9aed0", W: "#ffffff", c: "#a5dcec", t: "#69b7d6", T: "#3383a8", U: "#1f5578", g: "#eec26a", o: "#c98f3a", r: "#e88bb1" }, rows: [
-  "..........................",
-  "...............kkkkk......",
-  "........kkkkkkkccccck.....",
-  "......kkccctttUtttttck....",
-  ".....ktccccttttUUtttttk...",
-  "....ktcccctttttttUUtttTk..",
-  "....kttttttttttttttUttTk..",
-  "....kcccccccccccccccUWWk..",
-  "....kttttttttttttttUWWWWk.",
-  "...kmmppppmmmmmmpppDWWWSk.",
-  "...klmLLLLmllllmLLLLDWSk..",
-  "..klmLLLLLLmllmLLLLLLDDk..",
-  "..kmLLLLLLLLmmLLLLLLLLmk..",
-  "..kmLLLLLLLLmmLLLLLLLLmk..",
-  "..klhkkkkkkhgghkkkkkkhmk..",
-  "..klhhkkkkhhgghhkkkkhhmk..",
-  "..klrrhhhhhloolhhhhhrrmk..",
-  "..klllhhhhllllllhhhhmmmk..",
-  "...kllllmmllmmllmmlmmmk...",
-  "...kllllllmmllmmllmmmmk...",
-  "....kllmmlllmmllmppmmk....",
-  ".....kmmmmmmmmppppppk.....",
-  "...kkloooooooooooooolkk...",
-  "...kllghhhhSDDShhhhollk...",
-  "...kkkghSShSDDShSShokkk...",
-  "......khhhhSDDShhhhk......",
-] };
-const WICK = { name: "Wick", face: () => pxPortrait("wick"), voice: { f: 420, wave: "sawtooth", spread: 0.3, glide: 1.1, gain: 0.025, len: 0.05 } };
-const DORMA = { name: "Dorma", face: () => pxPortrait("dorma"), voice: { f: 260, wave: "sine", spread: 0.15, glide: 0.85, gain: 0.08, len: 0.09 } };
+const WICK = { name: "Wick", face: mood => pxPortrait("wick", mood), voice: { f: 420, wave: "sawtooth", spread: 0.3, glide: 1.1, gain: 0.025, len: 0.05 } };
+const DORMA = { name: "Dorma", face: mood => pxPortrait("dorma", mood), voice: { f: 260, wave: "sine", spread: 0.15, glide: 0.85, gain: 0.08, len: 0.09 } };
 /** Each part opens with a level of the grotto and plays once; the book keeps them all to read again. */
 const STORY = [
   { id: "s1", at: 3, title: "The Heartlight", who: MOSSA, lines: () => [
@@ -1481,7 +1410,7 @@ STORY.sort((a, b) => a.at - b.at || (a.gloom ? 1 : 0) - (b.gloom ? 1 : 0));
 for (const s of STORY) TALKS[s.id] = s.lines;
 /** Tell a part of the story again, from the book. */
 function retell(s) {
-  talkQueue.push(s.lines().map(([who, words]) => [who, words]));
+  talkQueue.push(s.lines().map(([who, words, , mood]) => [who, words, null, mood]));
   if (!talkNow) nextTalk();
 }
 
@@ -1534,11 +1463,11 @@ function nextLine() {
   const n = talkNow;
   clearInterval(n.timer);
   if (++n.i >= n.lines.length) return nextTalk();
-  const [who, words, spot] = n.lines[n.i];
+  const [who, words, spot, mood] = n.lines[n.i];
   // a button or panel further down a list scrolls into view first
   if (typeof spot === "string") document.querySelector(spot)?.scrollIntoView({ block: "nearest" });
   updateSpot();
-  const text = tr(words), face = who.face();
+  const text = tr(words), face = who.face(mood);
   $$("#talk .talk-face img").forEach(im => { if (im.src !== face) im.src = face; });
   $$("#talk .talk-name").forEach(el => { el.textContent = tr(who.name); });
   const box = $$("#talk .talk-text")[0];

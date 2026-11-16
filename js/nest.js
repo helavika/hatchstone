@@ -1053,11 +1053,11 @@ const isPlace = (i = save.room) => !!ROOM_KINDS.find(k => k.id === save.rooms[i]
 const roomOpen = i => !isPlace(i) && (!isOutside(i) || placeOk("garden"));
 // ---------- the places' keepers: each place on the map has someone who runs it ----------
 
-const TANSY = { name: "Tansy", face: () => keeperFace("tansy"), voice: { f: 330, wave: "triangle", spread: 0.25, glide: 1.05, gain: 0.06, len: 0.06 } };
-const EMBER = { name: "Ember", face: () => keeperFace("ember"), voice: { f: 150, wave: "square", spread: 0.18, glide: 0.9, gain: 0.03, len: 0.08 } };
-const PIP = { name: "Pip", face: () => keeperFace("pip"), voice: { f: 520, wave: "sine", spread: 0.35, glide: 1.15, gain: 0.07, len: 0.05 } };
-const FENNEL = { name: "Fennel", face: () => keeperFace("fennel"), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
-const OLLO = { name: "Ollo", face: () => keeperFace("ollo"), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
+const TANSY = { name: "Tansy", face: mood => pxPortrait("tansy", mood), voice: { f: 330, wave: "triangle", spread: 0.25, glide: 1.05, gain: 0.06, len: 0.06 } };
+const EMBER = { name: "Ember", face: mood => pxPortrait("ember", mood), voice: { f: 150, wave: "square", spread: 0.18, glide: 0.9, gain: 0.03, len: 0.08 } };
+const PIP = { name: "Pip", face: mood => pxPortrait("pip", mood), voice: { f: 520, wave: "sine", spread: 0.35, glide: 1.15, gain: 0.07, len: 0.05 } };
+const FENNEL = { name: "Fennel", face: mood => pxPortrait("fennel", mood), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
+const OLLO = { name: "Ollo", face: mood => pxPortrait("ollo", mood), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
 const HEROES = {
   shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.7, 0.5], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
     hello: ["Welcome, welcome! Mind the sacks, they're full of seeds.", "Food, furniture, seeds: if it's on a shelf, it's for sale.", "Furniture goes into your chest. Food goes into your basket."],
