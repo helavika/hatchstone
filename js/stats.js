@@ -42,12 +42,17 @@ function statClockOff() {
   track("session", { minutes: Math.round(statClock.ms / 6000) / 10, level: Object.keys(save.stars || {}).length, glowlings: save.creatures.length });
   statClock.ms = 0;
 }
+/** When you first played and how many times you've opened the game: kept on this device apart from the nest (never in its save
+ *  or backup code), and only while the stats are on. */
+const STATS_KEY = "hatchstone.stats";
 function statsStart() {
-  save.statFirst = save.statFirst || Date.now();
-  save.statVisits = (save.statVisits || 0) + 1;
-  persist();
+  if (!statsOn()) return;
+  let seen = {};
+  try { seen = JSON.parse(localStorage.getItem(STATS_KEY)) || {}; } catch (e) { /* no storage: count this visit alone */ }
+  seen = { first: seen.first || Date.now(), visits: (seen.visits || 0) + 1 };
+  try { localStorage.setItem(STATS_KEY, JSON.stringify(seen)); } catch (e) { /* fine */ }
   track();
-  track("open", { days: statAge(save.statFirst), visits: save.statVisits > 20 ? "20+" : String(save.statVisits), where: window.Telegram?.WebApp?.initData ? "telegram" : matchMedia("(display-mode: standalone)").matches ? "app" : "browser" });
+  track("open", { days: statAge(seen.first), visits: seen.visits > 20 ? "20+" : String(seen.visits), where: window.Telegram?.WebApp?.initData ? "telegram" : matchMedia("(display-mode: standalone)").matches ? "app" : "browser" });
   if (!document.hidden) statClockOn();
   document.addEventListener("visibilitychange", () => document.hidden ? statClockOff() : statClockOn());
   addEventListener("pagehide", statClockOff);

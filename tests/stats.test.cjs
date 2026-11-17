@@ -11,7 +11,7 @@ function load({ site = 'abc', host = 'helavika.github.io', on = true, webdriver 
   const ctx = {
     STAGING: false, LANG: 'uk', screen: { width: 390, height: 844 }, document: { referrer: '', hidden: false, addEventListener() {} },
     location: { hostname: host }, navigator: { webdriver }, opts: () => ({ stats: on }), performance: { now: () => 0 },
-    save: { stars: { 1: 3, 2: 2 }, creatures: [{ name: 'Secret name', sp: 'x' }], me: { name: 'V' } }, persist() {}, addEventListener() {}, matchMedia: () => ({ matches: false }),
+    save: { stars: { 1: 3, 2: 2 }, creatures: [{ name: 'Secret name', sp: 'x' }], me: { name: 'V' } }, persist() { throw new Error('the nest save is not touched'); }, localStorage: { m: {}, getItem(k) { return this.m[k] ?? null; }, setItem(k, v) { this.m[k] = v; } }, addEventListener() {}, matchMedia: () => ({ matches: false }),
     window: {}, fetch: (url, o) => { sent.push({ url, body: JSON.parse(o.body) }); return Promise.resolve(); }, JSON, Math, Date, Set, String, Object,
   };
   vm.createContext(ctx);
