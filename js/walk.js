@@ -317,6 +317,7 @@ function startWalk(path) {
   if (!who.length || path >= save.walks.open) return;
   show("walkSheet", false);
   sfx.tick();
+  track("walk", { path: WALKS[path].id, glowlings: who.length });
   const theme = walkTheme();
   game.walk = {
     path, theme, season: walkSeason(), who: who.map(c => c.id), plan: walkPlan(path), t: 0, cam: 0, key: "",

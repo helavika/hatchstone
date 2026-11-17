@@ -1248,6 +1248,8 @@ const UK = {
   "Less motion": "Менше руху",
   "no shaking or bouncing, gentler effects": "без трусіння й підстрибування, м'якші ефекти",
   "Bigger text": "Більший текст",
+  "Anonymous play stats": "Анонімна статистика гри",
+  "how long and what is played, to make the game better; never your name or your nest": "скільки й у що граєш, щоб робити гру кращою; ніколи не твоє ім'я чи гніздечко",
   "for the cards, dialogs and hints": "у вікнах, діалогах і підказках",
   "on": "увімк.",
   "off": "вимк.",

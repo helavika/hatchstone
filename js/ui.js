@@ -298,6 +298,7 @@ function coopStartRound() {
   if (!s || s.role !== "host" || !s.peer.connected) return;
   if (s.round && game.egg?.conf.coop && !game.egg.coopRewarded) { coopUiError(tr("Finish this shared egg before starting another.")); return; }
   if (s.rounds.size >= 128) { coopEnd("room-limit"); return; }
+  track("coop");
   const step = Number($("coopDifficulty").value);
   if (![1, 4, 8].includes(step)) return;
   sfx.init(); if (sfx.ac && sfx.ac.state === "suspended") sfx.ac.resume();

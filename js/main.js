@@ -850,6 +850,7 @@ quality.settle(5000); // the first seconds bake every picture: don't judge the d
 requestAnimationFrame(frame);
 applyOpts();
 warmUp();
+statsStart();
 // show the page once the words are translated, the fonts are in and the first frame is on screen (or after 1.5 s whatever happens)
 Promise.race([document.fonts.ready, new Promise(r => setTimeout(r, 1500))])
   .then(() => requestAnimationFrame(() => requestAnimationFrame(() => document.documentElement.classList.remove("booting"))));

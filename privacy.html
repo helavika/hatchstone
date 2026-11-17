@@ -22,12 +22,12 @@
 <body>
 <main>
   <h1>Hatchstone · Privacy</h1>
-  <p class="soft">Last updated: 14 November 2026</p>
+  <p class="soft">Last updated: 17 November 2026</p>
   <nav><a href="#en">English</a><a href="#uk">Українська</a><a href="./">Back to the game</a></nav>
 
   <section id="en">
     <h2>The short version</h2>
-    <p>Hatchstone has no accounts, no ads and no analytics. Your nest is saved on your own device, and nobody else sees it.</p>
+    <p>Hatchstone has no accounts and no ads. Your nest is saved on your own device, and nobody else sees it. The game counts how it is played, anonymously, so it can be made better; you can turn that off in Settings.</p>
     <h2>What is stored, and where</h2>
     <ul>
       <li><b>On your device:</b> your nest (glowlings, progress, settings) in the browser's local storage, and the game's files for offline play. You can make a backup code in the menu and delete everything by clearing the site's data.</li>
@@ -38,19 +38,26 @@
     <p>To connect two phones, the game uses a public matchmaking server (PeerJS) and a STUN server (Google) only to find a direct route between the two devices. After that, the shared egg's taps go straight from one device to the other. No nest data is sent to those servers.</p>
     <h2>Gifts</h2>
     <p>A gift link carries only the gift, your note and the name you chose in the game. It's never sent anywhere by itself: it goes only where you send it, and the game opens it on your friend's device. Each device remembers the gifts it has sent and opened, so the same link can't be opened twice.</p>
+    <h2>Anonymous play stats</h2>
+    <p>To see whether people come back, how long they play and where they get stuck, the game sends short anonymous events to <a href="https://umami.is/privacy">Umami</a>, a privacy-friendly analytics service: a word for what happened (the game opened, a stone cracked, a walk started, a part of the story was told, how many minutes were played) and a few numbers (which level, how many stars, roughly how many days since you started), along with the screen size and language.</p>
+    <ul>
+      <li>No name, no nest, no messages, no gifts, and no ID of yours are sent. The game sets no cookies for it.</li>
+      <li>Umami counts visitors with its own hash that changes regularly, so a visit can't be tied to you. It doesn't sell or share the data.</li>
+      <li>Turn it off any time: Settings → <em>Anonymous play stats</em>. Nothing is sent while it's off.</li>
+    </ul>
     <h2>Feedback</h2>
     <p>Feedback is never sent by itself. When you choose to send it, the game opens a GitHub page with your words and some technical details (device, language, screen size, recent errors) for you to check before sending.</p>
     <h2>Hosting</h2>
     <p>The game is hosted on GitHub Pages. Like any website, GitHub may keep standard server logs (such as IP addresses) for security. See <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">GitHub's privacy statement</a>.</p>
     <h2>Children</h2>
-    <p>The game collects no personal information from anyone, children included.</p>
+    <p>The game collects no personal information from anyone, children included. The play stats above are anonymous.</p>
     <h2>Questions</h2>
     <p>Open an issue on <a href="https://github.com/helavika/hatchstone/issues/new">GitHub</a>.</p>
   </section>
 
   <section id="uk" lang="uk">
     <h2>Коротко</h2>
-    <p>У Hatchstone немає акаунтів, реклами й аналітики. Твоє гніздечко зберігається на твоєму пристрої, і ніхто інший його не бачить.</p>
+    <p>У Hatchstone немає акаунтів і реклами. Твоє гніздечко зберігається на твоєму пристрої, і ніхто інший його не бачить. Гра анонімно рахує, як у неї грають, щоб ставати кращою; це можна вимкнути в налаштуваннях.</p>
     <h2>Що зберігається і де</h2>
     <ul>
       <li><b>На твоєму пристрої:</b> гніздечко (глоулінги, прогрес, налаштування) у локальному сховищі браузера, а також файли гри для роботи без інтернету. У меню можна зробити код резервної копії, а видалити все — очистивши дані сайту.</li>
@@ -61,12 +68,19 @@
     <p>Щоб з'єднати два телефони, гра використовує публічний сервер для знайомства пристроїв (PeerJS) і STUN-сервер (Google) — лише щоб знайти прямий шлях між ними. Далі удари по спільному яйцю йдуть напряму з пристрою на пристрій. Дані гніздечка на ці сервери не надсилаються.</p>
     <h2>Подарунки</h2>
     <p>Посилання з подарунком містить лише сам подарунок, твою записку й твоє ім'я в грі. Воно нікуди не надсилається саме: потрапляє тільки туди, куди ти його надішлеш, і гра відкриває його на пристрої близької людини. Кожен пристрій пам'ятає надіслані й відкриті подарунки, тож те саме посилання не відкриється двічі.</p>
+    <h2>Анонімна статистика гри</h2>
+    <p>Щоб бачити, чи повертаються люди, скільки грають і де застрягають, гра надсилає короткі анонімні події в <a href="https://umami.is/privacy">Umami</a>, сервіс аналітики, що береже приватність: слово про те, що сталося (гру відкрито, камінь розбито, почато прогулянку, розказано частину історії, скільки хвилин тривала гра), кілька чисел (який рівень, скільки зірок, приблизно скільки днів минуло від початку), а також розмір екрана й мову.</p>
+    <ul>
+      <li>Не надсилаються ні ім'я, ні гніздечко, ні повідомлення, ні подарунки, ні будь-який твій ідентифікатор. Файлів cookie для цього гра не ставить.</li>
+      <li>Umami рахує відвідувачів власним хешем, який регулярно змінюється, тож візит не можна пов'язати з тобою. Дані не продаються й нікому не передаються.</li>
+      <li>Вимкнути можна будь-коли: Налаштування → <em>Анонімна статистика гри</em>. Поки вимкнено, нічого не надсилається.</li>
+    </ul>
     <h2>Відгуки</h2>
     <p>Відгук ніколи не надсилається сам. Коли ти вирішиш його надіслати, гра відкриє сторінку на GitHub із твоїм текстом і технічними деталями (пристрій, мова, розмір екрана, останні помилки), щоб усе можна було перевірити перед відправкою.</p>
     <h2>Хостинг</h2>
     <p>Гра розміщена на GitHub Pages. Як і будь-який сайт, GitHub може зберігати звичайні журнали сервера (наприклад, IP-адреси) з міркувань безпеки.</p>
     <h2>Діти</h2>
-    <p>Гра не збирає жодних персональних даних ні в кого, зокрема в дітей.</p>
+    <p>Гра не збирає жодних персональних даних ні в кого, зокрема в дітей. Статистика гри вище анонімна.</p>
     <h2>Питання</h2>
     <p>Створи запис на <a href="https://github.com/helavika/hatchstone/issues/new">GitHub</a>.</p>
   </section>

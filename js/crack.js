@@ -701,6 +701,7 @@ function todayTasks() {
 
 /** Something happened that a task might be waiting for. */
 function taskDone(id) {
+  trackOnce("do", { what: id });
   const t = todayTasks();
   // remember what you've tried (saved straight away, so nothing changes behind a later save's back)
   if (!(save.tasksEver && save.tasksEver[id])) { save.tasksEver = { ...save.tasksEver, [id]: true }; persist(); }
@@ -1402,6 +1403,7 @@ function showFound() {
   const moonBonus = conf.moon ? finishMoon() : 0;
   let shards = 8 + stars * 10 + Math.floor(conf.step / 2) + (firstClear ? 10 : 0) + e.gems + Math.round(shine * 10) + moonBonus;
   if (!conf.wander) save.stars[conf.n] = Math.max(save.stars[conf.n] || 0, stars);
+  track("stone", { kind: conf.coop ? "shared" : conf.moon ? "moon" : conf.wander ? "wander" : "level", level: conf.wander ? conf.depth || 0 : conf.n, stars, first: firstClear });
   // a geode opened in Wander takes you a step further down (a shared egg is no step of yours)
   if (conf.depth && !conf.coop) wanderDown(conf.depth);
   save.shards += shards;
@@ -1770,6 +1772,7 @@ let talkNow = null;
 /** Play a dialog once, if it hasn't been seen (never during co-op, so a shared egg isn't interrupted). */
 function talk(id, ...args) {
   if (game.coopTouched || coopSession || talkSeen(id) || !TALKS[id]) return false;
+  track("story", { part: id });
   save.talks = { ...(talkOld || {}), ...save.talks, [id]: Date.now() };
   persist();
   talkQueue.push(TALKS[id](...args));

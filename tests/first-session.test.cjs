@@ -135,7 +135,7 @@ function calm({ lens, later = [], cleared = 6, wick = false } = {}) {
   const page = {
     TALKS, LEVELS: 24, save: { creatures: [{}], me: { name: 'V' }, talks: {}, stars: Object.fromEntries(Array.from({ length: cleared }, (_, i) => [i + 1, 3])) },
     game: {}, coopSession: null, persist: () => {}, $: () => ({ classList: { contains: () => true } }),
-    nextTalk: () => {}, habitMoments: () => {}, tellTrips: () => {}, openMe: () => {}, unlocked: n => n <= cleared + 1, eventNow: () => null,
+    nextTalk: () => {}, track: () => {}, habitMoments: () => {}, tellTrips: () => {}, openMe: () => {}, unlocked: n => n <= cleared + 1, eventNow: () => null,
     wickHere: () => wick, wickRoom: () => true, wardFound: () => false, dayNo: () => 1, WICK: {}, MOSSA: {},
     STORY: [{ id: 's1', at: 5 }],
   };
