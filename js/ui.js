@@ -69,26 +69,41 @@ function handlePointerUp(x, y, now = performance.now(), remote = false) {
   if (game.scene === "nest" && !calling) { const a = actorAt(x, y); if (a) fancyTell(a.id); if (a && a.id !== save.active) selectCreature(a.id); else if (a) { const cr = activeCreature(), v = actorView(a); if (!cr.sleeping) { a.hop = 1; sfx.chirp(specOf(cr).voice); heart(v.x, v.y - v.size * 0.4); } } }
 }
 function handlePointerCancel(remote = false) { if (!remote && coopIsGuest()) coopSendInput("cancel"); pointer = null; if (game.scene === "crack") strokeEnd(); lanternUp(); game.nest.petting = false; sfx.purrOff(); sfx.rubOff(); }
-cvs.addEventListener("pointerdown", e => { if (game.scene === "menu") return; try { cvs.setPointerCapture(e.pointerId); } catch {} handlePointerDown(e.clientX, e.clientY); });
-cvs.addEventListener("pointermove", e => handlePointerMove(e.clientX, e.clientY));
-cvs.addEventListener("pointerup", e => handlePointerUp(e.clientX, e.clientY));
-cvs.addEventListener("pointercancel", () => handlePointerCancel());
+// one finger plays the game; in the nest, any more fingers on the screen stroke the glowlings under them, all at once
+let firstFinger = null;
+const moreFingers = new Map();
+cvs.addEventListener("pointerdown", e => {
+  if (game.scene === "menu") return;
+  try { cvs.setPointerCapture(e.pointerId); } catch {}
+  if (firstFinger !== null && e.pointerId !== firstFinger) { if (game.scene === "nest") moreFingers.set(e.pointerId, { x: e.clientX, y: e.clientY }); return; }
+  firstFinger = e.pointerId; handlePointerDown(e.clientX, e.clientY);
+});
+cvs.addEventListener("pointermove", e => {
+  const f = moreFingers.get(e.pointerId);
+  if (f) { if (game.scene === "nest") pet(e.clientX, e.clientY, Math.hypot(e.clientX - f.x, e.clientY - f.y)); f.x = e.clientX; f.y = e.clientY; return; }
+  if (firstFinger === null || e.pointerId === firstFinger) handlePointerMove(e.clientX, e.clientY);
+});
+cvs.addEventListener("pointerup", e => { if (moreFingers.delete(e.pointerId)) return; if (e.pointerId === firstFinger) firstFinger = null; handlePointerUp(e.clientX, e.clientY); });
+cvs.addEventListener("pointercancel", e => { if (moreFingers.delete(e.pointerId)) return; firstFinger = null; handlePointerCancel(); });
 
-/** Stroking a glowling: hearts, a purr, joy, and a little XP now and then. */
+/** Stroking a glowling: hearts, a purr, joy, and a little XP now and then. Whichever awake one is under your finger
+ *  (the one you've picked first, where two overlap), so a stroke can pass over several, and more fingers pet more at once. */
 function pet(x, y, d) {
-  const cr = activeCreature(), n = game.nest, a = activeActor();
-  if (!cr || cr.sleeping || !a) return;
-  const v = actorView(a);
-  if (Math.hypot(x - v.x, y - v.y) > v.size * 0.7) { if (n.petting) { n.petting = false; sfx.purrOff(); } return; }
+  const n = game.nest, act = activeActor();
+  let a = act && Math.hypot(x - actorView(act).x, y - actorView(act).y) <= actorView(act).size * 0.7 ? act : actorAt(x, y);
+  const cr = a && save.creatures.find(c => c.id === a.id);
+  if (!cr || cr.sleeping) a = null;
+  if (!a) { if (n.petting && ![...actors.values()].some(petted)) { n.petting = false; sfx.purrOff(); } return; }
+  n.pets[a.id] = game.time;
   if (!n.petting) { n.petting = true; sfx.purrOn(); }
-  n.petDist += d;
-  if (n.petDist > 45) {
-    n.petDist = 0;
+  a.petDist = (a.petDist || 0) + d;
+  if (a.petDist > 45) {
+    a.petDist = 0;
     heart(x, y - 10);
     if (!tipDone("pet")) { markTip("pet"); setHint(nestHint()); }
-    if (!pointer || !pointer.petted) { if (pointer) pointer.petted = true; taskDone("pet"); bump("petted"); rememberFirst(cr, "First stroke from you ♥"); }
+    if (!(a.petOnce && a.petOnce === (pointer && pointer.t0))) { a.petOnce = pointer && pointer.t0; taskDone("pet"); bump("petted"); rememberFirst(cr, "First stroke from you ♥"); }
     cr.joy = clamp(cr.joy + 1.2, 0, 100);
-    if (performance.now() - n.petXpT > 1500) { n.petXpT = performance.now(); addXP(cr, 1); persist(); renderNest(); }
+    if (performance.now() - (a.petXpT || 0) > 1500) { a.petXpT = performance.now(); addXP(cr, 1); persist(); renderNest(); }
   }
 }
 

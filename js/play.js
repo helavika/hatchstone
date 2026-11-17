@@ -1204,7 +1204,7 @@ function actorLook(a, cr) {
   const act = activeCreature(), mine = act && a.id === act.id, asleep = a.state === "sleep" || a.state === "nap";
   // near the Gloom's shadows a glowling dims and looks worried; shining with your light, it brightens and cheers up (see updateGloom)
   const gk = asleep ? 0 : a.gloomK || 0, lit = a.gloomLit || 0;
-  const mood = asleep ? "asleep" : mine && game.nest.petting ? "joy" : a.state === "dance" || a.state === "visit" || lit > 0.5 || (a.emote && a.emote.text === "♥") ? "happy" : gk > 0.35 ? "sad" : moodOf(cr);
+  const mood = asleep ? "asleep" : petted(a) ? "joy" : a.state === "dance" || a.state === "visit" || lit > 0.5 || (a.emote && a.emote.text === "♥") ? "happy" : gk > 0.35 ? "sad" : moodOf(cr);
   // only a truly tired one (not just a bit low) looks sleepy-eyed; a little moment's face while it rests; older ones hop lower
   return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, cap: a.state === "sleep", hop: a.hop, hopK: calmOf(cr.level).hop * 0.75, eating: a.state === "eat", t: game.time + a.id * 997, glowK: (mine ? 0.7 : 0.35) * (1 - gk * 0.7) + lit * 0.7,
     tired: cr.energy < 12, face: faceNow(a), dim: gk * 0.6 * (1 - lit) };

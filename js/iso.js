@@ -154,6 +154,8 @@ function actorView(a) {
 }
 
 const activeActor = () => { const cr = activeCreature(); return cr ? actors.get(cr.id) : null; };
+/** Is a finger stroking this glowling right now (any of them, and more than one at once with more fingers). */
+const petted = a => game.time - (game.nest.pets[a.id] ?? -1e9) < 250;
 const emote = (a, text, life = 1.6) => { a.emote = { text, t: 0, life }; };
 
 function actorAt(x, y) {
@@ -373,7 +375,7 @@ const hopGate = a => Math.sin(((a.gait || 0) % 1) * Math.PI) * Math.PI / 2;
 const FACE_MIX = { sleepy: { squint: 2, look: 1, think: 1, blink: 1 }, curious: { think: 3, look: 3, squint: 1, blink: 1 }, sparkle: { blink: 3, look: 3, think: 1, squint: 1 }, big: { look: 2, think: 2, blink: 2, squint: 1 }, round: { blink: 2, look: 2, think: 1, squint: 1 } };
 const FACE_LIFE = { blink: 0.4, squint: 1.1, look: 2, think: 2.4 };
 function faceMoments(a, cr, dt) {
-  const calm = calmOf(cr.level), resting = a.state === "idle" && !cr.sleeping && !(a.id === save.active && game.nest.petting);
+  const calm = calmOf(cr.level), resting = a.state === "idle" && !cr.sleeping && !petted(a);
   if (a.face && ((a.face.t += dt) > a.face.life || !resting)) a.face = null;
   if (!resting || a.face || (a.faceT = (a.faceT ?? rand(2, 10)) - dt) > 0) return;
   // every 6 to 12 seconds or so, each on its own clock; the older, the rarer and the slower
@@ -403,9 +405,9 @@ function updateActors(dt) {
     if ((a.needT = (a.needT ?? rand(0, 3)) - dt) < 0) {
       a.needT = 4;
       applyTime(cr);
-      const petted = a.id === save.active && game.nest.petting;
+      const stroked = petted(a);
       // sleepy: a yawn, and off it goes to bed by itself (not right after you woke it up, though)
-      if (!cr.sleeping && cr.energy < 20 && !petted && a.state !== "eat" && Date.now() - (cr.wokeAt || 0) > 3 * 60e3) { cr.sleeping = true; cr.selfSlept = true; emote(a, "🥱", 2.2); sfx.yawn(); a.hop = 1; persist(); if (a.id === save.active) renderNest(); }
+      if (!cr.sleeping && cr.energy < 20 && !stroked && a.state !== "eat" && Date.now() - (cr.wokeAt || 0) > 3 * 60e3) { cr.sleeping = true; cr.selfSlept = true; emote(a, "🥱", 2.2); sfx.yawn(); a.hop = 1; persist(); if (a.id === save.active) renderNest(); }
       else if (cr.sleeping && cr.energy >= 99) wakeRested(cr, a);
     }
     // an unhurried pace, slower with age, and a stroll when there's nothing it needs
@@ -443,7 +445,7 @@ function updateActors(dt) {
       target = decorSpot("rug"); a.goal = a.friend = null;
       if (a.state !== "idle") { a.state = "idle"; a.t = 1; }
     }
-    if (a.id === save.active && game.nest.petting) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
+    if (petted(a)) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
     else if (target) { a.tx = target[0]; a.ty = target[1]; }
     else if (a.state === "eat") { if ((a.t -= dt) <= 0) { if (habitOf(cr) === "meal") { a.state = "nap"; a.t = rand(5, 8) * calm.rest; emote(a, "zz", 2.5); } else { a.state = "idle"; a.t = rand(1, 2) * linger(cr); } } }
     else if (a.state === "idle" || a.state === "nap" || a.state === "dance" || a.state === "visit") { if ((a.t -= dt) <= 0) { a.decor = null; chooseNext(a, list); } }
@@ -464,7 +466,7 @@ function updateActors(dt) {
     // the way around the furniture (this also moves a goal that's inside a piece to the free spot beside it)
     // (the last stretch to bed goes straight to the sleeping spot: a way around the bed would stop beside it, never in it)
     const tucking = a.state === "toBed" && Math.hypot(a.tx - a.x, a.ty - a.y) < N.base * 0.9;
-    const walking = !tucking && !["nap", "dance", "eat", "sleep", "visit"].includes(a.state) && !(a.id === save.active && game.nest.petting);
+    const walking = !tucking && !["nap", "dance", "eat", "sleep", "visit"].includes(a.state) && !petted(a);
     const wp = walking ? nextWaypoint(a, dt) : null;
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
     if (a.state === "toBed" && d <= 8) { a.state = "sleep"; a.hop = 1; } // close enough: lie down (the room's edge may keep the exact spot just out of reach)

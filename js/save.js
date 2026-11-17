@@ -664,7 +664,7 @@ const game = {
   scene: "menu", egg: null, time: 0, libTab: "sp",
   coop: null,
   chips: [], sparks: [], pieces: [], glints: [], trail: [], hearts: [], swings: [], floaters: [], ripples: [], pops: [], gems: [], ping: null, shake: 0, freeze: 0,
-  nest: { snack: null, petDist: 0, petXpT: 0, petting: false, call: null, glad: false },
+  nest: { snack: null, pets: {}, petting: false, call: null, glad: false },
   actors: null,
   catch: null,
   quality, save,
