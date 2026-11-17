@@ -15,7 +15,7 @@ function load({ site = 'abc', host = 'helavika.github.io', on = true, webdriver 
     window: {}, fetch: (url, o) => { sent.push({ url, body: JSON.parse(o.body) }); return Promise.resolve(); }, JSON, Math, Date, Set, String, Object,
   };
   vm.createContext(ctx);
-  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/stats.js'), 'utf8').replace('site: "",', `site: ${JSON.stringify(site)},`) + '\nthis.track = track; this.trackOnce = trackOnce; this.statsStart = statsStart; this.statAge = statAge;', ctx);
+  vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/stats.js'), 'utf8').replace(/site: "[^"]*",/, `site: ${JSON.stringify(site)},`) + '\nthis.track = track; this.trackOnce = trackOnce; this.statsStart = statsStart; this.statAge = statAge;', ctx);
   return { ctx, sent };
 }
 
