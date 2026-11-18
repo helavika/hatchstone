@@ -903,6 +903,7 @@ i.mood.zz { font-style: normal; font-size: 13px; color: #b8e6f5; }
 #award .ic { width: 40px; height: 40px; flex: none; }
 #award small { display: block; font-size: 13px; letter-spacing: 1px; text-transform: uppercase; color: var(--soft); }
 #award b { display: block; font-size: 19px; font-weight: 400; color: #fff; }
+#award em { display: block; font-style: normal; font-size: 15px; line-height: 1.2; color: var(--soft); margin-top: 1px; }
 #award.rare small { color: #dfe6ff; } #award.epic small { color: #d2bfff; } #award.legendary small { color: #ffe9a8; }
 #award.legendary { box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -3px 0 0 var(--px-gold-lo), 0 0 24px rgba(255, 210, 120, .5) !important; }
 #libGrid .aw-list { grid-column: 1 / -1; display: flex; flex-direction: column; gap: 8px; }

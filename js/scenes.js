@@ -399,7 +399,8 @@ function paintAward(el, a) {
   } else {
     const t = AWARD_TIER[a.tier];
     el.className = "glass on " + a.tier;
-    el.innerHTML = `${ic("trophy_" + a.tier, "big")}<span><small>${tr(t.one)} · +${t.shards} ✦</small><b>${tr(a.name)}</b></span>`;
+    // (and what it was for, in the words the Book uses)
+    el.innerHTML = `${ic("trophy_" + a.tier, "big")}<span><small>${tr(t.one)} · +${t.shards} ✦</small><b>${tr(a.name)}</b><em>✓ ${tr(a.how)}</em></span>`;
   }
   sfx.levelUp(); buzz([10, 40, 10]);
 }
