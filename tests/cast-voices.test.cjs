@@ -130,7 +130,7 @@ for (const f of TALK_FILES) {
 }
 
 test('every talk line of the cast has its Ukrainian, and every mood on one is the speaker\'s', () => {
-  assert.equal(talkLines.length, 114, "every talk line of the cast is still said (a new one changes this count on purpose)");
+  assert.equal(talkLines.length, 126, "every talk line of the cast is still said (a new one changes this count on purpose)");
   let tagged = 0;
   for (const [f, who, words, moods, raw] of talkLines) {
     for (const w of words) assert.ok(UK.get(w), `${f}: no Ukrainian for ${JSON.stringify(w)}`);
@@ -165,8 +165,8 @@ test('a keeper\'s hello or line is words, or [mood, words] with one of the keepe
 
 test('the talk box shows the face for the line\'s mood: nextLine passes it, the Book\'s retelling keeps it', () => {
   const crack = read('crack.js');
-  assert.match(cut(crack, 'function nextLine(', '\n}\n', 'nextLine should sit in crack.js'), /const \[who, words, spot, mood\] = n\.lines\[n\.i\];[\s\S]*face = who\.face\(mood\)/);
-  assert.match(cut(crack, 'function retell(', '\n}\n', 'retell should sit in crack.js'), /\[who, words, null, mood\]/);
+  assert.match(cut(crack, 'function nextLine(', '\n}\n', 'nextLine should sit in crack.js'), /const \[who, words, spot, mood(, ask)?\] = n\.lines\[n\.i\];[\s\S]*face = who\.face\(mood\)/);
+  assert.match(cut(crack, 'function retell(', '\n}\n', 'retell should sit in crack.js'), /\[who, words, null, mood(, ask)?\]/);
   // every speaker of the cast speaks with its big portrait; the place bar keeps the keeper's small crop
   for (const [name, file] of [['MOSSA', 'crack.js'], ['WICK', 'crack.js'], ['DORMA', 'crack.js'], ['TANSY', 'nest.js'], ['EMBER', 'nest.js'], ['PIP', 'nest.js'], ['FENNEL', 'nest.js'], ['OLLO', 'nest.js']])
     assert.match(read(file), new RegExp(`const ${name} = \\{ name: "[^"]+", face: mood => pxPortrait\\("${name.toLowerCase()}", mood\\)`));

@@ -181,13 +181,16 @@ if (typeof addEventListener === "function") addEventListener("visibilitychange",
   if (game.scene !== "menu" && !talkNow) habitMoments(game.scene);
 });
 
+/** After the finale, Mossa's last word on coming home is about the Gloom, as the story ended (see ENDINGS in crack.js). */
+const BACK_ENDING = { home: "The Gloom keeps your corner warm. It's shy about it.", rest: "Quiet in the hollow. It's still asleep. Your watch now.",
+  watch: "Nothing came from the west. The Gloom is watching." };
 /** Mossa's welcome home. kept: she looked in while you were away (see applyTime in save.js), so the warm words are true. */
 const BACK_TALK = kept => {
   const hello = ["You came back. The light held.", "Welcome home. Everyone's here. The light held."];
   if (kept) hello.push("There you are. The nest kept warm for you.");
   return [[MOSSA, hello[Math.floor(Date.now() / 864e5) % hello.length], null, "warm"],
     ...(kept ? [[MOSSA, "I looked in at dusk. They're not hungry. They're just glad.", null, "warm"]] : []),
-    [MOSSA, "Coming back is strength too."]];
+    [MOSSA, BACK_ENDING[save.ending] || "Coming back is strength too."]];
 };
 /** After a night or a working day away (six hours or more, under a day): Mossa looked in, and says so in one short line,
  *  a different one each time (they turn every six hours), as a toast that doesn't wait for a tap. */

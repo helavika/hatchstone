@@ -1743,21 +1743,54 @@ const STORY = [
   { id: "s7", at: 22, title: "Warm stone", who: MOSSA, lines: () => [
     [MOSSA, "The deeper you go, the warmer the stone. Can you feel it?"],
     [MOSSA, "Your glowlings glow brighter every day. The sparks remember where they came from.", null, "warm"]] },
+  // the finale: the Gloom comes to the hollow one last time, and what you say to it is how the story ends (see ENDINGS)
   { id: "s8", at: LEVELS + 1, title: "The Heartlight's hollow", who: MOSSA, lines: () => [
     [MOSSA, "So this is it. The Heartlight's hollow."],
     [MOSSA, "Empty, I thought. No, look! Your glowlings are lighting it up.", null, "warm"],
     [MOSSA, "The Heartlight never really went out. It lives in every nest that's loved. It lives in yours.", null, "warm"],
-    [WICK, "It's… beautiful. I'll tell Pip. Some of it.", null, "glad"],
-    [DORMA, "I'll write this one down. Awake, for once.", null, "fond"],
-    [MOSSA, "Thank you. At last I can rest easy on my watch.", null, "warm"]] },
+    [GLOOM, "You found the last hiding place. There is nothing left for me to keep.", null, "watching"],
+    [GLOOM, "Tell me, little light. What does a keeper of hidden things do, when nothing is hidden?", null, "questioning",
+      Object.entries(ENDINGS).map(([id, e]) => ({ text: e.ask, pick: () => endWith(id) }))]] },
 ];
+/**
+ * The three endings: what you ask of the Gloom in the hollow. None of them is the right one, and none closes the game:
+ * the watch goes on in turns (Mossa's "after me, then me again"). Told again from the book, you can choose another.
+ */
+const ENDINGS = {
+  // it comes home with you, and keeps a quiet corner of the nest
+  home: { ask: "Come home with us.", title: "A guest by the fire", lines: () => [
+    [GLOOM, "A warm place. I have not had one.", null, "withdrawing"],
+    [GLOOM, "I will be small. I will be quiet. I will sit where the light doesn't reach, and watch it.", null, "seen"],
+    [MOSSA, "Even the dark needs somewhere to sit by the fire.", null, "warm"],
+    [DORMA, "I'll make room on the bottom shelf. The books won't mind. They're asleep.", null, "fond"]] },
+  // it lies down at last, here where the light was
+  rest: { ask: "Rest. You've kept them long enough.", title: "The long sleep", lines: () => [
+    [GLOOM, "Rest. I did not know that was allowed.", null, "withdrawing"],
+    [GLOOM, "If the cold comes back, knock on the stone. I will hear it.", null, "seen"],
+    [MOSSA, "Sleep, old one. We'll take the watch in turns.", null, "warm"],
+    [WICK, "I'll keep a lamp lit at the door. A small one. So it isn't dark when it wakes.", null, "sincere"]] },
+  // it turns to face the west with you: what hurt the light first is still out there
+  watch: { ask: "Keep watch with us.", title: "Four watchers", lines: () => [
+    [GLOOM, "Then I will look west. Something red still moves there. It hurt the light before I ever did.", null, "watching"],
+    [MOSSA, "It's still out there. Good. Now we can see it.", null, "resolve"],
+    [WICK, "Three watchers. Four. I'll tell Pip. All of it, this time.", null, "glad"],
+    [DORMA, "I'll write this one down. Awake, for once.", null, "fond"]] },
+};
+/** You chose an ending: it's kept (and can be chosen again from the book), and Mossa hands the watch over. */
+function endWith(id) {
+  const first = !save.ending;
+  save.ending = id; persist();
+  track("ending", { which: id, first });
+  return [...ENDINGS[id].lines(),
+    [MOSSA, tr("Thank you, {0}. Not instead of me. After me. Then me again.", myName()), null, "warm"]];
+}
 // the Gloom's parts, told at the sealed geodes, join the story in the book once heard
 for (const [i, at] of [[1, 6], [2, 12], [3, 18], [4, 24]]) STORY.push({ id: "g" + i, at, title: ["The Gloom", "What stayed in the dark", "A thousand pieces", "The oldest spark"][i - 1], who: GLOOM, lines: GLOOM_TALKS["g" + i], gloom: true });
 STORY.sort((a, b) => a.at - b.at || (a.gloom ? 1 : 0) - (b.gloom ? 1 : 0));
 for (const s of STORY) TALKS[s.id] = s.lines;
 /** Tell a part of the story again, from the book. */
 function retell(s) {
-  talkQueue.push(s.lines().map(([who, words, , mood]) => [who, words, null, mood]));
+  talkQueue.push(s.lines().map(([who, words, , mood, ask]) => [who, words, null, mood, ask]));
   if (!talkNow) nextTalk();
 }
 
@@ -1811,7 +1844,8 @@ function nextLine() {
   const n = talkNow;
   clearInterval(n.timer);
   if (++n.i >= n.lines.length) return nextTalk();
-  const [who, words, spot, mood] = n.lines[n.i];
+  const [who, words, spot, mood, ask] = n.lines[n.i];
+  talkAskClear();
   // a button or panel further down a list scrolls into view first
   if (typeof spot === "string") document.querySelector(spot)?.scrollIntoView({ block: "nearest" });
   updateSpot();
@@ -1823,7 +1857,7 @@ function nextLine() {
   $("talk").classList.remove("done");
   // type it out: a blip for every other letter, a breath at commas, a longer one at full stops
   let at = 0, wait = 0, said = 0;
-  n.full = () => { clearInterval(n.timer); box.textContent = text; n.typing = false; $("talk").classList.add("done"); };
+  n.full = () => { clearInterval(n.timer); box.textContent = text; n.typing = false; $("talk").classList.add("done"); if (ask) talkAsk(ask); };
   n.typing = true;
   n.timer = setInterval(() => {
     if (wait > 0) { wait--; return; }
@@ -1838,11 +1872,33 @@ function nextLine() {
 function tapTalk(ev) {
   if (!talkNow) return;
   ev && ev.preventDefault();
-  if (talkNow.typing) talkNow.full(); else { sfx.tick(); nextLine(); }
+  if (talkNow.typing) talkNow.full(); else if (!talkNow.asking) { sfx.tick(); nextLine(); }
 }
+/**
+ * A line that asks you something: its answers as buttons under it (a line's fifth item, [{ text, pick }]). Nothing moves on
+ * until you choose; pick() gives the lines that follow your answer, and they're told next.
+ */
+function talkAsk(ask) {
+  const n = talkNow, box = document.createElement("div");
+  n.asking = true; box.className = "talk-ask"; $("talkSkip").hidden = true;
+  ask.forEach((a, k) => {
+    const b = document.createElement("button");
+    b.className = "talk-pick"; b.textContent = tr(a.text);
+    b.addEventListener("pointerdown", ev => ev.stopPropagation());
+    b.addEventListener("click", ev => {
+      ev.stopPropagation(); sfx.chirp(1);
+      n.lines.splice(n.i + 1, 0, ...a.pick());
+      n.asking = false; talkAskClear(); nextLine();
+    });
+    box.append(b);
+    if (!k) setTimeout(() => b.focus({ preventScroll: true }), 50);
+  });
+  $$("#talk .talk-body")[0].append(box);
+}
+function talkAskClear() { $$("#talk .talk-ask").forEach(e => e.remove()); $("talkSkip").hidden = false; }
 $("talk").addEventListener("pointerdown", ev => { if (ev.target.id !== "talkSkip") tapTalk(ev); });
 $("talkSkip").addEventListener("click", ev => { ev.stopPropagation(); clearInterval(talkNow && talkNow.timer); talkQueue.length = 0; nextTalk(); });
-document.addEventListener("keydown", ev => { if (talkNow && (ev.key === " " || ev.key === "Enter")) tapTalk(ev); }, true);
+document.addEventListener("keydown", ev => { if (talkNow && !talkNow.asking && (ev.key === " " || ev.key === "Enter")) tapTalk(ev); }, true);
 
 /** The big moments that are waiting for a calm scene (the nest, the grotto or the book) to be told. */
 const talkLater = [];

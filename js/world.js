@@ -411,7 +411,8 @@ function worldFrame(now) {
   // a festival's snow (or petals, or leaves) falls only on the high, cold ground: the peaks and the snowfields
   const fall = eventNow()?.fall;
   if (fall && !fall.still) for (let k = 0; k < 70; k++) { const x = (pxHash(k, 41) * WM_W + t * 6 * (k % 3 - 1)) % WM_W, y = (pxHash(k, 42) * WM_H + t * (8 + k % 7) * (fall.dir || 0.3)) % WM_H; if (y < 95 || wmEast(x, y) > 0.4) put(x, y, pxHex(fall.c[k % fall.c.length]), 0.85); }
-  if (wardKeep("gloom") > 0) for (let k = 0; k < 3; k++) { const ph = t * 0.4 + k * 2.1; if (Math.sin(ph * 1.7) > 0.93) { const x = 14 + pxHash(k, Math.floor(ph / 3.7)) * 60, y = 100 + pxHash(Math.floor(ph / 3.7), k) * 200; put(x, y, [220, 90, 140]); put(x + 3, y, [220, 90, 140]); } }
+  // (after the finale: gone if the Gloom came home or lay down to sleep; still there, far off, if it keeps watch with you)
+  if (save.ending === "watch" || (wardKeep("gloom") > 0 && !save.ending)) for (let k = 0; k < 3; k++) { const ph = t * 0.4 + k * 2.1; if (Math.sin(ph * 1.7) > 0.93) { const x = 14 + pxHash(k, Math.floor(ph / 3.7)) * 60, y = 100 + pxHash(Math.floor(ph / 3.7), k) * 200; put(x, y, [220, 90, 140]); put(x + 3, y, [220, 90, 140]); } }
   if (Math.sin(t * 2.2) > 0.2) { put(334, 296, WM_COL.n2); g.globalAlpha = 0.35; g.fillStyle = "#fff0b5"; g.fillRect(330, 293, 9, 7); g.globalAlpha = 1; }
   // mist over the places you haven't found yet
   for (const w of WORLD) if (!placeOk(w.id)) {

@@ -903,7 +903,7 @@ function renderLib() {
   } else if (game.libTab === "st") {
     $("libGrid").innerHTML = STORY.map((p, i) => {
       const open = unlocked(p.at) && talkSeen(p.id);
-      return `<button data-st="${i}" class="${open ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("Part {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${p.who.face ? p.who.face() : pxIcon(p.who.icon || p.who.name.toLowerCase())}" alt=""${open ? "" : ' style="filter:brightness(0) opacity(.5)"'}></span><b>${open ? tr(p.title) : "???"}</b><small>${open ? tr(p.who.name) : p.at > LEVELS ? tr("Open every geode") : tr("Reach level {0}", p.at)}</small></button>`;
+      return `<button data-st="${i}" class="${open ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("Part {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${p.who.face ? p.who.face() : pxIcon(p.who.icon || p.who.name.toLowerCase())}" alt=""${open ? "" : ' style="filter:brightness(0) opacity(.5)"'}></span><b>${open ? tr(p.title) : "???"}</b><small>${open ? tr(p.id === "s8" && save.ending ? ENDINGS[save.ending].title : p.who.name) : p.at > LEVELS ? tr("Open every geode") : tr("Reach level {0}", p.at)}</small></button>`;
     }).join("");
   } else if (game.libTab === "hy") {
     const hy = save.creatures.filter(c => c.mix);
