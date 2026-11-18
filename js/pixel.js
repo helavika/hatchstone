@@ -4,6 +4,35 @@
 
 // ---------- pixel art: dithered scenes in the style of helavika's portfolio keep ----------
 const PX_BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5].map(v => (v + .5) / 16);
+/**
+ * A glow the way the moss garden's shaft of light is drawn: on the room's own pixel grid, in three clean steps of one colour,
+ * ordered-dithered between them, laid on with "screen" so it brightens what's under it and never muddies it. R in art pixels;
+ * kept once made (pxGlowArt), and drawn by pxGlow at a point in screen pixels, r its radius there, k how bright (0..1).
+ */
+const pxGlowCache = new Map();
+function pxGlowArt(R, col) {
+  const key = R + col;
+  if (pxGlowCache.has(key)) return pxGlowCache.get(key);
+  const n = 2 * R + 1, c = document.createElement("canvas"); c.width = c.height = n;
+  const g = c.getContext("2d"), img = g.createImageData(n, n), d = img.data, rgb = [1, 3, 5].map(i => parseInt(col.slice(i, i + 2), 16));
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {
+    const dd = Math.hypot(x - R, y - R) / R;
+    if (dd >= 1) continue;
+    const I = (1 - dd) * (1 - dd * 0.35), lv = Math.floor(I * 3.2 + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * 0.9);
+    if (lv <= 0) continue;
+    const i = (y * n + x) * 4; d[i] = rgb[0]; d[i + 1] = rgb[1]; d[i + 2] = rgb[2]; d[i + 3] = [0, 46, 80, 116][Math.min(3, lv)];
+  }
+  g.putImageData(img, 0, 0);
+  pxGlowCache.set(key, c);
+  return c;
+}
+function pxGlow(x, y, r, col, k = 1) {
+  if (k <= 0) return;
+  const R = Math.max(2, Math.round(r / PX)), c = pxGlowArt(R, col);
+  ctx.save(); ctx.imageSmoothingEnabled = false; ctx.globalCompositeOperation = "screen"; ctx.globalAlpha = Math.min(1, k);
+  ctx.drawImage(c, (Math.round(x / PX) - R) * PX, (Math.round(y / PX) - R) * PX, c.width * PX, c.height * PX);
+  ctx.restore();
+}
 const pxHex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
 const pxPick = (ramp, v, x, y) => { const n = ramp.length - 1; return ramp[clamp(Math.floor(clamp(v, 0, 1) * n + PX_BAYER[(y & 3) * 4 + (x & 3)]), 0, n)]; };
 const pxHash = (x, y) => { let h = x * 374761393 + y * 668265263; h = (h ^ (h >>> 13)) * 1274126177; return ((h ^ (h >>> 16)) >>> 0) / 4294967295; };

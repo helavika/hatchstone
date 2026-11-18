@@ -202,8 +202,8 @@ const mossaKept = (now = Date.now()) => tr(MOSSA_KEPT[Math.floor(now / 216e5) % 
 function drawEggLantern(x, y, tall, ph) {
   const u = PX * 2, t = game.time * 0.001 + ph, fl = Math.sin(t * 9) + Math.sin(t * 23) * 0.5;
   const at = (i, j, w, h, col) => { ctx.fillStyle = col; ctx.fillRect(Math.round(x / PX) * PX + i * u, Math.round(y / PX) * PX - j * u, w * u, h * u); };
-  const fy = y - 9 * u, glow = (r, col) => { const g = ctx.createRadialGradient(x, fy, 2, x, fy, r); g.addColorStop(0, col); g.addColorStop(1, col.replace(/[\d.]+\)$/, "0)")); ctx.fillStyle = g; ctx.fillRect(x - r, fy - r, r * 2, r * 2); };
-  glow(16 * u, `rgba(238,194,106,${0.3 + fl * 0.03})`);
+  const fy = y - 9 * u;
+  pxGlow(x, fy, 16 * u, "#eec26a", 0.9 + fl * 0.08);
   at(-5, 1, 11, 1, "#2a1e1a"); at(-4, 2, 9, 1, "#4a362c");                       // the foot
   at(-4, 15, 1, 13, "#2a1e1a"); at(4, 15, 1, 13, "#2a1e1a");                      // the posts
   ctx.globalAlpha = 0.22; at(-3, 15, 7, 13, "#fff0b5"); ctx.globalAlpha = 1;       // warm glass

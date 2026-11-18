@@ -628,11 +628,7 @@ function drawWick() {
     const age = (t + (3 - j) * WICK_TURN) % (3 * WICK_TURN);
     return age < 5120 ? null : age < 3 * WICK_TURN - 3550 ? "lit" : age < 3 * WICK_TURN - 1750 ? "low" : "dark";
   };
-  const glow = (x, y, r, a) => {
-    const g = ctx.createRadialGradient(x, y, 1, x, y, r);
-    g.addColorStop(0, `rgba(255,226,150,${a})`); g.addColorStop(1, "rgba(255,226,150,0)");
-    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill();
-  };
+  const glow = (x, y, r, a) => pxGlow(x, y, r * 1.5, "#ffe296", Math.min(1, a * 3.5));
   // (the glows were sized for a lantern 10 tall; gk scales them to this one, gy is the middle of its glass)
   const gk = k.lampH / 10, gy = Math.round(k.lampH * 0.62);
   const lamp = (state, x, y) => {

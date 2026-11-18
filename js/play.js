@@ -1460,9 +1460,7 @@ function drawIncubator() {
   if (inc) {
     // the egg: speckled in both parents' colors, glowing warmer as it gets closer
     const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), wob = ready ? Math.sin(game.time * 0.02) * 0.08 + (n.hatchWob || 0) * Math.sin(game.time * 0.05) * 0.2 : 0;
-    const glow = ctx.createRadialGradient(x, y - b * 0.4, 2, x, y - b * 0.4, b * (0.6 + k * 0.4));
-    glow.addColorStop(0, `rgba(255,214,150,${0.2 + k * 0.35})`); glow.addColorStop(1, "rgba(255,214,150,0)");
-    ctx.fillStyle = glow; ctx.beginPath(); ctx.arc(x, y - b * 0.4, b * (0.6 + k * 0.4), 0, TAU); ctx.fill();
+    pxGlow(x, y - b * 0.4, b * (0.6 + k * 0.4), "#ffd696", 0.45 + k * 0.55);
     ctx.save();
     ctx.translate(x, y - b * 0.06); ctx.rotate(wob); ctx.translate(-x, -(y - b * 0.06));
     const ew = b * 0.42, eh = ew * 1.28, ey = y - b * 0.05 - eh / 2; // it stands on the saucer, in the middle of the glass's rim

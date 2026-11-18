@@ -761,11 +761,15 @@ function isoArt(w, h, paint, { outline = true, texture = true, light = true } = 
       for (;;) { T.px(x0, y0, col); if (x0 === x1 && y0 === y1) break; const e2 = 2 * e; if (e2 >= dy) { e += dy; x0 += sx; } if (e2 <= dx) { e += dx; y0 += sy; } }
       T.dir = was;
     },
-    /** A soft light made of scattered pixels (dithered, so it stays crisp). */
+    /** A soft light the way the moss garden's shaft is drawn (see pxGlow): see-through, in three clean steps, ordered-dithered
+     *  between them, so it stays crisp and never turns into loose dots. */
     glow(cx, cy, r, col, k = 0.5) {
       for (let y = Math.floor(cy - r); y <= Math.ceil(cy + r); y++) for (let x = Math.floor(cx - r); x <= Math.ceil(cx + r); x++) {
         const f = 1 - Math.hypot(x - cx, (y - cy) * 1.4) / r;
-        if (f > 0 && !T.has(x, y) && PX_BAYER[(y & 3) * 4 + (x & 3)] < f * k) { T.px(x, y, col); T.glowPx.add(y * w + x); }
+        if (f <= 0 || x < 0 || y < 0 || x >= w || y >= h || (T.has(x, y) && !T.glowPx.has(y * w + x))) continue;
+        const lv = Math.floor(f * Math.min(1, k * 2.2) * 3.2 + (PX_BAYER[(y & 3) * 4 + (x & 3)] - 0.5) * 0.9), i = (y * w + x) * 4, a = [0, 56, 96, 136][Math.min(3, lv)];
+        if (lv <= 0 || a <= d[i + 3]) continue;
+        d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = a; T.glowPx.add(y * w + x);
       }
     },
   };
@@ -4568,15 +4572,6 @@ function drawPlaceGlow() {
   }
   ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = was;
 }
-/** A lantern's glow in art pixels, r across: solid in the middle, dithered toward its rim (kept, one per size). */
-function lampGlow(r) {
-  const k = "g" + r;
-  if (breath.pools[k]) return breath.pools[k];
-  const c = document.createElement("canvas"); c.width = c.height = 2 * r + 1; c.r = r;
-  const g = c.getContext("2d"); g.fillStyle = "#f6d488";
-  for (let y = 0; y <= 2 * r; y++) for (let x = 0; x <= 2 * r; x++) { const dd = Math.hypot(x - r, y - r) / r; if (dd < 0.5 || (dd < 1 && PX_BAYER[(y & 3) * 4 + (x & 3)] < 1 - dd)) g.fillRect(x, y, 1, 1); }
-  return breath.pools[k] = c;
-}
 /** The sparks, steam and dust, over everything in the place. */
 function drawPlaceBreath() {
   const plan = breathNow(), s = Math.max(1, Math.round(PX));
@@ -4584,7 +4579,7 @@ function drawPlaceBreath() {
   const at = q => { const [x, y] = isoAt(q.u, q.v); return [Math.round(x / s) * s, Math.round((y - q.z * PX) / s) * s]; };
   ctx.save(); ctx.imageSmoothingEnabled = false;
   // a lantern's glow round its glass, a little brighter or dimmer as the flame flickers
-  for (const q of plan.lamp) { const [x, y] = at(q), G = lampGlow(q.r); ctx.globalAlpha = 0.08 + 0.2 * q.k; ctx.drawImage(G, x - G.r * PX, y - G.r * PX, G.width * PX, G.height * PX); }
+  for (const q of plan.lamp) { const [x, y] = at(q); pxGlow(x, y, q.r * PX * 1.7, "#f6d488", 0.75 + 0.25 * q.k); }
   for (const q of plan.dust) { const [x, y] = at(q); ctx.globalAlpha = Math.sin(q.age * Math.PI) * (0.25 + 0.5 * q.glint); ctx.fillStyle = "#efe6ff"; ctx.fillRect(x, y, s, s); }
   for (const q of plan.steam) {
     const [x, y] = at(q), r = s * (q.age < 0.35 ? 1 : 2);
@@ -5388,7 +5383,7 @@ function swingSeat() {
   return [x + Math.sin(a) * len, top + Math.cos(a) * len, a, top];
 }
 
-/** The fairy lights strung round the isometric room's walls, each bulb in its own soft glow. */
+/** The fairy lights strung round the isometric room's walls, each bulb in its own glow (pxGlow). */
 function lightsIso() {
   const cols = ["#ffe9a8", "#ff9ecb", "#8fd8ef", "#b9e88a", "#c9b8ff"];
   ctx.strokeStyle = "rgba(230,224,255,.45)"; ctx.lineWidth = 1.2;
@@ -5399,9 +5394,7 @@ function lightsIso() {
     const [bx, by] = bulbPos(i);
     const col = cols[i % cols.length], rung = fxAge("bulb" + i), lit = rung < 0.7 ? 1 - rung / 0.7 : 0;
     const k = Math.min(1, 0.55 + 0.45 * Math.sin(game.time * 0.003 + i * 1.3) + lit), r = 14 + lit * 12;
-    const g = ctx.createRadialGradient(bx, by, 1, bx, by, r);
-    g.addColorStop(0, col); g.addColorStop(1, col + "00");
-    ctx.globalAlpha = k; ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, r, 0, TAU); ctx.fill();
-    ctx.globalAlpha = 1; ctx.fillStyle = lit ? "#fff" : col; ctx.beginPath(); ctx.arc(bx, by, 3.5 + lit * 2, 0, TAU); ctx.fill();
+    pxGlow(bx, by, r * 1.4, col, k);
+    ctx.fillStyle = lit ? "#fff" : col; ctx.beginPath(); ctx.arc(bx, by, 3.5 + lit * 2, 0, TAU); ctx.fill();
   }
 }
