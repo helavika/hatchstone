@@ -292,6 +292,13 @@ const sfx = {
     this.tone(t + 0.2, f * 1.2, 0.07, 0.28, "sine", f * 1.9);
   },
 
+  /** A giggle from somewhere close by: three quick little notes in its own voice, tumbling down. */
+  giggle(voice = 1) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime, f = 900 * voice;
+    for (let i = 0; i < 3; i++) this.tone(t + i * 0.085, f * (1.25 - i * 0.1), 0.045, 0.07, "sine", f * (1.4 - i * 0.1));
+  },
+
   star(i) {
     if (!this.ready()) return;
     const t = this.ac.currentTime, f = [1046.5, 1318.5, 1568][i] || 1568;

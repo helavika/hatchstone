@@ -1591,6 +1591,7 @@ function goRoom(i, via) {
   i = (i + save.rooms.length) % save.rooms.length;
   if (i === save.room) return;
   if (arrange.on) stopArrange();
+  stopSeek();
   packRoom();
   save.room = i;
   const r = save.rooms[i];

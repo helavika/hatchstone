@@ -161,6 +161,7 @@ const emote = (a, text, life = 1.6) => { a.emote = { text, t: 0, life }; };
 function actorAt(x, y) {
   let best = null;
   for (const a of actors.values()) {
+    if (seekHidden(a)) continue;
     const v = actorView(a);
     if (Math.hypot(x - v.x, y - v.y) < v.size * 0.6 && (!best || a.y > best.y)) best = a;
   }
@@ -396,7 +397,7 @@ function updateActors(dt) {
   if (call && pointer && pointer.call) call.t = game.time;
   for (const a of list) {
     const cr = save.creatures.find(c => c.id === a.id);
-    if (!cr) continue;
+    if (!cr || seekHidden(a)) continue;
     a.ph += dt;
     if (a.emote && (a.emote.t += dt) > a.emote.life) a.emote = null;
     a.hop = Math.max(0, a.hop - dt * 1.8);
@@ -515,8 +516,9 @@ function updateActors(dt) {
       a.garden = false; a.state = "idle"; a.t = rand(1.5, 3) * linger(cr); emote(a, "💧", 1.6); gardenHelp(cr);
     } else if (a.state === "walk") {
       a.state = "idle"; a.t = rand(1.2, 3.5) * linger(cr);
+      // (not one hiding, or counting with its eyes shut, in hide and seek)
       const f = a.friend && actors.get(a.friend);
-      if (f) meetFriend(a, f, cr);
+      if (f && !(game.seek && game.seek.id === f.id)) meetFriend(a, f, cr);
       a.friend = null;
     } else if (a.state === "toBed" && d <= 8) a.state = "sleep";
     keepInRoom(a, dt);
@@ -5343,7 +5345,7 @@ function drawRoomIso() {
       // whoever naps there hides under the gazebo's roof or the glowcap's cap
       if (layers.includes("roof")) items.push({ y: fy, box: { ...box, id: "bedroof" }, roofOf: "bed", after: layers.includes("post") ? "bedpost" : null, draw: () => drawBaked(isoPiece(p, { ...extra, part: "roof" }), 0, bob) });
     }
-    items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; drawBaked(f, 0, bob); if (PROP_CUES[p.id]) propCue(p.id, f, bob); } });
+    items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; if (game.seek?.spot === p.id) drawSeekPeek(); drawBaked(f, seekWiggle(p.id), bob); if (PROP_CUES[p.id]) propCue(p.id, f, bob); } });
   }
   if (hasDecor("shelf")) items.push({ y: -2, draw: drawShelfIso });
   if (save.rooms[save.room]?.kind === "shop") items.push({ y: -3, draw: drawShopSign });
