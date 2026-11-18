@@ -52,7 +52,7 @@ function statsStart() {
   seen = { first: seen.first || Date.now(), visits: (seen.visits || 0) + 1 };
   try { localStorage.setItem(STATS_KEY, JSON.stringify(seen)); } catch (e) { /* fine */ }
   track();
-  track("open", { days: statAge(seen.first), visits: seen.visits > 20 ? "20+" : String(seen.visits), where: window.Telegram?.WebApp?.initData ? "telegram" : matchMedia("(display-mode: standalone)").matches ? "app" : "browser" });
+  track("open", { days: statAge(seen.first), visits: seen.visits > 20 ? "20+" : String(seen.visits), where: /[#&?]tgWebApp/.test(location.hash + location.search) ? "telegram" : matchMedia("(display-mode: standalone)").matches ? "app" : "browser" });
   if (!document.hidden) statClockOn();
   document.addEventListener("visibilitychange", () => document.hidden ? statClockOff() : statClockOn());
   addEventListener("pagehide", statClockOff);

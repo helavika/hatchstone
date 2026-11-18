@@ -15,6 +15,11 @@ const LIVE_SAVE_KEY = "hatchstone.save";
 // ---------- languages: English, and Ukrainian for anyone whose browser speaks it (or who picks it in the menu) ----------
 const LANG = (() => {
   try { const l = localStorage.getItem("hatchstone.lang"); if (l === "en" || l === "uk") return l; } catch (e) {}
+  // inside Telegram: the language set in Telegram (it comes with the launch, in the address's #tgWebAppData)
+  try {
+    const d = new URLSearchParams(location.hash.slice(1)).get("tgWebAppData"), u = d && new URLSearchParams(d).get("user"), code = u && JSON.parse(u).language_code;
+    if (code) return /^uk\b/i.test(code) ? "uk" : "en";
+  } catch (e) {}
   return (navigator.languages || [navigator.language || ""]).some(l => /^uk\b/i.test(l)) ? "uk" : "en";
 })();
 const LOCALE = LANG === "uk" ? "uk-UA" : undefined;
@@ -742,6 +747,29 @@ const UK = {
   "It's… beautiful. I'll tell Pip. Some of it.": "Це… гарно. Я розповім Піпові. Дещо.",
   "I'll write this one down. Awake, for once.": "Це я запишу. І цього разу не засну.",
   "Thank you. At last I can rest easy on my watch.": "Дякую тобі. Нарешті я можу спокійно стояти на варті.",
+  "You found the last hiding place. There is nothing left for me to keep.": "Останню схованку знайдено. Мені більше нічого берегти.",
+  "Tell me, little light. What does a keeper of hidden things do, when nothing is hidden?": "Скажи мені, світельце. Навіщо берегти сховане, коли нічого вже не сховано?",
+  "Come home with us.": "Ходімо з нами додому.",
+  "Rest. You've kept them long enough.": "Відпочинь. Досить уже стерегти їх.",
+  "Keep watch with us.": "Стій на варті разом із нами.",
+  "A guest by the fire": "Гість біля вогню",
+  "The long sleep": "Довгий сон",
+  "Four watchers": "Четверо на варті",
+  "A warm place. I have not had one.": "Тепле місце. У мене такого ніколи не було.",
+  "I will be small. I will be quiet. I will sit where the light doesn't reach, and watch it.": "Я займатиму зовсім мало місця. Сидітиму тихо там, куди не сягає світло, і дивитимусь на нього.",
+  "Even the dark needs somewhere to sit by the fire.": "Навіть темряві треба десь посидіти біля вогню.",
+  "I'll make room on the bottom shelf. The books won't mind. They're asleep.": "Звільню нижню полицю. Книжки не заперечуватимуть. Вони сплять.",
+  "Rest. I did not know that was allowed.": "Відпочити? А хіба так можна?",
+  "If the cold comes back, knock on the stone. I will hear it.": "Якщо холод повернеться, постукай у камінь. Я почую.",
+  "Sleep, old one. We'll take the watch in turns.": "Спи. Ми стоятимемо на варті по черзі.",
+  "I'll keep a lamp lit at the door. A small one. So it isn't dark when it wakes.": "Я лишу біля входу ліхтарик. Маленький. Щоб не було темно, коли прокинешся.",
+  "Then I will look west. Something red still moves there. It hurt the light before I ever did.": "Тоді я дивитимусь на захід. Там досі ворушиться щось червоне. Воно поранило світло ще до мене.",
+  "It's still out there. Good. Now we can see it.": "Воно досі там. Добре. Тепер ми його бачимо.",
+  "Three watchers. Four. I'll tell Pip. All of it, this time.": "Троє на варті. Ні, четверо. Я розкажу Піпові. Цього разу все.",
+  "Thank you, {0}. Not instead of me. After me. Then me again.": "Дякую, {0}. Не замість мене. Після мене. А тоді знову я.",
+  "The Gloom keeps your corner warm. It's shy about it.": "Мла сидить у твоєму куточку й гріє його. Тільки нікому не каже.",
+  "Quiet in the hollow. It's still asleep. Your watch now.": "У Колисці тихо. Мла ще спить. Тепер твоя варта.",
+  "Nothing came from the west. The Gloom is watching.": "Із заходу нічого не прийшло. Мла пильнує.",
   "Furniture": "Меблі",
   "Look": "Вигляд",
   "Wear": "Вбрання",
