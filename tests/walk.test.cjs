@@ -143,3 +143,12 @@ test('holding an arrow leads a little ahead, and over the stream from stone to s
   assert.deepEqual(right.slice(0, 5), [97, 115, 130, 145, 163]);
   assert.equal(ctx.walkAhead(geo, 130, -1), 115);
 });
+
+test('the action key does what is right by the one you lead: thorn, bush, lantern, else a hop', () => {
+  const src = require('node:fs').readFileSync(require.resolve('../js/walk.js'), 'utf8');
+  const act = src.slice(src.indexOf('function walkAct()'), src.indexOf('\n}\n', src.indexOf('function walkAct()')));
+  const order = ['walkThorn()', 'walkShake(f', 'g.lamp = {', 'lead.hop = 1'].map(s => act.indexOf(s));
+  assert.ok(order.every(i => i > 0) && order.every((v, i) => !i || v > order[i - 1]), 'thorn, then bush, then lantern, then a hop');
+  assert.match(src, /ACT = \[" ", "ArrowUp", "w", "W"\]/);
+  assert.match(src, /\$\("walkAct"\)\.addEventListener\("pointerdown"/);
+});

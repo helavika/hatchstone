@@ -232,12 +232,14 @@ if (typeof window === "object") {
     "Not during a shared egg": "Не під час спільного яйця",
     "Tap where to go": "Торкнися, куди йти",
     "Tap where to go, or hold an arrow": "Торкнися, куди йти, або тримай стрілку",
+    "Hold an arrow to walk; ✦ or space does what's close": "Тримай стрілку, щоб іти; ✦ чи пробіл робить те, що поруч",
+    "Do what's close": "Зробити те, що поруч",
     "Walk left": "Йти ліворуч",
     "Walk right": "Йти праворуч",
-    "Something rustles in that bush. Tap it": "У тому кущі щось шарудить. Торкнися його",
-    "Gloom-thorn has tangled the hollow way. Tap it with your light": "Терен Мли заплів нижню стежку. Торкнися його світлом",
+    "Something rustles in that bush. Tap it, or ✦": "У тому кущі щось шарудить. Торкнися його або ✦",
+    "Gloom-thorn has tangled the hollow way. Tap it with your light, or ✦": "Терен Мли заплів нижню стежку. Торкнися його світлом або ✦",
     "The thorns loosen in the light. The short way is open ✦": "Терен слабне у світлі. Коротка стежка відкрита ✦",
-    "It's dark under the trees. Tap to lift your lantern": "Під деревами темно. Торкнися, щоб підняти ліхтар",
+    "It's dark under the trees. Tap or ✦ to lift your lantern": "Під деревами темно. Торкнися або ✦, щоб підняти ліхтар",
     "Hop, hop, hop: over the stepping stones": "Стриб, стриб, стриб: по камінцях",
     "What a view.": "Який краєвид.",
     "Head home": "Додому",
@@ -329,7 +331,7 @@ function startWalk(path) {
   $("walkHud").classList.remove("done"); $("walkPad").classList.remove("done");
   $("walkName").textContent = tr(WALKS[path].name);
   walkBag();
-  setTimeout(() => walkSay(tr("Tap where to go, or hold an arrow"), "go"), 300);
+  setTimeout(() => walkSay(tr("Hold an arrow to walk; ✦ or space does what's close"), "go"), 300);
 }
 /** A hint, once per walk each. */
 function walkSay(text, id) {
@@ -891,7 +893,7 @@ function walkPace(p) {
   return (sp && (sp.beh === "flutter" || sp.beh === "swim") ? 60 : sp?.beh === "nap" ? 36 : 48) * WALK_SPEED * g.geo.s / 100 * calm.go;
 }
 /** Outside they step out livelier than at home. */
-const WALK_SPEED = 1.6;
+const WALK_SPEED = 2.2;
 /** Where holding an arrow leads: a little ahead that way, or over the stream the next stone (or bank) that way. */
 function walkAhead(geo, x, dir) {
   const st = geo.stream, ahead = clamp(x + dir * geo.s * 1.2, 8, geo.end);
@@ -953,15 +955,15 @@ function updateWalk(dt) {
     if (f.state === "pop" && (f.t += dt) > 0.45) f.state = "shown";
     if (f.state === "got") { f.t += dt; continue; }
     if (f.state === "hidden" && f.at === "dark" && walkLit(f.x, walkGround(geo, f.x) - 6) > 0.4) { f.state = "shown"; f.t = 0; sfx.shimmer(); }
-    if (f.state === "hidden" && f.at === "bush" && Math.abs(lead.x - f.x) < geo.s * 0.9 && !f.sniffed) { f.sniffed = true; lead.emote = { text: "?", t: 0, life: 1.6 }; walkSay(tr("Something rustles in that bush. Tap it"), "bush"); }
+    if (f.state === "hidden" && f.at === "bush" && Math.abs(lead.x - f.x) < geo.s * 0.9 && !f.sniffed) { f.sniffed = true; lead.emote = { text: "?", t: 0, life: 1.6 }; walkSay(tr("Something rustles in that bush. Tap it, or ✦"), "bush"); }
     if (f.state !== "shown") continue;
     const p = g.pals.find(q => Math.abs(q.x - f.x) < geo.s * 0.22 && q.alt < geo.s * 0.4);
     if (p) walkCollect(f, p);
   }
   // a word at the new things, once each
   const near = (a, b) => lead.x > a - geo.AW * 0.45 && lead.x < b;
-  if (hl && g.thorn < 3 && near(hl.x0, hl.x1)) walkSay(tr("Gloom-thorn has tangled the hollow way. Tap it with your light"), "thorn");
-  else if (geo.dark && walkIn(lead.x, geo.dark.x0 - 10, geo.dark.x1)) walkSay(tr("It's dark under the trees. Tap to lift your lantern"), "dark");
+  if (hl && g.thorn < 3 && near(hl.x0, hl.x1)) walkSay(tr("Gloom-thorn has tangled the hollow way. Tap it with your light, or ✦"), "thorn");
+  else if (geo.dark && walkIn(lead.x, geo.dark.x0 - 10, geo.dark.x1)) walkSay(tr("It's dark under the trees. Tap or ✦ to lift your lantern"), "dark");
   else if (st && near(st.x0, st.x1)) walkSay(tr("Hop, hop, hop: over the stepping stones"), "stream");
   if (g.lamp) g.lamp.t += dt;
   // the end of the path: a chime at the cairn (or the view from the ledge), a moment to enjoy it, then home
@@ -1046,16 +1048,38 @@ function walkTap(x, y) {
   for (const [k, f] of g.plan.entries()) {
     if (f.state !== "hidden" || f.at !== "bush") continue;
     const b = g.bushArt[g.plan.filter(q => q.at === "bush").indexOf(f)], gy = walkGround(geo, f.x) - 1;
-    if (Math.abs(ax - f.x) < b.width / 2 + 4 && ay > gy - b.height - 4 && ay < gy + 6) {
-      f.state = "pop"; f.t = 0; f.rustle = g.t; f.x += 9 * (k % 2 ? -1 : 1);
-      walkRustle(); lead.tx = clamp(f.x, 8, geo.end); g.dir = Math.sign(lead.tx - lead.x) || g.dir;
-      return;
-    }
+    if (Math.abs(ax - f.x) < b.width / 2 + 4 && ay > gy - b.height - 4 && ay < gy + 6) { walkShake(f, k); return; }
   }
   const tx = walkSnap(geo, clamp(ax, 8, geo.end));
   g.dir = Math.sign(tx - lead.x) || g.dir;
   lead.tx = tx;
   g.fx.push({ kind: "mark", x: tx, y: walkGround(geo, tx), t: 0, life: 0.6 });
+}
+/** A rustle in a bush: what hid in it pops out, and the one you lead goes to pick it up. */
+function walkShake(f, k) {
+  const g = game.walk, lead = g.pals[0];
+  f.state = "pop"; f.t = 0; f.rustle = g.t; f.x += 9 * (k % 2 ? -1 : 1);
+  walkRustle(); lead.tx = clamp(f.x, 8, g.geo.end); g.dir = Math.sign(lead.tx - lead.x) || g.dir;
+}
+/**
+ * The action key (space, ↑ or W; the ✦ between the arrows on a phone): whatever is right by the one you lead. The thorn if
+ * it's close, else a bush that rustles, else in the dark the lantern lifted just ahead; with nothing there, a happy hop.
+ */
+function walkAct() {
+  const g = game.walk;
+  if (!g || !g.geo || g.ended || g.reached) return;
+  const geo = g.geo, lead = g.pals[0], hl = geo.hill, near = (x, d) => Math.abs(x - lead.x) < geo.s * d;
+  if (hl && g.thorn < 3 && near(hl.ax, 1.6)) { walkThorn(); return; }
+  const bushes = g.plan.filter(q => q.at === "bush");
+  const f = bushes.find(q => q.state === "hidden" && near(q.x, 1.3));
+  if (f) { walkShake(f, g.plan.indexOf(f)); return; }
+  if (geo.dark && walkIn(lead.x, geo.dark.x0 - 20, geo.dark.x1 + 20)) {
+    const x = lead.x + g.dir * geo.s * 0.9;
+    g.lamp = { x, y: walkGround(geo, x) - geo.s * 1.1, t: 0 };
+    if (sfx.ready()) sfx.tone(sfx.ac.currentTime, 1046, 0.03, 0.4, "sine", 1568, true);
+    return;
+  }
+  if (lead.hop < 0.2) { lead.hop = 1; const cr = walkCr(lead.id); if (cr) sfx.chirp(specOf(cr).voice); }
 }
 /** Your light on the thorn: it loosens a little each time; the third time it lets go, the short way opens and the light it held goes free. */
 function walkThorn() {
@@ -1337,7 +1361,8 @@ function drawWalk() {
 if (typeof window === "object") {
   $("walkSheetClose").addEventListener("click", () => show("walkSheet", false));
   $("walkQuit").addEventListener("click", ev => { ev.stopPropagation(); sfx.tick(); finishWalk(); });
-  // walking by arrows: the two on screen while a finger is on them, ← → (or A, D) on a keyboard
+  // walking by arrows: the two on screen while a finger is on them, ← → (or A, D) on a keyboard; the ✦ between them (or space,
+  // ↑, W) does what's right there (walkAct)
   const hold = d => {
     const g = game.walk;
     if (!g) return;
@@ -1351,8 +1376,14 @@ if (typeof window === "object") {
     for (const t of ["pointerup", "pointercancel", "lostpointercapture"]) el.addEventListener(t, () => { if (game.walk?.hold === d) hold(0); });
     el.addEventListener("contextmenu", ev => ev.preventDefault());
   }
-  const KEY = { ArrowLeft: -1, ArrowRight: 1, a: -1, d: 1, A: -1, D: 1 };
-  addEventListener("keydown", ev => { if (game.scene !== "walk" || !(ev.key in KEY) || ev.altKey || ev.metaKey || ev.ctrlKey) return; ev.preventDefault(); hold(KEY[ev.key]); });
+  const KEY = { ArrowLeft: -1, ArrowRight: 1, a: -1, d: 1, A: -1, D: 1 }, ACT = [" ", "ArrowUp", "w", "W"];
+  addEventListener("keydown", ev => {
+    if (game.scene !== "walk" || ev.altKey || ev.metaKey || ev.ctrlKey || talkNow) return;
+    if (ACT.includes(ev.key)) { ev.preventDefault(); if (!ev.repeat) walkAct(); return; }
+    if (!(ev.key in KEY)) return;
+    ev.preventDefault(); hold(KEY[ev.key]);
+  });
+  $("walkAct").addEventListener("pointerdown", ev => { ev.stopPropagation(); ev.preventDefault(); walkAct(); });
   addEventListener("keyup", ev => { if (ev.key in KEY && game.walk?.hold === KEY[ev.key]) hold(0); });
   addEventListener("blur", () => hold(0));
   $("walkHome").addEventListener("click", () => { sfx.tick(); walkHome(); });
