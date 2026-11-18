@@ -568,6 +568,12 @@ body { font-size: 18px; }
   background: var(--px-raise) !important; color: var(--ink); border: 0 !important; outline: 0;
   box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep), 0 6px 0 0 rgba(11, 6, 20, .6) !important;
 }
+/* a glowling picked for the incubator: rose, ringed in gold, lifted a little, with a heart on its corner */
+.pick button { position: relative; }
+.pick button.on { background: #8f3460 !important; transform: translateY(-2px);
+  box-shadow: var(--px-frame), inset 3px 3px 0 0 #e88bb1, inset -3px -3px 0 0 #5c1f3f, 0 0 0 6px var(--px-gold), 0 8px 0 0 rgba(11, 6, 20, .6) !important; }
+.pick button.on::after { content: "♥"; position: absolute; top: -9px; right: -9px; width: 20px; height: 20px; line-height: 20px; font-size: 14px; text-align: center;
+  color: var(--px-ink); background: var(--px-gold); box-shadow: 0 0 0 3px var(--px-ink); }
 .act:active, .pillbtn:active, .ghost:active, .decor:active, .snack:active, .forge:active, .moonbtn:active, .lvl:active { box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-deep), inset -3px -3px 0 0 var(--px-hi) !important; }
 .act, .pillbtn, .ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
 .ghost { text-decoration: none; color: var(--soft); }
