@@ -207,23 +207,33 @@ const keptQuiet = (cr, now = Date.now()) => cr.keptAt > 0 && Math.abs(now - cr.k
 const homeQuiet = () => save.creatures.some(cr => keptQuiet(cr));
 
 /** Real time passes in the nest too, gently: needs drift down, sleep refills energy. */
+/**
+ * What a room at home gives whoever lives in it, gently (#254): the playroom keeps boredom off a little, the moss garden's
+ * beds make sleep deeper, the crystal study teaches a little while awake (an xp every STUDY_MIN minutes). Room space keeps
+ * anyone from piling everyone into one.
+ */
+const ROOM_TRAITS = { play: { joy: 0.65 }, garden: { rest: 1.35 }, study: { learn: true } };
+const STUDY_MIN = 30;
+const roomTrait = cr => ROOM_TRAITS[save.rooms[roomOf(cr)]?.kind] || {};
 function applyTime(cr, now = Date.now()) {
   const min = clamp((now - (cr.last || now)) / 60000, 0, AWAY_MIN);
   cr.last = now;
   if (min <= 0) return;
   // out exploring: having a lovely time, needing nothing
   if (cr.out) return;
+  const trait = roomTrait(cr);
   if (cr.sleeping) {
-    cr.energy = clamp(cr.energy + min * 12, 0, 100);
+    cr.energy = clamp(cr.energy + min * 12 * (trait.rest || 1), 0, 100);
     cr.tummy = clamp(cr.tummy - min * 0.25, 0, 100);
   } else {
     // awake time makes a little mess (gatherDust turns it into dust bunnies in the nest), and an untidy nest wears
     // joy down a little faster for those who live in it
     const dust = roomOf(cr) === nestRoom() ? (save.dust || []).length : 0;
     cr.tummy = clamp(cr.tummy - min * 0.5, 0, 100);
-    cr.joy = clamp(cr.joy - min * (0.4 + dust * 0.15), 0, 100);
+    cr.joy = clamp(cr.joy - min * (0.4 + dust * 0.15) * (trait.joy || 1), 0, 100);
     cr.energy = clamp(cr.energy - min * 0.25, 0, 100);
     cr.messT = (cr.messT || 0) + min;
+    if (trait.learn) { cr.studyT = (cr.studyT || 0) + min; const n = Math.floor(cr.studyT / STUDY_MIN); if (n) { cr.studyT -= n * STUDY_MIN; addXP(cr, n); } }
   }
   // six hours or more: Mossa looked in (see KEPT), and her visit leaves no mess behind
   if (min >= AWAY_MIN) {

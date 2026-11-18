@@ -245,6 +245,7 @@ body.scene-nest #nestName { pointer-events: auto; }
 /* the room's or place's name: a small plaque in the HUD's own pixel frame, so it reads over any sky or wall */
 #roomLabel { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 96px); z-index: 2; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .4s;
   padding: 3px 14px 4px; background: var(--px-deep); box-shadow: var(--px-frame), inset 0 2px 0 0 var(--px-raise), inset 0 -2px 0 0 var(--px-ink); }
+.reno-trait { display: block; margin-top: 3px; color: var(--gold, #ffe9a8) !important; }
 #roomLabel b { display: block; font-size: 18px; font-weight: 400; line-height: 1.15; letter-spacing: .5px; color: var(--gold, #ffe9a8); }
 body.scene-nest #roomLabel { opacity: 1; }
 body.arranging #roomLabel, #roomLabel[hidden] { display: none; }

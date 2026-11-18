@@ -1018,9 +1018,10 @@ function wearAccessory(id) {
 const ROOM_KINDS = [
   { id: "nest", name: "Nest" },
   { id: "yard", name: "Garden", outdoor: true, place: true },
-  { id: "play", name: "Playroom", cost: 250, note: "a bright room for toys and games" },
-  { id: "garden", name: "Moss garden", cost: 500, theme: "glowcap", note: "glowcap beds, a spring and light through a crack in the vault" },
-  { id: "study", name: "Crystal study", cost: 900, theme: "celestite", note: "quiet, blue and full of crystals" },
+  // trait: what living there gives (see ROOM_TRAITS and applyTime in save.js), one line in the shop
+  { id: "play", name: "Playroom", cost: 250, note: "a bright room for toys and games", trait: "who lives here gets bored more slowly" },
+  { id: "garden", name: "Moss garden", cost: 500, theme: "glowcap", note: "glowcap beds, a spring and light through a crack in the vault", trait: "who lives here sleeps deeper on the moss" },
+  { id: "study", name: "Crystal study", cost: 900, theme: "celestite", note: "quiet, blue and full of crystals", trait: "who lives here learns a little while awake" },
   { id: "lab", name: "Laboratory", place: true, theme: "abbey" },
   { id: "shop", name: "Shop", place: true, theme: "smithy" },
   { id: "forge", name: "The Forge", place: true, theme: "smithy" },
@@ -1631,7 +1632,7 @@ function marketReno() {
   return `<p class="me-hint">${tr("Tansy's cousin carves new rooms into the rock: each opens off the last one at home, through a new tunnel.")}</p>`
     + ROOM_KINDS.filter(k => k.cost).map(k => {
       const built = save.rooms.some(r => r.kind === k.id), soon = !built && next && next.id !== k.id;
-      return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.theme || "amethyst", true)}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small></span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${save.shards < k.cost ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;
+      return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.theme || "amethyst", true)}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small>${k.trait ? `<small class="reno-trait">✦ ${tr(k.trait)}</small>` : ""}</span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${save.shards < k.cost ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;
     }).join("")
     + `<h3 class="forge-h">${tr("Space at home")}</h3><div class="snack seed reno"><span class="em">${ic("nest", "big")}</span><span><b>${tr("Room for one more")}</b><small>${tr("each room fits {0} glowlings now", homeCap())}</small></span><span class="seed-btns">${cost ? `<button class="act buy" id="nestUp" ${save.shards < cost ? "disabled" : ""}>✦ ${cost}</button>` : `<small class="only">${tr("as roomy as it gets ✦")}</small>`}</span></div>`;
 }
