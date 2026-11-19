@@ -149,7 +149,8 @@ test('the caves at home are textured stone by stone, in ramps shifted in hue, an
   // the valley's own grotto is drawn as before
   assert.notDeepEqual(page(4, 'amethyst').roomMaterials('amethyst', 180, 150, 1).wallC, r);
   // stones, not noise: a handful of shades per material
-  const c = p.paintRoomIso('amethyst'), cols = colours(c);
+  // (in the nest: the playroom brings bright paints of its own, see room-fixtures.test.cjs)
+  const c = page(0, 'amethyst').paintRoomIso('amethyst'), cols = colours(c);
   assert.ok(cols.size < 60, `a limited palette, not noise (${cols.size} colours)`);
   // painting a room at home takes no more than a few times what it did (it's painted once and kept, see roomKey);
   // this runs on a plain-JS canvas stand-in, so shared CI runners are slow: the bound only catches a runaway
