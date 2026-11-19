@@ -153,6 +153,8 @@ function actorView(a) {
   return { x: a.x + (a.shake ? Math.sin(game.time * 0.045) * a.shake * size * 0.08 : 0), y: a.y - size * 0.45 - a.alt - (a.perch || 0), size, k };
 }
 
+/** How low a tummy must be for a glowling to come running when someone else is fed. */
+const BEG_TUMMY = 30;
 const activeActor = () => { const cr = activeCreature(); return cr ? actors.get(cr.id) : null; };
 /** Is a finger stroking this glowling right now (any of them, and more than one at once with more fingers). */
 const petted = a => game.time - (game.nest.pets[a.id] ?? -1e9) < 250;
@@ -426,9 +428,9 @@ function updateActors(dt) {
       target = [call.x + Math.cos(a.id * 2.4) * N.base * 0.55, clamp(call.y + Math.sin(a.id * 2.4) * N.base * 0.3, N.y0, N.y1)];
       speed = base * (a.beh === "curious" ? 3.2 : 2.3);
     } else if (a.state === "called") { a.state = "idle"; a.t = rand(1, 2.5); }
-    // someone is being fed: the hungry ones come running, hoping for a crumb
+    // someone is being fed: only the really hungry ones come running, hoping for a crumb (the rest just carry on)
     const fc = game.nest.feedCall;
-    if (!target && !cr.sleeping && fc && game.time - fc.t < 3500 && a.id !== fc.id && cr.tummy < 60 && a.state !== "eat" && actors.get(fc.id)) {
+    if (!target && !cr.sleeping && fc && game.time - fc.t < 3500 && a.id !== fc.id && cr.tummy < BEG_TUMMY && a.state !== "eat" && actors.get(fc.id)) {
       const f = actors.get(fc.id), an = a.id * 2.4;
       if (a.state !== "begging") { emote(a, SNACKS[specOf(cr).snack].emoji, 1.8); a.hop = 1; }
       a.state = "begging"; a.goal = a.friend = null; a.rain = false;
