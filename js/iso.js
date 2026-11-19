@@ -412,6 +412,8 @@ function updateActors(dt) {
       // sleepy: a yawn, and off it goes to bed by itself (not right after you woke it up, though)
       if (!cr.sleeping && cr.energy < 20 && !stroked && a.state !== "eat" && Date.now() - (cr.wokeAt || 0) > 3 * 60e3) { cr.sleeping = true; cr.selfSlept = true; emote(a, "🥱", 2.2); sfx.yawn(); a.hop = 1; persist(); if (a.id === save.active) renderNest(); }
       else if (cr.sleeping && cr.energy >= 99) wakeRested(cr, a);
+      // grown, on one of its days: it looks toward the valley (a compass over its head; now and then again, never more)
+      else if (noteWish(cr) || (!a.emote && wishing(cr) && !cr.sleeping && Math.random() < 0.04)) { emote(a, "🧭", 2.6); a.hop = Math.max(a.hop, 0.5); }
     }
     // an unhurried pace, slower with age, and a stroll when there's nothing it needs
     const calm = calmOf(cr.level), base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100 * 0.8 * calm.go;

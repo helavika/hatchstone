@@ -1111,6 +1111,8 @@ function drawNest() {
   if (h && !h.none) {
     const [hx, hy] = heroSpot(), [u, v] = isoFrom(hx, hy);
     items.push({ y: hy, draw: drawHero, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } });
+    // and the glowlings helping here, beside the keeper
+    for (const p of helpersHere()) { const [pu, pv] = isoFrom(p.x, p.y); items.push({ y: p.y, draw: () => drawHelper(p.c, p.x, p.y), box: { u0: pu * ISO_G, u1: pu * ISO_G, v0: pv * ISO_G, v1: pv * ISO_G } }); }
   }
   // Wick's bench in the grotto's hall: its lanterns, and on his days Wick himself, go right over the bench
   const wb = wickRoom() && isoLayout().placed.wickbench;
@@ -1311,7 +1313,7 @@ function openIncubator() {
     pairPick = pairPick.filter(id => save.creatures.some(c => c.id === id && !pairReason(c)));
     const ready = save.creatures.filter(c => !pairReason(c));
     $("incTitle").textContent = tr("Lay a mixed egg");
-    $("incSub").textContent = tr("Two happy glowlings at level {0}+ can share an egg. The baby mixes their parts and colors and hatches in about 3 hours.", PAIR_LEVEL);
+    $("incSub").textContent = tr("Two happy glowlings at level {0}+ can share an egg. The baby mixes their parts and colors and hatches in about 3 hours.", PAIR_LEVEL) + (helperAt("lab") ? " " + tr("{0} helps Ollo: a quarter sooner.", helpersAt("lab")[0].name) : "");
     $("incBody").innerHTML = `<div class="pick">${save.creatures.map(c => {
       const why = pairReason(c);
       return `<button data-id="${c.id}" class="${pairPick.includes(c.id) ? "on" : ""}" ${why ? "disabled" : ""}><img class="px2" style="width:52px;height:52px" src="${creatureImage(specOf(c), { art: 26, level: c.level, shiny: c.shiny })}" alt="">${why || c.name}</button>`;
@@ -1336,7 +1338,9 @@ function layEgg() {
   const { mix, surprise, shiny } = mixGlowling(a, b);
   taskDone("breed");
   const now = Date.now();
-  save.incubator = { mix, surprise, shiny, laid: now, due: now + INCUBATE_MS, warmed: 0 };
+  // (span: how long this one takes, a quarter less with Ollo's assistant: see incubateMs)
+  const span = incubateMs();
+  save.incubator = { mix, surprise, shiny, laid: now, due: now + span, span, warmed: 0 };
   for (const p of [a, b]) { p.bredAt = now; p.joy = clamp(p.joy + 15, 0, 100); const ac = actors.get(p.id); if (ac) { emote(ac, "♥", 2.5); ac.hop = 1; } }
   pairPick = [];
   persist();
@@ -1450,7 +1454,7 @@ function drawIncubator() {
   ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y + 4, b * 0.55, b * 0.11, 0, 0, TAU); ctx.fill();
   // while it incubates, a ring of light on the floor round the saucer fills up (it lies flat, under everything else)
   if (inc && !ready) {
-    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), fy = y - b * 0.02, from = Math.PI / 2;
+    const k = clamp(1 - (inc.due - Date.now()) / (inc.span || INCUBATE_MS), 0, 1), fy = y - b * 0.02, from = Math.PI / 2;
     ctx.lineWidth = Math.max(2, PX * 1.5);
     ctx.strokeStyle = "rgba(255,255,255,.14)"; ctx.beginPath(); ctx.ellipse(x, fy, b * 0.66, b * 0.2, 0, 0, TAU); ctx.stroke();
     ctx.strokeStyle = "rgba(255,179,212,.85)"; ctx.beginPath(); ctx.ellipse(x, fy, b * 0.66, b * 0.2, 0, from, from + TAU * k); ctx.stroke();
@@ -1465,7 +1469,7 @@ function drawIncubator() {
   propCue("incubator", incubatorPod(x, y, b));
   if (inc) {
     // the egg: speckled in both parents' colors, glowing warmer as it gets closer
-    const k = clamp(1 - (inc.due - Date.now()) / INCUBATE_MS, 0, 1), wob = ready ? Math.sin(game.time * 0.02) * 0.08 + (n.hatchWob || 0) * Math.sin(game.time * 0.05) * 0.2 : 0;
+    const k = clamp(1 - (inc.due - Date.now()) / (inc.span || INCUBATE_MS), 0, 1), wob = ready ? Math.sin(game.time * 0.02) * 0.08 + (n.hatchWob || 0) * Math.sin(game.time * 0.05) * 0.2 : 0;
     pxGlow(x, y - b * 0.4, b * (0.6 + k * 0.4), "#ffd696", 0.45 + k * 0.55);
     ctx.save();
     ctx.translate(x, y - b * 0.06); ctx.rotate(wob); ctx.translate(-x, -(y - b * 0.06));

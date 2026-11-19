@@ -60,6 +60,29 @@ function depthSaveOf(o) {
 const hungSaveOf = h => h && typeof h === "object" && !Array.isArray(h) && typeof h.c === "string" && /^[a-z]{1,16}$/.test(h.c)
   ? { c: h.c, from: typeof h.from === "string" ? [...h.from.replace(/[\u0000-\u001f\u007f]/g, "").trim()].slice(0, 24).join("") : "", at: Number.isFinite(h.at) ? h.at : 0 } : null;
 
+/** The places a grown glowling can go out to help (see HELP_PLACES in nest.js), and how many helpers each takes at most. */
+const HELP_KINDS = ["camp", "yard", "lab", "forge", "shop"], HELP_MAX = 2;
+/**
+ * The helpers in the save (#309): one out helping has cr.job = { place, since, met } and is out (cr.out, cr.roam), so it isn't
+ * counted at home and needs nothing (the keeper looks after it). A job at no such place, or a third at one place, comes home;
+ * a wish day (cr.wishDay, the day it last dreamed of the valley) is a whole number or nothing. A save from before has neither.
+ */
+function helpersSaveOf(creatures) {
+  const at = {};
+  for (const cr of creatures || []) {
+    if (!cr || typeof cr !== "object") continue;
+    if (cr.wishDay !== undefined && !Number.isInteger(cr.wishDay)) delete cr.wishDay;
+    if (cr.job == null) { delete cr.job; continue; }
+    const j = cr.job, place = j && typeof j === "object" ? j.place : null;
+    if (HELP_KINDS.includes(place) && (at[place] || 0) < HELP_MAX) {
+      at[place] = (at[place] || 0) + 1;
+      cr.job = { place, since: Number.isFinite(j.since) ? j.since : Date.now(), met: j.met === true };
+      cr.out = true; cr.roam = true; cr.trip = null; cr.sleeping = false;
+    } else { delete cr.job; cr.out = false; cr.roam = false; }
+  }
+  return creatures;
+}
+
 /** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
 function migrate(d) {
   d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {}; d.forge = d.forge || {};
@@ -128,6 +151,8 @@ function migrate(d) {
   // a friend's charm on the wall, if one hangs there
   const hung = hungSaveOf(d.hung);
   if (hung) d.hung = hung; else delete d.hung;
+  // grown glowlings out helping in the valley's places (see helpersSaveOf)
+  helpersSaveOf(d.creatures);
   // rooms used to be seen either from the corner or from the front: now always from the corner, so the choice goes
   delete d.view;
   d.v = SAVE_VERSION;

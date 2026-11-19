@@ -23,6 +23,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
   if (game.scene === "nest" && !remote && lanternDown(x, y)) { pointer.lantern = true; return; }
   if (game.scene === "nest" && !remote && wickAt(x, y)) { pointer = null; openWick(); return; }
+  if (game.scene === "nest" && !remote && isPlace()) { const hp = helperHit(x, y); if (hp) { pointer = null; tapHelper(hp); return; } }
   if (game.scene === "nest" && !remote && isPlace()) { const pr = propAt(x, y); if (pr && PROP_TAP[pr]) { pointer = null; if (heroHere()?.none) { markTip("hall"); setHint(""); } PROP_TAP[pr](); return; } if (heroAt(x, y) || (pr && !heroHere()?.none)) { pointer = null; tapHero(); return; } }
   if (game.scene === "nest" && atIncubator(x, y)) pointer.warm = true;
   else if (game.scene === "nest" && !actorAt(x, y) && (pointer.decor = decorAt(x, y))) {
@@ -617,6 +618,7 @@ $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
 $("gardenClose").addEventListener("click", () => show("gardenSheet", false));
 $("wickClose").addEventListener("click", () => show("wickSheet", false));
+$("helpClose").addEventListener("click", () => show("helpSheet", false));
 $("tripsClose").addEventListener("click", () => { show("tripsSheet", false); if (game.scene === "map") renderMap(); });
 $("startMore").addEventListener("click", ev => { ev.stopPropagation(); const c = $("startCorner"); c.classList.toggle("open"); $("startMore").setAttribute("aria-expanded", String(c.classList.contains("open"))); sfx.tick(); });
 document.addEventListener("click", ev => { if (!ev.target.closest("#startCorner")) $("startCorner").classList.remove("open"); });
