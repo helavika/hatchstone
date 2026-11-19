@@ -43,7 +43,7 @@ function renderNest(full) {
   $("playBtn").disabled = cr.sleeping;
   renderResidentsBtn(cr);
   if (full) {
-    $("switcher").innerHTML = save.creatures.map(c =>
+    $("switcher").innerHTML = save.creatures.filter(c => !c.job).map(c =>
       `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}${c.out ? " out" : ""}" title="${c.out ? tr("{0} is out exploring: tap to call it home", c.name) : c.name}"><img class="px2" style="width:40px;height:40px" src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="${c.name}"></button>`).join("");
     $$("#switcher button").forEach(b => b.addEventListener("click", () => selectCreature(Number(b.dataset.id))));
     requestAnimationFrame(switchArrows);
@@ -258,7 +258,7 @@ const ripePlots = () => (save.garden?.slots || []).filter(q => q && SEEDS[q.seed
 const WORLD = [
   { id: "grotto", name: "Grotto", icon: "grotto", at: [142, 66], note: () => !moonDone() ? tr("today's moon egg 🌙") : wickHere() ? tr("Wick is visiting today") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone() || wickHere(), go: () => arriveAt("grotto") },
   { id: "forge", name: "The Forge", icon: "hammer", at: [138, 160], ok: () => unlocked(4) || Object.keys(save.forge || {}).length > 0, how: () => tr("clear level {0}", 3), note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: () => arriveAt("forge") },
-  { id: "nest", name: "Nest", icon: "nest", at: [246, 64], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip).length), go: () => toRoomKind("nest") },
+  { id: "nest", name: "Nest", icon: "nest", at: [246, 64], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip && !c.job).length), go: () => toRoomKind("nest") },
   { id: "lab", name: "Laboratory", icon: "flask", at: [266, 172], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => arriveAt("lab") },
   { id: "shop", name: "Shop", icon: "stall", at: [250, 256], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: () => arriveAt("shop") },
   { id: "garden", name: "Garden", icon: "sun", at: [172, 238], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : tr("grows what no shop sells"), call: () => ripePlots() > 0, go: () => arriveAt("yard") },
@@ -428,6 +428,7 @@ const seedName = id => tr(SEEDS[id].name);
 
 function openGarden() {
   sfx.tick();
+  helperWater();
   const g = garden(), now = Date.now();
   const slot = (q, i) => {
     if (!q) return `<div class="plot empty"><span class="plot-img">${ic("heart", "off")}</span><b>${tr("Empty")}</b><small>${tr("pick a seed below")}</small></div>`;
@@ -487,6 +488,9 @@ function pickPlot(i) {
   }
   // seeds come back now and then, so the garden keeps going
   if (Math.random() < 0.5) { g.seeds[q.seed] = (g.seeds[q.seed] || 0) + 1; got.push(tr("a seed")); }
+  // and with a gardener helping Fennel, now and then a little more
+  const more = harvestMore(sd);
+  if (more) got.push(more);
   bump("harvested"); if (q.seed === "biteleaf") { bump("biteleaf"); sfx.knock(1); buzz([20, 30, 20]); toast(tr("CHOMP! The biteleaf bit you, then let go ✦")); }
   else sfx.shimmer();
   setTimeout(() => toast(tr("Picked: {0}", got.join(" · "))), q.seed === "biteleaf" ? 1400 : 0);
@@ -726,6 +730,8 @@ function tripsHome() {
       for (const f of pl.finds) tripFind(f, k, got);
       // a place that suits it shows it one thing more
       if (tripSuits(pl, x)) got.push(...tripExtra(pl, k));
+      // Pip's scout (a glowling helping at the camp) finds one more for each expedition
+      if (x === c && helperAt("camp")) got.push(...scoutFind(pl, k));
       // and sometimes a spark of inspiration: a song, a colour, a sight of the lands past the valley
       const spark = bringSpark(x, k, true);
       if (spark) got.push(sparkNote(spark));
@@ -791,8 +797,192 @@ function sendTrip() {
 }
 /** Coming back to the nest: anyone home from a trip tells you about it. */
 function tellTrips() {
+  helperWater();
   const back = tripsHome();
   back.forEach((t, i) => setTimeout(() => toast(t), i * 2800));
+}
+
+// ---------- helpers: a grown glowling may go out into the valley and lend one of its keepers a hand ----------
+
+/**
+ * The places a helper can go (#309): the map's place it's under (for placeOk), its work there in a few words, the help it
+ * brings, its diary line on going and what it says when you visit. One helper or two (HELP_MAX, save.js), the help is the
+ * same: the second is company, not more. The keeper's welcome is theirs, in HEROES (`welcome`).
+ */
+const HELP_PLACES = {
+  camp: { map: "trail", job: "Scouting with Pip", help: "Expeditions bring back one more find.", went: "Went out to scout the tunnels with Pip",
+    says: ["I'm helping Pip map the tunnels!", "Pip draws, I sniff out the way. We're a team!"] },
+  yard: { map: "garden", job: "Gardening with Fennel", help: "Waters thirsty plants by itself; now and then a harvest gives one more.", went: "Went out to tend the garden with Fennel",
+    says: ["I water the thirsty ones. Fennel tells them stories!", "Shh, the sunpetals are sleeping. I'm on watch."] },
+  lab: { map: "lab", job: "Assisting Ollo in the lab", help: "Mixed eggs hatch a quarter sooner.", went: "Went out to help Ollo in the lab",
+    says: ["I hold the notebook while Ollo measures things!", "I keep the eggs warm. Very scientifically!"] },
+  forge: { map: "forge", job: "At Ember's bellows", help: "Hammer upgrades cost a tenth less.", went: "Went out to work the bellows for Ember",
+    says: ["I work the bellows. Ember says I puff just right!", "Puff, puff! Look how the coals glow!"] },
+  shop: { map: "shop", job: "Behind Tansy's counter", help: "A small gift each day you drop by the shop.", went: "Went out to help Tansy in the shop",
+    says: ["I'm helping Tansy behind the counter!", "I count the cookies. Then Tansy counts them again."] },
+};
+/** From Grown up (level 10) a glowling may wish to go; on about one day in WISH_EVERY it does (never more than once a day). */
+const HELP_STAGE = 2, WISH_EVERY = 3;
+/** The help, kept small: an extra harvest now and then, eggs a quarter sooner, upgrades a tenth cheaper, a little gift a day. */
+const HELP_HARVEST = 0.25, HELP_HATCH = 0.25, HELP_FORGE = 0.1, HELP_GIFT = 6;
+/** Who's helping at a place, and is anyone (the one switch each place's help asks). */
+const helpersAt = kind => save.creatures.filter(c => c.job && c.job.place === kind);
+const helperAt = kind => helpersAt(kind).length > 0;
+/** Grown, at home, not off on a trip: and never the last one at home (someone always stays in the nest). */
+const canHelp = cr => !!cr && stageOf(cr.level || 1) >= HELP_STAGE && !cr.out && !cr.trip && !cr.job && save.creatures.some(c => c !== cr && !c.out);
+/** The places open on the map with room for one more helper. */
+const helpOpen = () => Object.keys(HELP_PLACES).filter(k => placeOk(HELP_PLACES[k].map) && helpersAt(k).length < HELP_MAX);
+/** Is today one of this glowling's days to dream of the valley? The same all day, about one day in WISH_EVERY. */
+const wishDayOf = (cr, day = dayNo()) => idHash(cr.id, day + 7919) % WISH_EVERY === 0;
+/** It wants to go out today: grown, at home, awake and happy enough, on one of its days, with somewhere to go. */
+const wantsOut = (cr, day = dayNo()) => canHelp(cr) && !cr.sleeping && ["happy", "ok"].includes(moodOf(cr)) && wishDayOf(cr, day) && helpOpen().length > 0;
+/** The wish showing on its card: it has dreamed of the valley today, and still may go. */
+const wishing = cr => cr.wishDay === dayNo() && canHelp(cr) && helpOpen().length > 0;
+/** Seen in the room on one of its days: once a day, a line in its diary; returns true when the wish is new today. */
+function noteWish(cr) {
+  if (!wantsOut(cr) || cr.wishDay === dayNo()) return false;
+  cr.wishDay = dayNo();
+  remember(cr, "Looked toward the valley: it would like to see the world, and be of use");
+  persist();
+  return true;
+}
+/** Off it goes, to live at the place and help its keeper: false if it may not (not grown, the place full or not open). */
+function sendHelper(id, kind) {
+  const c = save.creatures.find(x => x.id === id), h = HELP_PLACES[kind];
+  if (!c || !h || !canHelp(c) || !helpOpen().includes(kind)) return false;
+  c.out = true; c.roam = true; c.outAt = Date.now(); c.sleeping = false; c.selfSlept = false;
+  c.job = { place: kind, since: Date.now(), met: false };
+  delete c.wishDay;
+  if (save.active === id) save.active = save.creatures.find(x => !x.out)?.id ?? id;
+  remember(c, h.went);
+  track("helper", { place: kind });
+  sfx.chirp(specOf(c).voice * 1.15);
+  persist(); updateTopbar();
+  return true;
+}
+/** Home again, to its own room or any with space: false, with a word, when every room is full. */
+function helperHome(id) {
+  const c = save.creatures.find(x => x.id === id);
+  if (!c || !c.job) return false;
+  const r = [roomOf(c), ...save.rooms.map((_, i) => i)].find(i => !isPlace(i) && residents(i).length < homeCap());
+  if (r === undefined) { toast(tr("No bed free at home: make some room first")); sfx.tick(); return false; }
+  delete c.job;
+  c.out = false; c.roam = false; c.room = r; c.homeAt = c.last = Date.now();
+  remember(c, "Came home from helping in the valley");
+  sfx.chirp(specOf(c).voice); toast(tr("{0} came home ✦", c.name));
+  if (game.helpTap && game.helpTap.id === id) game.helpTap = null;
+  persist(); syncActors(); updateTopbar();
+  return true;
+}
+/** The scout's find on an expedition: one more of the place's own finds (shards, if the roll turns up nothing). */
+function scoutFind(pl, k) {
+  const got = [];
+  tripFind(pick(pl.finds), k, got);
+  if (!got.length) tripFind("shards", k, got, 0.5);
+  return got.map(x => "+" + x);
+}
+/** The gardener's extra harvest, now and then: one more of the plant's first gift (a quarter more shards, for a shard plant). */
+function harvestMore(sd) {
+  if (!helperAt("yard") || Math.random() >= HELP_HARVEST) return null;
+  const [k] = Object.keys(sd.gives.pantry || {});
+  if (k) { save.pantry = { ...save.pantry, [k]: ((save.pantry || {})[k] || 0) + 1 }; return `+${SNACKS[k].emoji}×1`; }
+  if (sd.gives.shards) { const n = Math.ceil(sd.gives.shards / 4); save.shards += n; return `+✦ ${n}`; }
+  return null;
+}
+/** The gardener waters every thirsty plant by itself (each once per WATER_EVERY, as you would); says so if it did. */
+function helperWater() {
+  const who = helpersAt("yard")[0];
+  if (!who || !save.garden) return 0;
+  const g = garden(), done = g.slots.map((q, i) => q && waterPlot(i, who) ? seedName(q.seed).toLowerCase() : null).filter(Boolean);
+  if (done.length) toast(tr("{0} watered the {1} 💧", who.name, done.join(", ")));
+  return done.length;
+}
+/** How long a mixed egg takes: a quarter less with Ollo's assistant. */
+const incubateMs = () => Math.round(INCUBATE_MS * (helperAt("lab") ? 1 - HELP_HATCH : 1));
+/** A forge upgrade's price: a tenth off with someone at Ember's bellows. */
+const forgePrice = n => helperAt("forge") ? Math.ceil(n * (1 - HELP_FORGE)) : n;
+/** Tansy's helper puts a little something by once a day, for when you drop in: shards one day, a cookie for the basket the next. */
+function shopGift() {
+  const who = helpersAt("shop")[0], day = dayNo();
+  if (!who || save.helpGift === day) return null;
+  save.helpGift = day;
+  let what;
+  if (day % 2) { save.pantry = { ...save.pantry, cookie: ((save.pantry || {}).cookie || 0) + 1 }; what = `${SNACKS.cookie.emoji} ${SNACKS.cookie.name.toLowerCase()}`; }
+  else { save.shards += HELP_GIFT; what = `✦ ${HELP_GIFT}`; }
+  persist(); updateTopbar();
+  return { who, what };
+}
+/** The sheet of places to help at: each open one, its keeper, the work and the help; a full one says so. */
+function openHelp(id) {
+  const c = save.creatures.find(x => x.id === id);
+  if (!c || !canHelp(c)) return;
+  sfx.tick(); show("glowCard", false);
+  $("helpSub").textContent = tr("Where would {0} like to help? It lives there with the keeper, who looks after it. Visit any time, or bring it home when there's a bed free.", c.name);
+  $("helpList").innerHTML = Object.entries(HELP_PLACES).filter(([, h]) => placeOk(h.map)).map(([k, h]) => {
+    const n = helpersAt(k).length, full = n >= HELP_MAX;
+    return `<button class="snack" data-help="${k}" ${full ? "disabled" : ""}><img class="em px-thumb" src="${keeperFace(HEROES[k].icon)}" alt=""><span><b>${tr(h.job)}</b><small>${tr(h.help)}</small></span><span class="cost">${full ? tr("full") : `${n}/${HELP_MAX}`}</span></button>`;
+  }).join("");
+  $$("#helpList [data-help]").forEach(b => b.addEventListener("click", () => {
+    const kind = b.dataset.help;
+    if (!sendHelper(id, kind)) return;
+    show("helpSheet", false); show("glowCard", false);
+    toast(tr("{0} set off into the valley ✦", c.name));
+    arriveAt(kind);
+  }));
+  show("helpSheet", true);
+}
+/** Where the helpers stand in a place: beside the keeper on the floor (clear of the keeper and of each other, out of the
+ *  furniture), never in front of anything that does something when tapped (the counter, the anvil, the incubator, the bed);
+ *  worked out once for the room and the screen. */
+let helperSpotsAt = { key: "", at: [] };
+function helperSpots() {
+  const h = heroHere();
+  if (!h || h.none) return [];
+  const key = `${save.room}|${W}|${H}|${N.base}`;
+  if (helperSpotsAt.key === key) return helperSpotsAt.at;
+  const [hx, hy] = heroSpot(), gap = N.base * 0.75, size = N.base * depth();
+  // what it mustn't stand in front of: each such piece's own pixels (the incubator, which draws itself: its footprint, a glowling high)
+  const busy = Object.values(isoLayout().placed).filter(p => PROP_TAP[p.id] || p.id === "incubator" || p.id === "garden").map(p => {
+    if (typeof ISO_ART[p.id] === "function") {
+      // (and the little sign over it, where it has one: see propCue)
+      const f = isoPiece(p, pieceExtra(p)), k = PROP_CUES[p.id] && cueBake(f.c), cx = k ? f.x + (k.cx + (PROP_CUES[p.id].dx || 0) * k.span) * PX : 0, cy = k ? f.y + k.top * PX : 0, r = N.base * 0.3;
+      return (x, y) => spriteHit(f.c, f.x, f.y, x, y) || (!!k && Math.abs(x - cx) < r && y > cy - r * 2.4 && y < cy);
+    }
+    const cs = [[p.i, p.j], [p.i + p.fw, p.j], [p.i, p.j + p.fd], [p.i + p.fw, p.j + p.fd]].map(([u, v]) => isoAt(u / ISO_G, v / ISO_G)), xs = cs.map(c => c[0]), ys = cs.map(c => c[1]);
+    return (x, y) => x > Math.min(...xs) && x < Math.max(...xs) && y > Math.min(...ys) - N.base * 1.2 && y < Math.max(...ys);
+  });
+  const covers = ([x, y]) => [[0, 0.1], [0, 0.45], [0, 0.8], [-0.32, 0.4], [0.32, 0.4]].some(([dx, dy]) => busy.some(hit => hit(x + dx * size, y - dy * size)));
+  // rings of spots round the keeper, the nearest first; on each, on screen: left, right, the two in front, straight in front, then behind
+  const ring = [];
+  for (const r of [0.18, 0.26, 0.34]) for (const a of [0.25, 1.25, 0.5, 1, 0.75, 0, 1.5, -0.25]) ring.push([-r * Math.cos(a * Math.PI), r * Math.sin(a * Math.PI)]);
+  const spots = ring.map(([du, dv]) => standSpot(...isoAt(clamp(h.at[0] + du, 0.12, 0.88), clamp(h.at[1] + dv, 0.12, 0.88))))
+    .filter(p => Math.hypot(p[0] - hx, (p[1] - hy) * 1.6) > gap);
+  const at = [];
+  for (const free of [true, false]) for (const p of spots) {
+    if (at.length < HELP_MAX && (!free || !covers(p)) && at.every(q => Math.hypot(p[0] - q[0], p[1] - q[1]) > gap)) at.push(p);
+  }
+  return (helperSpotsAt = { key, at }).at;
+}
+/** The helpers in this place, each with its spot (for drawing and for a tap). */
+const helpersHere = () => { const kind = save.rooms[save.room]?.kind, at = helperSpots(); return HELP_PLACES[kind] ? helpersAt(kind).slice(0, at.length).map((c, i) => ({ c, x: at[i][0], y: at[i][1] })) : []; };
+/** A helper at its work: idling by the keeper, with a hop, a heart and its line for a moment after you tap it. */
+function drawHelper(c, x, y) {
+  const size = N.base * depth(), t = game.time, tap = game.helpTap && game.helpTap.id === c.id && game.helpTap.room === save.room ? game.helpTap : null, since = tap && t >= tap.t ? t - tap.t : 1e9;
+  const hop = since < 600 ? Math.sin(since / 600 * Math.PI) : 0, cy = y - size * 0.45;
+  ctx.fillStyle = "rgba(5,0,20,.35)"; ctx.beginPath(); ctx.ellipse(x, y, size * 0.38, size * 0.09, 0, 0, TAU); ctx.fill();
+  drawSprite(x, cy, size, specOf(c), { acc: c.acc, level: c.level, shiny: c.shiny, mood: since < 2400 ? "happy" : "ok", hop, hopK: calmOf(c.level).hop * 0.75, t: t + c.id * 997, glowK: 0.4 });
+  if (since < 1800) drawEmote({ emote: { text: "♥", t: since / 1000, life: 1.8 } }, { x, y: cy, size });
+  if (since < 3600) drawBubble(x, cy - size * 0.75, tap.line, clamp(1 - (since - 3000) / 600, 0, 1));
+}
+/** The helper under a finger, if any. */
+const helperHit = (x, y) => { const size = N.base * depth(); return helpersHere().find(p => Math.hypot(x - p.x, y - (p.y - size * 0.45)) < size * 0.6)?.c || null; };
+/** Tap a helper: it hops with a heart and tells you what it's up to; the bar under the place offers to bring it home. */
+function tapHelper(c) {
+  const h = HELP_PLACES[save.rooms[save.room]?.kind];
+  if (!h) return;
+  sfx.chirp(specOf(c).voice); buzz(8);
+  game.helpTap = { id: c.id, t: game.time, room: save.room, line: tr(pick(h.says)) };
+  renderPlaceBar();
 }
 
 // ---------- a glowling's own card: its best friend, and a diary of what it has lived through ----------
@@ -882,12 +1072,19 @@ function openGlowling(cr) {
   $("glowName").textContent = cr.name;
   $("glowInfo").textContent = `${sp.name} · ${tr("Level {0}", cr.level)} · ${STAGES[stageOf(cr.level)]} · ${tr(mood)}`;
   const LOC = LANG === "uk" ? "uk-UA" : "en-US", day = t => new Date(t).toLocaleDateString(LOC, { day: "numeric", month: "short" });
-  $("glowMore").innerHTML = `<p class="habit">${habitLine(cr)}</p><h3>${tr("Best friend")}</h3>`
+  // out helping: where, and the way home; on one of its days at home, its wish to go and see the valley, gently
+  const job = cr.job && HELP_PLACES[cr.job.place], free = job && save.rooms.some((_, i) => !isPlace(i) && residents(i).length < homeCap());
+  const out = job ? `<p class="me-hint">${tr("{0} is out helping in the valley: {1}.", cr.name, tr(job.job).charAt(0).toLowerCase() + tr(job.job).slice(1))}</p>`
+      + `<button class="act" id="glowHome" ${free ? "" : "disabled"}>${ic("nest")}${tr("Bring it home")}</button>${free ? "" : `<p class="me-hint">${tr("No bed free at home just now.")}</p>`}`
+    : wishing(cr) ? `<p class="me-hint">${tr("{0} keeps looking toward the valley. It would like to see the world outside the nest, and to be of use.", cr.name)}</p><button class="act" id="glowOut">${ic("compass")}${tr("Let it go out into the valley")}</button>` : "";
+  $("glowMore").innerHTML = `<p class="habit">${habitLine(cr)}</p>${out}<h3>${tr("Best friend")}</h3>`
     + (bf ? `<div class="trip-away"><img src="${creatureImage(specOf(bf.c), { art: 20, level: bf.c.level, shiny: bf.c.shiny, acc: bf.c.acc })}" alt=""><span><b>${bf.c.name}</b><small>${tr("met {0} times: hugs, tag, duets and naps", bf.n)}</small></span></div>`
       : `<p class="me-hint">${tr("No best friend yet. Glowlings who live in the same room meet and make friends by themselves.")}</p>`)
     + `<h3>${tr("Diary")}</h3>`
     // newest first; the day it hatched closes the list (unless the diary already tells how)
     + `<ul class="diary">${diaryFold(cr.mem || []).reverse().map(m => `<li><b>${day(m.t)}</b><span>${diaryLine(m)}</span></li>`).join("")}${(cr.mem || []).some(m => /^Hatched/.test(m.k)) ? "" : `<li><b>${day(cr.born)}</b><span>${tr("Hatched and moved in ✦")}</span></li>`}</ul>`;
+  $("glowOut")?.addEventListener("click", () => openHelp(cr.id));
+  $("glowHome")?.addEventListener("click", () => { if (helperHome(cr.id)) { renderPlaceBar(); if (game.scene === "nest" && !isPlace()) renderNest(true); openGlowling(cr); } });
   show("glowCard", true);
 }
 
@@ -1066,15 +1263,19 @@ const OLLO = { name: "Ollo", face: mood => pxPortrait("ollo", mood), voice: { f:
 const heroWords = l => Array.isArray(l) ? l[1] : l;
 const HEROES = {
   shop: { who: TANSY, eyes: [[4, 5, 2, 2, "#efe6ff"], [10, 5, 2, 2, "#efe6ff"]], quirk: "curl", icon: "tansy", at: [0.7, 0.5], role: "keeps the shop", act: [["stall", "Buy", () => openMarket()]],
+    welcome: ["pleased", "{0}, is it? Good. Apron's on the hook. Smile at the customers, and count the cookies twice."],
     hello: ["Welcome. Mind the sacks: seeds, all of them, and not for sitting on.", "Food, furniture, seeds. If it's on a shelf, it's for sale. Fair prices.", "Furniture to your chest, food to your basket. Easy to remember."],
     lines: [["doubtful", "Fresh cookies today. Well, fresh-ish. I won't lie."], ["dreamy", "One day I'll sell a hat. Just one. Not sensible. Beautiful."], "Moonberries are going fast, dear. Take some while they last.", ["doubtful", "Starfruit? Not on my shelves. It only grows in a garden."], ["pleased", "A tidy nest is a happy nest, I always say."], ["doubtful", "Wick sells odd things. I sell sensible things. We're both very proud."]] },
   forge: { who: EMBER, eyes: [[5, 3, 2, 2, "#e0634f"], [9, 3, 2, 2, "#e0634f"]], quirk: "sparks", icon: "ember", at: [0.76, 0.26], role: "works the forge", act: [["hammer", "Forge", () => openForge()]],
+    welcome: ["satisfied", "{0}. Good. Stand by the bellows. Puff when I nod. Not before."],
     hello: ["Another stone-breaker. Good. Come in, it's warm.", ["focused", "Better hammer, harder stone. Bring shards. I'll make you one."], "Spare geodes? My workbench. Melt them down. Nothing wasted."],
     lines: [["laugh", "Hot today. It's always hot today."], "I'll cast a bell. One that rings in every cave at once. It's planned.", ["focused", "Deep stone won't forgive a sloppy tap. Aim first. Then strike."], ["laugh", "Made a hammer so light once, it floated off. Never again. Weight matters."], ["focused", "Strike where it glows. That's the weak spot. Everyone forgets. Don't."]] },
   camp: { who: PIP, eyes: [[5, 6, 1, 1, "#3d2866"], [10, 6, 1, 1, "#3d2866"]], quirk: "startle", icon: "pip", at: [0.74, 0.5], role: "leads the expeditions", act: [["compass", "Expeditions", () => openTrips()]],
+    welcome: ["excited", "{0}! You'll scout with me? Oh, good. The dark is smaller with two."],
     hello: ["Hello. I'm Pip. I map the tunnels. They don't always agree.", "Send a glowling with me, and we'll explore for a few hours. I'll bring it back.", ["shy-pride", "We always come back with something. Seeds, shards. Sometimes a geode."]],
     lines: [["thinking", "I've drawn this map three times. The tunnels keep moving. Or I do."], ["thinking", "Do you think the Gloom keeps a map? I'd like to see it. From very far away."], "Pack a snack. I always forget mine.", ["scared-but-steady", "The fire's nice, isn't it? I keep it going. I'm scared of the dark. A bit."], ["excited", "Somewhere past the moss there's a lake that glows. I'm sure of it."]] },
   yard: { who: FENNEL, eyes: [[3, 5, 3, 2, "#57ad6a"], [10, 5, 3, 2, "#57ad6a"]], quirk: "curl", icon: "fennel", at: [0.45, 0.52], role: "tends the garden", act: [["sprout", "Garden bed", () => openGarden()], ["walk", "A walk", () => openWalk()]],
+    welcome: ["glad", "Mm. {0}. Welcome. The plants have been asking for you. Quietly."],
     hello: [["listening", "Mm. Hello. I'm telling the moon mint a story. A slow one."], "Plant seeds in the bed. I'll watch them. And listen.", "Some things grow only here. Berries for juice. Mint for tea. Starfruit. No shop has them."],
     lines: ["Rain tomorrow, I hope. Leaves like rain. So do I.", ["shy", "My dream? A garden as big as the grotto. A pond. Someone to sit by it."], ["glad", "I sang to the growcaps. They grew. Coincidence? No."], ["listening", "Shh. The sunpetals are sleeping."], "Mm. Slow and steady. Like seeds.", "Wick leaves seeds by the gate. Odd ones. He never knocks. I plant them anyway."],
     // his wishes, one at a time and in this order (see the errands below); the thanks for the last is the bed's fourth plot (see gardenSlots)
@@ -1095,6 +1296,7 @@ const HEROES = {
     ] },
   grotto: { who: { name: "Grotto" }, icon: "grotto", none: true, role: "the hall before the tunnel", act: [["egg", "Into the tunnel", () => startLevel(nextLevel())], ["map", "Map of levels", () => setScene("map")]], hello: [], lines: [] },
   lab: { who: OLLO, eyes: [[3, 5, 3, 2, "#69b7d6"], [9, 5, 3, 2, "#69b7d6"]], quirk: "turn", icon: "ollo", at: [0.45, 0.58], role: "studies glowlings", act: [["heart", "Incubator", () => openIncubator()]],
+    welcome: ["delighted", "Hoo! {0}, an assistant. Hold the notebook, please. Not the green jar."],
     hello: ["Hoo. A colleague, at last. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby takes after both. Every time.", "Stroke the egg to keep it warm. Warmth shortens the wait. Measurably."],
     lines: [["curious", "Each glowling glows at its own pitch. Fascinating."], ["delighted", "I am writing the great book of glowlings. Chapter one is just you."], ["curious", "No two mixed eggs are alike. Checked forty times. Forty-one, now."], ["delighted", "Happy glowlings glow brighter. Measured. That is not nothing."], ["alarmed", "Please don't touch the green jar. It doesn't bite. Probably."]] },
 };
@@ -1442,7 +1644,11 @@ function renderPlaceBar() {
   // and, when you have what they asked for, one clear button in that line's place (so the bar never grows over the room)
   const kind = save.rooms[save.room].kind, n = (h.asks || []).length, lit = Math.min(bondOf(kind), n), a = wishTold(kind) ? wishOf(kind) : null;
   $("placeWho").innerHTML = tr(h.who.name) + (n ? `<span class="marks" role="img" aria-label="${lit}/${n}">${h.asks.map((_, k) => ic(h.mark || "sparkle", k < lit ? "" : "off")).join("")}</span>` : "");
-  $("placeRole").innerHTML = a && a.have() ? `<button class="act buy give" id="placeGive">${ic(h.mark || "sparkle")}${tr(a.btn)}</button>` : tr(h.role) + (a ? `<span class="wish">${tr(a.wish)}</span>` : "");
+  // a helper just tapped: the way to bring it home takes that line's place a while (one clear button, as for a wish)
+  const ht = game.helpTap && game.helpTap.room === save.room && save.creatures.find(c => c.id === game.helpTap.id && c.job);
+  $("placeRole").innerHTML = ht ? `<button class="act give" id="placeHelperHome">${ic("nest")}${tr("Bring {0} home", ht.name)}</button>`
+    : a && a.have() ? `<button class="act buy give" id="placeGive">${ic(h.mark || "sparkle")}${tr(a.btn)}</button>` : tr(h.role) + (a ? `<span class="wish">${tr(a.wish)}</span>` : "");
+  $("placeHelperHome")?.addEventListener("click", () => { if (helperHome(ht.id)) renderPlaceBar(); });
   $("placeActs").innerHTML = h.act.map(([icon, name], k) => `<button class="act buy" data-act="${k}">${ic(icon)}${tr(name)}</button>`).join("")
     + (h.none ? "" : `<button class="act" id="placeTalk">${ic("scroll")}${tr("Chat")}</button>`);
   $$("#placeActs [data-act]").forEach(b => b.addEventListener("click", () => { sfx.tick(); h.act[Number(b.dataset.act)][2](); }));
@@ -1451,13 +1657,25 @@ function renderPlaceBar() {
 }
 /** Arriving at a place: its keeper says hello. */
 function arriveAt(kind) {
+  game.helpTap = null;
   ensurePlace(kind);
   toRoomKind(kind);
   sfx.arrive(kind);
   // Wick on his bench, once the isle is found: whose light that is out at sea (the same talk as in talkMoments, for walking in from home)
   if (kind === "grotto" && wickHere() && wardFound("isle")) talk("wickLight");
-  const h = HEROES[kind];
-  if (h && (!(save.heroTalk || {})[kind] || (h.who === PIP && sparkNews()))) setTimeout(() => tapHero(true), 500);
+  const h = HEROES[kind], fresh = helpersAt(kind).find(c => !c.job.met), gift = kind === "shop" && shopGift();
+  if (gift) setTimeout(() => toast(tr("{0} put something by for you: {1}", gift.who.name, gift.what)), 2600);
+  // a helper just come: once the keeper knows you, they say welcome to it (it hops with a heart)
+  if (h && fresh && (save.heroTalk || {})[kind]) {
+    fresh.job.met = true; persist();
+    setTimeout(() => {
+      for (let k = 0; k < 3; k++) setTimeout(() => sfx.voice(h.who.voice), k * 90);
+      game.hero = { t: game.time, line: tr(heroWords(h.welcome), fresh.name), room: save.room };
+      game.helpTap = { id: fresh.id, t: game.time + 4300, room: save.room, line: tr(pick(HELP_PLACES[kind].says)) };
+      renderPlaceBar();
+    }, 500);
+  }
+  else if (h && (!(save.heroTalk || {})[kind] || (h.who === PIP && sparkNews()))) setTimeout(() => tapHero(true), 500);
   else if (kind === "yard") {
     const g = garden(), dry = g.slots.map((q, i) => [q, i]).filter(([q, i]) => q && waterPlot(i, FENNEL));
     if (dry.length) setTimeout(() => { game.hero = { t: game.time, line: tr("Mm. I watered your {0} 💧", dry.map(([q]) => seedName(q.seed).toLowerCase()).join(", ")), room: save.room }; }, 500);
@@ -1752,7 +1970,7 @@ function settleHome() {
     }
   }
   // explorers come back to their own room if it has space, or to any room that has (not the ones you sent out on purpose)
-  const away = save.creatures.filter(c => c.out && !c.roam && !c.trip).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
+  const away = save.creatures.filter(c => c.out && !c.roam && !c.trip && !c.job).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
   for (const c of away) {
     const r = [roomOf(c), ...homes].find(i => !isPlace(i) && residents(i).length < cap);
     if (r === undefined) break;
@@ -1791,8 +2009,9 @@ function moveGlowling(id, r) {
   const c = save.creatures.find(c => c.id === id);
   if (!c || (!c.out && roomOf(c) === r)) return false;
   if (residents(r).length >= homeCap()) { toast(tr("No space in the {0}: move someone out first", roomName(r).toLowerCase())); sfx.tick(); return false; }
-  const found = c.out && !c.trip ? exploreFind(c) : null;
+  const found = c.out && !c.trip && !c.job ? exploreFind(c) : null;
   c.trip = null;
+  if (c.job) { delete c.job; remember(c, "Came home from helping in the valley"); }
   c.out = false; c.roam = false; c.room = r; c.homeAt = c.last = Date.now();
   if (r !== save.room && save.active === id) save.active = residents(save.room)[0]?.id ?? id;
   sfx.chirp(specOf(c).voice);
@@ -1859,12 +2078,13 @@ function moodIcon(c) { return  c.out ? "" : c.sleeping ? `<i class="mood zz">z</
 /** Everyone, room by room: drag a glowling onto another room to move it (or onto Exploring to send it off), tap to look after it. */
 function openHome() {
   sfx.tick();
-  const cap = homeCap(), away = save.creatures.filter(c => c.out);
+  const cap = homeCap(), away = save.creatures.filter(c => c.out && !c.job), helping = save.creatures.filter(c => c.job);
   $("homeSub").textContent = tr("Each room fits {0} glowlings. Drag one onto another room to move it in, or tap it to look after it.", cap);
-  const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><small>${c.name}</small>${c.trip ? `<small class="away">🧭 ${fmtLeft(Math.max(0, c.trip.until - Date.now()))}</small>` : c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
+  const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><small>${c.name}</small>${c.trip ? `<small class="away">🧭 ${fmtLeft(Math.max(0, c.trip.until - Date.now()))}</small>` : c.job ? `<small class="away">${tr(roomName(save.rooms.findIndex(r => r.kind === c.job.place)))}</small>` : c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
   const zone = (r, title, list, empty) => `<section class="res-zone${r === save.room ? " here" : ""}" data-room="${r}"><h3>${title}</h3><div class="home-grid">${list.map(card).join("") || `<p class="sub">${empty}</p>`}</div></section>`;
   $("homeList").innerHTML = save.rooms.map((_, r) => isPlace(r) ? "" : zone(r, `${roomName(r)} <span>${residents(r).length}/${cap}</span>`, residents(r), tr("empty: drag someone here"))).join("")
     + zone("out", `${tr("Exploring")} <span>${away.length}</span>`, away, tr("drag someone here to send them exploring"))
+    + (helping.length ? zone("help", `${tr("Helping in the valley")} <span>${helping.length}</span>`, helping, "") : "")
     + ((save.nestUp || 0) < NEST_UP_COST.length ? `<p class="me-hint">${tr("More space at home: the shop builds it, in Renovation.")}</p>` : "");
   $$("#homeList .res").forEach(b => b.addEventListener("pointerdown", dragResident));
   show("homeSheet", true);
@@ -1886,7 +2106,7 @@ function dragResident(ev) {
     if (!ghost) { tapResident(id); return; }
     ghost.remove(); b.classList.remove("lifted"); over?.classList.remove("drop");
     const r = over && over.dataset.room;
-    if (r === "out") sendExploring(id); else if (r != null) moveGlowling(id, Number(r));
+    if (r === "out") sendExploring(id); else if (r != null && r !== "help") moveGlowling(id, Number(r));
     openHome();
   };
   b.addEventListener("pointermove", move); b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up);
@@ -1895,6 +2115,8 @@ function dragResident(ev) {
 function tapResident(id) {
   const c = save.creatures.find(c => c.id === id);
   if (!c) return;
+  // a helper: its card, which can bring it home
+  if (c.job) { show("homeSheet", false); openGlowling(c); return; }
   if (c.out) { if (moveGlowling(id, save.room)) openHome(); return; }
   show("homeSheet", false);
   if (roomOf(c) !== save.room) goRoom(roomOf(c));

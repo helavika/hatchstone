@@ -35,7 +35,7 @@ function nest(creatures, roll = () => 0) {
     seeds: {}, seedName: s => s, barName: b => b + ' bar', giveBar: b => { bars.push(b); },
     spark: () => null, sparkNote: s => '✨ ' + s, addXP: (c, n) => { xp.push([c.id, n]); },
     tr: fill, unlocked: () => true, specOf: c => c.mix ? { beh: c.mix.beh, voice: 1 } : { voice: 1 },
-    settleHome: () => {}, persist: () => {}, updateTopbar: () => {}, syncActors: () => {}, renderNest: () => {}, openTrips: () => {},
+    settleHome: () => {}, persist: () => {}, updateTopbar: () => {}, syncActors: () => {}, renderNest: () => {}, openTrips: () => {}, helperAt: () => false,
     sfx: { chirp: () => {}, tick: () => {} }, toast: t => { toasts.push(t); },
   };
   page.garden = () => ({ seeds: page.seeds });

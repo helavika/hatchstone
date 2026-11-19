@@ -644,7 +644,7 @@ const TOOL_SKINS = [
 ];
 if (LANG === "uk") for (const k of TOOL_SKINS) { k.name = tr(k.name); k.note = tr(k.note); }
 const toolSkin = () => TOOL_SKINS.find(k => k.id === save.toolSkin) || TOOL_SKINS[0];
-const canForge = () => FORGE.some(f => f.cost[forgeLvl(f.id)] <= save.shards);
+const canForge = () => FORGE.some(f => f.cost[forgeLvl(f.id)] !== undefined && forgePrice(f.cost[forgeLvl(f.id)]) <= save.shards);
 
 /** The first level without stars yet (0 = wander, once everything is cleared). */
 const nextLevel = () => { for (let n = 1; n <= LEVELS; n++) if (!save.stars[n] && unlocked(n)) return n; return 0; };
@@ -760,9 +760,9 @@ function tapPower() {
 function openForge() {
   sfx.tick();
   setTimeout(() => talk("firstForge"), 350);
-  $("forgeSub").innerHTML = tr("You have {0}. Upgrades last forever.", ic("shard") + save.shards);
+  $("forgeSub").innerHTML = tr("You have {0}. Upgrades last forever.", ic("shard") + save.shards) + (helperAt("forge") ? " " + tr("{0} works the bellows: upgrades cost a tenth less.", helpersAt("forge")[0].name) : "");
   $("forgeList").innerHTML = FORGE.map(f => {
-    const l = forgeLvl(f.id), max = f.cost.length, cost = f.cost[l];
+    const l = forgeLvl(f.id), max = f.cost.length, cost = l < max ? forgePrice(f.cost[l]) : 0;
     return `<button class="forge${l >= max ? " maxed" : ""}" data-id="${f.id}" ${l >= max || save.shards < cost ? "disabled" : ""}>${ic(f.icon, "big")}<span class="txt"><b>${f.name}</b><span class="pips">${f.cost.map((_, i) => `<i class="${i < l ? "on" : ""}"></i>`).join("")}</span><small>${l < max ? (l ? tr("next: ") : "") + f.what(l + 1) : f.what(l)}</small></span><span class="cost">${l >= max ? "max" : `${ic("shard")}${cost}`}</span></button>`;
   }).join("");
   $("forgeList").innerHTML += `<h3 class="forge-h">${tr("Hammer looks")}</h3>` + TOOL_SKINS.map(k => {
@@ -845,7 +845,7 @@ function toolSprite(k) {
 const hammerImage = k => toolSprite(k).toDataURL();
 
 function buyForge(id) {
-  const f = FORGE.find(f => f.id === id), l = forgeLvl(id), cost = f.cost[l];
+  const f = FORGE.find(f => f.id === id), l = forgeLvl(id), cost = f.cost[l] === undefined ? undefined : forgePrice(f.cost[l]);
   if (cost === undefined || save.shards < cost) return;
   save.shards -= cost;
   save.forge = { ...save.forge, [id]: l + 1 };
