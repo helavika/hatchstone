@@ -41,3 +41,12 @@ test('each bought room says its trait in one line, in both languages', () => {
   for (const [, , t] of kinds) assert.ok(i18n.includes(JSON.stringify(t) + ':'), t);
   assert.match(nest, /k\.trait \? `<small class="reno-trait">✦ \$\{tr\(k\.trait\)\}<\/small>`/);
 });
+
+test('a glowling out helping grows an xp every half hour; one just out exploring does not', () => {
+  const w = world('nest'), helper = glowling({ out: true, job: { place: 'yard' } });
+  w.ctx.applyTime(helper, 1 + 75 * 60000);
+  assert.deepEqual(w.xp, [2]); assert.equal(helper.jobT, 15);
+  assert.equal(helper.tummy, 80, 'needing nothing while away');
+  const v = world('nest'); v.ctx.applyTime(glowling({ out: true }), 1 + 75 * 60000);
+  assert.deepEqual(v.xp, []);
+});

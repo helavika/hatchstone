@@ -135,7 +135,7 @@ function standSpot(x, y) {
   keepInRoom(a); keepInRoom(a); // (twice: pushed off one piece, it may brush the next)
   return [a.x, a.y];
 }
-const depth = () => W < 520 ? 0.74 : 0.66;
+const depth = () => W < 520 ? 0.6 : 0.54;
 
 function syncActors() {
   const list = roomCreatures(), ids = new Set(list.map(c => c.id));

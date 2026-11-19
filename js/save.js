@@ -238,14 +238,17 @@ const homeQuiet = () => save.creatures.some(cr => keptQuiet(cr));
  * anyone from piling everyone into one.
  */
 const ROOM_TRAITS = { play: { joy: 0.65 }, garden: { rest: 1.35 }, study: { learn: true } };
-const STUDY_MIN = 30;
+const STUDY_MIN = 30, HELP_GROW_MIN = 30;
 const roomTrait = cr => ROOM_TRAITS[save.rooms[roomOf(cr)]?.kind] || {};
 function applyTime(cr, now = Date.now()) {
   const min = clamp((now - (cr.last || now)) / 60000, 0, AWAY_MIN);
   cr.last = now;
   if (min <= 0) return;
-  // out exploring: having a lovely time, needing nothing
-  if (cr.out) return;
+  // out exploring: having a lovely time, needing nothing; helping in the valley, it grows a little all the while
+  if (cr.out) {
+    if (cr.job) { cr.jobT = (cr.jobT || 0) + min; const n = Math.floor(cr.jobT / HELP_GROW_MIN); if (n) { cr.jobT -= n * HELP_GROW_MIN; addXP(cr, n); } }
+    return;
+  }
   const trait = roomTrait(cr);
   if (cr.sleeping) {
     cr.energy = clamp(cr.energy + min * 12 * (trait.rest || 1), 0, 100);

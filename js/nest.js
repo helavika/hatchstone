@@ -866,7 +866,7 @@ function helperHome(id) {
   if (!c || !c.job) return false;
   const r = [roomOf(c), ...save.rooms.map((_, i) => i)].find(i => !isPlace(i) && residents(i).length < homeCap());
   if (r === undefined) { toast(tr("No bed free at home: make some room first")); sfx.tick(); return false; }
-  delete c.job;
+  delete c.job; delete c.jobT;
   c.out = false; c.roam = false; c.room = r; c.homeAt = c.last = Date.now();
   remember(c, "Came home from helping in the valley");
   sfx.chirp(specOf(c).voice); toast(tr("{0} came home ✦", c.name));
@@ -1072,11 +1072,12 @@ function openGlowling(cr) {
   $("glowName").textContent = cr.name;
   $("glowInfo").textContent = `${sp.name} · ${tr("Level {0}", cr.level)} · ${STAGES[stageOf(cr.level)]} · ${tr(mood)}`;
   const LOC = LANG === "uk" ? "uk-UA" : "en-US", day = t => new Date(t).toLocaleDateString(LOC, { day: "numeric", month: "short" });
-  // out helping: where, and the way home; on one of its days at home, its wish to go and see the valley, gently
+  // out helping: where, and the way home; grown and at home, the way out (on one of its days, with its wish to go, gently)
   const job = cr.job && HELP_PLACES[cr.job.place], free = job && save.rooms.some((_, i) => !isPlace(i) && residents(i).length < homeCap());
   const out = job ? `<p class="me-hint">${tr("{0} is out helping in the valley: {1}.", cr.name, tr(job.job).charAt(0).toLowerCase() + tr(job.job).slice(1))}</p>`
       + `<button class="act" id="glowHome" ${free ? "" : "disabled"}>${ic("nest")}${tr("Bring it home")}</button>${free ? "" : `<p class="me-hint">${tr("No bed free at home just now.")}</p>`}`
-    : wishing(cr) ? `<p class="me-hint">${tr("{0} keeps looking toward the valley. It would like to see the world outside the nest, and to be of use.", cr.name)}</p><button class="act" id="glowOut">${ic("compass")}${tr("Let it go out into the valley")}</button>` : "";
+    : wishing(cr) ? `<p class="me-hint">${tr("{0} keeps looking toward the valley. It would like to see the world outside the nest, and to be of use.", cr.name)}</p><button class="act" id="glowOut">${ic("compass")}${tr("Let it go out into the valley")}</button>`
+    : canHelp(cr) && helpOpen().length ? `<button class="act" id="glowOut">${ic("compass")}${tr("Let it go out into the valley")}</button>` : "";
   $("glowMore").innerHTML = `<p class="habit">${habitLine(cr)}</p>${out}<h3>${tr("Best friend")}</h3>`
     + (bf ? `<div class="trip-away"><img src="${creatureImage(specOf(bf.c), { art: 20, level: bf.c.level, shiny: bf.c.shiny, acc: bf.c.acc })}" alt=""><span><b>${bf.c.name}</b><small>${tr("met {0} times: hugs, tag, duets and naps", bf.n)}</small></span></div>`
       : `<p class="me-hint">${tr("No best friend yet. Glowlings who live in the same room meet and make friends by themselves.")}</p>`)
