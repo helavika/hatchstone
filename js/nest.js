@@ -1218,6 +1218,7 @@ function drawHero() {
   if (say) drawBubble(x, top - 4, say, clamp(1 - (since - hold + 600) / 600, 0, 1));
 }
 function drawBubble(x, y, text, alpha = 1) {
+  drawBubble.at = performance.now();   // (the place name at the top steps aside while someone speaks: see frame)
   const size = Math.round(clamp(N.base * 0.2, 14, 18)), maxW = Math.min(W * 0.7, 260);
   fx.save(); fx.globalAlpha = alpha; fx.font = `400 ${size}px ${PIXEL_FONT}`;
   const words = text.split(" "), rows = [""];

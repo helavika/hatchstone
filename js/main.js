@@ -777,6 +777,9 @@ function frame(now) {
   const ms = now - (frame.last || now), t0 = performance.now();
   frame.last = now;
   quality.sample(ms, frame.work || 0);
+  // while a speech bubble is up, the room's name above it steps aside so it never covers the words
+  const speaking = performance.now() - (drawBubble.at || -1e9) < 150;
+  if (speaking !== frame.speaking) { frame.speaking = speaking; document.body.classList.toggle("speaking", speaking); }
   let dt = Math.min(ms / 1000, 0.05);
   // a crit freezes the world for a blink, so the hit lands
   if (game.freeze > 0) { game.freeze -= dt; dt = 0; }
@@ -840,6 +843,7 @@ function frame(now) {
 if ("serviceWorker" in navigator && location.protocol !== "file:") navigator.serviceWorker.register("sw.js").catch(() => {});
 
 window.addEventListener("resize", resize);
+window.visualViewport?.addEventListener("resize", resize);
 window.addEventListener("hashchange", coopImportLocationInvite);
 for (let i = 0; i < DUST_MAX; i++) gatherDust(); // time away caught up, any dust that gathered quietly in place
 clearDoorways();

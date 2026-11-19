@@ -6,7 +6,7 @@
   --accent: linear-gradient(135deg, #c9b8ff, #8fd8ef 55%, #b9e88a);
   --gold: #ffe9a8;
   --top: max(14px, env(safe-area-inset-top), var(--tg-top, 0px));
-  --bottom: max(12px, env(safe-area-inset-bottom), var(--tg-bottom, 0px));
+  --bottom: max(12px, env(safe-area-inset-bottom), var(--tg-bottom, 0px), var(--vv-bottom, 0px));
   --lane: calc(var(--top) + 54px); /* the one slot under the top bar where banners (toasts, awards) take their turns */
 }
 * { box-sizing: border-box; }
@@ -18,7 +18,10 @@ html, body {
   font-family: ui-rounded, "SF Pro Rounded", system-ui, -apple-system, "Segoe UI", sans-serif;
   -webkit-user-select: none; user-select: none; -webkit-tap-highlight-color: transparent;
   -webkit-touch-callout: none; overscroll-behavior: none;
+  /* no double-tap zoom to wait for (iOS ignores user-scalable=no), so a tap on a button lands at once */
+  touch-action: manipulation;
 }
+button, a, label, input, select, [role="button"] { touch-action: manipulation; }
 canvas { display: block; width: 100vw; height: 100vh; touch-action: none; }
 #c { image-rendering: pixelated; image-rendering: crisp-edges; }
 /* crisp words over the pixel world: damage numbers, little notes */
@@ -248,6 +251,7 @@ body.scene-nest #nestName { pointer-events: auto; }
 .reno-trait { display: block; margin-top: 3px; color: var(--gold, #ffe9a8) !important; }
 #roomLabel b { display: block; font-size: 18px; font-weight: 400; line-height: 1.15; letter-spacing: .5px; color: var(--gold, #ffe9a8); }
 body.scene-nest #roomLabel { opacity: 1; }
+body.scene-nest.speaking #roomLabel { opacity: 0; }
 body.arranging #roomLabel, #roomLabel[hidden] { display: none; }
 .rooms { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
 .rooms button { flex: 1 1 30%; }

@@ -656,6 +656,10 @@ function resize() {
   const oldW = W, oldH = H;
   DPR = Math.min(window.devicePixelRatio || 1, 2);
   W = window.innerWidth; H = window.innerHeight;
+  // a phone browser's own bar can lie over the bottom of the page (Chrome on iPhone): the part of the page it hides goes to
+  // --vv-bottom, so everything pinned to the bottom stands clear of it (see --bottom in style.css)
+  const vv = window.visualViewport;
+  if (vv) document.documentElement.style.setProperty("--vv-bottom", Math.max(0, Math.round(H - vv.height - vv.offsetTop)) + "px");
   quality.dpr = oldW ? Math.min(quality.dpr, DPR) : DPR;
   sizeCanvas();
   makeBackground();
