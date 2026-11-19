@@ -893,7 +893,7 @@ function walkPace(p) {
   return (sp && (sp.beh === "flutter" || sp.beh === "swim") ? 60 : sp?.beh === "nap" ? 36 : 48) * WALK_SPEED * g.geo.s / 100 * calm.go;
 }
 /** Outside they step out livelier than at home. */
-const WALK_SPEED = 2.2;
+const WALK_SPEED = 3.2;
 /** Where holding an arrow leads: a little ahead that way, or over the stream the next stone (or bank) that way. */
 function walkAhead(geo, x, dir) {
   const st = geo.stream, ahead = clamp(x + dir * geo.s * 1.2, 8, geo.end);

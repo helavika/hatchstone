@@ -333,6 +333,10 @@ function coopFinishPolish() {
   else finishPolish();
 }
 
+// playing together waits until the game is whole for one: its buttons stay out of sight (an invite link a friend sends
+// still opens it, and ?coop, or a test browser, brings them back)
+const COOP_SHOWN = /[?&]coop\b/.test(location.search) || navigator.webdriver;
+if (!COOP_SHOWN) for (const id of ["startCoop", "mapCoop"]) $(id).hidden = true;
 $("startCoop").addEventListener("click", coopOpenDialog);
 $("mapCoop").addEventListener("click", coopOpenDialog);
 $("coopRoom").addEventListener("click", e => { if (e.target.id !== "coopRoomLeave") coopOpenDialog(); });
@@ -603,7 +607,7 @@ function openFaq() {
   const links = t => t.replace(/\[([^\]]+)\]\((https:\/\/[^)\s]+)\)/g, (_, w, u) => `<a href="${u}" target="_blank" rel="noopener">${w}</a>`);
   const sec = FAQ_SECTIONS.find(x => x[0] === openFaq.tab) || FAQ_SECTIONS[0];
   $("faqList").innerHTML = `<div class="shop-tabs three">${FAQ_SECTIONS.map(([id, icon, name]) => `<button data-faqtab="${id}" class="${id === sec[0] ? "on" : ""}">${ic(icon)}<span>${tr(name)}</span></button>`).join("")}</div>`
-    + sec[3].map((n, i) => { const [q, a] = FAQ[n]; return `<details${i ? "" : " open"}><summary>${esc(tr(q))}</summary><p>${links(esc(tr(a)))}</p></details>`; }).join("");
+    + sec[3].filter(n => COOP_SHOWN || FAQ[n][0] !== "Can I play with a friend?").map((n, i) => { const [q, a] = FAQ[n]; return `<details${i ? "" : " open"}><summary>${esc(tr(q))}</summary><p>${links(esc(tr(a)))}</p></details>`; }).join("");
   $$("#faqList [data-faqtab]").forEach(b => b.addEventListener("click", () => { openFaq.tab = b.dataset.faqtab; openFaq(); }));
   show("faq", true);
 }
@@ -714,6 +718,7 @@ $("copyCode").addEventListener("click", copyCode);
 $("shareCode").addEventListener("click", shareCode);
 $("saveCode").addEventListener("click", saveCodeFile);
 $("restoreBtn").addEventListener("click", restoreFromCode);
+$("startOver").addEventListener("click", startOver);
 $("loadFile").addEventListener("click", () => $("fileIn").click());
 $("fileIn").addEventListener("change", async e => {
   const f = e.target.files[0];
@@ -818,6 +823,20 @@ async function restoreFromCode() {
   persist();
   msg.className = ""; msg.textContent = tr("Welcome back, {0} {1} ✦", n, pl(n, "glowling", "glowlings"));
   setTimeout(() => location.reload(), 900);
+}
+
+/** A new game from the very beginning: the nest goes (its backup code still brings it back), the first stone and Mossa's welcome come again. */
+function startOver() {
+  const n = save.creatures.length;
+  if (!confirm(tr("Start a new game? Your nest and its {0} {1} will be gone from here, unless you kept its backup code.", n, pl(n, "glowling", "glowlings")))) return;
+  // a rev past the old one, so neither another tab nor the Telegram copy brings the old nest back
+  const rev = (save.rev || 0) + 1;
+  for (const k of Object.keys(save)) delete save[k];
+  Object.assign(save, migrate(freshSave()), { rev });
+  try { localStorage.removeItem(BAK_KEY); } catch {}
+  store.set(SAVE_KEY, save); tgCloudPut();
+  track("restart", { glowlings: n });
+  location.reload();
 }
 
 /** Geodes restored from a code have no picture yet: draw a fresh one of the same crystal. */
