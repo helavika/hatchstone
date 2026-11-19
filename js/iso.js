@@ -4382,6 +4382,212 @@ function paintMood({ mood, put, d, w, h, at, cx, top, hw, hh, wall, S, seed, lig
   }
   return () => after.forEach(f => f());
 }
+/** Where a room's own fixtures keep clear of along each wall (a share of its length from the back corner): the tunnels' mouths
+ *  low down near the front end (DOOR_AT), whichever wall they're cut in. */
+const FIXTURE_CLEAR = [DOOR_AT - DOOR_W - 0.05, DOOR_AT + DOOR_W + 0.05];
+/** The playroom's bright paints: each a lit, a mid and a shaded tone. */
+const PLAY_PAINT = [["#ffc4dc", "#ff7eb6", "#c24d86"], ["#fff2a8", "#ffd84a", "#c99a1e"], ["#c4f4fb", "#5fd3e8", "#2d8fb0"], ["#cdf5b4", "#7ee07a", "#3c9a4a"], ["#e2d2ff", "#b48cff", "#6f4fc0"], ["#ffd6b0", "#ff9f4a", "#c4602a"]].map(r => r.map(pxHex));
+/**
+ * What each room at home is for, built into its walls whatever look it has (none of it is furniture: it takes no slot, can't be
+ * moved, and keeps to the walls, the wall tops and the very foot of them, clear of the tunnels and of the tiles furniture
+ * stands on), drawn in the look's own crystals and rock. The crystal study grows crystals everywhere: big clusters in the back
+ * corner and along the foot of the walls, points hanging from the top of the rock, a vein across the right wall into a geode
+ * that glows; the playroom has a slide out of a hole in the left wall, a climbing wall of coloured holds on the right one,
+ * chalk drawings low down and bunting along the top; in the moss garden moss creeps up the walls in any look (its beds, its
+ * spring and its shaft of light are the garden's own already: paintMossGarden, roomShaft). The nest keeps its bed corner.
+ * Lights go onto lights before paintRoomIso shines them; what shines itself is drawn in the function it returns.
+ */
+function paintFixtures(room, { put, d, w, h, at, cx, top, hw, hh, wall, S, seed, lights, art, crys, mossC, mossy, tops }) {
+  const get = (x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return null; const i = (y * w + x) * 4; return [d[i], d[i + 1], d[i + 2]]; };
+  const bay = (x, y) => PX_BAYER[(Math.round(y) & 3) * 4 + (Math.round(x) & 3)];
+  // a spot on a wall: s along it from the back corner, z up, o out from it across the floor
+  const P = (side, s, z = 0, o = 0) => { const [x, y] = side === "L" ? at(o, s) : at(s, o); return [x, y - z]; };
+  // and a little drawing on a wall's face round such a spot: a along the wall (toward the front), b up, in art pixels
+  const onWall = (side, s, z) => { const [x0, y0] = P(side, s, z); return (a, b) => [x0 + (side === "L" ? -a : a), y0 + a / 2 - b]; };
+  const clear = s => s < FIXTURE_CLEAR[0] || s > FIXTURE_CLEAR[1];
+  const lightAt = (side, s, z, r, col, k) => lights.push(side === "L" ? { u: 0.02, v: s, z, r, col, k } : { u: s, v: 0.02, z, r, col, k });
+  /** A soft glow the way the moss garden's is drawn (see pxGlow): see-through, in three clean steps, dithered only between them. */
+  const glow = (x0, y0, R, col, k = 1) => {
+    for (let y = Math.floor(y0 - R); y <= y0 + R; y++) for (let x = Math.floor(x0 - R); x <= x0 + R; x++) {
+      const dd = Math.hypot(x - x0, y - y0) / R; if (dd >= 1) continue;
+      const lv = Math.floor((1 - dd) * (1 - dd * 0.35) * 3.2 + (bay(x, y) - 0.5) * 0.9), c0 = lv > 0 && get(x, y);
+      if (!c0) continue;
+      const a = [0, 0.18, 0.31, 0.45][Math.min(3, lv)] * k;
+      put(x, y, c0.map((c, i) => Math.round(255 - (255 - c) * (1 - col[i] / 255 * a))));
+    }
+  };
+
+  if (room === "study") {
+    const cr = crys, gl = pxHex(art.glow || art.crystal[3]), tips = [];
+    /** One crystal: a six-sided point from (bx, by) leaning a radians off upright (π hangs it down), its left faces lit,
+     *  its right in shade, a dark edge, a pale tip and now and then a glint down its lit face. */
+    const point = (bx, by, len, a, r) => {
+      const sx = Math.sin(a), sy = -Math.cos(a), cut = len * 0.72;
+      for (let t = 0; t <= len; t += 0.5) {
+        const wd = t < cut ? r : r * (len - t) / (len - cut);
+        for (let e = -wd; e <= wd; e += 0.5) {
+          const x = bx + sx * t - sy * e, y = by + sy * t + sx * e, side = sy < 0 ? e : -e;
+          put(x, y, Math.abs(e) > wd - 0.7 ? cr[0] : t >= cut ? (side < 0 ? cr[4] : cr[3]) : side < -wd * 0.35 ? (Math.abs(side + wd * 0.6) < 0.5 && pxHash(Math.round(t), Math.round(bx)) > 0.6 ? cr[4] : cr[3]) : side <= wd * 0.3 ? cr[2] : cr[1]);
+        }
+      }
+      tips.push([bx + sx * len, by + sy * len]);
+    };
+    /** A cluster: n points fanning out of one spot, the longest in the middle, drawn back ones first. */
+    const cluster = (bx, by, size, n, k, lean = 0, down = false) => {
+      const order = [...Array(n).keys()].sort((i, j) => Math.abs(j - (n - 1) / 2) - Math.abs(i - (n - 1) / 2));
+      for (const i of order) {
+        const f = n > 1 ? i / (n - 1) - 0.5 : 0, j = pxHash(i + k, seed);
+        const len = size * (1 - Math.abs(f) * 0.9) * (0.75 + 0.35 * j), a = lean + f * 1.5 + (j - 0.5) * 0.25;
+        point(bx + f * size * 0.5, by + Math.abs(f) * 2, Math.max(3, len), down ? Math.PI - a : a, Math.max(1.5, size * 0.11 * (1 - Math.abs(f) * 0.4)));
+      }
+    };
+    // the great clusters: the back corner, and along the foot of each wall (leaning out of the rock into the room)
+    // (sized to the room, but never so small on a phone that they stop reading as crystals)
+    const K = Math.max(0.85, S);
+    cluster(...P("L", 0.012, 0, 0.012), 46 * K, 9, 1, 0.05);
+    cluster(...P("L", 0.07, 0, 0.008), 24 * K, 5, 3, -0.45);
+    cluster(...P("R", 0.07, 0, 0.008), 26 * K, 5, 4, 0.45);
+    for (const [side, s, n, sz] of [["L", 0.22, 6, 30], ["L", 0.5, 4, 20], ["L", 0.96, 5, 26], ["R", 0.28, 5, 24], ["R", 0.62, 6, 32], ["R", 0.96, 4, 22]]) {
+      if (!clear(s)) continue;
+      cluster(...P(side, s, 0, 0.008), sz * K, n, Math.round(s * 100) + (side === "L" ? 0 : 50), side === "L" ? -0.3 : 0.3);
+      lightAt(side, s, 8 * K, hw * 0.3, art.glow, 0.7);
+    }
+    // and a few growing out of the rock higher up, leaning out and up
+    for (const [side, s, z, sz] of [["L", 0.12, 0.62, 16], ["R", 0.2, 0.74, 14], ["R", 0.8, 0.6, 15], ["L", 0.82, 0.66, 13]]) cluster(...P(side, s, wall * z), sz * K, 4, Math.round(s * 77), side === "L" ? -0.6 : 0.6);
+    lightAt("L", 0.02, 14 * S, hw * 0.42, art.glow, 0.9);
+    // small points all along the foot of both walls, between the clusters
+    for (let k = 0; k < 22; k++) {
+      const side = k % 2 ? "R" : "L", s = 0.05 + 0.92 * pxHash(k, seed + 31);
+      if (!clear(s)) continue;
+      const [x, y] = P(side, s, 0, 0.006);
+      point(x, y + 1, (4 + 7 * pxHash(seed, k)) * K + 1, (side === "L" ? -0.35 : 0.35) + (pxHash(k, 3) - 0.5) * 0.6, 1.6 * K);
+    }
+    // points hanging from the top of the rock, more toward the back
+    for (let x = Math.floor(cx - hw) + 2; x < cx + hw - 2; x++) {
+      const tt = Math.abs(x - cx) / hw, yt = tops[x];
+      if (Number.isNaN(yt) || pxHash(x, seed + 41) > 0.13 - 0.07 * tt) continue;
+      point(x, yt + 1, (5 + 16 * pxHash(x + 7, seed) ** 2 * (1 - tt * 0.5)) * K + 2, Math.PI + (pxHash(x, 5) - 0.5) * 0.3, 1.7 * K);
+    }
+    // a vein of crystal across the right wall, out of the back corner and into a geode, and on beyond it
+    const G = { s: 0.47, z: wall * 0.5 }, gr = Math.max(7, Math.round(hw * 0.075)), vein = [[0.02, wall * 0.22], [0.16, wall * 0.3], [0.3, wall * 0.36], [G.s, G.z], [0.58, wall * 0.62], [0.68, wall * 0.72]];
+    const veinPts = [];
+    for (let k = 0; k < vein.length - 1; k++) {
+      const [s0, z0] = vein[k], [s1, z1] = vein[k + 1];
+      for (let t = 0; t < 1; t += 0.25 / (hw * (s1 - s0))) {
+        const s = s0 + (s1 - s0) * t, z = z0 + (z1 - z0) * t + 3 * S * (pxNoise(s * 30, seed) - 0.5), [x, y] = P("R", s, z), th = Math.max(1, Math.round((1.4 + 1.2 * pxNoise(s * 12, seed + 3)) * K));
+        for (let e = -th - 1; e <= th + 1; e++) put(x, y + e, Math.abs(e) > th ? cr[0] : e < 0 ? cr[3] : e === 0 ? cr[2] : cr[1]);
+        if (pxHash(Math.round(x), seed + 9) > 0.88) veinPts.push([x, y - th]);
+      }
+    }
+    for (const [x, y] of veinPts) point(x, y, (4 + 5 * pxHash(Math.round(x), 2)) * K, 0.5 + (pxHash(Math.round(y), 4) - 0.5) * 0.6, 1.4 * K);
+    // the geode: a round hollow in the rock lined with crystal teeth, darker deep in, its rim of rock lit along the top left
+    const [gx, gy] = P("R", G.s, G.z), rx = gr, ry = Math.round(gr * 1.25);
+    for (let y = gy - ry - 2; y <= gy + ry + 2; y++) for (let x = gx - rx - 2; x <= gx + rx + 2; x++) {
+      const e = Math.hypot((x - gx) / rx, (y - gy - (x - gx) * 0.5) / ry);
+      if (e < 1) {
+        const ang = Math.atan2(y - gy, x - gx), tooth = (ang * 7 / Math.PI + 8) % 1, inner = 0.45 + 0.25 * Math.abs(tooth - 0.5);
+        put(x, y, e < inner ? (e < inner * 0.5 ? cr[4] : cr[3]) : tooth < 0.5 === (x < gx) ? cr[3] : e > 0.9 ? cr[0] : cr[1]);
+      } else if (e < 1.3) put(x, y, x < gx && y < gy ? cr[2] : cr[0]);
+    }
+    lightAt("R", G.s, G.z, hw * 0.4, art.glow, 0.9);
+    return () => {
+      glow(gx, gy, gr * 3.2, gl, 1);
+      glow(...P("L", 0.012, 22 * K, 0.012), 34 * K, gl, 0.9);
+      for (const [x, y] of tips) if (pxHash(Math.round(x), Math.round(y)) > 0.55) glow(x, y, 6 * K + 2, gl, 0.7);
+      for (const [x, y] of tips) if (pxHash(Math.round(y), Math.round(x)) > 0.8) { const W = pxHex("#ffffff"); put(x, y, W); put(x - 1, y, cr[4]); put(x + 1, y, cr[4]); put(x, y - 1, cr[4]); put(x, y + 1, cr[4]); }
+    };
+  }
+
+  if (room === "play") {
+    const ink = pxHex("#1a1020"), rope = pxHex("#c9a46a"), ropeD = pxHex("#7a5a34");
+    // ---- the climbing wall: coloured holds bolted all over the right wall, each lit on its top left, a shadow below right
+    for (let k = 0; k < 34; k++) {
+      const s = 0.1 + 0.46 * ((k % 6) + 0.2 + 0.6 * pxHash(k, seed + 2)) / 6, z = wall * (0.08 + 0.72 * (Math.floor(k / 6) + 0.2 + 0.6 * pxHash(seed + 5, k)) / 6);
+      const c = PLAY_PAINT[Math.floor(pxHash(k, seed + 8) * PLAY_PAINT.length)], [x, y] = P("R", s, z), r = Math.max(2, Math.round((1.6 + pxHash(k, 1)) * S));
+      for (let yy = -r; yy <= r + 1; yy++) for (let xx = -r - 1; xx <= r + 1; xx++) {
+        const e = Math.hypot(xx / (r + 1), yy / r);
+        if (e > 1.05) { if (e < 1.4 && xx >= 0 && yy > 0) put(x + xx + 1, y + yy + 1, ink); continue; }
+        put(x + xx, y + yy, xx + yy < -r * 0.6 ? c[0] : xx + yy > r * 0.8 ? c[2] : c[1]);
+      }
+    }
+    // and a rope down it from a ring at the top, knotted every so often
+    for (let z = Math.round(wall * 0.92); z > wall * 0.05; z--) { const [x, y] = P("R", 0.33, z, 0.01), kn = z % Math.round(9 * S + 2) === 0; put(x, y, rope); put(x + 1, y, ropeD); if (kn) { put(x - 1, y, rope); put(x + 2, y, ropeD); } }
+    { const [x, y] = P("R", 0.33, wall * 0.92, 0.01); for (const [dx, dy] of [[-1, -1], [0, -2], [1, -2], [2, -1], [-1, 0], [2, 0]]) put(x + dx, y + dy, pxHex("#8a8494")); }
+    // ---- the slide: out of a round hole high in the left wall, down toward the back corner, a red trough on yellow legs
+    const hs = 0.27, hz = wall * 0.58, hr = Math.max(4, Math.round(hw * 0.045));
+    { const f = onWall("L", hs, hz), red = PLAY_PAINT[0], dark = pxHex("#0b0614");
+      for (let b = -hr - 3; b <= hr + 3; b++) for (let a = -hr - 3; a <= hr + 3; a++) {
+        const e = Math.hypot(a, b) / hr, [x, y] = f(a, b);
+        if (e < 0.82) put(x, y, e < 0.5 && a > 0 ? pxHex("#22143a") : dark);
+        else if (e < 1.25) put(x, y, (Math.atan2(b, a) * 4 / Math.PI + 8) % 2 < 1 ? red[b > 0 ? 0 : 1] : PLAY_PAINT[1][b > 0 ? 0 : 1]);
+        else if (e < 1.4 && b < 0) put(x, y, ink);
+      } }
+    const run = t => [hs - 0.23 * t, Math.max(wall * 0.03, hz - hr * 0.6 - wall * 0.55 * (1 - (1 - t) ** 1.7))];
+    const D = 0.075, st = 0.3 / hw, side = Math.round(5 * S) + 2;
+    for (let t = 0; t <= 1; t += st * 0.6) {
+      const [s, z] = run(t);
+      // the legs, where they stand
+      for (const lt of [0.35, 0.72]) if (Math.abs(t - lt) < st) for (let zz = 0; zz < z; zz++) for (const o of [0.008, D]) { const [x, y] = P("L", s, zz, o); put(x, y, PLAY_PAINT[1][o > 0.02 ? 2 : 1]); put(x + 1, y, PLAY_PAINT[1][2]); }
+      // the side toward the room, under the lip
+      for (let k = 1; k <= side; k++) { const [x, y] = P("L", s, z - k, D); put(x, y, k === side ? ink : PLAY_PAINT[0][k < 2 ? 1 : 2]); }
+      // the trough: its bed polished yellow, a red rail along each edge standing up a little
+      for (let o = 0; o <= D; o += st) { const [x, y] = P("L", s, z, o); put(x, y, o > D - st * 3 || o < st * 3 ? PLAY_PAINT[0][1] : PLAY_PAINT[1][o < D * 0.4 ? 0 : 1]); }
+      for (const o of [0.002, D]) for (let k = 1; k <= 2; k++) { const [x, y] = P("L", s, z + k, o); put(x, y, PLAY_PAINT[0][o > 0.02 ? (k === 2 ? 0 : 1) : 2]); }
+    }
+    // ---- chalk drawings low on the left wall: a sun, a glowling, a heart, a little house, a row of stars (the chalk worn through here and there)
+    const chalk = (f, pts, col) => { for (let k = 0; k < pts.length - 1; k++) { const [a0, b0] = pts[k], [a1, b1] = pts[k + 1], n = Math.ceil(Math.hypot(a1 - a0, b1 - b0) * 2) + 1; for (let i = 0; i <= n; i++) { const [x, y] = f(a0 + (a1 - a0) * i / n, b0 + (b1 - b0) * i / n); if (pxHash(Math.round(x), Math.round(y)) > 0.12) put(x, y, col); } } };
+    const ring = (r, n = 14) => [...Array(n + 1)].map((_, k) => [Math.cos(k / n * TAU) * r, Math.sin(k / n * TAU) * r]);
+    const at2 = (pts, a, b) => pts.map(([x, y]) => [x + a, y + b]), C = ["#fffbe6", "#ffc4dc", "#fff2a8", "#c4f4fb", "#cdf5b4"].map(pxHex), u = 3.6 * Math.max(0.7, S);
+    { // a sun
+      const f = onWall("L", 0.49, wall * 0.15); chalk(f, ring(1.6 * u, 10), C[2]);
+      for (let k = 0; k < 8; k++) { const an = k / 8 * TAU; chalk(f, [[Math.cos(an) * 2.3 * u, Math.sin(an) * 2.3 * u], [Math.cos(an) * 3.1 * u, Math.sin(an) * 3.1 * u]], C[2]); } }
+    { // a glowling: a round body, two ears, two eyes and a smile
+      const f = onWall("L", 0.565, wall * 0.08); chalk(f, ring(2 * u, 14), C[0]); chalk(f, [[-1.4 * u, 1.4 * u], [-1.6 * u, 2.8 * u], [-0.5 * u, 1.9 * u]], C[0]); chalk(f, [[0.5 * u, 1.9 * u], [1.6 * u, 2.8 * u], [1.4 * u, 1.4 * u]], C[0]);
+      for (const a of [-0.7, 0.7]) chalk(f, [[a * u, 0.4 * u], [a * u, 0.7 * u]], C[3]);
+      chalk(f, [[-0.7 * u, -0.6 * u], [0, -1 * u], [0.7 * u, -0.6 * u]], C[1]); }
+    { // a heart
+      const f = onWall("L", 0.625, wall * 0.17); chalk(f, [[0, -1.4 * u], [-1.4 * u, 0.1 * u], [-1.1 * u, 1 * u], [-0.4 * u, 1.1 * u], [0, 0.5 * u], [0.4 * u, 1.1 * u], [1.1 * u, 1 * u], [1.4 * u, 0.1 * u], [0, -1.4 * u]], C[1]); }
+    { // a little house with a door
+      const f = onWall("L", 0.66, wall * 0.05); chalk(f, [[-1.6 * u, 0], [-1.6 * u, 2.2 * u], [0, 3.6 * u], [1.6 * u, 2.2 * u], [1.6 * u, 0], [-1.6 * u, 0]], C[4]); chalk(f, [[-0.4 * u, 0], [-0.4 * u, 1.2 * u], [0.4 * u, 1.2 * u], [0.4 * u, 0]], C[2]); }
+    { // stars in a row, and a squiggle
+      const f = onWall("L", 0.455, wall * 0.04);
+      for (let k = 0; k < 3; k++) chalk(f, at2([[0, 0.9 * u], [0.3 * u, 0.2 * u], [0.9 * u, 0.2 * u], [0.4 * u, -0.3 * u], [0.6 * u, -1 * u], [0, -0.5 * u], [-0.6 * u, -1 * u], [-0.4 * u, -0.3 * u], [-0.9 * u, 0.2 * u], [-0.3 * u, 0.2 * u], [0, 0.9 * u]], k * 2.6 * u, 0), C[[3, 2, 1][k]]); }
+    // ---- bunting along the top of both walls: a string sagging from peg to peg, a flag of each colour hanging from it
+    for (const side of ["L", "R"]) {
+      const pegs = [0.03, 0.27, 0.52, 0.76, 0.98];
+      for (let k = 0; k < pegs.length - 1; k++) {
+        const s0 = pegs[k], s1 = pegs[k + 1], zs = wall * 0.84, sag = wall * 0.08, line = s => zs - sag * 4 * ((s - s0) / (s1 - s0)) * (1 - (s - s0) / (s1 - s0));
+        for (let s = s0; s <= s1; s += 0.3 / hw) { const [x, y] = P(side, s, line(s)); put(x, y, pxHex("#efe4d0")); }
+        const n = Math.max(3, Math.round((s1 - s0) * hw / (6 * S + 1)));
+        for (let i = 1; i < n; i++) {
+          const s = s0 + (s1 - s0) * i / n, c = PLAY_PAINT[(i + k * 2 + (side === "L" ? 0 : 3)) % PLAY_PAINT.length], f = onWall(side, s, line(s)), fw = 2 * S + 0.6, fh = 4.5 * S + 1;
+          for (let b = 0; b <= fh; b++) { const half = fw * (1 - b / fh); for (let a = -half; a <= half; a += 0.5) { const [x, y] = f(a, -1 - b); put(x, y, a < -half * 0.3 ? c[0] : a > half * 0.4 ? c[2] : c[1]); } }
+        }
+      }
+    }
+    return null;
+  }
+
+  if (room === "garden" && !mossy) {
+    // moss creeping up the foot of both walls, thick low down and in tongues higher up, the rock's own light kept under it;
+    // a fringe of it under the top of the rock too
+    for (let x = Math.floor(cx - hw) + 1; x < cx + hw - 1; x++) {
+      const yt = tops[x]; if (Number.isNaN(yt)) continue;
+      const tt = Math.abs(x - cx) / hw, base = top + tt * hh, reach = wall * (0.12 + 0.36 * pxFbm(x * 0.05 + seed, 3) + 0.25 * Math.max(0, pxNoise(x * 0.1, seed + 2) - 0.6) / 0.4);
+      for (let y = Math.floor(yt); y < base; y++) {
+        const z = base - y, under = y - yt;
+        const m = z < reach * (0.55 + 0.7 * pxFbm(x * 0.13, z * 0.13 + seed)) || under < wall * 0.05 * (0.4 + pxFbm(x * 0.1, seed + 6));
+        const edge = z < reach * 1.15 && pxHash(x, y + seed) > 0.75;
+        if (!m && !edge) continue;
+        const c0 = get(x, y); if (!c0) continue;
+        const L = (c0[0] * 0.3 + c0[1] * 0.55 + c0[2] * 0.15) / 255;
+        put(x, y, isoTone(mossC, 0.1 + L * 1.25 + (pxHash(x * 3, y) > 0.9 ? 0.12 : 0), x, y, 0.4));
+      }
+    }
+    return null;
+  }
+  return null;
+}
 const mossLight = {};
 /**
  * The shaft of light down from the crack in the vault, over everything in the room (whoever stands in it is lit): dithered bands
@@ -4912,6 +5118,8 @@ function paintRoomIso(id) {
   const crypt = mood === "crypt";
   // where each pixel of the walls and the floor lies in the room (u, v along the floor, z up), for the light that falls on it
   const surf = new Float32Array(w * h * 3).fill(-1), lights = [];
+  // where the top of the wall is in each column (the rock's ragged edge), for what grows along it: paintFixtures
+  const tops = new Float32Array(w).fill(NaN);
   const mark = (x, y, u, v, z) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 3; surf[i] = u; surf[i + 1] = v; surf[i + 2] = z; };
   /** Each light's pool on the walls and the floor round it, falling off in three steps with a dithered seam between them, the
    *  stone taking on the light's colour; corners away from it stay dark. A light is { u, v, z, r, col, k }: where, how far, how strong. */
@@ -5004,6 +5212,7 @@ function paintRoomIso(id) {
       const tt = Math.abs(x - cx) / hw, base = top + tt * hh, al = tt * hw, sl = -side;
       // a cave's rock rises higher toward the back and juts up and down along its top; the crypt's vault rises smoothly, dressed
       const yTop = base - wall * ruinH(tt) - (crypt ? wall * 0.22 * (1 - tt) + 2 : kind === "cave" ? wall * (0.22 * (1 - tt) + 0.16 * pxNoise(x * 0.05, seed)) + 4 * pxNoise(x * 0.3, seed + 4) - 2 : 0);
+      if (x >= 0 && x < w) tops[x] = yTop;
       for (let y = Math.floor(yTop); y < base; y++) {
         const z = base - y;
         if (shop) {
@@ -5244,9 +5453,12 @@ function paintRoomIso(id) {
     }
     if (shop) shop.paint();
     const glowing = mood && paintMood({ mood, put, d, w, h, at, cx, top, hw, hh, wall, S, seed, lights, art, crys, oak, ashlar, ice, wallC, plH });
+    // what the room is for, built into it whatever its look: the study's crystals, the playroom's slide and climbing wall, the moss garden's moss
+    const fixed = atHome() && paintFixtures(roomKindNow, { put, d, w, h, at, cx, top, hw, hh, wall, S, seed, lights, art, crys, mossC, mossy, tops });
     shine(lights);
     if (shop) shop.after();
     if (glowing) glowing();
+    if (fixed) fixed();
     if (garden || mood === "grotto") paintMossGarden({ put, d, w, h, at, cx, top, hw, hh, wall, S, seed, mossC, dirt, crys, whole: garden });
     else if (kind === "cave" && mood !== "gallery" && !crypt) {
       // crystals growing at the foot of the walls, in the back corner and at both ends: facets lit on the left, a pale tip
