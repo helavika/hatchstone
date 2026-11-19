@@ -1099,6 +1099,8 @@ function drawNest() {
   drawDust();
   drawGloomUnder();
   for (const a of actors.values()) {
+    // (hiding behind a piece in hide and seek: only the peek past its edge is drawn, by the piece: see drawSeekPeek)
+    if (seekHidden(a)) continue;
     const [u, v] = isoFrom(a.x, a.y), item = { y: a.y + 0.5, draw: () => drawActor(a), actor: a, box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } };
     // lying on the bed, napping on the cloud or sitting on the swing or a piece: drawn right after it (on top), not by where their feet are
     item.after = a.onBed ? "bed" : a.state === "nap" && a.decor === "cushion" ? "cushion" : (a.state === "visit" || a.state === "nap") && a.decor ? a.decor : null;
@@ -1116,6 +1118,7 @@ function drawNest() {
   const order = isoOrder(items);
   order.forEach(it => it.draw());
   ghostBehind(order);
+  drawSeekDim();
   drawVeil();
   drawGloomOver();
   if (isPlace()) drawPlaceLife();
@@ -1126,7 +1129,8 @@ function drawNest() {
     fx.textAlign = "start";
   }
   // a daydream floats over everything in the room, so nobody stands in front of it
-  const dreamer = fancy.on && actors.get(fancy.on.id);
+  // (not over one playing hide and seek: it would give the hiding place away)
+  const dreamer = fancy.on && game.seek?.id !== fancy.on.id && actors.get(fancy.on.id);
   if (dreamer) drawFancy(dreamer, actorView(dreamer));
 }
 /**
@@ -1202,6 +1206,8 @@ const ghostSheet = like => { if (!ghostCv || ghostCv.width !== like.width || gho
 /** How a glowling looks this moment: its face, its nightcap, a bite in its mouth. */
 function actorLook(a, cr) {
   const act = activeCreature(), mine = act && a.id === act.id, asleep = a.state === "sleep" || a.state === "nap";
+  // counting in hide and seek: eyes shut tight (no nightcap)
+  if (game.seek && game.seek.id === a.id && game.seek.phase === "count") return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood: "asleep", hop: 0, t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 };
   // near the Gloom's shadows a glowling dims and looks worried; shining with your light, it brightens and cheers up (see updateGloom)
   const gk = asleep ? 0 : a.gloomK || 0, lit = a.gloomLit || 0;
   const mood = asleep ? "asleep" : petted(a) ? "joy" : a.state === "dance" || a.state === "visit" || lit > 0.5 || (a.emote && a.emote.text === "♥") ? "happy" : gk > 0.35 ? "sad" : moodOf(cr);
@@ -1525,9 +1531,12 @@ function openGames() {
   const cr = activeCreature();
   if (!cr) return;
   $("gamesSub").textContent = tr("What shall we play with {0}?", cr.name);
-  $("gamesList").innerHTML = [["catch", "✨", tr("Sparkle catch"), tr("drag to catch sparkles, dodge pebbles")], ["echo", "🎵", tr("Echo song"), tr("listen to the tune, then sing it back")], ["walk", "🌿", tr("A walk outside"), tr("a little path to stroll, with things to find")]]
-    .map(([id, em, name, how]) => `<button class="snack" data-game="${id}"><span class="em">${em}</span><span><b>${name}</b><small>${how}</small></span>${id === "echo" && save.echoBest ? `<span class="cost">♪ ${save.echoBest}</span>` : ""}</button>`).join("");
-  $$("#gamesList .snack").forEach(b => b.addEventListener("click", () => { show("games", false); ({ echo: startEcho, walk: openWalk }[b.dataset.game] || startCatch)(); }));
+  // the Playroom's own game comes first there; from any other room with a Playroom built, it takes you there to play
+  const hasPlay = save.rooms.some(r => r.kind === "play"), here = inPlayroom(), why = here ? seekBlock() : "";
+  const hide = hasPlay ? [["hide", "🙈", tr("Hide and seek"), why || (here ? tr("it hides behind your furniture: find it in three tries") : tr("in the Playroom, among your furniture"))]] : [];
+  $("gamesList").innerHTML = [...(here ? hide : []), ["catch", "✨", tr("Sparkle catch"), tr("drag to catch sparkles, dodge pebbles")], ["echo", "🎵", tr("Echo song"), tr("listen to the tune, then sing it back")], ["walk", "🌿", tr("A walk outside"), tr("a little path to stroll, with things to find")], ...(here ? [] : hide)]
+    .map(([id, em, name, how]) => `<button class="snack" data-game="${id}"${id === "hide" && why ? " disabled" : ""}><span class="em">${em}</span><span><b>${name}</b><small>${how}</small></span>${id === "echo" && save.echoBest ? `<span class="cost">♪ ${save.echoBest}</span>` : ""}</button>`).join("");
+  $$("#gamesList .snack").forEach(b => b.addEventListener("click", () => { show("games", false); ({ echo: startEcho, walk: openWalk, hide: () => { if (!inPlayroom()) toRoomKind("play"); startSeek(); } }[b.dataset.game] || startCatch)(); }));
   show("games", true);
 }
 
@@ -1761,4 +1770,232 @@ function drawEcho() {
     fx.fillStyle = "#fff0b5"; fx.font = `400 ${Math.round(s * 0.28)}px ${PIXEL_FONT}`; fx.textAlign = "center";
     fx.fillText("♪", W / 2 + s * 0.55, cy - s * 0.55 - (0.3 - g.sing) * 30); fx.textAlign = "start";
   }
+}
+
+// ---------- hide and seek: the Playroom's own game, played among your own furniture ----------
+
+/** Nothing hides behind these: the rug lies flat, the swing, the shelf and the lights hang, the cloud floats, the incubator is the lab's. */
+const HIDE_NOT = new Set(["rug", "swing", "shelf", "lights", "cushion", "incubator"]);
+/** Fewer places to hide than this and it's no game (the room's own bed counts); three tries to find it. */
+const HIDE_MIN = 3, HIDE_TRIES = 3;
+/** What a round brings, by the try it was found on (0: it popped out by itself, giggling: still something). Sparkle catch's scale. */
+const HIDE_PAYS = [{ joy: 12, xp: 5, shards: 0 }, { joy: 26, xp: 14, shards: 3 }, { joy: 22, xp: 11, shards: 2 }, { joy: 18, xp: 8, shards: 1 }];
+/** Seconds between hints, quicker after each wrong guess. */
+const HIDE_GAP = [5, 3.6, 2.6];
+/** The places a glowling could hide in a room with these pieces standing in it: the bed and the floor pieces, not the wall ones. */
+const hideSpots = ids => ids.filter(id => (id === "bed" || (DECO[id] && !DECO[id].wall)) && !HIDE_NOT.has(id));
+/** Where it hides: mostly behind a piece its kind loves, when there's one; never behind the same one twice running. */
+function hidePick(spots, beh, rnd = Math.random, last = null) {
+  const pool = spots.length > 1 ? spots.filter(id => id !== last) : spots;
+  const loved = pool.filter(id => DECO[id] && DECO[id].lovers.includes(beh));
+  const from = loved.length && rnd() < 0.75 ? loved : pool;
+  return from[Math.floor(rnd() * from.length)];
+}
+const hideGap = misses => HIDE_GAP[Math.min(misses, HIDE_GAP.length - 1)];
+/** A wrong guess: one try fewer (a piece already looked behind costs nothing); the last one used up, it pops out by itself. */
+function hideGuess(g, id) {
+  if (id === g.spot) return "found";
+  if (g.wrong.includes(id)) return "again";
+  g.wrong.push(id); g.tries--;
+  return g.tries > 0 ? "miss" : "out";
+}
+
+/** The round being played, or null. Phases: count (eyes covered), seek (hidden), out (popping out by itself), done. */
+game.seek = null;
+let seekLast = null;
+/** Who plays: the glowling you look after if it's here and awake, else the first one awake in the room. */
+function seekWho() {
+  const awake = a => { const cr = save.creatures.find(c => c.id === a.id); return cr && !cr.sleeping && a.state !== "sleep" && a.state !== "toBed"; };
+  const act = activeActor();
+  return act && awake(act) ? act : [...actors.values()].find(awake) || null;
+}
+const inPlayroom = () => save.rooms[save.room]?.kind === "play";
+/** Why it can't start right now ("" when it can). */
+function seekBlock() {
+  if (!inPlayroom()) return tr("only in the Playroom");
+  if (hideSpots(Object.keys(isoLayout().placed)).length < HIDE_MIN) return tr("Put a few things in the Playroom to hide behind");
+  if (!seekWho()) return tr("Nobody here is awake to play");
+  return "";
+}
+/** Is this glowling out of sight behind a piece right now (not drawn, not tapped, not walking about). */
+const seekHidden = a => !!game.seek && game.seek.id === a.id && game.seek.phase === "seek";
+
+function startSeek() {
+  const why = seekBlock();
+  if (why) { toast(why); return; }
+  const a = seekWho(), cr = save.creatures.find(c => c.id === a.id);
+  if (!payToPlay(cr)) return;
+  if (save.active !== cr.id) { save.active = cr.id; persist(); renderNest(true); }
+  const spot = hidePick(hideSpots(Object.keys(isoLayout().placed)), a.beh, Math.random, seekLast);
+  seekLast = spot;
+  game.seek = { id: a.id, spot, phase: "count", t: 0, said: 0, tries: HIDE_TRIES, wrong: [], hints: 0, next: 1.6, peek: -1e9, wiggle: null };
+  // (standing still with its eyes shut: "count" is no state the room's life knows, so nothing sends it off or sets it humming)
+  a.state = "count"; a.tx = a.x; a.ty = a.y; a.goal = a.friend = a.decor = a.plan = null; a.face = null; a.emote = null;
+  document.body.classList.add("seeking");
+  setHint(nestHint());
+}
+/** The hint line while a round is on. */
+function seekHint() {
+  const g = game.seek, cr = g && save.creatures.find(c => c.id === g.id);
+  if (!cr) return "";
+  if (g.phase === "count") return tr("{0} is counting… no peeking!", cr.name);
+  if (g.phase !== "seek") return "";
+  return g.wrong.length ? (g.tries > 1 ? tr("not here… two more tries") : tr("not here… one last try")) : tr("Where did {0} hide? Tap a piece · 3 tries", cr.name);
+}
+/** Stop a round at once (leaving the room or the nest): out it comes, in front of where it hid. */
+function stopSeek() {
+  const g = game.seek;
+  if (!g) return;
+  const a = actors.get(g.id), p = isoLayout().placed[g.spot];
+  if (a && g.phase !== "count" && g.phase !== "done" && p) [a.x, a.y] = standSpot(...isoPieceAt(p, 0.8));
+  if (a) { a.state = "idle"; a.t = 1; }
+  game.seek = null;
+  document.body.classList.remove("seeking");
+}
+
+function updateSeek(dt) {
+  const g = game.seek;
+  if (!g) return;
+  const a = actors.get(g.id), p = isoLayout().placed[g.spot];
+  if (!a || !p || game.scene !== "nest" || !inPlayroom()) { stopSeek(); return; }
+  g.t += dt;
+  if (g.phase === "count") {
+    // eyes covered, counting out loud while the room dims; then gone
+    const n = Math.floor(g.t / 0.75) + 1, v = actorView(a);
+    if (n > g.said && n <= 3) { g.said = n; floatText(tr("{0}…", n), v.x, v.y - v.size * 0.75, "#efe6ff"); sfx.chirp(specOf(save.creatures.find(c => c.id === g.id)).voice * (0.9 + n * 0.05)); }
+    if (g.t >= 2.6) {
+      g.phase = "seek"; g.t = 0;
+      [a.x, a.y] = standSpot(...isoPieceAt(p, -0.2));
+      a.state = "idle"; a.t = 99; a.alt = 0; a.hop = 0;
+      if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.3, 1200, 0.7, 0.06, "lowpass");
+      setHint(nestHint());
+    }
+    return;
+  }
+  if (g.phase === "seek") {
+    if ((g.next -= dt) <= 0) { seekGiveaway(g); g.next = hideGap(g.wrong.length); }
+    // nobody came looking for a long while: it can't keep still any longer
+    if (g.t > 60) { g.phase = "out"; g.t = 0; }
+    return;
+  }
+  if (g.phase === "out" && g.t > 0.9) { seekPop(g, 0); return; }
+  if (g.phase === "done" && g.t > 1.4) { game.seek = null; document.body.classList.remove("seeking"); setHint(nestHint()); }
+}
+/** A giggle from behind the piece, the piece wobbling (still, with less motion), every other time a peeking ear; the friends look over. */
+function seekGiveaway(g) {
+  const cr = save.creatures.find(c => c.id === g.id), [sx] = isoPieceAt(isoLayout().placed[g.spot]);
+  g.hints++;
+  sfx.giggle(specOf(cr).voice);
+  if (!opts().calm) g.wiggle = { id: g.spot, t: game.time, k: 1 };
+  if (g.hints % 2 === 1 || g.wrong.length) { g.peek = game.time; g.side = seekSide(g); }
+  for (const o of actors.values()) {
+    const oc = save.creatures.find(c => c.id === o.id);
+    if (o.id === g.id || !oc || oc.sleeping || (o.state !== "idle" && o.state !== "walk")) continue;
+    // whoever is awake and about stops a moment and glances at the hiding place (after a wrong guess, with a little "!" instead)
+    o.state = "idle"; o.t = Math.max(o.t || 0, 2.4); o.tx = o.x; o.ty = o.y; o.goal = o.friend = o.plan = null;
+    o.face = { kind: "look", t: 0, life: 2.2, side: sx < o.x ? -1 : 1 };
+    emote(o, g.wrong.length ? "!" : "👀", 1.3);
+  }
+}
+/** A tap while a round is on: true if it was taken (a guess, or a tap that waits while it counts). */
+function seekTap(x, y) {
+  const g = game.seek;
+  if (!g || g.phase === "done") return false;
+  if (g.phase !== "seek") return true;
+  const id = seekSpotAt(x, y);
+  if (!id) return false;
+  const res = hideGuess(g, id), [px, py] = isoPieceAt(isoLayout().placed[id]);
+  if (res === "found") { seekPop(g, g.wrong.length + 1); return true; }
+  floatText(tr("not here…"), px, py - N.base * 0.9, "#e6e0ff");
+  if (res === "again") { sfx.tick(); return true; }
+  // a shake of the piece (with less motion, just the words), and the hints come quicker and plainer
+  if (!opts().calm) g.wiggle = { id, t: game.time, k: 2 };
+  if (sfx.ready()) sfx.tone(sfx.ac.currentTime, 330, 0.05, 0.16, "triangle", 300);
+  g.next = Math.min(g.next, 1.1);
+  if (res === "out") { g.phase = "out"; g.t = 0; sfx.giggle(specOf(save.creatures.find(c => c.id === g.id)).voice); }
+  setHint(nestHint());
+  return true;
+}
+/** Which hiding place is under a finger: the frontmost piece whose own pixels are there. */
+function seekSpotAt(x, y) {
+  let best = null;
+  for (const p of Object.values(isoLayout().placed)) {
+    const h = pieceHits[p.id];
+    if (!hideSpots([p.id]).length || !h || !spriteHit(h.c, h.x, h.y, x, y)) continue;
+    if (!best || p.i + p.j > best.i + best.j) best = p;
+  }
+  return best && best.id;
+}
+/** Out it pops with a hop in front of the piece: found (on try n), or (0) by itself, giggling. Joy, XP and a few shards either way. */
+function seekPop(g, n) {
+  const a = actors.get(g.id), cr = save.creatures.find(c => c.id === g.id), p = isoLayout().placed[g.spot];
+  g.phase = "done"; g.t = 0;
+  if (!a || !cr || !p) return;
+  [a.x, a.y] = standSpot(...isoPieceAt(p, 0.8));
+  a.state = "idle"; a.t = 2.2; a.hop = 1; a.alt = N.base * 0.3; a.face = null;
+  emote(a, n ? "♥" : "♪", 2);
+  decorFx[g.spot] = game.time;
+  const v = actorView(a);
+  for (let i = 0; i < (n ? 5 : 2); i++) setTimeout(() => heart(v.x + rand(-16, 16), v.y - v.size * 0.4), i * 110);
+  if (n && !opts().calm) burst(v.x, v.y - v.size * 0.2, 8, ["#fff", ...palOf(specOf(cr))]);
+  sfx.chirp(specOf(cr).voice * 1.15);
+  if (n) setTimeout(() => sfx.ding(4 - n), 200); else sfx.giggle(specOf(cr).voice);
+  const pay = HIDE_PAYS[n];
+  cr.joy = clamp(cr.joy + pay.joy, 0, 100);
+  save.shards += pay.shards;
+  addXP(cr, pay.xp);
+  bump("played");
+  rememberFirst(cr, "First game with you: {0}", "Hide and seek");
+  persist(); updateTopbar(); renderNest();
+  floatText(n ? tr("found you!") : tr("here I am!"), v.x, v.y - v.size * 0.85, "#fff0b5");
+  toast((n ? tr("Found {0} behind the {1} ♥", cr.name, seekPieceName(g.spot)) : tr("{0} popped out from behind the {1}, giggling", cr.name, seekPieceName(g.spot)))
+    + " · " + tr("+{0} joy · +{1} xp", pay.joy, pay.xp) + (pay.shards ? ` · +${pay.shards} ✦` : ""));
+  track("play", { game: "hide", found: n ? String(n) : "no" });
+}
+const seekPieceName = id => (id === "bed" ? tr("Bed") : DECO[id].name).toLowerCase();
+/** How far a piece is pushed sideways this moment: a little wobble with a giggle, a shake when it was the wrong one. */
+function seekWiggle(id) {
+  const w = game.seek && game.seek.wiggle;
+  if (!w || w.id !== id) return 0;
+  const age = (game.time - w.t) / 1000, len = w.k > 1 ? 0.45 : 0.6;
+  if (age > len) return 0;
+  return Math.round(Math.sin(age * (w.k > 1 ? 50 : 30)) * w.k * (1 - age / len) * 1.4) * PX;
+}
+/** The room, while it counts: dimmed softly, in and out. */
+function drawSeekDim() {
+  const g = game.seek;
+  if (!g || g.phase !== "count") return;
+  const k = Math.min(1, g.t / 0.5, (2.6 - g.t) / 0.4);
+  ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = 0.38 * Math.max(0, k); ctx.fillStyle = "#0a0418"; ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height); ctx.restore();
+}
+/** Which side of its piece it peeks out of: towards the middle of the room, unless someone stands in front of that side
+ *  and the other is free (and never off the edge of the screen: the bed in its corner can reach it). */
+function seekSide(g) {
+  const p = isoLayout().placed[g.spot], h = pieceHits[g.spot], b = h && h.c && cueBake(h.c);
+  const [cx, fy] = isoPieceAt(p, -0.15), toMid = cx < N.cx ? 1 : -1;
+  if (!b) return toMid;
+  const size = N.base * depth(fy), at = side => h.x + (b.cx + side * b.span / 2) * PX + side * size * 0.15;
+  const crowd = side => [...actors.values()].filter(o => o.id !== g.id && Math.abs(actorView(o).x - at(side)) < size * 0.7 && Math.abs(actorView(o).y - (fy - size * 0.45)) < size).length;
+  const fits = side => at(side) + side * size * 0.3 < W && at(side) + side * size * 0.3 > 0;
+  if (!fits(toMid)) return -toMid;
+  return fits(-toMid) && crowd(-toMid) < crowd(toMid) ? -toMid : toMid;
+}
+/** The hidden one peeking out: drawn by its piece just before the piece itself (see drawRoomIso), so it takes the piece's place in
+ *  the room's order, the piece covers it, and only an ear and an eye show past the piece's edge. */
+function drawSeekPeek() {
+  const g = game.seek, a = g && g.phase === "seek" && actors.get(g.id), cr = a && save.creatures.find(c => c.id === g.id), p = isoLayout().placed[g?.spot], h = p && pieceHits[p.id];
+  if (!cr || !h || !h.c) return;
+  const len = g.wrong.length ? 2.6 : 1.7, age = (game.time - g.peek) / 1000;
+  if (age < 0 || age > len) return;
+  const b = cueBake(h.c);
+  if (!b) return;
+  // it leans out on the side towards the middle of the room, and back; with less motion it's simply there a moment, still
+  const calm = opts().calm, s0 = clamp(age / 0.35, 0, 1), s1 = clamp((len - age) / 0.35, 0, 1), k = calm ? 1 : Math.min(s0, s1) ** 2 * (3 - 2 * Math.min(s0, s1));
+  const fy = isoPieceAt(p, -0.15)[1], side = g.side || 1, size = N.base * depth(fy);
+  const edge = h.x + (b.cx + side * b.span / 2) * PX, x = edge + side * size * lerp(-0.45, -0.1, k);
+  ctx.save();
+  ctx.beginPath(); side > 0 ? ctx.rect(edge, 0, W * 2, H * 2) : ctx.rect(-W, 0, edge + W, H * 2); ctx.clip();
+  ctx.globalAlpha = calm ? Math.min(s0, s1) : 1;
+  drawSprite(x, fy - size * 0.45, size, specOf(cr), { ...actorLook(a, cr), mood: "happy", face: "", glow: false });
+  ctx.restore();
 }

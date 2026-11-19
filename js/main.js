@@ -40,6 +40,7 @@ function update(dt) {
   if (game.scene === "nest") {
     const n = game.nest;
     updateActors(dt);
+    updateSeek(dt);
     updateWeather(dt);
     musicNotes(dt);
     swingPush *= Math.exp(-0.35 * dt);

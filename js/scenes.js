@@ -139,7 +139,7 @@ function setScene(scene) {
   // an egg left before it opened: no harm done, but going back to the stone after it counts (see habitTried)
   // and the stone itself waits for you, as it is (see stoneLeave)
   if (wasCrack && scene !== "crack" && game.egg?.state === "cracking" && game.egg.taps > 0 && !game.egg.conf.coop) { habitFell(); stoneLeave(game.egg); }
-  if (game.scene === "nest" && scene !== "nest") sfx.purrOff();
+  if (game.scene === "nest" && scene !== "nest") { sfx.purrOff(); stopSeek(); }
   game.scene = scene;
   if (wasCrack !== (scene === "crack") && W) refit();
   else quality.settle(2500);
