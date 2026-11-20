@@ -174,8 +174,8 @@ const hasDecor = id => save.decor[id] && save.decor[id].on;
 /** The chest keeps what's yours; the shop sells. Both work like a catalogue: four tabs, then things in sections, and a strip at the bottom for the one you picked. */
 const SHOP_TABS = [["decor", "candle", "Furniture"], ["look", "grotto", "Look"], ["pantry", "chest", "Pantry"], ["wear", "heart", "Wear"]];
 const MARKET_TABS = [["food", "cookie", "Food"], ["decor", "candle", "Furniture"], ["seeds", "sun", "Seeds"], ["reno", "hammer", "Renovation"]];
-/** From a shelf of the chest to the shop's matching counter: [the shop's tab, the button]. */
-const CHEST_SHOP = { decor: ["decor", "Buy more furniture"], pantry: ["food", "Buy food and seeds"], look: ["reno", "New rooms and renovation"] };
+/** From a shelf of the chest to the shop's matching counter: [the shop's tab, the button] (furniture has its own tile for it). */
+const CHEST_SHOP = { pantry: ["food", "Buy food and seeds"], look: ["reno", "New rooms and renovation"] };
 const DECOR_CATS = [["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
   rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty", keepjar: "pretty" };
@@ -217,7 +217,12 @@ function openShop() {
     };
     body = (!market ? `<div class="room-head"><span><b>${roomName(save.room)}</b><small>${tr("Room space")} ${used}/${ISO_CAP}</small></span><i class="room-space" style="--k:${Math.min(1, used / ISO_CAP)}"></i><button class="act" id="arrangeOpen">✥ ${tr("Rearrange")}</button></div>` : "")
       + (!items.length ? market ? `<p class="me-hint">${tr("You own everything here ✦")}</p>` : shopEmpty("Nothing here yet: furniture you buy at the shop waits in the chest.", "Nothing here yet: furniture comes from the shop, which opens after level {0}.", "decor") : "")
-      + DECOR_CATS.map(([cat, name]) => { const here = items.filter(d => (DECOR_CAT[d.id] || "pretty") === cat); return here.length ? `<h3 class="forge-h">${tr(name)}</h3><div class="tiles">${here.map(tile).join("")}</div>` : ""; }).join("");
+      + (() => {
+        // in the chest, one more place on the last shelf: the way to the shop, for more
+        const cats = DECOR_CATS.map(([cat, name]) => [name, items.filter(d => (DECOR_CAT[d.id] || "pretty") === cat)]).filter(([, here]) => here.length);
+        const more = !market && placeOk("shop") ? `<button class="tile shop-more" data-way="shop:decor"><img class="em px-thumb" src="${pxIcon("stall")}" alt=""><b>${tr("Buy more")}</b><small>${tr("at the shop")}</small></button>` : "";
+        return cats.map(([name, here], i) => `<h3 class="forge-h">${tr(name)}</h3><div class="tiles">${here.map(tile).join("")}${i === cats.length - 1 ? more : ""}</div>`).join("");
+      })();
   }
   // each shelf of the chest has its way to the shop, to buy more of the same (unless the shelf is bare: then that's all it shows)
   const buyMore = CHEST_SHOP[st.tab];

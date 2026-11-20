@@ -1079,6 +1079,8 @@ body.arranging #nestBottom, body.seeking #nestBottom { visibility: hidden; }
 #shop .card.wide > .orn, #shop #shopSub { display: none; }
 #shop .space-bar { margin-top: 4px; }
 /* an empty shelf: the open chest, a line on where such things come from, and the way there */
+.tile.shop-more { background: rgba(255, 233, 168, .03); }
+.tile.shop-more small { color: var(--gold); }
 .chest-shop { display: flex; justify-content: center; margin: 4px 0 10px; }
 .chest-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 28px 8px 12px; text-align: center; }
 .chest-empty img { width: 72px; height: 72px; image-rendering: pixelated; }
