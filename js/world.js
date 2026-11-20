@@ -138,13 +138,16 @@ function worldBase() {
   for (const [rx, ry] of [[232, 112], [290, 222], [176, 282], [120, 226]]) {
     const i = ry * W + rx, e = elev[i];
     if (!(e > 0.2 && e < 0.6) || roadD[i] < 9 || riverD[i] < 10 || wmWest(rx, ry) > 0.3 || wmEast(rx, ry) > 0.3 || places.some(([px, py]) => Math.hypot(rx - px, ry - py) < 30)) continue;
-    places.push([rx, ry]);
+    // (the first is a landmark: a great arch, a column and a stone owl on a clearing of grass; the others smaller)
+    const big = !places.ruin, k = big ? 1.5 : 1;
+    places.push([rx, ry]); places.ruin = true;
     const put = (x, y, col) => { g.fillStyle = `rgb(${col})`; g.fillRect(x, y, 1, 1); };
     stand.push({ y: ry, draw: () => {
-      g.fillStyle = "rgba(5,0,20,.4)"; g.fillRect(rx - 6, ry, 20, 1);
-      pxRuin("arch", put, rx, ry, 0.5, rx + ry);
-      pxRuin("column", put, rx + 11, ry + 2, 0.4, rx);
-      for (const [dx, dy] of [[-8, 1], [-5, 2], [5, 2]]) { put(rx + dx, ry + dy - 1, RUIN_STONE[3]); put(rx + dx + 1, ry + dy - 1, RUIN_STONE[2]); put(rx + dx, ry + dy, RUIN_STONE[1]); put(rx + dx + 1, ry + dy, RUIN_STONE[1]); }
+      g.fillStyle = "rgba(5,0,20,.4)"; g.fillRect(Math.round(rx - 7 * k), ry, Math.round(22 * k), 1);
+      pxRuin("arch", put, rx, ry, 0.55 * k, rx + ry, { ivy: 2 });
+      pxRuin("column", put, Math.round(rx + 12 * k), ry + 2, 0.42 * k, rx);
+      if (big) pxRuin("owl", put, rx - 13, ry + 3, 0.5, ry);
+      for (const [dx, dy] of [[-8, 1], [-5, 2], [5, 2]]) { const bx = Math.round(rx + dx * k); put(bx, ry + dy - 1, RUIN_STONE[3]); put(bx + 1, ry + dy - 1, RUIN_STONE[2]); put(bx, ry + dy, RUIN_STONE[1]); put(bx + 1, ry + dy, RUIN_STONE[1]); }
     } });
   }
   for (let gy = 70; gy < H; gy += 5) for (let gx = 2; gx < W; gx += 6) {

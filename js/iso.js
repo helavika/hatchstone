@@ -3757,15 +3757,15 @@ function roomMaterials(id, hw, wall, S) {
    *  and crack; darker toward the roof. Returns a shade, or a colour of its own where something grows on it. */
   const rockTex = (al, z, sl, x, y) => {
     const f = facet(al + 5 * pxNoise(z * 0.07, seed), z, 23 * S, 10 * S, seed);
-    if (f.edge < 1) return { v: 0.03 };
+    if (f.edge < 1.4) return { v: 0.03 };
     // a chipped arris here and there: a notch of the crevice bitten out of the stone's rim
-    if (f.edge < 2 && pxHash(f.id & 1023, Math.floor((Math.atan2(f.oy, f.ox) + 4) * 2.2) + 7) > 0.9) return { v: 0.03 };
+    if (f.edge < 2.4 && pxHash(f.id & 1023, Math.floor((Math.atan2(f.oy, f.ox) + 4) * 2.2) + 7) > 0.9) return { v: 0.03 };
     const g = growthOn(f, al, z, sl, x, y, true);
     if (g) return g;
     const up = f.oy, lt = f.ox * sl;
     // (flat across the stone: its shade darkens toward the roof by where the stone's middle is, not pixel by pixel)
-    let v = (f.sh < 0.3 ? 0.36 : f.sh < 0.72 ? 0.45 : 0.54) + (sl > 0 ? 0.07 : -0.07) - 0.24 * Math.round((z - f.oy * 10 * S) / wall * 4) / 4;
-    if (f.edge < 2.2) v += up > 0.05 || lt > 0.3 ? 0.2 : -0.16;
+    let v = (f.sh < 0.3 ? 0.3 : f.sh < 0.72 ? 0.47 : 0.64) + (sl > 0 ? 0.07 : -0.07) - 0.24 * Math.round((z - f.oy * 10 * S) / wall * 4) / 4;
+    if (f.edge < 2.6) v += up > 0.05 || lt > 0.3 ? 0.2 : -0.16;
     else if (f.edge < 3.6 && up < -0.15) v -= 0.08;
     else if (f.edge < 3.6 && (up > 0.2 || lt > 0.4)) v += 0.07;
     const ph = pxHash(Math.round(x) * 3, Math.round(y) * 5 + seed);
@@ -3777,12 +3777,12 @@ function roomMaterials(id, hw, wall, S) {
    *  (toward the light) bevelled bright and its edge toward you in shadow, dark gaps between; the odd crack. */
   const floorTex = (u, v, x, y, ao, lk) => {
     const f = facet(u * hw, v * hw, 15 * S, 15 * S, seed + 5);
-    if (f.edge < 1.1) return { v: 0.06 - 0.04 * ao, gap: true };
+    if (f.edge < 1.5) return { v: 0.06 - 0.04 * ao, gap: true };
     // worn and knocked: a notch chipped out of a stone's edge here and there, the grit showing in it
-    if (f.edge < 2.1 && pxHash(f.id & 1023, Math.floor((Math.atan2(f.oy, f.ox) + 4) * 2.2)) > 0.88) return { v: 0.08 - 0.04 * ao, gap: true };
+    if (f.edge < 2.5 && pxHash(f.id & 1023, Math.floor((Math.atan2(f.oy, f.ox) + 4) * 2.2)) > 0.88) return { v: 0.08 - 0.04 * ao, gap: true };
     const toward = f.ox * 0.85 + f.oy * 0.35;   // < 0: the side toward the back left, which faces the light
-    let val = (f.sh < 0.3 ? 0.34 : f.sh < 0.7 ? 0.42 : 0.5) + 0.24 * lk;
-    if (f.edge < 2.3) val += toward < -0.08 ? 0.18 : toward > 0.08 ? -0.17 : 0;
+    let val = (f.sh < 0.3 ? 0.28 : f.sh < 0.7 ? 0.44 : 0.6) + 0.24 * lk;
+    if (f.edge < 2.7) val += toward < -0.08 ? 0.18 : toward > 0.08 ? -0.17 : 0;
     else if (f.edge < 3.6 && toward > 0.25) val -= 0.08;
     const ph = pxHash(Math.round(x) * 7, Math.round(y) * 3 + seed);
     if (ph > 0.985) val -= 0.16; else if (ph < 0.01) val += 0.12;
@@ -4020,7 +4020,9 @@ function roomMaterials(id, hw, wall, S) {
         if (m > 0.62) { const cu = facet(u * hw, v * hw, 7 * S, 7 * S, seed + 13); return isoTone(mossC, (cu.edge < 1 ? 0.18 : 0.38 + 0.3 * (-cu.ox * 0.6 - cu.oy * 0.8)) + 0.2 * lk - 0.45 * ao, x, y, 0.2); }
       }
       if (pxHash(x, y + seed) > 0.9975) return crys[2];
-      return isoTone(wallC, val - 0.45 * ao, x, y, mood ? 0.08 : 0.3);
+      // (at home the floor darkens toward its front edges and into the walls in ordered-dither steps, not one hard band)
+      const edgeK = mood ? clamp((Math.max(u, v) - 0.84) / 0.16, 0, 1) * 0.7 + Math.min(1, ao * 1.4) * 0.5 : 0;
+      return isoTone(wallC, val - 0.45 * ao - (PX_BAYER[(y & 3) * 4 + (x & 3)] < edgeK ? 0.15 : 0), x, y, mood ? 0.08 : 0.3);
     }
     // outdoors: the ground rolls a little (lit where it tips toward the light), grass in darker and paler patches, the
     // blades themselves come after; trodden paths of bare earth with pebbles, grass creeping in from their edges
@@ -5135,6 +5137,8 @@ function paintRoomIso(id) {
   const { kind, art, night, wallR, crys, ground, seed, indoor, hexes, ruinStone, moss, oak, daub, ashlar, wallC, ruinH, wood, stone, roomKindNow, garden, mood, mossy, mossC, ashlarPx, facet, rockPx, timberAt, timberPx, shoreAt, oakPx, oakH, ice, auroraG, auroraP, auroraAt, columnAt, plH, rockTex, pathD, dirt, floorPx } = roomMaterials(id, hw, wall, S);
   const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
   const crypt = mood === "crypt";
+  // (the crystal caves' hanging moss, and its roots: dark, cool and muted, see the strands from the wall's top below)
+  const strandC = hexes(["#0b1418", "#123033", "#2a5c58", "#4f8a7a"]), strandR = hexes(["#160c26", "#2a1e1a", "#4a362c", "#6e5444"]);
   // where each pixel of the walls and the floor lies in the room (u, v along the floor, z up), for the light that falls on it
   const surf = new Float32Array(w * h * 3).fill(-1), lights = [];
   // where the top of the wall is in each column (the rock's ragged edge), for what grows along it: paintFixtures
@@ -5330,6 +5334,16 @@ function paintRoomIso(id) {
         const len = Math.round((3 + 12 * pxHash(x + 3, seed) ** 2) * S) + 2;
         for (let k = 0; k < len; k++) put(x, yTop + 2 + k, ice[clamp(Math.round(5 - k / len * 3 + (side < 0 ? 0 : -1)), 1, 6)]);
         put(x, yTop + 3, ice[6]);
+      } else if (mood === "crystal" && pxHash(x, seed + 19) > 0.88 - 0.2 * pxNoise(x * 0.06, seed + 3)) {
+        // in the crystal caves, strands of dark moss and the odd root hanging from the rock's ragged top (#317): muted teal and
+        // deep green to sit with the violet, a tuft where each starts, a leaf-tick now and then, a paler tip
+        const len = Math.round((5 + 22 * pxHash(x + 7, seed) ** 2) * S) + 3, C = pxHash(x, seed + 23) > 0.8 ? strandR : strandC;
+        put(x - 1, yTop + 1, C[1]); put(x + 1, yTop + 1, C[side < 0 ? 2 : 1]);
+        for (let k = 0; k < len; k++) {
+          const sx = x + Math.round(Math.sin(k * 0.35 + x) * 0.7);
+          put(sx, yTop + 1 + k, C[k === len - 1 ? 3 : k % 4 === 1 ? 3 : 2]); if (k < len * 0.6) put(sx + 1, yTop + 1 + k, C[1]);
+          if (k % 5 === 3 && k < len - 2) put(sx + (k % 10 === 3 ? 1 : -1), yTop + 1 + k, C[side < 0 ? 2 : 1]);
+        }
       } else if (kind === "cave" && !crypt && pxHash(x, seed + 5) > 0.82) {
         const len = 2 + Math.round(pxHash(x + 3, seed) * 5);
         for (let k = 0; k < len; k++) put(x, yTop + 2 + k, pxPick(wallC, 0.62 - k * 0.07, x, k));

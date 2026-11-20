@@ -557,9 +557,9 @@ function walkRuin(seed, w, h, season) {
   });
 }
 /** A piece of old stonework by the path (#317): a broken column, a lone arch, stairs to nowhere or a stone owl (see pxRuin). */
-function walkRelic(kind, seed, s, season) {
+function walkRelic(kind, seed, s, season, ivy = 1) {
   // (painted once to find how far it reaches, then into a canvas just that big, its foot at the bottom)
-  const box = [1e9, 1e9, -1e9, -1e9], opt = { snow: season === "winter" };
+  const box = [1e9, 1e9, -1e9, -1e9], opt = { snow: season === "winter", ivy };
   pxRuin(kind, (x, y) => { box[0] = Math.min(box[0], x); box[1] = Math.min(box[1], y); box[2] = Math.max(box[2], x); box[3] = Math.max(box[3], y); }, 0, 0, s, seed, opt);
   return isoArt(box[2] - box[0] + 3, box[3] - box[1] + 3, T => pxRuin(kind, (x, y, col) => T.px(x, y, col), 1 - box[0], 1 - box[1], s, seed, opt));
 }
@@ -702,18 +702,23 @@ function walkBake(g) {
       const kind = land.trees[Math.floor(R() * land.trees.length)];
       const tall = dk ? 0.4 : kind === "cap" ? 0.08 + R() * 0.07 : kind === "pine" ? 0.2 + R() * 0.14 : 0.17 + R() * 0.12;
       put(walkTree(kind, Math.round(AH * tall), Math.floor(R() * 999), g.theme, dk && kind === "round" ? "summer" : season), x, base);
-    } else if (r < 0.72 && land.ruins) {
-      // the ruins' own lands: bits of wall, and among them old columns, arches, stairs and statues (#317)
-      const k = R();
-      if (k < 0.45) put(walkRuin(Math.floor(R() * 99), 22 + Math.floor(R() * 16), 12 + Math.floor(R() * 12), season), x, base);
-      else put(walkRelic(PX_RUIN_KINDS[Math.floor(R() * 4)], Math.floor(R() * 99), 0.8 + R() * 0.35, season), x, base);
-    }
-    // (and anywhere else, now and then, something old left standing in the grass)
-    else if (r < 0.61) put(walkRelic(PX_RUIN_KINDS[Math.floor(R() * 4)], Math.floor(R() * 99), 0.7 + R() * 0.25, season), x, base);
+    } else if (r < 0.72 && land.ruins) put(walkRuin(Math.floor(R() * 99), 22 + Math.floor(R() * 16), 12 + Math.floor(R() * 12), season), x, base);
     else if (r < 0.85 && land.rocks) put(walkRock(Math.floor(R() * 99), 10 + Math.floor(R() * 8), season), x, base + 1);
     else put(walkBush(Math.floor(R() * 999), 14 + Math.floor(R() * 8), season, R() < 0.3), x, base + 1);
   }
   if (geo.ledge) for (let x = geo.ledge.x0 - 6; x < geo.edge - 20; x += 30 + Math.floor(R() * 30)) put(walkRock(Math.floor(R() * 99), 10 + Math.floor(R() * 10), season), x, ground(x));
+  // landmarks of old stone just behind the path, nearer than the verge (#317): a column, stairs, a stone owl, from a glowling's
+  // height to two or three times it, and now and then a great ivy-wrapped arch the path runs past. About one a screen in the
+  // ruins' own lands, fewer elsewhere; clear of the hill, the stream, the finds and the end. (From a stream of their own, so the
+  // trees and bushes along the verge stay just as they were.)
+  const RL = seeded(`walk|${g.path}|${g.theme}|${season}|ruins`), every = AW * (land.ruins ? 1 : 2.4);
+  for (let x = Math.round(AW * 0.75 + RL() * AW * 0.3); x < len - AW * 0.2; x += Math.round(every * (0.8 + RL() * 0.45))) {
+    const k = RL(), big = k < (land.ruins ? 0.3 : 0.2), kind = big ? "arch" : ["column", "stairs", "owl", "arch"][Math.floor(RL() * 4)];
+    const tall = geo.s * (big ? 2.4 + RL() * 0.5 : 1 + RL() * 1.2), seed = Math.floor(RL() * 999);
+    const sr = tall / pxRuinSize(kind, 1)[1], half = pxRuinSize(kind, sr)[0] * 0.75;
+    if ([x - half, x, x + half].some(busy) || darkK(x) > 0.2 || (!land.ruins && RL() < 0.35)) continue;
+    put(walkRelic(kind, seed, sr, season, big ? 2 : 1), x, ground(x) - 1);
+  }
   // the end of the path
   if (!geo.ledge) put(walkCairn(), geo.end + 10, ground(geo.end + 10) + 1);
 
