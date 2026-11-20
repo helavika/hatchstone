@@ -1392,6 +1392,9 @@ function tapIncubator() {
   const cr = { mem: [{ t: Date.now(), k: "Hatched in the incubator: a mix of {0}", a: [inc.mix.parents.join(" × ")] }], id: save.nextId++, sp: "hybrid", mix: inc.mix, name: (inc.shiny ? "✦ " : "") + inc.mix.name, shiny: inc.shiny, level: 1, xp: 0, tummy: 70, joy: 90, energy: 80, sleeping: false, last: now, born: now };
   cr.habit = newHabit("hybrid");
   save.creatures.push(cr);
+  // (its hatching said first, then where it settled, if that's news)
+  toast(inc.surprise ? tr("{0} hatched, with a surprise trait! ✦", cr.name) : tr("{0} hatched! ✦", cr.name));
+  settleNew(cr);
   save.hybrids = save.hybrids || [];
   save.hybrids.push({ id: cr.id, name: inc.mix.name, parents: inc.mix.parents, date: now });
   save.incubator = null;
@@ -1404,7 +1407,6 @@ function tapIncubator() {
   burst(x, y - N.base * 0.5, 40, ["#fff", ...inc.mix.pal], 1.5);
   sfx.burst("rare", !music.sting("hatch")); // (with the music on, its phrase in the song's key over the crunch)
   setTimeout(() => sfx.chirp(inc.mix.voice), 500);
-  toast(inc.surprise ? tr("{0} hatched, with a surprise trait! ✦", cr.name) : tr("{0} hatched! ✦", cr.name));
   renderNest(true);
 }
 

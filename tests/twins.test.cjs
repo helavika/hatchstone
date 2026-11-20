@@ -64,7 +64,7 @@ function hatch(creatures, { coop = false, shiny = false, sp = 'mothlet', seed = 
     roll, LANG: 'en', navigator: {}, save: { seen: { [sp]: { count: creatures.length } }, geodes: {}, creatures, nextId: 50, active: 0, decor: {} },
     tr: fill, clamp: (v, a, b) => Math.max(a, Math.min(b, v)), $: el, CAVES: ['Shallows'], geodeImage: () => '',
     applyTime: () => {}, addXP: (c, n) => xp.push([c.id, n]), persist: () => {}, updateTopbar: () => {}, sfx: { chirp: () => {} },
-    specOf: () => ({ voice: 1 }), hasDecor: () => false,
+    specOf: () => ({ voice: 1 }), hasDecor: () => false, settleNew: c => { c.room = 0; return 0; },
   };
   vm.createContext(page);
   vm.runInContext('Math.random = () => roll(); const pick = arr => arr[Math.floor(Math.random() * arr.length)];\n'

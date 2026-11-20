@@ -729,7 +729,7 @@ function tripFind(f, k, got, part = 1) {
 function tripExtra(pl, k) { const more = []; tripFind(pick(pl.finds), k, more, 0.5); return more.map(x => "+" + x); }
 /** Bring back anyone whose expedition is over, with their finds; returns what they said. */
 function tripsHome() {
-  const now = Date.now(), back = [];
+  const now = Date.now(), back = [], came = [];
   for (const c of save.creatures) {
     if (!c.trip || now < c.trip.until) continue;
     const pl = tripPlace(c.trip.place) || TRIP_PLACES[0], mate = tripMate(c), pals = mate && areFriends(c, mate), all = [];
@@ -751,7 +751,7 @@ function tripsHome() {
       const mine = [...got, ...ours];
       if (pals) remember(x, mine.length ? "Went to {0} with {1} ♥ and came back with {2}" : "Went to {0} with {1} ♥", placeName(pl), (x === c ? mate : c).name, mine.join(", "));
       else remember(x, got.length ? "Came back from {0} with {1}" : "Came back from {0}", placeName(pl), got.join(", "));
-      x.trip = null; x.roam = false; x.outAt = x.outAt || now;
+      x.trip = null; x.roam = false; x.outAt = x.outAt || now; came.push(x);
     }
     all.push(...ours);
     // (two friends tell it together, so their shards are counted into one heap)
@@ -759,6 +759,8 @@ function tripsHome() {
     back.push((pals ? tr(pl.pair, c.name, mate.name) : tr(pick(pl.tales), c.name)) + (told.length ? " " + tr("Brought back: {0}", told.join(" · ")) : ""));
   }
   if (back.length) { settleHome(); persist(); updateTopbar(); }
+  // (no bed free yet: whoever's back waits out exploring, and settleHome calls it in once there's room)
+  tripsHome.waiting = came.filter(c => c.out);
   return back;
 }
 /** The send-off sheet: who's away, then who goes (one, or two together), where and for how long; what the pick adds is said before anyone sets off. */
@@ -810,6 +812,8 @@ function tellTrips() {
   helperWater();
   const back = tripsHome();
   back.forEach((t, i) => setTimeout(() => toast(t), i * 2800));
+  const wait = tripsHome.waiting || [];
+  if (wait.length) setTimeout(() => toast(tr("No bed free yet: {0} keeps exploring till there's room", wait.map(c => c.name).join(", "))), back.length * 2800);
 }
 
 // ---------- helpers: a grown glowling may go out into the valley and lend one of its keepers a hand ----------
@@ -1989,6 +1993,51 @@ function settleHome() {
   }
   if (sent.length) { persist(); if (typeof updateTopbar === "function") updateTopbar(); offerSpace(sent); }
   return sent;
+}
+/** How long a glowling's away when it sets off by itself to make room (#316): the send-off sheet's own default. */
+const ROOM_TRIP_HRS = 4;
+/**
+ * A newcomer's bed (#316): the room it was meant for (want) if there's space, else the room you're in, the nest, then any
+ * other with a free spot. With every room full, someone else sets off to make room (roomMaker) and the newcomer takes its
+ * bed. Says so with a toast when it isn't the room it was meant for, or someone had to go; returns the room. Only for new
+ * arrivals: an older save already over the cap is left to settleHome, which lets the extra ones explore, as it always did.
+ */
+function settleNew(c, want = atHome() ? save.room : nestRoom()) {
+  const cap = homeCap(), homes = save.rooms.map((_, i) => i).filter(i => !isPlace(i)), order = [want, save.room, nestRoom(), ...homes].filter(i => homes.includes(i));
+  const free = () => order.find(i => residents(i).filter(x => x !== c).length < cap);
+  let r = free(), said = [];
+  const x = r === undefined ? roomMaker(c, want) : null;
+  if (x) { said.push(makeRoom(x, c)); r = free(); }
+  c.room = r ?? order[0] ?? 0; c.homeAt = Date.now();
+  if (c.room !== want && homes.includes(want)) said.push(tr("The {1} is full, so {0} settled in the {2} ✦", c.name, roomName(want).toLowerCase(), roomName(c.room).toLowerCase()));
+  said.forEach(t => toast(t));
+  return c.room;
+}
+/**
+ * Who goes to make room: someone at home, never the newcomer, and not the one you're looking after while anyone else can.
+ * One whose going frees a bed (not one of an old save's crowd), awake before a sleeper, then not your very first glowling,
+ * then one from the newcomer's own room, then rested and content, the liveliest first.
+ */
+function roomMaker(c, want) {
+  const home = save.creatures.filter(x => x !== c && !x.out && !x.trip && !x.job), pool = home.filter(x => x.id !== save.active);
+  const score = x => (residents(roomOf(x)).filter(y => y !== c).length <= homeCap() ? 32 : 0) + (x.sleeping ? 0 : 16) + (x !== save.creatures[0] ? 8 : 0) + (roomOf(x) === want ? 4 : 0) + ((x.energy ?? 0) >= 50 ? 2 : 0) + (content(x) ? 1 : 0);
+  return (pool.length ? pool : home).sort((p, q) => score(q) - score(p) || (q.energy ?? 0) - (p.energy ?? 0))[0] || null;
+}
+/**
+ * Off to make room: on an expedition like any other once Pip's camp is open (somewhere open that suits it, back with finds
+ * as usual), else out exploring the grotto. Either way it waits out there till a bed is free (see tripsHome, settleHome).
+ * Returns what to say.
+ */
+function makeRoom(x, c) {
+  const now = Date.now();
+  x.out = true; x.outAt = now; x.sleeping = false; x.selfSlept = false;
+  if (save.active === x.id) save.active = c.id;
+  if (!placeOk("trail")) { remember(x, "Went out exploring by itself, to make room for {0}", c.name); return tr("Every room is full: {0} went out exploring to make room", x.name); }
+  const open = TRIP_PLACES.filter(pl => pl.ok()), pl = open.find(pl => tripSuits(pl, x)) || open[0];
+  x.roam = true; x.trip = { place: pl.id, hrs: ROOM_TRIP_HRS, until: now + ROOM_TRIP_HRS * 3600e3 };
+  bump("trips");
+  remember(x, "Set off for {0} by itself, to make room for {1}", placeName(pl), c.name);
+  return tr("Every room is full: {0} set off for {1} to make room 🧭 back in {2}", x.name, placeName(pl), tr("{0} h", ROOM_TRIP_HRS));
 }
 /** Someone had to go out because home is full: say so, and offer what helps (a new room, more space, or an expedition). */
 function offerSpace(sent) {
