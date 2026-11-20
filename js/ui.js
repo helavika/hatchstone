@@ -438,6 +438,13 @@ $("worldTab").addEventListener("click", () => {
   if (worldOpen()) { sfx.tick(); closeWorld(); } else { openWorld(); bakeAhead(); }
 });
 $("worldClose").addEventListener("click", () => { sfx.tick(); closeWorld(); });
+// ← and → in a place step to the places either side round the valley, like its arrows (on a walk they walk: see walk.js)
+addEventListener("keydown", ev => {
+  const k = { ArrowLeft: "prev", ArrowRight: "next" }[ev.key], b = k && document.querySelector(`#placeWays .place-way.${k}`);
+  if (!b || game.scene !== "nest" || $("placeBar").hidden || ev.altKey || ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.repeat || talkNow || worldOpen() || arrange.on) return;
+  if (ev.target.closest?.("input, textarea, select, [contenteditable]") || $$(".overlay").some(o => !o.classList.contains("hidden"))) return;
+  ev.preventDefault(); b.click();
+});
 $("spaceClose").addEventListener("click", () => show("spaceSheet", false));
 $("thingClose").addEventListener("click", () => show("thingSheet", false));
 // the trail of levels closes back to the grotto's hall

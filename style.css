@@ -1263,6 +1263,14 @@ body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigte
 #placeActs { display: flex; gap: 8px; align-items: stretch; }
 #placeActs .act { flex: 1; justify-content: center; }
 body.compact #placeBar { bottom: calc(var(--bottom) + 124px); }
+/* the arrows to the next places round the valley: at the screen's edges, just over the bar, in the empty ground by the room's front corners */
+#placeWays { position: absolute; bottom: calc(100% + 10px); left: calc((100% - 100vw) / 2 + 8px); width: calc(100vw - 16px); display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+.place-way { pointer-events: auto; display: flex; align-items: center; gap: 2px; max-width: 40vw; min-height: 40px; padding: 4px 8px 4px 4px; border: 0; cursor: pointer; font: inherit; font-size: 14px; line-height: 1.05; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame), inset 2px 2px 0 0 var(--px-gold-hi), inset -2px -2px 0 0 var(--px-gold-lo); }
+.place-way.next { flex-direction: row-reverse; padding: 4px 4px 4px 8px; }
+.place-way .ic { width: 22px; height: 22px; flex: none; }
+.place-way small { font-size: 14px; text-align: left; overflow-wrap: anywhere; }
+.place-way.next small { text-align: right; }
+.place-way:active { transform: translateY(1px); }
 body.compact .place-who img { width: 39px; height: 39px; }
 /* errands: a keeper's marks by the name (lit once a wish is brought), the wish in one quiet line, one clear button when you have it;
    the bed's fourth plot; and the lines of a keeper's own story under their card in the Book */

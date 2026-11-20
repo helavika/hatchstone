@@ -1772,6 +1772,10 @@ const UK = {
   "Up there the sky never quite goes dark. The path is steep and still being cleared. One day we'll stand under it.": "Там угорі небо ніколи не темніє до кінця. Стежка крута, її ще розчищають. Колись ми станемо під цим сяйвом.",
   "The dark held for so long. But the stones are standing, and so are we.": "Темрява трималася так довго. Але камені стоять, і ми теж стоїмо.",
   "I'm still scared of the dark. I'll go anyway, with my map, once the road is clear. Will you come too?": "Мені досі страшно в темряві. Але я все одно піду, з мапою, щойно дорогу розчистять. Підеш зі мною?",
+  // the way out of the burrow, and the place-to-place arrows round the valley (#314)
+  "Out to the valley": "У долину",
+  "Previous place: {0}": "Попереднє місце: {0}",
+  "Next place: {0}": "Наступне місце: {0}",
   // grown glowlings out helping in the valley (#309)
   "Scouting with Pip": "Розвідка з Піпом",
   "Expeditions bring back one more find.": "Кожна експедиція приносить на одну знахідку більше.",
