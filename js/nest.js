@@ -174,6 +174,8 @@ const hasDecor = id => save.decor[id] && save.decor[id].on;
 /** The chest keeps what's yours; the shop sells. Both work like a catalogue: four tabs, then things in sections, and a strip at the bottom for the one you picked. */
 const SHOP_TABS = [["decor", "candle", "Furniture"], ["look", "grotto", "Look"], ["pantry", "chest", "Pantry"], ["wear", "heart", "Wear"]];
 const MARKET_TABS = [["food", "cookie", "Food"], ["decor", "candle", "Furniture"], ["seeds", "sun", "Seeds"], ["reno", "hammer", "Renovation"]];
+/** From a shelf of the chest to the shop's matching counter: [the shop's tab, the button]. */
+const CHEST_SHOP = { decor: ["decor", "Buy more furniture"], pantry: ["food", "Buy food and seeds"], look: ["reno", "New rooms and renovation"] };
 const DECOR_CATS = [["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
   rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty", keepjar: "pretty" };
@@ -217,6 +219,9 @@ function openShop() {
       + (!items.length ? market ? `<p class="me-hint">${tr("You own everything here ✦")}</p>` : shopEmpty("Nothing here yet: furniture you buy at the shop waits in the chest.", "Nothing here yet: furniture comes from the shop, which opens after level {0}.", "decor") : "")
       + DECOR_CATS.map(([cat, name]) => { const here = items.filter(d => (DECOR_CAT[d.id] || "pretty") === cat); return here.length ? `<h3 class="forge-h">${tr(name)}</h3><div class="tiles">${here.map(tile).join("")}</div>` : ""; }).join("");
   }
+  // each shelf of the chest has its way to the shop, to buy more of the same (unless the shelf is bare: then that's all it shows)
+  const buyMore = CHEST_SHOP[st.tab];
+  if (!market && buyMore && placeOk("shop") && !body.includes("chest-empty")) body = `<div class="chest-shop"><button class="act" data-way="shop:${buyMore[0]}">${ic("stall")}${tr(buyMore[1])}</button></div>` + body;
   $("shopList").innerHTML = tabs + `<div class="shop-body">${body}</div>`;
   renderShopPick();
   $$("#shopList [data-shoptab]").forEach(b => b.addEventListener("click", () => { st.tab = b.dataset.shoptab; st.pick = null; openShop(); }));
