@@ -718,7 +718,6 @@ $("copyCode").addEventListener("click", copyCode);
 $("shareCode").addEventListener("click", shareCode);
 $("saveCode").addEventListener("click", saveCodeFile);
 $("restoreBtn").addEventListener("click", restoreFromCode);
-$("startOver").addEventListener("click", startOver);
 $("loadFile").addEventListener("click", () => $("fileIn").click());
 $("fileIn").addEventListener("change", async e => {
   const f = e.target.files[0];

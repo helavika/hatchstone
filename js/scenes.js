@@ -213,6 +213,9 @@ function openOpts() {
     <button class="opt-toggle${o.big ? " on" : ""}" data-toggle="big"><span>${tr("Bigger text")}<small>${tr("for the cards, dialogs and hints")}</small></span><b>${o.big ? tr("on") : tr("off")}</b></button>
     <button class="opt-toggle${o.stats ? " on" : ""}" data-toggle="stats"><span>${tr("Anonymous play stats")}<small>${tr("how long and what is played, to make the game better; never your name or your nest")}</small></span><b>${o.stats ? tr("on") : tr("off")}</b></button>`;
   $("optsList").innerHTML += `<div class="opt"><span>${ic("sparkle")}${tr("How glowlings shine")}</span></div><div class="seg look-seg">${[["Classic", 0], ["Glow", 1], ["Spirit", 2]].map(([n, v]) => `<button data-look="${v}" class="${o.look === v ? "on" : ""}">${tr(n)}</button>`).join("")}</div>`;
+  // last, apart from the rest: the nest wiped and the game begun again (startOver in ui.js asks first)
+  $("optsList").innerHTML += `<h3 class="forge-h">${tr("Start over")}</h3><p class="me-hint">${tr("A new game from the very beginning: a new first stone, a new first glowling. Keep a backup code first (Menu → Back up nest) if you might want this nest back.")}</p><button class="act opt-reset" id="startOver">${ic("nest")}${tr("Reset the nest")}</button>`;
+  $("startOver").addEventListener("click", () => { show("optsSheet", false); startOver(); });
   $$("#optsList [data-look]").forEach(b => b.addEventListener("click", () => { setOpt("look", Number(b.dataset.look)); sfx.chirp(1); openOpts(); }));
   $$("#optsList [data-opt]").forEach(r => r.addEventListener("input", () => {
     const v = Number(r.value); $(r.dataset.opt === "music" ? "vMusic" : "vSfx").textContent = pct(v);
