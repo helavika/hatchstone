@@ -274,6 +274,17 @@ const WORLD = [
   { id: "trail", name: "Expeditions", icon: "compass", at: [276, 318], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: () => arriveAt("camp") },
 ];
 const placeOk = id => { const w = WORLD.find(x => x.id === id); return !w.ok || w.ok(); };
+/**
+ * The valley's places in a ring, the way its roads go round the map clockwise: home, the lab, the shop, the camp, the garden,
+ * the forge, the grotto, and home again. The arrows at a place's edges step along it (#314), over any place not open yet.
+ */
+const VALLEY_RING = ["nest", "lab", "shop", "trail", "garden", "forge", "grotto"];
+/** The next open place round the ring from `here`: dir 1 is clockwise (the right arrow), -1 the other way; null if there's none. */
+const ringNext = (here, dir, ok = placeOk) => { const n = VALLEY_RING.length, at = VALLEY_RING.indexOf(here); for (let k = 1; k < n; k++) { const id = VALLEY_RING[((at + dir * k) % n + n) % n]; if (ok(id)) return id; } return null; };
+/** The arrows' two neighbours from a place: none if it isn't on the ring, and only the right one when both would be the same place. */
+const ringWays = (here, ok = placeOk) => { if (!VALLEY_RING.includes(here)) return {}; const prev = ringNext(here, -1, ok), next = ringNext(here, 1, ok); return { prev: prev === next ? null : prev, next }; };
+/** On along the ring to a neighbouring place, as from the map. */
+function goWay(id) { if (!id) return; sfx.tick(); if (coopSession) coopEnd("navigation", true); WORLD.find(w => w.id === id).go(); }
 /** A place that has just opened: noted once, with a toast and a "new" tag on the map until you've looked. */
 function checkPlaces() {
   const ok = WORLD.filter(w => placeOk(w.id)).map(w => w.id);
@@ -1665,6 +1676,10 @@ function renderPlaceBar() {
   $$("#placeActs [data-act]").forEach(b => b.addEventListener("click", () => { sfx.tick(); h.act[Number(b.dataset.act)][2](); }));
   $("placeTalk")?.addEventListener("click", () => tapHero());
   $("placeGive")?.addEventListener("click", bringWish);
+  // the arrows at the screen's edges, to the places either side round the valley, each with its name under it
+  const ways = ringWays(wherePlace());
+  $("placeWays").innerHTML = [["prev", "left"], ["next", "right"]].map(([k, icon]) => ways[k] ? `<button class="place-way ${k}" data-way-to="${ways[k]}" aria-label="${tr(k === "prev" ? "Previous place: {0}" : "Next place: {0}", tr(WORLD.find(w => w.id === ways[k]).name))}">${ic(icon)}<small>${tr(WORLD.find(w => w.id === ways[k]).name)}</small></button>` : "<span></span>").join("");
+  $$("#placeWays [data-way-to]").forEach(b => b.addEventListener("click", () => goWay(b.dataset.wayTo)));
 }
 /** Arriving at a place: its keeper says hello. */
 function arriveAt(kind) {
@@ -1697,12 +1712,13 @@ function arriveAt(kind) {
 /**
  * The home rooms are a row of caves, west to east, in the order they were carved: each room's left (west) wall opens onto the
  * one before it and its right (east) wall onto the one after, so you come into a room through the wall facing the way you
- * came. The rooms at the ends have a tunnel on their inner side only. New rooms come from the shop's Renovation, not from here.
+ * came. The first cave's west wall is the burrow's mouth, the way out into the valley (#314); the last one's east wall is
+ * rock. New rooms come from the shop's Renovation, not from here.
  */
 function roomDoors(i = save.room) {
   const homes = save.rooms.map((_, k) => k).filter(k => roomOpen(k) && !isOutside(k)), at = homes.indexOf(i), out = [];
   if (at < 0) return out;
-  if (at > 0) out.push({ wall: "L", to: homes[at - 1] });
+  out.push(at > 0 ? { wall: "L", to: homes[at - 1] } : { wall: "L", out: true });
   if (at < homes.length - 1) out.push({ wall: "R", to: homes[at + 1] });
   return out;
 }
@@ -1732,6 +1748,8 @@ function passageShape(wall) {
 }
 /** Which way is into the rock behind a wall, on screen: a tunnel's far end lies that way. */
 const intoWall = (wall, d) => { const [x0, y0] = isoAt(DOOR_AT, DOOR_AT), [x1, y1] = wall === "R" ? isoAt(DOOR_AT, DOOR_AT - d) : isoAt(DOOR_AT - d, DOOR_AT); return [x1 - x0, y1 - y0]; };
+/** The valley at the end of the burrow's mouth: moonlight, and a night sky's blues where a cave would have its crystals. */
+const VALLEY_LIGHT = { glow: "#bcd6ff", crystal: ["#2c3f78", "#8fb3ea"] };
 /** A room's rock and its light: the cave it shows, as a wall ramp from dark to lit and the glow of its crystals. */
 function caveColours(i) {
   const id = i === save.room ? currentTheme() : roomTheme(i, save.rooms[i].theme), art = caveArt(id, atHome(i));
@@ -1747,7 +1765,7 @@ const onScreen = (x, w, pad = 6) => clamp(x, pad + w / 2, W - pad - w / 2);
 function drawPassages() {
   passageShapes = [];
   for (const p of passages()) {
-    const pts = passageShape(p.wall), P = Math.max(1, Math.round(PX)), here = caveColours(save.room), there = caveColours(p.to);
+    const pts = passageShape(p.wall), P = Math.max(1, Math.round(PX)), here = caveColours(save.room), there = p.out ? VALLEY_LIGHT : caveColours(p.to);
     const rock = here.wall, n = pts.length - 1, [dx, dy] = intoWall(p.wall, DOOR_W * 0.7);
     const midX = (pts[0][0] + pts[n][0]) / 2, bot = (pts[0][1] + pts[n][1]) / 2, top = Math.min(...pts.map(q => q[1]));
     // grown outward from the middle of its foot, for the rim (the foot stays on the floor)
@@ -1771,16 +1789,17 @@ function drawPassages() {
     ctx.fillStyle = rock[4];
     for (let k = 0; k <= 8; k++) { const f = k / 8, x = pts[0][0] + (pts[n][0] - pts[0][0]) * f, y = pts[0][1] + (pts[n][1] - pts[0][1]) * f; ctx.fillRect(Math.round(x), Math.round(y - P * 2), P * 2, P); }
     // the far end, round the bend: the dark, and the next cave's light spilling up it and out over the floor
-    trace(far); ctx.fillStyle = "#07040e"; ctx.fill();
+    trace(far); ctx.fillStyle = p.out ? "#141c44" : "#07040e"; ctx.fill();
     const fb = (far[0][1] + far[n][1]) / 2, ft = Math.min(...far.map(q => q[1])), gl = ctx.createLinearGradient(0, fb, 0, ft);
     gl.addColorStop(0, hexA(there.glow, 0.7)); gl.addColorStop(0.55, hexA(there.crystal[1], 0.3)); gl.addColorStop(1, hexA(there.crystal[0], 0));
     ctx.fillStyle = gl; trace(far); ctx.fill();
     const pool = ctx.createRadialGradient(farX, fb, 0, farX, fb, Math.abs(pts[n][0] - pts[0][0]) * 0.6);
     pool.addColorStop(0, hexA(there.glow, 0.45)); pool.addColorStop(1, hexA(there.glow, 0));
     ctx.fillStyle = pool; ctx.fillRect(midX - 200, top, 400, bot - top + P * 4);
+    if (p.out) drawValleyEnd(far, P);
     ctx.restore();
     // where it goes, written over the mouth, kept on the screen
-    const label = roomName(p.to);
+    const label = p.out ? tr("Out to the valley") : roomName(p.to);
     fx.save(); fx.font = `400 ${Math.round(clamp(N.base * 0.2, 12, 16))}px ${PIXEL_FONT}`; fx.textAlign = "center";
     const lw = fx.measureText(label).width, lx = onScreen(midX, lw), ly = top - P * 3 - 4;
     fx.fillStyle = "#160c26"; for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) fx.fillText(label, lx + ox, ly + oy);
@@ -1788,6 +1807,16 @@ function drawPassages() {
     ctx.restore();
     passageShapes.push({ p, pts, label: { x: lx, w: lw } });
   }
+}
+/** Out of the burrow's mouth, the far end shows the valley by night: stars over a dark line of grass. */
+function drawValleyEnd(far, P) {
+  const xs = far.map(q => q[0]), x0 = Math.min(...xs), x1 = Math.max(...xs), top = Math.min(...far.map(q => q[1])), bot = Math.max(...far.map(q => q[1]));
+  ctx.save(); ctx.beginPath(); far.forEach(([x, y], k) => k ? ctx.lineTo(x, y) : ctx.moveTo(x, y)); ctx.closePath(); ctx.clip();
+  ctx.fillStyle = "#fff4d6";
+  for (let k = 0; k < 7; k++) ctx.fillRect(Math.round(x0 + (x1 - x0) * pxHash(k, 311)), Math.round(top + (bot - top) * 0.7 * pxHash(k, 312)), P, P);
+  ctx.fillStyle = "#1d3a2a"; ctx.fillRect(x0, bot - (bot - top) * 0.22, x1 - x0, bot - top);
+  ctx.fillStyle = "#2f5a3c"; for (let x = x0; x < x1; x += P * 2) ctx.fillRect(Math.round(x), Math.round(bot - (bot - top) * 0.22 - P * (pxHash(x | 0, 313) < 0.5 ? 1 : 2)), P, P * 2);
+  ctx.restore();
 }
 /** Which passage (if any) is under a finger. */
 function passageAt(x, y) {
@@ -1799,8 +1828,9 @@ function passageAt(x, y) {
   }
   return null;
 }
-/** Through a tunnel: out of this room's east wall is in at the next one's west wall, and back again. */
+/** Through a tunnel: out of this room's east wall is in at the next one's west wall, and back again; out of the burrow's mouth, the valley's map. */
 function goPassage(p) {
+  if (p.out) { if (!worldOpen()) { openWorld(); bakeAhead(); } return; }
   sfx.tick(); goRoom(p.to, p.wall === "R" ? "L" : "R");
 }
 /** Which room a decoration stands in, or -1 if it's in storage. */

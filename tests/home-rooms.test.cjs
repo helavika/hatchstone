@@ -170,14 +170,14 @@ function row(room, Wd = 390) {
 }
 
 test('the tunnels stop at both ends of the row of caves, through the rooms of home only', () => {
-  const doors = r => Object.fromEntries(row(r).roomDoors().map(d => [d.wall, d.to]));
-  // nothing before the nest, nothing past the study; the garden outside and the shop are skipped
-  assert.deepEqual(doors(0), { R: 2 });
+  const doors = r => Object.fromEntries(row(r).roomDoors().map(d => [d.wall, d.out ? 'out' : d.to]));
+  // before the nest, the burrow's mouth out into the valley (#314); nothing past the study; the garden outside and the shop are skipped
+  assert.deepEqual(doors(0), { L: 'out', R: 2 });
   assert.deepEqual(doors(2), { L: 0, R: 4 });
   assert.deepEqual(doors(4), { L: 2, R: 5 });
   assert.deepEqual(doors(5), { L: 4 });
   // a tunnel's two ends join the same pair of rooms
-  for (const r of [0, 2, 4, 5]) for (const [wall, to] of Object.entries(doors(r))) assert.equal(doors(to)[wall === 'L' ? 'R' : 'L'], r);
+  for (const r of [0, 2, 4, 5]) for (const [wall, to] of Object.entries(doors(r))) if (to !== 'out') assert.equal(doors(to)[wall === 'L' ? 'R' : 'L'], r);
 });
 
 test('both ends of a tunnel are cut alike: the same size and outline, in a mirror', () => {
