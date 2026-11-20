@@ -1819,7 +1819,14 @@ const UK = {
   "Let it go out into the valley": "Відпустити в долину",
   "{0} works the bellows: upgrades cost a tenth less.": "{0} качає міх: покращення дешевші на десяту частину.",
   "{0} helps Ollo: a quarter sooner.": "{0} допомагає Олло: на чверть швидше.",
-  "Out into the valley": "У долину"
+  "Out into the valley": "У долину",
+  // a newcomer with nowhere to sleep (#316): it settles where there's space, or someone sets off to make room
+  "The {1} is full, so {0} settled in the {2} ✦": "Місць немає ({1}), тож {0} оселилося тут: {2} ✦",
+  "Every room is full: {0} went out exploring to make room": "Усі кімнати повні: {0} вирушило досліджувати грот, щоб звільнити місце",
+  "Every room is full: {0} set off for {1} to make room 🧭 back in {2}": "Усі кімнати повні: {0} вирушило в мандри ({1}), щоб звільнити місце 🧭 повернеться за {2}",
+  "Went out exploring by itself, to make room for {0}": "Саме пішло досліджувати грот, щоб звільнити місце для: {0}",
+  "Set off for {0} by itself, to make room for {1}": "Саме вирушило в мандри ({0}), щоб звільнити місце для: {1}",
+  "No bed free yet: {0} keeps exploring till there's room": "Вільного ліжка поки немає: {0} мандрує далі, доки не звільниться місце"
 };
 
 const UK_DATA = {

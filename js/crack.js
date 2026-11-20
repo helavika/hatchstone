@@ -1345,11 +1345,12 @@ function adopt(e) {
   save.active = mine.id;
   return { isNew, note, mine };
 }
-/** A new glowling moves into the nest, with a habit of its own (and if the room's full, someone goes exploring, see settleHome). */
+/** A new glowling moves into the nest, with a habit of its own, and a bed in a room with space (if every room's full, someone sets off to make room: see settleNew). */
 function moveIn(e, name) {
   const sp = e.species;
   const mine = { id: save.nextId++, sp: sp.id, name, shiny: e.shiny, habit: newHabit(sp.id), level: 1, xp: 0, tummy: 70, joy: 80, energy: 80, sleeping: false, last: Date.now(), born: Date.now() };
   save.creatures.push(mine);
+  settleNew(mine);
   if (e.conf.coop) remember(mine, "Hatched from a {0} geode, cracked together with a friend ♥", e.crystal.name);
   else remember(mine, e.conf.gloom ? "Freed from the Gloom's seal at the end of the {0}" : e.conf.moon ? "Hatched from a moon egg 🌙" : "Hatched from a {0} geode", e.conf.gloom ? CAVES[e.conf.gloom - 1] : e.crystal.name);
   return mine;
