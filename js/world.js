@@ -133,6 +133,20 @@ function worldBase() {
   for (const [sx, sy] of [[212, 200], [150, 112], [252, 290]]) stand.push({ y: sy, draw: () => { for (let k = 0; k < 7; k++) { const an = k / 7 * TAU, x = Math.round(sx + Math.cos(an) * 7), y = Math.round(sy + Math.sin(an) * 3.5); g.fillStyle = "#8a8494"; g.fillRect(x, y - 4, 2, 4); g.fillStyle = "#5d5666"; g.fillRect(x + 1, y - 4, 1, 4); g.fillStyle = "rgba(5,0,20,.4)"; g.fillRect(x, y, 3, 1); } } });
   // forests: clumps of pines and round trees where the land is green and nothing else stands
   const places = [...WORLD.map(w => w.at), ...WM_MYSTERY.map(w => w.at)];
+  // old ruins in the woods (#317), wherever one of these spots is clear of the roads, the river and the places: a lone arch with
+  // half its head fallen, a broken column beside it and a few fallen blocks, ivy on them; the forest keeps back from them
+  for (const [rx, ry] of [[232, 112], [290, 222], [176, 282], [120, 226]]) {
+    const i = ry * W + rx, e = elev[i];
+    if (!(e > 0.2 && e < 0.6) || roadD[i] < 9 || riverD[i] < 10 || wmWest(rx, ry) > 0.3 || wmEast(rx, ry) > 0.3 || places.some(([px, py]) => Math.hypot(rx - px, ry - py) < 30)) continue;
+    places.push([rx, ry]);
+    const put = (x, y, col) => { g.fillStyle = `rgb(${col})`; g.fillRect(x, y, 1, 1); };
+    stand.push({ y: ry, draw: () => {
+      g.fillStyle = "rgba(5,0,20,.4)"; g.fillRect(rx - 6, ry, 20, 1);
+      pxRuin("arch", put, rx, ry, 0.5, rx + ry);
+      pxRuin("column", put, rx + 11, ry + 2, 0.4, rx);
+      for (const [dx, dy] of [[-8, 1], [-5, 2], [5, 2]]) { put(rx + dx, ry + dy - 1, RUIN_STONE[3]); put(rx + dx + 1, ry + dy - 1, RUIN_STONE[2]); put(rx + dx, ry + dy, RUIN_STONE[1]); put(rx + dx + 1, ry + dy, RUIN_STONE[1]); }
+    } });
+  }
   for (let gy = 70; gy < H; gy += 5) for (let gx = 2; gx < W; gx += 6) {
     const x = gx + (pxHash(gx, gy) - 0.5) * 5, y = gy + (pxHash(gy, gx) - 0.5) * 4, i = Math.round(y) * W + Math.round(x), e = elev[i];
     if (!(e > 0.2 && e < 0.6) || pxFbm(x / 34 + 3, y / 34 + 7) < 0.5 || riverD[i] < 6 || roadD[i] < 5 || places.some(([px, py]) => Math.hypot(x - px, (y - py) * 1.2) < 26)) continue;

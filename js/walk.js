@@ -525,19 +525,43 @@ function walkRock(seed, w, season) {
     for (let x = 0; x < w + 4; x++) for (let y = 0; y < h + 4; y++) if (T.has(x, y) && !T.has(x, y - 1) && pxHash(x, y + seed) > 0.35) T.px(x, y, moss);
   });
 }
-/** A broken bit of old wall, with ivy. */
+/** A broken bit of old wall (#317): courses of blocks, each its own flat shade, lit along its top and left, dark joints; its
+ *  top broken away block by block, highest toward one end; moss along whatever faces up and in the low joints, ivy hanging
+ *  down it in strands with paired leaves (snow on its tops in winter). */
 function walkRuin(seed, w, h, season) {
-  const R = seeded("ruin" + seed);
+  const winter = season === "winter";
   return isoArt(w + 2, h + 2, T => {
-    const st = walkHexes(WALK_STONE.slice(1)), top = x => Math.round(h * (0.15 + 0.5 * pxNoise(x * 0.18, seed)) + (x < 3 || x > w - 3 ? h * 0.2 : 0));
+    const st = walkHexes(WALK_STONE.slice(1, 5)), moss = walkHexes(["#10301f", "#1e5233", "#2f7d4a", "#57ad6a", "#a3dd9b"]), ch = 4;
+    const block = (x, y) => { const row = Math.floor((h - y) / ch), L = 5 + Math.floor(pxHash(row, seed) * 5), a = x + Math.floor(pxHash(row, seed + 1) * L); return [row, Math.floor(a / L), a % L, L]; };
+    // the broken top: whole blocks gone, more toward the low end, a few loose ones on the last course still standing
+    const hi = pxHash(seed, 3) > 0.5, top = x => { const k = hi ? x / w : 1 - x / w, [, b] = block(x, h); return Math.round(h * (0.12 + 0.6 * k * k) + ch * Math.floor(pxHash(b, seed + 5) * 2.4)); };
     for (let x = 1; x <= w; x++) for (let y = top(x); y <= h; y++) {
-      const course = y % 5 === 0 || (x + Math.floor(y / 5) * 4) % 9 === 0;
-      T.px(x, y, course ? st[0] : pxPick(st, 0.62 - x / w * 0.3 + (pxHash(x, y) - 0.5) * 0.2, x, y));
+      const [row, b, fa, L] = block(x, y), fz = (h - y) % ch, sh = pxHash(b * 7 + row, seed);
+      let col = fz === ch - 1 || fa === 0 ? st[0] : st[sh > 0.75 ? 1 : 2];
+      if (fz === ch - 2 && fa > 0) col = st[sh > 0.75 ? 2 : 3]; else if (fa === 1 && fz < ch - 1) col = st[sh > 0.75 ? 2 : 3];
+      if ((fz === ch - 1 || fa === 0) && h - y < h * 0.4 && pxHash(x, y + seed) > 0.45 && !winter) col = moss[pxHash(x + 1, y) > 0.6 ? 2 : 1];
+      T.px(x, y, col);
     }
-    const ivy = walkHexes(["#1e5233", "#2f7d4a", "#57ad6a"]);
-    for (let k = 0; k < w * 2; k++) { const x = 1 + Math.floor(R() * w), y = Math.round(top(x) + R() * h * 0.7); if (T.has(x, y)) T.px(x, y, ivy[Math.floor(R() * 3)]); }
-    if (season === "winter") for (let x = 1; x <= w; x++) T.px(x, top(x), pxHex("#ffffff"));
+    for (let x = 1; x <= w; x++) { const t = top(x); T.px(x, t, winter ? pxHex("#ffffff") : moss[pxHash(x, seed) > 0.4 ? 3 : 2]); if (!winter && pxHash(x, seed + 2) > 0.5) T.px(x, t + 1, moss[1]); }
+    if (winter) return;
+    // ivy: strands down from the top, a pair of leaves every few pixels, lit on their top left
+    for (let x0 = 2; x0 < w; x0 += 3) {
+      if (pxNoise(x0 * 0.12, seed + 9) < 0.5 || pxHash(x0, seed + 11) > 0.7) continue;
+      const len = Math.round((h - top(x0)) * (0.35 + 0.5 * pxHash(seed, x0)));
+      for (let k = 0; k < len; k++) {
+        const x = x0 + Math.round(Math.sin(k * 0.4 + x0) * 0.8), y = top(x0) + 1 + k;
+        T.px(x, y, moss[1]);
+        if (k % 3 === 1) { const sd = Math.floor(k / 3) % 2 ? 1 : -2; T.px(x + sd, y, moss[3]); T.px(x + sd + 1, y, moss[2]); T.px(x + sd, y + 1, moss[2]); T.px(x + sd + 1, y + 1, moss[1]); }
+      }
+    }
   });
+}
+/** A piece of old stonework by the path (#317): a broken column, a lone arch, stairs to nowhere or a stone owl (see pxRuin). */
+function walkRelic(kind, seed, s, season) {
+  // (painted once to find how far it reaches, then into a canvas just that big, its foot at the bottom)
+  const box = [1e9, 1e9, -1e9, -1e9], opt = { snow: season === "winter" };
+  pxRuin(kind, (x, y) => { box[0] = Math.min(box[0], x); box[1] = Math.min(box[1], y); box[2] = Math.max(box[2], x); box[3] = Math.max(box[3], y); }, 0, 0, s, seed, opt);
+  return isoArt(box[2] - box[0] + 3, box[3] - box[1] + 3, T => pxRuin(kind, (x, y, col) => T.px(x, y, col), 1 - box[0], 1 - box[1], s, seed, opt));
 }
 /** The end of each path: a little cairn with a crystal on top that glows when you reach it. */
 function walkCairn() {
@@ -678,7 +702,14 @@ function walkBake(g) {
       const kind = land.trees[Math.floor(R() * land.trees.length)];
       const tall = dk ? 0.4 : kind === "cap" ? 0.08 + R() * 0.07 : kind === "pine" ? 0.2 + R() * 0.14 : 0.17 + R() * 0.12;
       put(walkTree(kind, Math.round(AH * tall), Math.floor(R() * 999), g.theme, dk && kind === "round" ? "summer" : season), x, base);
-    } else if (r < 0.72 && land.ruins) put(walkRuin(Math.floor(R() * 99), 22 + Math.floor(R() * 16), 12 + Math.floor(R() * 12), season), x, base);
+    } else if (r < 0.72 && land.ruins) {
+      // the ruins' own lands: bits of wall, and among them old columns, arches, stairs and statues (#317)
+      const k = R();
+      if (k < 0.45) put(walkRuin(Math.floor(R() * 99), 22 + Math.floor(R() * 16), 12 + Math.floor(R() * 12), season), x, base);
+      else put(walkRelic(PX_RUIN_KINDS[Math.floor(R() * 4)], Math.floor(R() * 99), 0.8 + R() * 0.35, season), x, base);
+    }
+    // (and anywhere else, now and then, something old left standing in the grass)
+    else if (r < 0.61) put(walkRelic(PX_RUIN_KINDS[Math.floor(R() * 4)], Math.floor(R() * 99), 0.7 + R() * 0.25, season), x, base);
     else if (r < 0.85 && land.rocks) put(walkRock(Math.floor(R() * 99), 10 + Math.floor(R() * 8), season), x, base + 1);
     else put(walkBush(Math.floor(R() * 999), 14 + Math.floor(R() * 8), season, R() < 0.3), x, base + 1);
   }
