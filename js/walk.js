@@ -124,9 +124,9 @@ function keepjarView(found = {}, max = 8) {
   return { stems, petals: Math.max(0, Math.min(4, Math.floor((all - max) / 6))) };
 }
 
-/** How it ends: joy up by the finds, energy down by how far you went; never below a little, never over the top. */
-function walkMood(path, finds, freed) {
-  return { joy: Math.min(40, 12 + finds * 4 + (freed ? 6 : 0)), energy: 8 + path * 3, tummy: 4, xp: 6 + finds * 2 };
+/** How it ends: joy up by the finds (and the little things done along the way, did), energy down by how far you went; never below a little, never over the top. */
+function walkMood(path, finds, freed, did = 0) {
+  return { joy: Math.min(40, 12 + finds * 4 + (freed ? 6 : 0) + Math.min(8, did * 2)), energy: 8 + path * 3, tummy: 4, xp: 6 + finds * 2 };
 }
 
 /**
@@ -161,7 +161,62 @@ const WALK_SHAPE = [
   { stream: [0.19, 0.24], hill: [0.42, 0.53], ledge: [0.64, 0.86] },
 ];
 
-if (typeof module === "object" && module.exports) module.exports = { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan };
+/**
+ * Little things to do along the way (#315), with the action key or a tap: each land has its own few, and the season takes
+ * some away (no puddles, moths or moonpuffs in the snow) and brings a heap of leaves (of snow, in winter) to jump in.
+ * again: it can be done more than once on a walk (a bell rings each time, a puddle splashes each time).
+ */
+const WALK_DO = {
+  puddle: { again: true, not: ["winter"] },
+  flies: { not: ["winter"] },
+  puff: { not: ["winter"] },
+  bell: { again: true },
+  log: { again: true },
+  sleeper: {},
+  wish: {},
+  leaves: { again: true, only: ["autumn", "winter"] },
+};
+const WALK_DO_LAND = {
+  summit: ["bell", "wish", "puddle", "sleeper", "puff"],
+  glowcap: ["flies", "puff", "log", "bell", "puddle"],
+  churchyard: ["wish", "bell", "sleeper", "flies", "log"],
+  abbey: ["wish", "bell", "puff", "sleeper", "flies"],
+  smithy: ["log", "puddle", "sleeper", "puff", "flies"],
+};
+/**
+ * Where the little things go on a walk, and which: three on the first two paths, four on the longer ones, each in a gap
+ * of its own (measured in screen widths, so a long path isn't crowded and a short one still has room): past the start,
+ * short of the cairn or the climb, clear of the hill, the stream, the dark and every find's spot. The heap of leaves
+ * always comes in autumn and winter. rnd: its own seeded stream (see walkDoStart), so the scenery's draws stay the same.
+ */
+function walkDoPlan(path, land, season, rnd = Math.random) {
+  const len = WALKS[path].len, sh = WALK_SHAPE[path], scr = u => u * len;
+  const kinds = (WALK_DO_LAND[land] || WALK_DO_LAND.glowcap).filter(id => !(WALK_DO[id].not || []).includes(season));
+  for (let i = kinds.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [kinds[i], kinds[j]] = [kinds[j], kinds[i]]; }
+  if (WALK_DO.leaves.only.includes(season)) kinds.unshift("leaves");
+  const keep = [[-1, 0.42], [scr(sh.ledge ? sh.ledge[0] : 0.95) - 0.3, 99]], gap = (a, b, m) => keep.push([scr(a) - m, scr(b) + m]);
+  if (sh.hill) gap(...sh.hill, 0.08);
+  if (sh.stream) gap(...sh.stream, 0.15);
+  if (sh.dark) gap(...sh.dark, 0.1);
+  for (const s of WALK_SPOTS[path]) gap(s.u, s.u, 0.14);
+  let free = [];
+  for (let x = 0; x < len; x += 0.02) if (!keep.some(([a, b]) => x > a && x < b)) free.push(x);
+  const at = [];
+  while (free.length && at.length < Math.min(kinds.length, path < 2 ? 3 : 4)) { const x = free[Math.floor(rnd() * free.length)]; at.push(x); free = free.filter(q => Math.abs(q - x) >= 0.3); }
+  const ids = kinds.slice(0, at.length);
+  for (let i = ids.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [ids[i], ids[j]] = [ids[j], ids[i]]; }
+  return at.sort((a, b) => a - b).map((x, i) => ({ id: ids[i], u: Math.round(x / len * 1000) / 1000 }));
+}
+/**
+ * Which little thing the action key reaches from x: the nearest in reach, one not yet done before one already done;
+ * a done one only if it's the kind that can be done again, and not straight away (t: the walk's clock).
+ */
+function walkDoAt(dos, x, reach, t = 0) {
+  const can = (dos || []).filter(d => Math.abs(d.x - x) < reach && (!d.n || (WALK_DO[d.id].again && t - d.t > 0.8)));
+  return can.sort((a, b) => (a.n ? 1 : 0) - (b.n ? 1 : 0) || Math.abs(a.x - x) - Math.abs(b.x - x))[0] || null;
+}
+
+if (typeof module === "object" && module.exports) module.exports = { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, WALK_DO, WALK_DO_LAND, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan, walkDoPlan, walkDoAt };
 
 // ---------- the words and the little pictures (the browser only: the tests load the rules above on their own) ----------
 
@@ -326,6 +381,7 @@ function startWalk(path) {
     thorn: 0, freed: false, reached: false, ended: false, endT: 0, got: [], fx: [], motes: [], hinted: {},
   };
   // the backdrop's key and chords, with the walk's own light texture (see PLACES.walk in music.js)
+  walkDoStart(game.walk);
   bgTheme = theme; sfx.music(theme);
   setScene("walk");
   $("walkHud").classList.remove("done"); $("walkPad").classList.remove("done");
@@ -881,6 +937,7 @@ function walkLayout() {
     if (f.at === "stone" && geo.stream) f.x = geo.stream.stones[1];
     if (!f.state) f.state = f.at === "bush" || f.at === "dark" ? "hidden" : "shown";
   }
+  for (const d of g.dos || []) d.x = Math.round(d.u * geo.base);
   const t0 = performance.now();
   walkBake(g);
   g.bakeMs = Math.round(performance.now() - t0);
@@ -893,7 +950,7 @@ function walkPace(p) {
   return (sp && (sp.beh === "flutter" || sp.beh === "swim") ? 60 : sp?.beh === "nap" ? 36 : 48) * WALK_SPEED * g.geo.s / 100 * calm.go;
 }
 /** Outside they step out livelier than at home. */
-const WALK_SPEED = 3.2;
+const WALK_SPEED = 4.2;
 /** Where holding an arrow leads: a little ahead that way, or over the stream the next stone (or bank) that way. */
 function walkAhead(geo, x, dir) {
   const st = geo.stream, ahead = clamp(x + dir * geo.s * 1.2, 8, geo.end);
@@ -949,7 +1006,7 @@ function updateWalk(dt) {
   });
   // the camera keeps the one you lead a little left of the middle, so you see where you're going
   const want = geo.ledge && lead.x > geo.ledge.x1 ? geo.len - geo.AW : clamp(lead.x - geo.AW * (g.dir > 0 ? 0.38 : 0.62), 0, Math.max(0, geo.len - geo.AW));
-  g.cam = lerp(g.cam, want, Math.min(1, dt * (calm ? 1.6 : 2.2)));
+  g.cam = lerp(g.cam, want, Math.min(1, dt * (calm ? 2.1 : 2.9)));
   // finds: picked up by whoever walks over them
   for (const f of g.plan) {
     if (f.state === "pop" && (f.t += dt) > 0.45) f.state = "shown";
@@ -982,6 +1039,7 @@ function updateWalk(dt) {
   }
   g.fx = g.fx.filter(r => r.t < r.life);
   walkMotes(dt);
+  walkDoUpdate(dt);
 }
 /** How lit a spot in the hollow is (0 dark to 1 bright): around each glowling, and where you lifted the lantern. */
 function walkLit(x, y) {
@@ -1050,6 +1108,7 @@ function walkTap(x, y) {
     const b = g.bushArt[g.plan.filter(q => q.at === "bush").indexOf(f)], gy = walkGround(geo, f.x) - 1;
     if (Math.abs(ax - f.x) < b.width / 2 + 4 && ay > gy - b.height - 4 && ay < gy + 6) { walkShake(f, k); return; }
   }
+  if (walkDoTap(ax, ay)) return;
   const tx = walkSnap(geo, clamp(ax, 8, geo.end));
   g.dir = Math.sign(tx - lead.x) || g.dir;
   lead.tx = tx;
@@ -1063,7 +1122,8 @@ function walkShake(f, k) {
 }
 /**
  * The action key (space, ↑ or W; the ✦ between the arrows on a phone): whatever is right by the one you lead. The thorn if
- * it's close, else a bush that rustles, else in the dark the lantern lifted just ahead; with nothing there, a happy hop.
+ * it's close, else a bush that rustles, else one of the little things along the way, else in the dark the lantern lifted
+ * just ahead; with nothing there, a happy hop.
  */
 function walkAct() {
   const g = game.walk;
@@ -1071,8 +1131,10 @@ function walkAct() {
   const geo = g.geo, lead = g.pals[0], hl = geo.hill, near = (x, d) => Math.abs(x - lead.x) < geo.s * d;
   if (hl && g.thorn < 3 && near(hl.ax, 1.6)) { walkThorn(); return; }
   const bushes = g.plan.filter(q => q.at === "bush");
-  const f = bushes.find(q => q.state === "hidden" && near(q.x, 1.3));
+  const f = bushes.find(q => q.state === "hidden" && near(q.x, 1.4));
   if (f) { walkShake(f, g.plan.indexOf(f)); return; }
+  const d = walkDoAt(g.dos, lead.x, geo.s * 1.4, g.t);
+  if (d) { walkDo(d); return; }
   if (geo.dark && walkIn(lead.x, geo.dark.x0 - 20, geo.dark.x1 + 20)) {
     const x = lead.x + g.dir * geo.s * 0.9;
     g.lamp = { x, y: walkGround(geo, x) - geo.s * 1.1, t: 0 };
@@ -1108,7 +1170,7 @@ function finishWalk() {
   g.ended = true;
   setHint(""); walkWater(0);
   $("walkHud").classList.add("done"); $("walkPad").classList.add("done"); g.hold = 0;
-  const w = save.walks, p = WALKS[g.path], n = g.got.length, mood = walkMood(g.path, n, g.freed), crs = g.who.map(walkCr).filter(Boolean);
+  const w = save.walks, p = WALKS[g.path], n = g.got.length, mood = walkMood(g.path, n, g.freed, g.doJoy), crs = g.who.map(walkCr).filter(Boolean);
   for (const cr of crs) {
     applyTime(cr);
     cr.joy = clamp(cr.joy + mood.joy, 0, 100); cr.energy = clamp(cr.energy - mood.energy, 0, 100); cr.tummy = clamp(cr.tummy - mood.tummy, 0, 100);
@@ -1197,6 +1259,378 @@ function walkMotes(dt) {
   }
 }
 
+// ---------- along the way (#315): a puddle to splash, fireflies to chase, a moonpuff to blow, bells to ring, a log to knock on,
+// a mossback to greet, a wish-stone, a heap of leaves to jump in. The rules of which and where are walkDoPlan and walkDoAt above. ----------
+
+/** The walk's own few, from a stream of their own (the path's scenery keeps its draws as they were), different every walk. */
+function walkDoStart(g) {
+  g.dos = walkDoPlan(g.path, g.theme, g.season, seeded(`walkdo|${g.path}|${g.theme}|${g.season}|${save.walks.n}`)).map(d => ({ ...d, x: 0, n: 0, t: -9 }));
+  g.bits = []; g.doJoy = 0; g.perch = null; g.doArt = {};
+}
+/** How big each is to tap (half its width and its height, in art pixels), and how close the one you lead goes first (in its sizes): right into the puddle and the leaves. */
+const WALK_DO_BOX = { puddle: [14, 8, 0.3], flies: [12, 26, 1.3], puff: [8, 22, 1.2], bell: [9, 22, 1.2], log: [16, 13, 1.3], sleeper: [13, 15, 1.3], wish: [8, 22, 1.2], leaves: [15, 12, 0.3] };
+const walkDoHint = (id, g) => ({
+  puddle: tr("A puddle! Tap it, or ✦, to splash"),
+  flies: WALK_LAND[g.theme].caps ? tr("Glowmoths are dancing here. Tap them, or ✦, to chase them") : tr("Fireflies are dancing here. Tap them, or ✦, to chase them"),
+  puff: tr("A moonpuff, ready to blow. Tap it, or ✦"),
+  bell: tr("A bellflower nods by the path. Tap it, or ✦, to ring it"),
+  log: tr("Someone lives in that old log. Tap it, or ✦, to knock softly"),
+  sleeper: tr("A mossback is napping by the path. Tap it, or ✦, to say hello gently"),
+  wish: tr("A wish-stone. Tap it, or ✦, to leave a shard on it"),
+  leaves: g.season === "winter" ? tr("A soft heap of snow! Tap it, or ✦, to jump in") : tr("A heap of leaves! Tap it, or ✦, to jump in"),
+})[id];
+/** The bellflowers' colours by land, dark to light: harebell blue on the mountain, pink in the glowcap wood, lilac by the ruins. */
+const WALK_BELL = { summit: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5"], glowcap: ["#5c1f3f", "#c25586", "#e88bb1", "#ffc4da"], churchyard: ["#3d2866", "#6b4fa8", "#ad91e6", "#d2bfff"], abbey: ["#8f3460", "#e88bb1", "#ffc4da", "#fff0b5"], smithy: ["#5e3a1c", "#c98f3a", "#eec26a", "#fff0b5"] };
+const WALK_NOTES = [783.99, 880, 987.77, 1174.66, 1318.51, 1567.98];
+
+function walkDoUpdate(dt) {
+  const g = game.walk, geo = g.geo, lead = g.pals[0], hl = geo.hill;
+  const busy = (hl && g.thorn < 3 && Math.abs(hl.ax - lead.x) < geo.s * 1.6) || g.plan.some(f => f.at === "bush" && f.state === "hidden" && Math.abs(f.x - lead.x) < geo.s * 1.4);
+  for (const d of g.dos) {
+    const far = Math.abs(lead.x - d.x);
+    // a word once each when it comes in reach (not while the thorn or a rustling bush is right there: ✦ goes to them first)
+    if (!d.n && far < geo.s * 1.8 && !g.hinted["do" + d.id] && !busy) { walkSay(walkDoHint(d.id, g), "do" + d.id); if (!lead.emote) lead.emote = { text: "?", t: 0, life: 1.4 }; }
+    // on its way to one: it happens when the glowling gets there (an arrow held the other way, or a tap elsewhere, calls it off)
+    if (d.go) { if (g.hold && Math.sign(d.x - lead.x) !== g.hold) d.go = false; else if (far <= geo.s * WALK_DO_BOX[d.id][2] + 1) { d.go = false; walkDoNow(d); } }
+    // the fireflies swirl round the one who chased them, then one settles on its head
+    if (d.id === "flies" && d.n && !d.landed && g.t - d.t > 1.8) {
+      const p = g.pals[0], cr = walkCr(p.id);
+      d.landed = true; g.perch = { id: p.id, t: 0 }; p.happy = 3; p.emote = { text: "♥", t: 0, life: 1.4 }; sfx.ding(9);
+      if (cr) floatText(WALK_LAND[g.theme].caps ? tr("A glowmoth settles on {0}", cr.name) : tr("A firefly settles on {0}", cr.name), (p.x - g.cam) * PX, (walkGround(geo, p.x) - geo.s * 1.4) * PX, "#fff0b5");
+    }
+  }
+  for (const b of g.bits) { b.t += dt; b.vy = Math.min(b.max || 999, b.vy + (b.fall || 0) * dt); b.vx *= 1 - Math.min(1, dt * (b.drag || 0)); b.x += (b.vx + (b.sway ? Math.sin(b.t * 3 + b.ph) * b.sway : 0)) * dt; b.y += b.vy * dt; }
+  g.bits = g.bits.filter(b => b.t < b.life);
+  if (g.perch && (g.perch.t += dt) > 12) g.perch = null;
+}
+/** A tap on one of them (one that's done and can't be done again lets the tap walk you there instead). */
+function walkDoTap(ax, ay) {
+  const g = game.walk, geo = g.geo;
+  for (const d of g.dos) {
+    const [hw, h] = WALK_DO_BOX[d.id].map(v => v * walkDoK(geo)), gy = walkGround(geo, d.x);
+    if (Math.abs(ax - d.x) < hw + 4 && ay > gy - h - 6 && ay < gy + 10 && (!d.n || WALK_DO[d.id].again)) { if (!d.n || g.t - d.t > 0.35) walkDo(d); return true; }
+  }
+  for (const d of g.dos) d.go = false;
+  return false;
+}
+/** Do one: right away when the one you lead is close enough, else it goes over first. */
+function walkDo(d) {
+  const g = game.walk, geo = g.geo, lead = g.pals[0], k = WALK_DO_BOX[d.id][2];
+  if (Math.abs(lead.x - d.x) <= geo.s * k + 1) { walkDoNow(d); return; }
+  for (const q of g.dos) q.go = false;
+  d.go = true; lead.tx = walkSnap(geo, clamp(d.x - Math.sign(d.x - lead.x) * geo.s * k * 0.5, 8, geo.end)); g.dir = Math.sign(lead.tx - lead.x) || g.dir;
+}
+function walkDoNow(d) {
+  const g = game.walk, geo = g.geo, lead = g.pals[0], cr = walkCr(lead.id), gy = walkGround(geo, d.x), many = opts().calm ? 0.5 : 1, k = walkDoK(geo);
+  if (d.id === "wish" && !(save.shards >= 1)) { toast(tr("No shard to leave just now. The stone doesn't mind")); return; }
+  d.n++; d.t = g.t;
+  if (d.n === 1) { g.doJoy++; trackOnce("walkdo", { what: d.id }); }
+  const voice = cr ? specOf(cr).voice : 1, at = (x, y) => [(x - g.cam) * PX, y * PX];
+  const bits = (n, f) => { for (let i = 0; i < Math.round(n * many); i++) g.bits.push({ t: 0, ph: rand(0, TAU), ...f(i) }); };
+  if (d.id === "puddle") {
+    // a splash: drops fly up and fall back, rings spread across the water, and a chirp
+    lead.hop = 1; lead.happy = 2;
+    bits(12, () => ({ kind: "drop", x: d.x + rand(-8, 8) * k, y: gy, vx: rand(-34, 34) * k, vy: rand(-64, -30) * k, fall: 200 * k, life: 0.75, c: pick(["#69b7d6", "#b8e6f5", "#ffffff"]) }));
+    walkSplash(); setTimeout(() => sfx.chirp(voice), 180);
+  } else if (d.id === "flies") {
+    lead.emote = { text: "!", t: 0, life: 1 };
+    walkTwinkle(); setTimeout(() => sfx.chirp(voice), 300);
+  } else if (d.id === "puff") {
+    // a breath, and the seeds let go and drift away on it, the way you were going
+    lead.emote = { text: "♥", t: 0, life: 1.2 };
+    bits(18, () => ({ kind: "seed", x: d.x + rand(-4, 4) * k, y: gy + (rand(-4, 4) - 17.5) * k, vx: g.dir * rand(8, 26) * k, vy: rand(-10, -3) * k, sway: 7 * k, life: rand(3, 5.5) }));
+    walkBlow();
+    if (d.n === 1 && Math.random() < 0.3) setTimeout(() => { if (!game.walk || g.ended) return; const [label, em] = walkGive("seed", cr); floatText(`${em} ${label}`, ...at(d.x, gy - 28 * k), "#e6e0ff"); }, 700);
+  } else if (d.id === "bell") {
+    // each ring a note higher, up a soft scale and round again
+    d.swing = g.t;
+    const f = WALK_NOTES[(d.n - 1) % WALK_NOTES.length];
+    if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.tone(t, f, 0.075, 1.5, "sine", null, true); sfx.tone(t, f * 2.01, 0.018, 0.5, "triangle"); sfx.tone(t + 0.07, f * 1.5, 0.03, 0.9, "sine", null, true); }
+    floatText("♪", ...at(d.x + 4 * k, gy - 24 * k), WALK_BELL[g.theme]?.[3] || "#d2bfff");
+  } else if (d.id === "log") {
+    // knock, knock: and a lampsnail peeks out of the hollow end, its antennae lit, then slips back in
+    d.peek = g.t + 0.45;
+    sfx.tok(); setTimeout(() => sfx.tok(), 170); setTimeout(() => sfx.giggle(1.7), 560);
+    if (d.n === 1) {
+      const gift = Math.random() < 0.5;
+      setTimeout(() => {
+        if (!game.walk || g.ended) return;
+        floatText(tr("A lampsnail peeks out"), ...at(d.x + 10 * k, gy - 18 * k), "#e6e0ff");
+        if (gift) { save.shards += 2; updateTopbar(); persist(); setTimeout(() => game.walk && floatText("✦ +2", ...at(d.x + 10 * k, gy - 12 * k), "#fff0b5"), 700); }
+      }, 600);
+    }
+  } else if (d.id === "sleeper") {
+    // a soft hello: it opens one eye, smiles, and goes back to sleep
+    d.wake = g.t + 0.5; lead.emote = { text: "♥", t: 0, life: 1.4 }; lead.happy = 3;
+    walkHum();
+    setTimeout(() => { if (!game.walk || g.ended) return; heart(...at(d.x + 5 * k, gy - 14 * k)); floatText(tr("It smiles in its sleep"), ...at(d.x, gy - 22 * k), "#e6e0ff"); }, 700);
+  } else if (d.id === "wish") {
+    // a shard left in its cup: the spiral carved in it lights up, and a little blessing settles on everyone on the walk
+    save.shards -= 1; updateTopbar(); persist();
+    walkRing(d.x, gy - 12 * k, "#fff0b5", 1); setTimeout(() => game.walk && walkRing(d.x, gy - 12 * k, "#d2bfff", 1.4), 350);
+    sfx.ding(7); setTimeout(() => sfx.gleam(), 300);
+    for (const p of g.pals) { p.hop = 1; p.happy = 4; p.emote = { text: "♥", t: 0, life: 1.6 }; }
+    bits(10, () => ({ kind: "spark", x: d.x + rand(-6, 6) * k, y: gy - rand(6, 20) * k, vx: rand(-6, 6) * k, vy: rand(-16, -6) * k, life: rand(1, 1.8), c: pick(["#fff0b5", "#d2bfff", "#ffffff"]) }));
+    g.doJoy += 2;
+    toast(tr("A tiny blessing: everyone on this walk feels a little lighter ✦"));
+  } else if (d.id === "leaves") {
+    // a jump right in: the heap squashes and the leaves (or the snow) fly up and flutter down
+    lead.hop = 1; lead.happy = 2; d.squash = g.t;
+    const snow = g.season === "winter";
+    bits(20, () => ({ kind: snow ? "snow" : "leaf", x: d.x + rand(-11, 11) * k, y: gy - rand(2, 6) * k, vx: rand(-42, 42) * k, vy: rand(-74, -36) * k, fall: (snow ? 110 : 80) * k, max: (snow ? 30 : 16) * k, drag: 1.4, sway: (snow ? 3 : 12) * k, life: rand(1.3, 2.2), c: snow ? pick(["#ffffff", "#e4dfe8", "#d2bfff"]) : pick(["#b8323b", "#e0634f", "#eec26a", "#c98f3a"]) }));
+    walkRustle(); if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.12, snow ? 900 : 420, 0.7, 0.16, "lowpass");
+    setTimeout(() => sfx.giggle(voice), 250);
+  }
+}
+function walkSplash() {
+  if (!sfx.ready()) return;
+  const t = sfx.ac.currentTime;
+  sfx.wash(t, 0.28, 2600, 900, 0.8, 0.14);
+  for (let i = 0; i < 5; i++) sfx.tone(t + 0.04 + i * 0.05 + rand(0, 0.02), rand(700, 1300), 0.04, 0.09, "sine", rand(1300, 2000));
+}
+function walkTwinkle() {
+  if (!sfx.ready()) return;
+  const t = sfx.ac.currentTime;
+  [1318.51, 1567.98, 1975.53, 2637].forEach((f, i) => sfx.tone(t + i * 0.11, f, 0.028, 0.6, "sine", null, true));
+}
+function walkBlow() {
+  if (!sfx.ready()) return;
+  const t = sfx.ac.currentTime;
+  sfx.wash(t, 0.7, 500, 1900, 0.6, 0.12, "lowpass");
+  setTimeout(() => sfx.shimmer(), 380);
+}
+function walkHum() {
+  if (!sfx.ready()) return;
+  const t = sfx.ac.currentTime;
+  sfx.tone(t, 196, 0.06, 0.8, "triangle", 233);
+  sfx.tone(t + 0.5, 175, 0.04, 0.9, "sine", 165);
+}
+
+/** How big the little things are drawn: they were sized for a glowling 21 art pixels tall, and grow with it (a phone's is about 60). */
+const walkDoK = geo => geo.s / 21;
+/** The spiral carved in the wish-stone, around cx, cy, at size k. */
+function walkSpiral(cx, cy, k) {
+  const out = [];
+  for (let a = 0.6; a < 3.4 * Math.PI; a += 0.12 / k) { const r = 0.55 * a * k, p = [Math.round(cx + Math.cos(a) * r), Math.round(cy + Math.sin(a) * r * 1.1)]; if (!out.some(q => q[0] === p[0] && q[1] === p[1])) out.push(p); }
+  return out;
+}
+/** Each one's picture, painted once a walk at the glowlings' size (frame: the moonpuff blown). */
+function walkDoArt(id, frame = 0) {
+  const g = game.walk, k = walkDoK(g.geo), key = `${id}${frame}|${Math.round(k * 20)}`;
+  if (g.doArt[key]) return g.doArt[key];
+  const land = WALK_LAND[g.theme], winter = g.season === "winter", grass = walkHexes(land.grass), R = seeded("walkdo" + key + g.theme), K = v => Math.round(v * k);
+  let art;
+  if (id === "puddle") {
+    // a puddle in the path: a muddy lip, the water darker toward you, the sky caught along its far edge
+    const w = K(28), h = K(9), C = walkCanvas(w, h), wt = walkHexes(WALK_WATER), mud = walkHexes(WALK_DIRT);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const q = ((x + 0.5 - w / 2) / (w / 2)) ** 2 + ((y + 0.5 - h / 2) / (h / 2)) ** 2; if (q > 1) continue;
+      const fy = y / h, glint = fy > 0.2 && fy < 0.34 && x > w * 0.24 && x < w * 0.44;
+      C.put(x, y, q > 0.74 ? mud[fy > 0.5 ? 1 : 2] : glint ? wt[x === Math.round(w * 0.43) ? 5 : 4] : fy > 0.36 && fy < 0.42 && pxHash(x, 3) > 0.8 ? wt[3] : wt[fy < 0.45 ? 3 : fy < 0.7 ? 2 : 1]);
+    }
+    C.done(); art = C.c;
+  } else if (id === "flies") {
+    // the reeds the fireflies (or the glowmoths) dance over: thin blades, a few with brown heads
+    art = isoArt(K(14), K(22), T => {
+      const ramp = walkHexes(winter ? WALK_SNOW : [land.grass[0], land.grass[1], land.grass[2]]), head = walkHexes(["#4a362c", "#6e5444", "#98786a"]), base = K(22) - 1, n = Math.round(4 + k * 1.5);
+      for (let b = 0; b < n; b++) {
+        const bx = K(2) + b * (K(10) / n), h = K(10 + R() * 9), lean = (R() - 0.5) * K(3);
+        for (let i = 0; i < h; i++) T.px(bx + lean * (i / h) ** 2, base - i, ramp[i < h * 0.3 ? 0 : b % 2 ? 1 : 2]);
+        if (b % 2 === 0) for (let i = 0; i < K(4); i++) { T.px(bx + lean, base - h - i, head[i < 1 ? 2 : 1]); T.px(bx + lean + 1, base - h - i, head[0]); }
+      }
+    });
+  } else if (id === "puff") {
+    // a moonpuff: a thin stem, two leaves at its foot, and a round head of pale seeds on spokes with a little gold at its heart
+    // (frame 1: blown, only the bare heart left and a seed or two)
+    art = isoArt(K(16), K(24), T => {
+      const stem = walkHexes([land.grass[1], land.grass[2]]), base = K(24) - 1, cx = K(16) / 2, cy = K(6.5), r = 5.6 * k;
+      for (let y = Math.round(cy); y <= base; y++) { const x = Math.round(cx + Math.sin((base - y) / (base - cy) * 1.4) * k * 1.2); T.px(x, y, stem[1]); if (k > 1.6) T.px(x + 1, y, stem[0]); }
+      for (let i = 0; i < K(5); i++) { T.px(cx - 1 - i, base - Math.round(i * i / (K(5) * 1.4)), stem[1]); T.px(cx + 2 + i, base - 1 - Math.round(i * i / (K(5) * 1.2)), stem[0]); }
+      const seed = walkHexes(["#ad91e6", "#d2bfff", "#efe6ff", "#ffffff"]);
+      if (!frame) for (let y = Math.floor(cy - r); y <= cy + r; y++) for (let x = Math.floor(cx - r); x <= cx + r; x++) {
+        const dx = x + 0.5 - cx, dy = y + 0.5 - cy, d = Math.hypot(dx, dy), a = Math.atan2(dy, dx); if (d > r) continue;
+        const spoke = Math.abs(Math.sin(a * 7)) < 0.22, rim = d > r - 1.3 * k;
+        if (rim ? pxHash(x, y) > 0.3 : spoke || PX_BAYER[(y & 3) * 4 + (x & 3)] < 0.3) T.px(x, y, seed[rim ? (dx + dy < 0 ? 3 : 2) : spoke ? 1 : 0]);
+      }
+      walkBall(T, cx, cy, 1.4 * k, walkHexes(["#946027", "#c98f3a", "#eec26a"]), 1.4 * k, 0.1);
+      if (frame) { T.px(cx - K(3), cy - K(2), seed[2]); T.px(cx + K(3), cy + K(1), seed[3]); }
+    });
+  } else if (id === "log") {
+    // a fallen log along the path: grooved bark lit along its top, moss (or snow) on it, and its end toward you cut clean,
+    // rings round a dark hollow where someone lives
+    art = isoArt(K(32), K(14), T => {
+      const bark = walkHexes(["#2a1e1a", "#4a362c", "#6e5444", "#98786a"]), wood = walkHexes(["#5e3a1c", "#946027", "#c98f3a", "#eec26a"]), y0 = K(3), y1 = K(12), x1 = K(26);
+      for (let y = y0; y <= y1; y++) for (let x = K(1.5); x <= x1; x++) {
+        const f = (y - y0) / (y1 - y0), q = ((x - K(4)) / K(2.5)) ** 2 + ((f - 0.5) * 2) ** 2; if (x < K(4) && q > 1) continue;
+        const groove = Math.abs(pxNoise(x * 0.08, y * 0.9 / k) - 0.5) < 0.05;
+        T.px(x, y, groove ? bark[0] : pxPick(bark, 0.88 - f * 0.8 + (pxHash(x, y) - 0.5) * 0.2, x, y));
+      }
+      const ex = K(26.5), ey = (y0 + y1) / 2, rx = 3.8 * k, ry = (y1 - y0) / 2 + 1;
+      for (let y = Math.floor(ey - ry); y <= ey + ry; y++) for (let x = Math.floor(ex - rx); x <= ex + rx; x++) {
+        const q = ((x + 0.5 - ex) / rx) ** 2 + ((y + 0.5 - ey) / ry) ** 2; if (q > 1) continue;
+        T.px(x, y, q > 0.74 ? bark[2] : q < 0.3 ? pxHex("#0b0614") : Math.abs(q - 0.52) < 0.05 ? wood[1] : wood[q < 0.52 ? 2 : 3]);
+      }
+      for (let x = K(3); x <= K(24); x++) if (pxHash(x, 3) > 0.45) { T.px(x, y0, winter ? pxHex("#ffffff") : grass[3]); if (pxHash(x, 2) > 0.55) T.px(x, y0 - 1, winter ? pxHex("#e4dfe8") : grass[4]); }
+      if (land.caps) walkBall(T, K(9), y0 - 1, 2.6 * k, walkHexes(["#5c1f3f", "#8f3460", "#c25586", "#e88bb1"]), 1.6 * k, 0.2);
+    });
+  } else if (id === "sleeper") {
+    // a mossback: a little creature curled up asleep, soft dusk-blue fur with a cushion of moss on its back (a flower or two
+    // growing in it), round ears, its pale face tucked at the front (the eyes are drawn on top, so one can open)
+    art = isoArt(K(24), K(16), T => {
+      const fur = walkHexes(["#160c26", "#2e1d4f", "#523a85", "#8a6cc9"]), base = K(16) - 1;
+      const moss = walkHexes(winter ? ["#8a8494", "#b9b3c0", "#e4dfe8", "#ffffff"] : [land.grass[1], land.grass[2], land.grass[3], land.grass[4]]);
+      for (const ex of [K(14.5), K(17.5)]) walkBall(T, ex, base - 7.2 * k, 1.5 * k, fur, 1.7 * k, 0.1);
+      walkBall(T, K(11), base - 3.6 * k, 9.5 * k, fur, 6.4 * k, 0.4);
+      // the moss sits on its back, a lumpy cushion lit from above
+      for (const [mx, my, mr] of [[7, 7.6, 4], [11, 8.4, 4.4], [4.6, 5.6, 2.6], [14, 6.6, 3]]) walkBall(T, K(mx), base - my * k, mr * k, moss, mr * k * 0.62, 0.8);
+      const fl = walkHexes(land.flowers);
+      for (let j = 0; j < 2; j++) { const x = K(6 + j * 6); let y = 0; while (!T.has(x, y) && y < base) y++; const c = fl[j % fl.length]; T.px(x, y - 1, c); T.px(x - 1, y, c); T.px(x + 1, y, c); T.px(x, y + 1, c); T.px(x, y, pxHex("#eec26a")); }
+      walkBall(T, K(18.5), base - 3.8 * k, 3.7 * k, walkHexes(["#8a8494", "#b9b3c0", "#e4dfe8", "#efe6ff"]), 3 * k, 0.2);
+      T.px(K(22), base - K(4.2), pxHex("#3a2440")); T.px(K(22) - 1, base - K(4.2), pxHex("#3a2440"));
+      for (const fx of [K(7), K(14)]) for (let i = 0; i < K(2.4); i++) { T.px(fx + i, base, fur[0]); T.px(fx + i, base - 1, fur[1]); }
+    });
+  } else if (id === "wish") {
+    // a wish-stone: a standing stone with a cup worn in its top and a spiral carved down its face, lichen at its foot
+    art = isoArt(K(14), K(23), T => {
+      const st = walkHexes(WALK_STONE.slice(1)), cx = K(14) / 2, top = K(3), base = K(23) - 1;
+      for (let y = top; y <= base; y++) { const f = (y - top) / (base - top), half = k * (4.6 - (f < 0.15 ? (0.15 - f) * 18 : 0) + (f > 0.85 ? 0.7 : 0)); for (let x = Math.floor(cx - half); x <= Math.ceil(cx + half); x++) T.px(x, y, pxPick(st, 0.72 - (x - cx) / half * 0.35 - f * 0.2 + (pxHash(x, y) - 0.5) * 0.15, x, y)); }
+      for (let x = Math.round(cx - k * 1.8); x <= cx + k * 1.4; x++) T.px(x, top, st[0]);
+      for (const [x, y] of walkSpiral(cx, K(12), k)) T.px(x, y, st[0]);
+      for (let x = K(2); x <= K(12); x++) if (pxHash(x, 21) > 0.4) T.px(x, base - (pxHash(x, 22) > 0.5 ? 1 : 0), winter ? pxHex("#ffffff") : grass[3]);
+      if (land.ruins) for (let i = 0; i < 8 * k; i++) T.px(K(3) + Math.round(R() * K(2)), K(8) + Math.round(R() * K(10)), grass[2]);
+    });
+  } else if (id === "leaves") {
+    // a heap of fallen leaves in autumn colours (of snow in winter), a few strays at its foot
+    art = isoArt(K(30), K(13), T => {
+      const ramp = walkHexes(winter ? ["#8a8494", "#b9b3c0", "#e4dfe8", "#ffffff"] : ["#7d1e2c", "#b8323b", "#e0634f", "#eec26a"]), w = K(30), h = K(13);
+      for (let y = 1; y < h; y++) for (let x = 0; x < w; x++) {
+        const q = ((x + 0.5 - w / 2) / (w / 2 - 1)) ** 2 + ((y - h + 0.5) / (h - 2)) ** 2; if (q > 1) continue;
+        T.px(x, y, pxPick(ramp, 0.85 - y / h * 0.1 - (1 - y / h) * -0.2 - (x - w / 2) / w * 0.4 - q * 0.3 + (winter ? 0.1 : (pxHash(x >> 1, y) - 0.5) * 0.7), x, y));
+      }
+      if (!winter) for (let i = 0; i < 6 * k; i++) { const x = Math.round(R() * (w - 2)), y = h - 1 - Math.round(R()); if (!T.has(x, y)) { T.px(x, y, ramp[1 + (i % 3)]); T.px(x + 1, y, ramp[1 + (i % 3)]); } }
+    });
+  }
+  return g.doArt[key] = art;
+}
+
+/** The ones that stand on the ground: drawn behind the glowlings, a glint now and then on one still to do. */
+function walkDoDraw(X, Y, dot) {
+  const g = game.walk, geo = g.geo, t = g.t, cam = g.cam, calm = opts().calm, ink = "#3a2440", k = walkDoK(geo), K = v => Math.round(v * k);
+  for (const d of g.dos) {
+    if (d.x < cam - K(40) || d.x > cam + geo.AW + K(40)) continue;
+    const gy = walkGround(geo, d.x), put = (a, x, y, h = a.height) => ctx.drawImage(a, X(x), Y(y + a.height - h), a.width * PX, h * PX), foot = a => gy - a.height + 1;
+    let top = gy - K(14);
+    if (d.id === "puddle") {
+      const a = walkDoArt("puddle"); put(a, d.x - a.width / 2, gy - K(2)); top = gy - K(4);
+      // rings spreading out from the splash
+      const q = (t - d.t) / 1.2, cy = gy - K(2) + a.height / 2;
+      if (q >= 0 && q < 1) for (const r of [q * K(16), q * K(16) - K(5)]) if (r > 1) for (let i = 0; i < 28; i++) { if ((i + Math.floor(q * 5)) % 4 === 0) continue; const an = i / 28 * TAU; dot(Math.round(d.x + Math.cos(an) * r), Math.round(cy + Math.sin(an) * r * 0.3), 1, 1, q < 0.6 ? "#ffffff" : "#b8e6f5"); }
+    } else if (d.id === "flies") { const a = walkDoArt("flies"); put(a, d.x - a.width / 2, foot(a)); top = gy - K(20); }
+    else if (d.id === "puff") { const a = walkDoArt("puff", d.n ? 1 : 0); put(a, d.x - a.width / 2, foot(a)); top = gy - K(22); }
+    else if (d.id === "bell") {
+      // the bellflower: an arching stem and three bells hanging from it, which swing when rung (and a little in the breeze)
+      const c = WALK_BELL[g.theme] || WALK_BELL.churchyard, st = WALK_LAND[g.theme].grass[2], st2 = WALK_LAND[g.theme].grass[1], q = t - (d.swing ?? -9), sw = ((q < 1.6 ? Math.sin(q * 13) * Math.exp(-q * 2.4) * 2.4 : 0) + (calm ? 0 : Math.sin(t * 1.3 + d.u * 9) * 0.4)) * k;
+      const B = s => [Math.round((1 - s) ** 2 * (d.x - K(3)) + 2 * (1 - s) * s * (d.x - K(3)) + s * s * (d.x + K(7))), Math.round((1 - s) ** 2 * gy + 2 * (1 - s) * s * (gy - K(26)) + s * s * (gy - K(16)))];
+      for (let i = 0; i <= 60; i++) { const [x, y] = B(i / 60); dot(x, y, 1, 1, st); if (k > 1.6 && i < 40) dot(x + 1, y, 1, 1, st2); }
+      for (let i = 0; i < K(4); i++) { dot(d.x - K(3) - i, gy - Math.round(i * 0.6), 1, 1, st); dot(d.x - K(2) + i, gy - 1 - Math.round(i * 0.7), 1, 1, st2); }
+      [0.5, 0.74, 1].forEach((s, j) => {
+        const [x, y] = B(s), bx = Math.round(x + sw * (1 + j * 0.3)), bh = K(5), bw = 2.2 * k;
+        for (let i = 0; i < K(2); i++) dot(Math.round(lerp(x, bx, i / K(2))), y + i, 1, 1, st);
+        // a bell: narrow at the top, flaring at the lip, lit on its left, a white clapper peeping out under it
+        for (let r = 0; r <= bh; r++) { const f = r / bh, hw = Math.max(1, Math.round(bw * (0.45 + 0.4 * f + (f > 0.8 ? 0.35 : 0)))); for (let i = -hw; i <= hw; i++) dot(bx + i, y + K(2) + r, 1, 1, r === bh ? c[0] : i < -hw * 0.3 ? c[3] : i > hw * 0.4 ? c[1] : c[2]); }
+        dot(bx, y + K(2) + bh + 1, 1, Math.max(1, K(0.8)), "#ffffff");
+        if (g.season === "winter") dot(bx - 1, y + K(2), 3, 1, "#ffffff");
+      });
+      top = gy - K(26);
+    } else if (d.id === "log") {
+      const a = walkDoArt("log"), lx = d.x - a.width / 2, ly = foot(a), hx = lx + K(26.5), hy = ly + K(7.5);
+      put(a, lx, ly);
+      // the lampsnail: a lilac shell with its spiral, a pale body, two antennae with lit tips; it slides out of the hollow and back
+      const q = t - (d.peek ?? -9), out = q < 0 ? 0 : q < 0.35 ? q / 0.35 : q < 2.6 ? 1 : q < 2.95 ? 1 - (q - 2.6) / 0.35 : 0;
+      if (out > 0.05) {
+        const sx = hx - K(4) + out * K(7), clip = hx - K(2), P = (x, y, w, h, col) => { x = Math.round(x); if (x + w > clip) { const c0 = Math.max(x, Math.round(clip)); dot(c0, Math.round(y), x + w - c0, h, col); } };
+        P(sx - K(1), hy + K(1.5), K(8), K(1.6), "#b9b3c0"); P(sx - K(1), hy + K(1.5), K(8), 1, "#e4dfe8");
+        P(sx + K(5), hy - K(0.5), K(2.4), K(2.4), "#e4dfe8");
+        for (const ax of [K(5.4), K(6.8)]) { P(sx + ax, hy - K(3), 1, K(2.6), "#b9b3c0"); P(sx + ax - (k > 1.6 ? 1 : 0), hy - K(3) - 1, k > 1.6 ? 2 : 1, k > 1.6 ? 2 : 1, "#fff0b5"); }
+        const scx = sx + K(1.6), scy = hy - K(0.6), sr = K(2.6);
+        for (let y = -sr; y <= sr; y++) for (let x = -sr; x <= sr; x++) { const d2 = Math.hypot(x, y); if (d2 > sr + 0.3) continue; const an = Math.atan2(y, x), sp = Math.abs(((d2 / sr * 2.2 - an / TAU + 10) % 1) - 0.5) < 0.12; P(scx + x, scy + y, 1, 1, d2 > sr - 0.8 ? "#523a85" : sp ? "#523a85" : x + y < 0 ? "#d2bfff" : "#8a6cc9"); }
+      }
+      top = gy - K(12);
+    } else if (d.id === "sleeper") {
+      const a = walkDoArt("sleeper"), awake = d.wake !== undefined && t > d.wake && t < d.wake + 2.6, breathe = calm || awake ? 0 : Math.round((Math.sin(t * 1.6) + 1) / 2 * Math.max(1, k * 0.6)), sx = d.x - a.width / 2, sy = foot(a);
+      put(a, sx, sy, a.height - breathe);
+      // its eyes: shut, or (just after you say hello) one opens, and it smiles
+      const ex = sx + K(18.2), ey = sy + a.height - 1 - K(4.6) + breathe, e = Math.max(2, K(1.4));
+      if (awake) { dot(ex - e - 1, ey, e, 1, ink); dot(ex + 1, ey - 1, e, e, ink); dot(ex + 1, ey - 1, 1, 1, "#ffffff"); dot(ex - 1, ey + K(2), e + 1, 1, ink); }
+      else { dot(ex - e - 1, ey, e, 1, ink); dot(ex + 1, ey, e, 1, ink); }
+      dot(ex + e + 2, ey + K(1), Math.max(1, K(0.8)), 1, "#e88bb1");
+      top = sy + breathe;
+    } else if (d.id === "wish") {
+      const a = walkDoArt("wish"), ax = d.x - a.width / 2, ay = foot(a), sp = walkSpiral(a.width / 2, K(12), k);
+      put(a, ax, ay);
+      // the spiral glows: brightly from the inside out once a shard is in the cup, and faintly now and then before, to say it's there
+      const pulse = 0.5 + 0.5 * Math.sin(t * 1.2);
+      if (d.n || pulse > 0.85) sp.forEach(([x, y], i) => { if (d.n ? (t - d.t) * 60 > i : i % 2) dot(ax + x, ay + y, 1, 1, d.n ? (i % 3 ? "#fff0b5" : "#ffffff") : "#8a6cc9"); });
+      if (d.n) { const sx = ax + a.width / 2 - K(1), sy = ay + K(3) - K(2); dot(sx, sy, K(2), K(2), "#d2bfff"); dot(sx, sy, K(1), K(1), "#ffffff"); dot(sx + K(2) - 1, sy + K(2) - 1, 1, 1, "#8a6cc9"); }
+      top = ay + K(3);
+    } else if (d.id === "leaves") {
+      const a = walkDoArt("leaves"), q = (t - (d.squash ?? -9)) / 0.6, h = q >= 0 && q < 1 ? Math.round(a.height * (1 - 0.4 * Math.sin(q * Math.PI))) : a.height;
+      put(a, d.x - a.width / 2, gy - a.height + K(4), h);
+      top = gy - K(9);
+    }
+    // a glint on one not done yet, now and then
+    if (!d.n && (t + d.u * 11) % 2.8 < 0.3) { const gx = d.x + K(5), gy2 = top - 2; dot(gx, gy2, 1, 1, "#ffffff"); dot(gx - 1, gy2, 3, 1, "#fff0b5"); dot(gx, gy2 - 1, 1, 3, "#fff0b5"); dot(gx, gy2, 1, 1, "#ffffff"); }
+  }
+}
+/** What's in the air: the fireflies (or glowmoths), the one settled on a glowling, the mossback's z's, and the bits flying. */
+function walkDoAir(X, Y, dot) {
+  const g = game.walk, geo = g.geo, t = g.t, moth = WALK_LAND[g.theme].caps, cols = moth ? ["#e88bb1", "#69b7d6", "#d2bfff"] : ["#fff0b5"], k = walkDoK(geo), K = v => Math.round(v * k), big = k > 1.6 ? 2 : 1;
+  // a firefly: a bright body, a glow round it when it flares; a glowmoth: a coloured body with pale wings that flutter
+  const fly = (x, y, j, lit) => {
+    x = Math.round(x); y = Math.round(y); if (!lit) return;
+    dot(x, y, big, big, cols[j % cols.length]);
+    if (moth) { const up = Math.sin(t * 18 + j) > 0; dot(x - big, y - (up ? big : 0), big, big, "#efe6ff"); dot(x + big, y - (up ? big : 0), big, big, "#efe6ff"); }
+    else if (Math.sin(t * 3 + j * 2) > 0.3) { dot(x - 1, y, 1, big, "#eec26a"); dot(x + big, y, 1, big, "#eec26a"); dot(x, y - 1, big, 1, "#eec26a"); dot(x, y + big, big, 1, "#eec26a"); }
+  };
+  const headOf = p => [p.x, walkGround(geo, p.x, p.over) - geo.s * 1.0 - p.alt];
+  for (const d of g.dos) {
+    if (d.x < g.cam - K(60) || d.x > g.cam + geo.AW + K(60)) continue;
+    const gy = walkGround(geo, d.x);
+    if (d.id === "flies") {
+      const q = d.n ? t - d.t : -1, lead = g.pals[0];
+      for (let j = 0; j < 7; j++) {
+        let x = d.x + Math.sin(t * 0.9 + j * 1.7) * K(7) + (j - 3) * K(2), y = gy - K(16) - (j % 3) * K(4) + Math.cos(t * 1.3 + j) * K(3);
+        if (q >= 0) {
+          if (j === 0 && d.landed) continue;
+          // round the one who chased them, closer and quicker, then up and away
+          const [lx, ly] = headOf(lead), a = t * 4 + j * TAU / 7, r = geo.s * (0.55 + 0.2 * Math.sin(q * 2.2)), e = clamp(q / 0.5, 0, 1);
+          x = lerp(x, lx + Math.cos(a) * r, e); y = lerp(y, ly + geo.s * 0.4 + Math.sin(a) * r * 0.5, e);
+          if (q > 1.8) { const u = q - 1.8; y -= u * 30 * k; x += (j - 3) * u * 7 * k; if (u > 2.4) continue; }
+        }
+        fly(x, y, j, Math.sin(t * 3 + j * 2) > -0.4);
+      }
+    } else if (d.id === "sleeper" && !(d.wake !== undefined && t > d.wake - 0.5 && t < d.wake + 2.6)) {
+      // z, z, z, rising slowly from it, each a little bigger
+      for (let j = 0; j < 3; j++) {
+        const ph = (t * 0.32 + j / 3) % 1; if (ph > 0.85) continue;
+        const s = Math.max(3, Math.round(K(3) * (0.8 + ph * 0.6))), zx = Math.round(d.x + K(9) + ph * K(6)), zy = Math.round(gy - K(17) - ph * K(14)), c = ph < 0.5 ? "#d2bfff" : "#8a6cc9";
+        dot(zx, zy, s, 1, c); dot(zx, zy + s - 1, s, 1, c); for (let i = 1; i < s - 1; i++) dot(zx + s - 1 - i, zy + i, 1, 1, c);
+      }
+    }
+  }
+  if (g.perch) {
+    const p = g.pals.find(q => q.id === g.perch.id);
+    if (p) { const [hx, hy] = headOf(p), u = g.perch.t; fly(hx + K(2), u > 11 ? hy - (u - 11) * 30 * k : hy - 1, 0, u > 11 || Math.sin(t * 2.6) > -0.6); }
+  }
+  for (const b of g.bits) {
+    const x = Math.round(b.x), y = Math.round(b.y);
+    if (b.t > b.life * 0.8 && Math.floor(b.t * 20) % 2) continue;
+    if (b.kind === "seed") { dot(x, y, big, big, "#ffffff"); dot(x, y + big, 1, K(1.5), "#ad91e6"); }
+    else if (b.kind === "leaf") Math.sin(b.t * 9 + b.ph) > 0 ? dot(x, y, K(2.5), big, b.c) : dot(x, y, big, K(2.5), b.c);
+    else dot(x, y, big, big, b.c);
+  }
+}
+
 // ---------- drawing a frame ----------
 
 const walkIcons = {};
@@ -1282,6 +1716,7 @@ function drawWalk() {
     ctx.globalAlpha = 1;
     if (f.state === "shown" && (t + f.u * 7) % 2.2 < 0.3) { const gx = x + ic2.width - 3, gy2 = y + 2; dot(gx, gy2, 1, 1, "#ffffff"); dot(gx - 1, gy2, 3, 1, "#fff0b5"); dot(gx, gy2 - 1, 1, 3, "#fff0b5"); dot(gx, gy2, 1, 1, "#ffffff"); }
   }
+  walkDoDraw(X, Y, dot);
   // the thorn, loosening; once it lets go, a few small flowers open where it was
   const hl = geo.hill;
   if (hl) {
@@ -1324,6 +1759,7 @@ function drawWalk() {
     }
     if (p.say && g.reached) drawBubble(x, head - 6, p.say, clamp(g.endT * 2, 0, 1));
   }
+  walkDoAir(X, Y, dot);
   // in the air
   for (const m of g.motes) {
     const x = Math.round(m.x), y = Math.round(m.y);

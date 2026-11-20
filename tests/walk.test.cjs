@@ -1,6 +1,6 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan } = require('../js/walk.js');
+const { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, WALK_DO, WALK_DO_LAND, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan, walkDoPlan, walkDoAt } = require('../js/walk.js');
 
 // a fixed run of "random" numbers
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
@@ -133,6 +133,7 @@ test('holding an arrow leads a little ahead, and over the stream from stone to s
   const ctx = vm.createContext({ clamp: (v, a, b) => Math.max(a, Math.min(b, v)) });
   vm.runInContext(cut('const walkIn =', '\n') + '\n' + cut('const WALK_SPEED', '\nfunction updateWalk') + '\nthis.walkAhead = walkAhead; this.WALK_SPEED = WALK_SPEED;', ctx);
   assert.ok(ctx.WALK_SPEED > 1, 'outside they walk faster than at home');
+  assert.ok(ctx.WALK_SPEED >= 4 && ctx.WALK_SPEED <= 4.5, 'faster than the 3.2 they used to stroll at (#315), and still easy to steer');
   const geo = { s: 20, end: 400, stream: { x0: 100, x1: 160, stones: [115, 130, 145] } };
   assert.equal(ctx.walkAhead(geo, 40, 1), 64);
   assert.equal(ctx.walkAhead(geo, 40, -1), 16);
@@ -144,11 +145,75 @@ test('holding an arrow leads a little ahead, and over the stream from stone to s
   assert.equal(ctx.walkAhead(geo, 130, -1), 115);
 });
 
-test('the action key does what is right by the one you lead: thorn, bush, lantern, else a hop', () => {
+test('the action key does what is right by the one you lead: thorn, bush, a little thing, lantern, else a hop', () => {
   const src = require('node:fs').readFileSync(require.resolve('../js/walk.js'), 'utf8');
   const act = src.slice(src.indexOf('function walkAct()'), src.indexOf('\n}\n', src.indexOf('function walkAct()')));
-  const order = ['walkThorn()', 'walkShake(f', 'g.lamp = {', 'lead.hop = 1'].map(s => act.indexOf(s));
-  assert.ok(order.every(i => i > 0) && order.every((v, i) => !i || v > order[i - 1]), 'thorn, then bush, then lantern, then a hop');
+  const order = ['walkThorn()', 'walkShake(f', 'walkDo(d)', 'g.lamp = {', 'lead.hop = 1'].map(s => act.indexOf(s));
+  assert.ok(order.every(i => i > 0) && order.every((v, i) => !i || v > order[i - 1]), 'thorn, then bush, then a little thing along the way, then lantern, then a hop');
   assert.match(src, /ACT = \[" ", "ArrowUp", "w", "W"\]/);
   assert.match(src, /\$\("walkAct"\)\.addEventListener\("pointerdown"/);
+});
+
+test('little things to do along the way: a few on every walk, each land its own, the season has its say', () => {
+  const ids = Object.keys(WALK_DO);
+  assert.ok(ids.length >= 5);
+  for (const [land, list] of Object.entries(WALK_DO_LAND)) for (const id of list) assert.ok(WALK_DO[id], `${land}: ${id}`);
+  assert.notDeepEqual(WALK_DO_LAND.glowcap, WALK_DO_LAND.summit, 'each land has its own');
+  const seasons = ['spring', 'summer', 'autumn', 'winter'];
+  for (const land of Object.keys(WALK_DO_LAND)) for (const season of seasons) for (let p = 0; p < WALKS.length; p++) for (const r of [0, 0.3, 0.7, 0.99]) {
+    const plan = walkDoPlan(p, land, season, seq(r, 0.5, 0.1, 0.9, 0.42));
+    const at = `${land} ${season} path ${p}`;
+    assert.ok(plan.length >= 3 && plan.length <= 4, at);
+    assert.equal(new Set(plan.map(d => d.id)).size, plan.length, `${at}: no two the same`);
+    for (const d of plan) {
+      const doing = WALK_DO[d.id];
+      assert.ok(!(doing.not || []).includes(season) && (!doing.only || doing.only.includes(season)), `${at}: ${d.id} belongs to the season`);
+      assert.ok(d.u > 0.05 && d.u < 0.95, `${at}: on the path`);
+      // never on the hill, in the stream, in the dark, up the climb, or on a find
+      const sh = WALK_SHAPE[p];
+      for (const k of ['hill', 'stream', 'dark']) if (sh[k]) assert.ok(d.u < sh[k][0] || d.u > sh[k][1], `${at}: ${d.id} clear of the ${k}`);
+      if (sh.ledge) assert.ok(d.u < sh.ledge[0], `${at}: before the climb`);
+      for (const s of WALK_SPOTS[p]) assert.ok(Math.abs(s.u - d.u) * WALKS[p].len > 0.1, `${at}: ${d.id} clear of a find`);
+    }
+    // in order along the path, and not crowded
+    for (let i = 1; i < plan.length; i++) assert.ok((plan[i].u - plan[i - 1].u) * WALKS[p].len >= 0.28, `${at}: room between`);
+  }
+  // the heap of leaves comes with autumn and winter; puddles and moonpuffs stay out of the snow
+  for (const land of Object.keys(WALK_DO_LAND)) {
+    assert.ok(walkDoPlan(0, land, 'autumn', seq(0.4, 0.8)).some(d => d.id === 'leaves'), land);
+    assert.ok(walkDoPlan(0, land, 'winter', seq(0.4, 0.8)).every(d => !['puddle', 'puff', 'flies'].includes(d.id)), land);
+    assert.ok(walkDoPlan(0, land, 'summer', seq(0.4, 0.8)).every(d => d.id !== 'leaves'), land);
+  }
+  // the same stream gives the same walk; a different one another
+  assert.deepEqual(walkDoPlan(1, 'glowcap', 'spring', seq(0.3, 0.6)), walkDoPlan(1, 'glowcap', 'spring', seq(0.3, 0.6)));
+  assert.ok(walkDoPlan(3, 'summit', 'summer').length >= 3, 'with Math.random too');
+});
+
+test('the action key picks the nearest little thing in reach, one not done before one done, and a done one only if it can be done again', () => {
+  const dos = [{ id: 'bell', x: 100, n: 0, t: -9 }, { id: 'puff', x: 130, n: 0, t: -9 }, { id: 'wish', x: 300, n: 0, t: -9 }];
+  assert.equal(walkDoAt(dos, 112, 30, 5).id, 'bell', 'the nearer of two in reach');
+  assert.equal(walkDoAt(dos, 122, 30, 5).id, 'puff');
+  assert.equal(walkDoAt(dos, 200, 30, 5), null, 'nothing in reach');
+  assert.equal(walkDoAt([], 100, 30), null);
+  assert.equal(walkDoAt(undefined, 100, 30), null);
+  // the bell's been rung: the puff (not blown yet) comes first though it's further
+  dos[0].n = 1; dos[0].t = 4;
+  assert.equal(walkDoAt(dos, 105, 30, 5).id, 'puff');
+  // the puff blown too: it can't be again, but the bell can be rung again (not in the same instant)
+  dos[1].n = 1; dos[1].t = 4.5;
+  assert.equal(walkDoAt(dos, 118, 30, 4.2), null, 'not straight away');
+  assert.equal(walkDoAt(dos, 118, 30, 6).id, 'bell');
+  // a wish-stone is a once-a-walk thing
+  dos[2].n = 1; dos[2].t = 1;
+  assert.equal(walkDoAt(dos, 300, 30, 9), null);
+  for (const id of Object.keys(WALK_DO)) assert.equal(typeof (WALK_DO[id].again || false), 'boolean', id);
+});
+
+test('the little things done along the way add a little joy to the walk, never over the top', () => {
+  assert.ok(walkMood(1, 2, false, 3).joy > walkMood(1, 2, false).joy);
+  assert.equal(walkMood(1, 2, false, 0).joy, walkMood(1, 2, false).joy);
+  assert.ok(walkMood(3, 5, true, 99).joy <= 40);
+  const src = require('node:fs').readFileSync(require.resolve('../js/walk.js'), 'utf8');
+  assert.match(src, /trackOnce\("walkdo", \{ what: d\.id \}\)/, 'each counted once a walk');
+  assert.match(src, /walkMood\(g\.path, n, g\.freed, g\.doJoy\)/);
 });

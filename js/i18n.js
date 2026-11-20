@@ -1830,7 +1830,24 @@ const UK = {
   "Every room is full: {0} set off for {1} to make room 🧭 back in {2}": "Усі кімнати повні: {0} вирушило в мандри ({1}), щоб звільнити місце 🧭 повернеться за {2}",
   "Went out exploring by itself, to make room for {0}": "Саме пішло досліджувати грот, щоб звільнити місце для: {0}",
   "Set off for {0} by itself, to make room for {1}": "Саме вирушило в мандри ({0}), щоб звільнити місце для: {1}",
-  "No bed free yet: {0} keeps exploring till there's room": "Вільного ліжка поки немає: {0} мандрує далі, доки не звільниться місце"
+  "No bed free yet: {0} keeps exploring till there's room": "Вільного ліжка поки немає: {0} мандрує далі, доки не звільниться місце",
+  // little things to do on a walk (#315): their words when in reach, and what they say back
+  "A puddle! Tap it, or ✦, to splash": "Калюжа! Торкнися її або ✦, щоб хлюпнути",
+  "Glowmoths are dancing here. Tap them, or ✦, to chase them": "Тут танцюють сяйні метелики. Торкнися їх або ✦, щоб погнатися за ними",
+  "Fireflies are dancing here. Tap them, or ✦, to chase them": "Тут танцюють світлячки. Торкнися їх або ✦, щоб погнатися за ними",
+  "A moonpuff, ready to blow. Tap it, or ✦": "Місячна кульбабка: так і проситься, щоб на неї дмухнули. Торкнися її або ✦",
+  "A bellflower nods by the path. Tap it, or ✦, to ring it": "Біля стежки кивають дзвіночки. Торкнися їх або ✦, щоб подзвонити",
+  "Someone lives in that old log. Tap it, or ✦, to knock softly": "У тій старій колоді хтось живе. Торкнися її або ✦, щоб тихенько постукати",
+  "A mossback is napping by the path. Tap it, or ✦, to say hello gently": "Біля стежки дрімає мохоспинка. Торкнися її або ✦, щоб тихенько привітатися",
+  "A wish-stone. Tap it, or ✦, to leave a shard on it": "Камінь бажань. Торкнися його або ✦, щоб залишити на ньому осколок",
+  "A heap of leaves! Tap it, or ✦, to jump in": "Купа листя! Торкнися її або ✦, щоб стрибнути в неї",
+  "A soft heap of snow! Tap it, or ✦, to jump in": "М'яка кучугура снігу! Торкнися її або ✦, щоб стрибнути в неї",
+  "A glowmoth settles on {0}": "{0}: на маківку сів сяйний метелик",
+  "A firefly settles on {0}": "{0}: на маківку сів світлячок",
+  "A lampsnail peeks out": "Визирає равлик-ліхтарик",
+  "It smiles in its sleep": "Усміхається уві сні",
+  "No shard to leave just now. The stone doesn't mind": "Зараз немає осколка, щоб залишити. Камінь не ображається",
+  "A tiny blessing: everyone on this walk feels a little lighter ✦": "Маленьке благословення: усім на прогулянці трохи легше на душі ✦"
 };
 
 const UK_DATA = {
