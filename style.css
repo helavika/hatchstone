@@ -1085,7 +1085,6 @@ body.arranging #nestBottom, body.seeking #nestBottom { visibility: hidden; }
 .chest-empty { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 28px 8px 12px; text-align: center; }
 .chest-empty img { width: 72px; height: 72px; image-rendering: pixelated; }
 .chest-empty p { margin: 0; max-width: 300px; font-size: 17px; line-height: 1.3; color: var(--soft); }
-.gift-entry + .chest-empty { padding-top: 16px; }
 .shelf-empty { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
 .shelf-empty span { flex: 1 1 190px; min-width: 0; }
 .shelf-empty .act { flex: none; padding: 6px 10px; font-size: 15px; }
@@ -1392,7 +1391,6 @@ body.compact .place-who img { width: 39px; height: 39px; }
 .gift-out b { font-weight: 400; }
 .gift-out .act { padding: 6px 10px; font-size: 15px; }
 .gift-big { width: 96px; height: 96px; image-rendering: pixelated; display: block; margin: 4px auto 8px; animation: pxBob 1.6s steps(2) infinite; }
-.gift-entry { display: flex; align-items: center; gap: 8px; margin: 4px auto 2px; }
 .parcel img, .parcel span { width: 112px; height: 112px; image-rendering: pixelated; display: grid; place-items: center; font-size: 70px; }
 .parcel img.wobble { animation: parcelWobble 1.4s steps(4) infinite; }
 @keyframes parcelWobble { 0%, 60%, 100% { transform: rotate(0); } 70% { transform: rotate(-6deg); } 80% { transform: rotate(6deg); } 90% { transform: rotate(-3deg); } }

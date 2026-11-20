@@ -174,8 +174,8 @@ const hasDecor = id => save.decor[id] && save.decor[id].on;
 /** The chest keeps what's yours; the shop sells. Both work like a catalogue: four tabs, then things in sections, and a strip at the bottom for the one you picked. */
 const SHOP_TABS = [["decor", "candle", "Furniture"], ["look", "grotto", "Look"], ["pantry", "chest", "Pantry"], ["wear", "heart", "Wear"]];
 const MARKET_TABS = [["food", "cookie", "Food"], ["decor", "candle", "Furniture"], ["seeds", "sun", "Seeds"], ["reno", "hammer", "Renovation"]];
-/** From a shelf of the chest to the shop's matching counter: [the shop's tab, the button] (furniture has its own tile for it). */
-const CHEST_SHOP = { pantry: ["food", "Buy food and seeds"], look: ["reno", "New rooms and renovation"] };
+/** From a shelf of the chest to the shop's matching counter: [the shop's tab, the button] (furniture, food and seeds have a tile for it on their shelves). */
+const CHEST_SHOP = { look: ["reno", "New rooms and renovation"] };
 const DECOR_CATS = [["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
   rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty", keepjar: "pretty" };
@@ -242,7 +242,6 @@ function openShop() {
   $$("#shopList [data-build]").forEach(b => b.addEventListener("click", () => buildRoom(b.dataset.build)));
   $("nestUp")?.addEventListener("click", buyNestUp);
   $$("#shopList [data-way]").forEach(b => b.addEventListener("click", () => { const [to, tab] = b.dataset.way.split(":"); show("shop", false); CHEST_WAYS[to].go(tab); }));
-  $("giftFromChest")?.addEventListener("click", () => openGift());
   $$("#shopList [data-gift]").forEach(b => b.addEventListener("click", () => openGift(b.dataset.gift)));
   $$("#shopList [data-food]").forEach(b => b.addEventListener("click", () => buyFood(b.dataset.food, Number(b.dataset.n || 1))));
   $$("#shopList [data-seedbuy]").forEach(b => b.addEventListener("click", () => buySeed(b.dataset.seedbuy, openShop)));
@@ -347,13 +346,14 @@ function chestPantry() {
   const chip = (img, name, n, gift) => gift ? `<button class="tile owned" data-gift="${gift}" title="${tr("Send as a gift")}">${img}<b>${name}</b><small>×${n}</small></button>` : `<div class="tile owned">${img}<b>${name}</b><small>×${n}</small></div>`;
   const treasures = bars.length || save.sunlit || (save.charms || []).length;
   const empty = (t, way) => `<p class="me-hint shelf-empty"><span>${t}</span>${way ? chestWay(way) : ""}</p>`;
-  const gift = `<button class="act gift-entry" id="giftFromChest">${ic("gift")}${tr("Send a gift")}</button>`;
+  // the last place on the food and seed shelves: the way to the shop, for more (as for furniture)
+  const more = tab => placeOk("shop") ? `<button class="tile shop-more" data-way="shop:${tab}"><img class="em px-thumb" src="${pxIcon("stall")}" alt=""><b>${tr("Buy more")}</b><small>${tr("at the shop")}</small></button>` : "";
   // not a thing on any shelf: one open chest instead of four bare shelves
   if (!pantry.length && !seeds.length && !treasures && !KEEPSAKES.some(k => save.walks.found[k.id]))
-    return gift + shopEmpty("The pantry is bare: food and seeds come from the shop.", "The pantry is bare: food and seeds come from the shop, which opens after level {0}.", "food");
-  return gift + `<p class="me-hint">${tr("Tap food or seeds to wrap them for a friend 🎁")}</p>`
-    + `<h3 class="forge-h">${tr("Food")}</h3>` + (pantry.length ? `<div class="tiles">${pantry.map(([id, n]) => chip(`<span class="em">${SNACKS[id].emoji}</span>`, SNACKS[id].name, n, "snack:" + id)).join("")}</div>${empty(tr("Feed it from the snack button in the nest."))}` : empty(tr("The basket is empty. Buy food at the shop, or grow it in the garden."), "shop:food"))
-    + `<h3 class="forge-h">${tr("Seeds")}</h3>` + (seeds.length ? `<div class="tiles">${seeds.map(([id, n]) => chip(`<img class="em" src="${plantImage(id, 3)}" alt="">`, seedName(id), n, "seed:" + id)).join("")}</div>` : empty(tr("No seeds. The shop has them, and expeditions bring some back."), "shop:seeds"))
+    return shopEmpty("The pantry is bare: food and seeds come from the shop.", "The pantry is bare: food and seeds come from the shop, which opens after level {0}.", "food");
+  return `<p class="me-hint">${tr("Tap food or seeds to wrap them for a friend 🎁")}</p>`
+    + `<h3 class="forge-h">${tr("Food")}</h3>` + (pantry.length ? `<div class="tiles">${pantry.map(([id, n]) => chip(`<span class="em">${SNACKS[id].emoji}</span>`, SNACKS[id].name, n, "snack:" + id)).join("")}${more("food")}</div>${empty(tr("Feed it from the snack button in the nest."))}` : empty(tr("The basket is empty. Buy food at the shop, or grow it in the garden."), "shop:food"))
+    + `<h3 class="forge-h">${tr("Seeds")}</h3>` + (seeds.length ? `<div class="tiles">${seeds.map(([id, n]) => chip(`<img class="em" src="${plantImage(id, 3)}" alt="">`, seedName(id), n, "seed:" + id)).join("")}${more("seeds")}</div>` : empty(tr("No seeds. The shop has them, and expeditions bring some back."), "shop:seeds"))
     + chestKeepsakes()
     + `<h3 class="forge-h">${tr("Treasures")}</h3>` + (treasures ? `<div class="tiles">${bars.map(([id, n]) => chip(`<img class="em px-thumb" src="${pxIcon(BARS[id].icon || "bar" + id[0].toUpperCase() + id.slice(1))}" alt="">`, barName(id), n)).join("")}${save.sunlit ? chip(`<span class="em">☀️</span>`, tr("Sunpetal"), save.sunlit) : ""}${giftCharmTiles()}</div>` : empty(tr("Nothing yet: bars for the lantern come from daily tasks and moon eggs, sunpetals from the garden."), "tasks"));
 }
