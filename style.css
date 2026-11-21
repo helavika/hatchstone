@@ -1331,6 +1331,14 @@ body.compact .place-who img { width: 39px; height: 39px; }
 .reno .reno-img { width: 56px; height: 38px; object-fit: cover; image-rendering: pixelated; box-shadow: var(--px-frame); }
 .reno.built { opacity: .7; }
 .reno .em .ic { width: 34px; height: 34px; }
+/* the shop's beds (#310): a row per room, its next bed's cost, and what's still missing */
+.bedrow img.em { width: 44px; height: 44px; object-fit: contain; image-rendering: pixelated; flex: none; }
+.bedrow b em { font-style: normal; color: var(--px-gold); margin-left: 4px; }
+.bedrow .bed-next { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; margin-top: 3px; }
+.bed-need { display: inline-flex; align-items: center; gap: 2px; color: var(--px-gold); white-space: nowrap; }
+.bed-need .ic { width: 16px; height: 16px; }
+.bed-need.short { color: #ff9aa2; }
+.bedrow .bed-miss { display: block; margin-top: 3px; color: #ff9aa2 !important; }
 .space-acts { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .space-acts .act { justify-content: flex-start; }
 .world-zoom { position: fixed; right: 12px; top: calc(var(--top) + 112px); z-index: 3; display: flex; flex-direction: column; gap: 6px; }
