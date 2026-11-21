@@ -135,12 +135,13 @@ function playDecor(hit) {
   for (const a of fans) {
     a.goal = d.id; a.state = "walk"; a.friend = null;
     [a.tx, a.ty] = standSpot(clamp(x + rand(-0.25, 0.25) * b, N.x0, N.x1), clamp(y + rand(-0.1, 0.1) * b, N.y0, N.y1));
-    if (!glad || a.id !== glad.id) emote(a, "!", 0.9);
+    if (!glad || a.id !== glad.id) emote(a, Math.random() < 0.4 ? kaoFor(crOf(a.id), "surprise") : "!", 1.2);
   }
 }
 
 function drawEmote(a, v) {
-  const e = a.emote, k = e.t / e.life, r = Math.max(12, v.size * 0.2);
+  const e = a.emote, k = e.t / e.life, r = Math.max(12, v.size * 0.2), kao = kaoNamed(e.text);
+  if (kao) { drawKao(e, kao, k, r, v); return; }
   const bx = v.x + v.size * 0.42, by = v.y - v.size * 0.62 - k * 8;
   const fade = Math.min(1, (e.life - e.t) / 0.3, e.t / 0.12);
   if (fade < 0.3) return;
@@ -158,6 +159,30 @@ function drawEmote(a, v) {
   fx.textAlign = "center"; fx.textBaseline = "middle";
   fx.fillText(e.text, bx, by + 1);
   fx.restore();
+}
+/**
+ * A kaomoji: a wider speech bubble, a pill with its tail down by the head, the face in it drawn from its pixel map (see KAO),
+ * every face at the same scale: whole art pixels, one or more for each of its own, about as tall as the round bubble's word.
+ * It pops up with a little hop and drifts up as it goes (neither with less motion).
+ */
+function drawKao(e, kao, k, r, v) {
+  const fade = Math.min(1, (e.life - e.t) / 0.3, e.t / 0.12);
+  if (fade < 0.3) return;
+  const art = kaoArt(kao), P = PX * Math.max(1, Math.round(r * 0.85 / (6 * PX))), fw = art.width * P, fh = art.height * P;
+  const hh = Math.round((6 * P + 4 * P) / 2), hw = Math.max(hh, Math.round(fw / 2 + 3 * P)), still = opts().calm;
+  const hop = still || e.t > 0.25 ? 0 : Math.round(Math.sin(e.t / 0.25 * Math.PI) * 2) * PX;
+  const bx = clamp(v.x + v.size * 0.18 + hw, hw + 4, W - hw - 4), by = v.y - v.size * 0.62 - (still ? 0 : k * 8) - hop;
+  // the pill: two round ends and the middle between, a little round tail at its lower left
+  drawBaked(cachedSprite(roomSprites, "kaoBubble" + hw + "x" + hh, `${hw}|${hh}|${PX}`, () => bakeSprite(0, 0, hh, () => {
+    ctx.fillStyle = "#efe6ff";
+    for (const x of [-(hw - hh), hw - hh]) { ctx.beginPath(); ctx.arc(x, 0, hh, 0, TAU); ctx.fill(); }
+    ctx.fillRect(-(hw - hh), -hh, 2 * (hw - hh), 2 * hh);
+    ctx.beginPath(); ctx.arc(-hw * 0.7, hh * 1.05, hh * 0.3, 0, TAU); ctx.fill();
+  }, { up: 1.25, down: 1.5, side: hw / hh + 0.25, soft: false })), bx, by);
+  ctx.save();
+  ctx.globalAlpha = fade; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(art, Math.round((bx - fw / 2) / PX) * PX, Math.round((by - fh / 2) / PX) * PX, fw, fh);
+  ctx.restore();
 }
 
 /** The pictures for the daydream bubbles, each made once. */
@@ -316,7 +341,7 @@ function dustLanded(d) {
   dustPuff(s.x, s.y - s.r * 0.4, s.r, 8);
   if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.1, 1800, 0.7, 0.08);
   const a = nearestAwake(s.x, s.y);
-  if (a) { emote(a, "!", 1.4); a.hop = 0.6; }
+  if (a) { emote(a, kaoFor(crOf(a.id), "surprise"), 1.4); a.hop = 0.6; }
   setHint(nestHint());
 }
 
@@ -619,7 +644,7 @@ function gloomEnd(seen) {
   if (seen && freed) {
     bump("lamplit");
     for (const cr of residents(nestRoom())) if (!cr.sleeping) cr.joy = clamp(cr.joy + 5, 0, 100);
-    for (const a of actors.values()) { const cr = crOf(a.id); if (cr && !cr.sleeping) { a.hop = 1; emote(a, a.id % 2 ? "♥" : "✦", 1.8); } }
+    for (const a of actors.values()) { const cr = crOf(a.id); if (cr && !cr.sleeping) { a.hop = 1; emote(a, a.id % 2 ? kaoFor(cr, "won") : "✦", 1.8); } }
     // (two friends whose thread caught a wisp get a word of their own)
     toast(pair[0] && pair[1] ? tr("It's lighter now. {0} and {1} held the light together.", pair[0].name, pair[1].name) : tr("It's lighter now. Together."));
     if (sfx.ready()) { const t = sfx.ac.currentTime; [659.25, 783.99, 1046.5].forEach((f, i) => sfx.tone(t + i * 0.13, f, 0.05, 1.4, "sine", null, true)); }
@@ -1213,7 +1238,7 @@ function actorLook(a, cr) {
   if (game.seek && game.seek.id === a.id && game.seek.phase === "count") return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood: "asleep", hop: 0, t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 };
   // near the Gloom's shadows a glowling dims and looks worried; shining with your light, it brightens and cheers up (see updateGloom)
   const gk = asleep ? 0 : a.gloomK || 0, lit = a.gloomLit || 0;
-  const mood = asleep ? "asleep" : petted(a) ? "joy" : a.state === "dance" || a.state === "visit" || lit > 0.5 || (a.emote && a.emote.text === "♥") ? "happy" : gk > 0.35 ? "sad" : moodOf(cr);
+  const mood = asleep ? "asleep" : petted(a) ? "joy" : a.state === "dance" || a.state === "visit" || lit > 0.5 || (a.emote && (a.emote.text === "♥" || KAO_GLAD.includes(kaoNamed(a.emote.text)))) ? "happy" : gk > 0.35 ? "sad" : moodOf(cr);
   // only a truly tired one (not just a bit low) looks sleepy-eyed; a little moment's face while it rests; older ones hop lower
   return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, cap: a.state === "sleep", hop: a.hop, hopK: calmOf(cr.level).hop * 0.75, eating: a.state === "eat", t: game.time + a.id * 997, glowK: (mine ? 0.7 : 0.35) * (1 - gk * 0.7) + lit * 0.7,
     tired: cr.energy < 12, face: faceNow(a), dim: gk * 0.6 * (1 - lit) };
@@ -1940,7 +1965,7 @@ function seekPop(g, n) {
   if (!a || !cr || !p) return;
   [a.x, a.y] = standSpot(...isoPieceAt(p, 0.8));
   a.state = "idle"; a.t = 2.2; a.hop = 1; a.alt = N.base * 0.3; a.face = null;
-  emote(a, n ? "♥" : "♪", 2);
+  emote(a, n ? kaoFor(cr, "won") : "♪", 2);
   decorFx[g.spot] = game.time;
   const v = actorView(a);
   for (let i = 0; i < (n ? 5 : 2); i++) setTimeout(() => heart(v.x + rand(-16, 16), v.y - v.size * 0.4), i * 110);

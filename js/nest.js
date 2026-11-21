@@ -107,7 +107,7 @@ function feed(id) {
   const cr = activeCreature(), s = SNACKS[id], sp = specOf(cr);
   show("snacks", false);
   if (s.all) { sprinkle(id); return; }
-  if (cr.tummy >= (s.drink ? 97 : 88)) { refuseWith(cr, tr("no thanks, I'm full")); return; }
+  if (cr.tummy >= (s.drink ? 97 : 88)) { refuseWith(cr, tr("no thanks, I'm full")); const a = activeActor(); if (a) emote(a, kaoFor(cr, "full"), 1.8); return; }
   if (!takeSnack(id)) return;
   game.nest.feedCall = { t: game.time, id: cr.id };
   const v = actorView(activeActor());
@@ -132,7 +132,7 @@ function finishSnack(sn) {
   addXP(cr, (sn.fav ? 12 : 6) + (sn.s.xp || 0));
   spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
   floatText(sn.fav ? tr("favorite! ♥") : sn.s.xp ? tr("growing! ✦") : sn.s.drink ? tr("slurp") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
-  if (sn.fav) for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3);
+  if (sn.fav) { for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3); if (a) emote(a, kaoFor(cr, "fave"), 1.8); }
   // the hungry ones who came running only get to watch: they stay hungry until they get their own snack
   for (const o of actors.values()) if (o.state === "begging" && a && Math.hypot(o.x - a.x, o.y - a.y) < N.base * 1.4) emote(o, "🥺", 1.6);
   if (game.nest.feedCall) game.nest.feedCall.t = game.time - 2000;
@@ -1232,7 +1232,7 @@ function wearAccessory(id) {
   } else sfx.tick();
   cr.acc = cr.acc === id ? null : id;
   const act = actors.get(cr.id);
-  if (act && cr.acc) { act.hop = 1; emote(act, "♥", 1.4); }
+  if (act && cr.acc) { act.hop = 1; emote(act, kaoFor(cr, "dressed"), 1.6); }
   if (made) toast(tr("Made from your keepsakes ✦ {0} is wearing the {1}", cr.name, a.name.toLowerCase()));
   else if (cr.acc) toast(tr("{0} is wearing the {1} ✦", cr.name, a.name.toLowerCase()));
   persist(); updateTopbar(); renderNest(true); openShop();
@@ -1883,6 +1883,7 @@ function goRoom(i, via) {
     a.tx = tx; a.ty = ty; a.goal = a.friend = a.decor = null;
     if (a.state !== "sleep") { a.state = "idle"; a.t = rand(lead ? 2 : 0.5, lead ? 3 : 1.5); }
   }
+  if (game.nest.freshRoom === i) { game.nest.freshRoom = null; const a = actors.get(save.active), cr = activeCreature(); if (a && cr && !cr.sleeping) setTimeout(() => { a.hop = 1; emote(a, kaoFor(cr, "surprise"), 2); }, 700); }
   sfx.whoosh();
   renderNest(true);
   litTabs();
@@ -1929,6 +1930,8 @@ function buildRoom(id, quiet = false) {
   if (!kind || kind.id !== id || save.shards < kind.cost) return;
   save.shards -= kind.cost;
   save.rooms.push({ kind: kind.id, on: [], theme: kind.theme || null, beds: ["cot"] });
+  // (the first time you walk in, the one you look after is surprised by it: see goRoom)
+  game.nest.freshRoom = save.rooms.length - 1;
   sfx.levelUp(); buzz([12, 30, 12]);
   toast(tr("A new room: {0} ✦ it opens off the last room at home", tr(kind.name)));
   persist(); updateTopbar();

@@ -43,7 +43,7 @@ function visit({ friends = [], at = { 1: [300, 300], 2: [500, 300], 3: [400, 380
     clamp: (v, a, b) => Math.max(a, Math.min(b, v)), lerp: (a, b, t) => a + (b - a) * t, rand: (a, b) => (a + b) / 2, pick: arr => arr[0],
     sfx: { ready: () => false }, opts: () => ({ calm }), document: { hidden: false }, setTimeout: () => 0, $$: () => [],
     talkNow: null, talkQueue: [], giftNow: null, coopSession: null, pointer: null, arrange: { on: false }, startedEmpty: false,
-    emote: (a, text) => did.emotes.push([a.id, text]), toast: t => did.toasts.push(t), tr: fill, persist: () => did.saved++,
+    emote: (a, text) => did.emotes.push([a.id, text]), kaoFor: () => "≧ω≦", toast: t => did.toasts.push(t), tr: fill, persist: () => did.saved++,
     isoLayout: () => ({ key: '', placed: {} }), wallInDoor: () => false,
     nestRoom: () => 0, hasDecor: id => !!decor[id], residents: () => creatures, cnt: () => 1, bump: () => {}, tipDone: () => true, dayKey: () => 'today', keeperGift: () => false,
     setHint: () => {}, nestHint: () => '', renderNest: () => {}, updateTopbar: () => {}, checkAwards: () => {}, floatText: () => {}, buzz: () => {}, talk: () => {},

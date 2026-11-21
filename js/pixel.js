@@ -308,6 +308,60 @@ function pxIcon(name) {
 }
 const ic = (name, cls = "") => `<i class="ic${cls ? " " + cls : ""}" style="background-image:url(${pxIcon(name)})" aria-hidden="true"></i>`;
 
+// ---------- kaomoji: the little text faces a glowling pulls in its speech bubble, drawn as pixel maps ----------
+// (the pixel fonts have hardly any of these letters, so each face is drawn by hand, in the icons' colours: d ink, R a heart's
+// pink, r a blush, t a tear; simplified to read at a few art pixels high). Its text is what emote() is given and drawEmote looks up.
+const KAO = {
+  // ≧ω≦ happy: eyes squeezed shut into arrows with a line under each, a wide cat's mouth
+  happy: { text: "≧ω≦", rows: ["d...........d", ".d.........d.", "..d.......d..", ".d..d...d..d.", "d...d.d.d...d", "ddd..d.d..ddd"] },
+  // ♡﹃♡ loved: two pink hearts for eyes, a flat little mouth with the tip of a tongue out
+  loved: { text: "♡﹃♡", rows: ["RR.RR.....RR.RR", "RRRRR.....RRRRR", ".RRR.......RRR.", "..R...ddd...R..", ".......R......."] },
+  // ơ.ơ surprised: wide round eyes, a hook on each, and a dot of a mouth
+  surprised: { text: "ơ.ơ", rows: [".dd.d....dd.d", "d..d....d..d.", "d..d....d..d.", ".dd...d..dd.."] },
+  // TᴖT sad: eyes shut tight as two Ts, tears running down their stems, a mouth turned down
+  sad: { text: "TᴖT", rows: ["ddd.......ddd", ".d.........d.", ".t...ddd...t.", ".t..d...d..t.", "...........t."] },
+  // ¯▿¯ sleepy, content: eyes two flat lines, a small open mouth, a blush under each eye
+  sleepy: { text: "¯▿¯", rows: ["dddd.......dddd", ".....ddddd.....", ".rr...d.d...rr.", ".......d......."] },
+  // ^~^ pleased: eyes smiling upward, a wavy mouth, blushing
+  pleased: { text: "^~^", rows: ["..d..........d..", ".d.d........d.d.", "d...d..d.d.d...d", ".rr...d.d....rr."] },
+  // >ω< excited: eyes screwed up as arrows, the cat's mouth
+  excited: { text: ">ω<", rows: ["d...........d", ".d..d...d..d.", "..d.d.d.d.d..", ".d...d.d...d.", "d...........d"] },
+  // ˆ>₃<ˆ smug, cute: brows up, eyes screwed up, lips pushed out in a little 3, blushing
+  smug: { text: "ˆ>₃<ˆ", rows: [".d..........d.", "d.d........d.d", "...d......d...", "....d.dd.d....", "...d....d.d...", "rr....dd....rr"] },
+  // •̄ ̫•̄ shy: dot eyes under flat brows, a tiny mouth, big blushes
+  shy: { text: "•̄ ̫•̄", rows: ["ddd.......ddd", ".............", ".dd.......dd.", ".dd.......dd.", "rr..d.d.d..rr", ".....d.d....."] },
+  // ට̫ට curious: round eyes looking up and over, each with a curl, a small open mouth
+  curious: { text: "ට̫ට", rows: [".dd.......dd.", "d.dd.....d.dd", "d..d.....d..d", ".dd..d.d..dd.", "d....ddd.d..."] },
+};
+/** Its face by the text it was given (null for any other emote: a heart, a note, an emoji). */
+const kaoNamed = text => Object.keys(KAO).find(k => KAO[k].text === text) || null;
+/** The faces that look glad: a glowling pulling one looks happy too (see actorLook), and its favourite stands in for any glad moment. */
+const KAO_GLAD = ["happy", "loved", "excited", "pleased", "smug", "shy", "sleepy"];
+/** Which faces fit which moment (a face twice: twice as likely). */
+const KAO_MOMENTS = {
+  pet: ["loved", "loved", "happy"], fave: ["happy", "excited"], full: ["shy", "surprised"], won: ["excited", "excited", "happy"],
+  sad: ["sad"], wake: ["sleepy"], rest: ["sleepy", "pleased"], friend: ["pleased", "pleased", "smug"], dressed: ["smug", "pleased"],
+  surprise: ["surprised"], curious: ["curious"],
+};
+const KAO_GLAD_MOMENTS = ["pet", "fave", "won", "rest", "friend", "dressed"];
+/** Each kind's own favourite face, pulled a bit more often than the rest. */
+const KAO_FAVE = { flutter: "loved", hop: "excited", nap: "sleepy", dance: "smug", curious: "curious", swim: "pleased" };
+/** The face a glowling pulls for a moment (see KAO_MOMENTS), as the text to give emote(): its kind's favourite is likelier. */
+function kaoFor(cr, moment) {
+  const fits = KAO_MOMENTS[moment] || KAO_MOMENTS.surprise, fave = cr && KAO_FAVE[kindOf(cr)];
+  const bag = fits.includes(fave) ? [...fits, fave, fave] : fave && KAO_GLAD.includes(fave) && KAO_GLAD_MOMENTS.includes(moment) ? [...fits, fave] : fits;
+  return KAO[pick(bag)].text;
+}
+const kaoArts = {};
+/** A face drawn 1:1 on a little canvas of its own, made once. */
+function kaoArt(name) {
+  if (kaoArts[name]) return kaoArts[name];
+  const rows = KAO[name].rows, c = document.createElement("canvas"); c.width = rows[0].length; c.height = rows.length;
+  const g = c.getContext("2d");
+  rows.forEach((row, y) => [...row].forEach((ch, x) => { const col = PX_ICON_COLORS[ch]; if (col) { g.fillStyle = col; g.fillRect(x, y, 1, 1); } }));
+  return kaoArts[name] = c;
+}
+
 // ---------- portraits: the faces of those who speak, in the talk box ----------
 /** name → { pal: { letter: colour }, rows: square strings, "." clear } (the Gloom's, 26x26, in crack.js), or a cast portrait
  *  (39x39, portraits.js) with `base` (its calm face's name), `moods` { face: [[y, x, "pixels"], …] painted over the rows }

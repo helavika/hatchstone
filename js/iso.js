@@ -195,7 +195,7 @@ function gladHome() {
 /** Slept enough: a stretch and a yawn, and up it gets. */
 function wakeRested(cr, a) {
   cr.sleeping = false; cr.selfSlept = false;
-  a.hop = 1; a.state = "idle"; a.t = 1.5; emote(a, "☀", 1.6);
+  a.hop = 1; a.state = "idle"; a.t = 1.5; emote(a, kaoFor(cr, "wake"), 1.6);
   sfx.stretch(specOf(cr).voice);
   // (one with the habit has a second, longer stretch before it goes anywhere)
   if (habitOf(cr) === "stretch") { a.t = 3.5; setTimeout(() => { if (a.state === "idle") { a.hop = 1; emote(a, "🥱", 1.6); } }, 1300); }
@@ -227,7 +227,10 @@ function chooseNext(a, list) {
   // content: as often as not it stays where it is and looks about (or, a bit tired, dozes off); a hungry one perks up instead
   if (cr && content(cr) && Math.random() < 0.55) {
     if (cr.energy < 60 && Math.random() < 0.3) { dozeOff(a, cr, list, rand(5, 9) * calmOf(cr.level).rest, false); return; }
-    a.state = "idle"; a.t = rand(3, 6) * linger(cr); return;
+    a.state = "idle"; a.t = rand(3, 6) * linger(cr);
+    // (now and then with a contented face)
+    if (!a.emote && Math.random() < 0.15) emote(a, kaoFor(cr, "rest"), 1.6);
+    return;
   }
   // outside, hoppers and swimmers like the garden best: they walk over and water a thirsty plant
   const gp = isOutside() && isoLayout().placed.garden;
@@ -303,7 +306,7 @@ function habitArrive(a, cr) {
   a.plan = null; a.state = "idle"; a.t = rand(1.2, 3) * linger(cr);
   if (plan === "spot") { a.t = rand(5, 9) * linger(cr); emote(a, "♥", 1.4); }
   else if (plan === "follow") a.t = rand(0.5, 1.2);
-  else if (plan === "corner") { a.face = { kind: "look", t: 0, life: 2, side: Math.random() < 0.5 ? -1 : 1 }; emote(a, "?", 1.2); }
+  else if (plan === "corner") { a.face = { kind: "look", t: 0, life: 2, side: Math.random() < 0.5 ? -1 : 1 }; emote(a, Math.random() < 0.5 ? kaoFor(cr, "curious") : "?", 1.4); }
   else if (plan === "hide") { a.t = rand(3, 5); emote(a, "☂", 2.2); a.shake = 0.5; }
   else if (plan === "napby") { a.state = "nap"; a.t = a.napT || rand(5, 8); emote(a, "zz", 2.5); }
   else if (plan === "collect") {
@@ -349,7 +352,8 @@ function meetFriend(a, f, cr) {
   const kind = cr.energy < 45 && fc.energy < 45 ? "snuggle" : pick(["hug", "hug", "highfive", "tag", "sing"]);
   if (kind === "hug") {
     for (let i = 0; i < 4; i++) setTimeout(() => heart(mx + rand(-14, 14), my + rand(-6, 6)), i * 120);
-    emote(a, "♥"); emote(f, "♥"); sfx.chirp(specOf(cr).voice * 1.1);
+    const bff = bestFriend(cr)?.c.id === fc.id;
+    emote(a, bff ? kaoFor(cr, "friend") : "♥"); emote(f, "♥"); sfx.chirp(specOf(cr).voice * 1.1);
   } else if (kind === "highfive") {
     burst(mx, my, 10, ["#ffffff", "#ffe9a8", "#ffc4da"], 0.8); emote(a, "✦"); emote(f, "✦"); sfx.shimmer();
   } else if (kind === "tag") {
@@ -369,6 +373,8 @@ function meetFriend(a, f, cr) {
     c.joy = clamp(c.joy + 3, 0, 100); c.pals = { ...c.pals, [o.id]: ((c.pals || {})[o.id] || 0) + 1 };
     if (c.pals[o.id] === 5) remember(c, "Became friends with {0} ♥", o.name);
   }
+  // (just become friends: both pleased about it)
+  if (cr.pals[fc.id] === 5) { emote(a, kaoFor(cr, "friend"), 2); emote(f, kaoFor(fc, "friend"), 2); }
 }
 
 /** A hopper's way forward comes in pushes, one per hop (on average as fast as a steady walk). */
@@ -508,7 +514,7 @@ function updateActors(dt) {
       a.state = d.id === "cushion" ? "nap" : d.id === "rug" ? "dance" : "visit";
       if (d.id === "swing" || d.id === "mushrooms") { a.from = [a.x, a.y, a.alt]; a.blend = 0; }
       a.t = (d.id === "cushion" ? rand(6, 10) : rand(3, 6)) * calm.rest;
-      emote(a, d.emote, 2);
+      emote(a, d.emote === "!" && Math.random() < 0.5 ? kaoFor(cr, "surprise") : d.emote, 2);
       if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
 
     } else if (a.state === "walk" && a.rain) {
@@ -589,7 +595,7 @@ function updateActors(dt) {
       if (wants === "messy") emote(a, "!", 2.2);
       else if (m === "hungry") emote(a, SNACKS[specOf(cr).snack].emoji, 2.2);
       else if (m === "sleepy") emote(a, "zz", 2.2);
-      else if (m === "sad") emote(a, "…", 2.2);
+      else if (m === "sad") emote(a, cr.joy < 10 || Math.random() < 0.5 ? kaoFor(cr, "sad") : "…", 2.2);
       // (just home to a nest Mossa looked in on: still glad)
       else if (keptQuiet(cr)) emote(a, "♥", 1.6);
       // the one you're looking after beeps for you now and then
