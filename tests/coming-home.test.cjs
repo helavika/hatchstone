@@ -23,6 +23,8 @@ function nest(creatures, dust = []) {
     clamp: (v, a, b) => Math.max(a, Math.min(b, v)),
     save: { creatures, dust, dustT: 0, rooms: [{ kind: 'nest' }], habit: { seen: 0, day: {}, fell: false } },
     game: { scene: 'nest', coopTouched: false, nest: { glad: false } },
+    // (the little ones with a grown one in their room, #319: data.js's stages, nest.js's grown-up line)
+    stageOf: level => level < 5 ? 0 : level < 10 ? 1 : level < 15 ? 2 : 3, HELP_STAGE: 2,
     roomOf: () => 0, persist: () => {}, updateTopbar: () => {}, setTimeout: (f, ms) => { later.push(ms); },
     tr: s => s, toast: t => { toasts.push(t); },
     gladHome: () => { page.game.nest.glad = false; glad.push(1); },
@@ -63,7 +65,8 @@ test('the look-in level is clear of every call and sad face, and short of full',
   assert.equal(w.callOf(cr, now + H), '');
 });
 
-test('under six hours away, time passes exactly as before', () => {
+test('under six hours away, time passes exactly as before for the one you look after', () => {
+  w.save.active = 1;
   for (const away of [5 * H, 6 * H - MIN]) {
     const now = Date.now(), cr = glowling(away, { last: now - away });
     w.applyTime(cr, now);
@@ -77,6 +80,11 @@ test('under six hours away, time passes exactly as before', () => {
   const now = Date.now(), cr = glowling(H, { last: now - H });
   w.applyTime(cr, now);
   assert.deepEqual([cr.tummy, cr.joy, cr.energy], [30, 36, 45]);
+  // (everyone else's needs drift down at IDLE_PACE of that, #319)
+  const other = glowling(H, { id: 2, last: now - H });
+  w.applyTime(other, now);
+  assert.deepEqual([other.tummy, other.joy, other.energy], [42, 45.6, 51]);
+  delete w.save.active;
 });
 
 test('what is already above the look-in level stays as it is', () => {

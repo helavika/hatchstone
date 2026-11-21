@@ -889,6 +889,9 @@ body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; 
 .ic.mood.want { animation: pxBob .8s steps(2) infinite; }
 i.mood.zz { font-style: normal; font-size: 13px; color: #b8e6f5; }
 #residentsBtn i.mood.zz { position: absolute; left: 36px; top: 0; }
+/* someone else really unwell: a small red badge on the corner (its hit area a little bigger than it looks); a tap goes to them */
+#residentsBtn i.unwell { position: absolute; right: -7px; top: -9px; min-width: 20px; height: 20px; padding: 0 4px; box-sizing: border-box; font-style: normal; font-size: 13px; line-height: 20px; text-align: center; color: #fff; background: #e0634f; box-shadow: 0 0 0 2px var(--px-deep); animation: pxBob 1s steps(2) infinite; z-index: 2; }
+#residentsBtn i.unwell::before { content: ""; position: absolute; inset: -10px; }
 /* the residents sheet: a drop zone per room */
 .res-zone { margin: 8px 0; padding: 4px 8px 8px; background: rgba(255, 255, 255, .03); box-shadow: 0 0 0 2px var(--px-deep); transition: background .15s; }
 .res-zone.here { box-shadow: 0 0 0 2px var(--px-edge); }
