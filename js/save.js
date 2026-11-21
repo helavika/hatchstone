@@ -6,9 +6,9 @@
 
 // Progress is precious: a main save, a "last good" copy, and care when several tabs are open.
 const SAVE_KEY = STAGING ? "hatchstone.staging.save" : LIVE_SAVE_KEY, BAK_KEY = SAVE_KEY + ".bak";
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2; // 2: beds decide who fits at home (see bedsSaveOf)
 const DUST_MAX = 3; // dust bunnies on the nest floor at most (see gatherDust)
-const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [] }, { kind: "yard", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 }, dust: [], dustT: 0 });
+const freshSave = () => ({ v: SAVE_VERSION, rev: 0, shards: 30, stars: {}, creatures: [], active: null, seen: {}, geodes: {}, decor: {}, forge: {}, nextId: 1, rooms: [{ kind: "nest", on: [], beds: ["cot"] }, { kind: "yard", on: [] }], room: 0, bars: { firefly: 2, nut: 1 }, oil: { n: 5, t: 0 }, dust: [], dustT: 0 });
 const validSave = d => d && typeof d === "object" && Array.isArray(d.creatures) && typeof d.stars === "object";
 
 let startedEmpty = true; // no nest in storage when this page opened
@@ -83,6 +83,38 @@ function helpersSaveOf(creatures) {
   return creatures;
 }
 
+/**
+ * Beds (#310): each home room has a few bed spots, and its beds' places are how many live there (the shop builds and
+ * upgrades them, see BED_TIERS in nest.js). A room keeps its beds in save.rooms[i].beds, one tier per spot. A room from
+ * before beds gets, once, just enough to sleep everyone who lives there now, in whole beds (big ones first, the last spot
+ * the smallest that still fits, so it rounds up only there), and a cot at least; whoever was already out exploring stays out, as before.
+ */
+const BED_PLACES = { cot: 1, bunk: 2, tree: 4 }, BED_SPOTS = 3, HOME_KINDS = ["nest", "play", "garden", "study"];
+/** What each step of the old "room for one more" cost (NEST_UP_COST before beds): given back to a save that bought them. */
+const NEST_UP_PAID = [150, 300, 500];
+/** Beds that sleep n in BED_SPOTS spots (12 at most): nest-trees while four or more are left, then a bunk, a cot; the last spot the smallest that fits. */
+function bedsFor(n) {
+  const beds = [], tiers = Object.keys(BED_PLACES);
+  for (let left = n; left > 0 && beds.length < BED_SPOTS;) {
+    const t = beds.length === BED_SPOTS - 1 ? tiers.find(k => BED_PLACES[k] >= left) || "tree" : left >= BED_PLACES.tree ? "tree" : left >= BED_PLACES.bunk ? "bunk" : "cot";
+    beds.push(t); left -= BED_PLACES[t];
+  }
+  return beds.length ? beds : ["cot"];
+}
+function bedsSaveOf(d) {
+  const at = r => (d.creatures || []).filter(c => c && !c.out && (Number.isInteger(c.room) && HOME_KINDS.includes(d.rooms[c.room]?.kind) ? c.room : 0) === r).length;
+  d.rooms.forEach((r, i) => {
+    if (!HOME_KINDS.includes(r.kind)) { delete r.beds; return; }
+    const had = Array.isArray(r.beds) ? r.beds.filter(t => BED_PLACES[t]).slice(0, BED_SPOTS) : null;
+    r.beds = had ? (had.length ? had : ["cot"]) : bedsFor(at(i));
+  });
+  // the old "room for one more" is the beds' now: what it cost comes back, once, and Tansy says so (see roomCreatures)
+  const back = NEST_UP_PAID.slice(0, Math.max(0, Math.floor(Number(d.nestUp)) || 0)).reduce((n, v) => n + v, 0);
+  if (back) { d.shards = (Number(d.shards) || 0) + back; d.bedRefund = (d.bedRefund || 0) + back; }
+  delete d.nestUp;
+  return d.rooms;
+}
+
 /** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
 function migrate(d) {
   d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {}; d.forge = d.forge || {};
@@ -153,6 +185,8 @@ function migrate(d) {
   if (hung) d.hung = hung; else delete d.hung;
   // grown glowlings out helping in the valley's places (see helpersSaveOf)
   helpersSaveOf(d.creatures);
+  // beds: who fits at home (see bedsSaveOf), after the helpers, who are out and need none
+  bedsSaveOf(d);
   // rooms used to be seen either from the corner or from the front: now always from the corner, so the choice goes
   delete d.view;
   d.v = SAVE_VERSION;

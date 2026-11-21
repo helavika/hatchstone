@@ -233,7 +233,8 @@ test('a save that looked at its rooms straight on sees them from the corner now,
   const old = { v: 1, stars: { 1: 3 }, creatures: [], seen: {}, shards: 40, view: 'front', rooms, room: 2, decor: { lamp: { on: false }, rug: { on: false }, swing: { on: true } } };
   const { save: s, migrate } = load(old);
   assert.equal('view' in s, false, 'the choice of view is gone from the save');
-  assert.deepEqual(s.rooms, rooms); assert.equal(s.room, 2); assert.deepEqual(s.decor, old.decor); assert.equal(s.shards, 40);
+  // (each room at home gets the beds for who lives there, a cot for nobody: see bedsSaveOf)
+  assert.deepEqual(s.rooms, rooms.map(r => r.kind === 'yard' ? r : { ...r, beds: ['cot'] })); assert.equal(s.room, 2); assert.deepEqual(s.decor, old.decor); assert.equal(s.shards, 40);
   // once is enough: loaded again, nothing changes
   assert.deepEqual(plain(migrate(plain(s))), s);
   // and a save that was isometric all along (or never chose) loads just the same (but for the day its diary starts from)
