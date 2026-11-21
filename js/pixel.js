@@ -646,6 +646,124 @@ const NIGHT_PROPS = {
   },
 };
 
+// ---------- old stonework, overgrown (#317): pieces of a ruin standing about out of doors ----------
+const RUIN_STONE = ["#22143a", "#3a3440", "#5d5666", "#8a8494", "#b9b3c0"].map(pxHex), RUIN_IVY = ["#10301f", "#1e5233", "#2f7d4a", "#57ad6a", "#a3dd9b"].map(pxHex);
+/** How big a piece of ruin is at scale s, [width, height] in pixels (it stands on the middle of its foot). */
+const pxRuinSize = (kind, s) => ({ column: [30, 40], arch: [24, 40], stairs: [36, 32], owl: [18, 36] })[kind].map(v => Math.round(v * s));
+const PX_RUIN_KINDS = ["column", "arch", "stairs", "owl"];
+/** A piece of an old ruin, painted with put(x, y, colour) standing on (x0, foot), at scale s (a pixel a unit): a broken fluted
+ *  column with its fallen drum lying beside it; a lone pointed arch, half its head fallen; stairs going up to nowhere, a stub of
+ *  wall at their top; or a weathered stone owl on its plinth, its eyes worn to hollows (no one remembers who carved it). Each
+ *  lit from the top left in clean bands with dark joints, moss on whatever faces up (snow in winter), lichen in spots, ivy
+ *  climbing it from the ground (ivy: how much). */
+function pxRuin(kind, put, x0, foot, s, seed, { snow = false, ivy = 1 } = {}) {
+  const cells = new Map(), u = v => Math.max(1, Math.round(v * s * 1.5)), K = (x, y) => (y + 4096) * 16384 + x + 4096;
+  // (yy counts up from the foot; v a shade from dark to lit)
+  const set = (dx, yy, v) => { const x = Math.round(x0 + dx), y = Math.round(foot - 1 - yy); cells.set(K(x, y), [x, y, v]); };
+  const h1 = pxHash(seed, 1);
+  if (kind === "column") {
+    const r = u(3), ph = u(3), H = u(14 + 8 * h1), pr = r + u(2), drum = u(6);
+    // (shades sit in the middle of the ramp's bands, so faces are flat and only rounded things dither)
+    for (let yy = 0; yy < ph; yy++) for (let dx = -pr; dx < pr; dx++) set(dx, yy, yy === ph - 1 ? 1 : dx < -pr + 2 ? 0.75 : dx < pr * 0.3 ? 0.5 : 0.25);
+    for (let dx = -r; dx < r; dx++) {
+      // broken off on a slant, jagged
+      const c = (dx + 0.5) / r, top = ph + H - Math.round(u(5) * (dx + r) / (2 * r) + u(2) * pxHash(dx + 9, seed));
+      for (let yy = ph; yy < top; yy++) {
+        let v = c < -0.55 ? 0.75 : c < 0.3 ? 0.5 : 0.25;
+        if ((dx + r) % 3 === 2 && Math.abs(c) < 0.85) v -= 0.25;
+        if ((yy - ph) % drum === drum - 1 && pxHash(dx, yy + seed) > 0.25) v = 0;
+        set(dx, yy, yy === top - 1 ? 1 : v);
+      }
+    }
+    // the drum that fell, on its side in the grass: its end toward the light
+    const fx = r + u(2), fl = u(8), fr = u(2.6);
+    for (let dx = 0; dx < fl; dx++) for (let yy = 0; yy < 2 * fr; yy++) {
+      if ((dx === 0 || dx === fl - 1) && (yy === 0 || yy === 2 * fr - 1)) continue;
+      set(fx + dx, yy, dx === 0 ? 0.75 : dx === 1 ? 0 : yy >= 2 * fr - 1 ? 1 : yy > fr ? 0.5 : 0.25);
+    }
+  } else if (kind === "arch") {
+    const pw = u(3), gw = u(9), ph = u(15), A = gw / 2 + pw, brk = ph + u(2) + Math.round(u(3) * h1);
+    for (let dx = -Math.ceil(A) - 1; dx <= Math.ceil(A); dx++) {
+      const ax = Math.abs(dx + 0.5), side = dx < 0 ? -1 : 1;
+      for (let yy = 0; yy < ph + gw + pw; yy++) {
+        let v;
+        if (yy < ph) {
+          if (ax <= gw / 2 || ax > A + (yy === ph - 1 ? 1 : 0)) continue;
+          // the piers, lit on their left faces; an impost moulding where the arch springs
+          const p = (ax - gw / 2) / pw, lit = side < 0 ? 1 - p : p;
+          v = yy === ph - 1 ? 1 : lit < 0.34 ? 0.75 : lit < 0.7 ? 0.5 : 0.25;
+          if (yy % u(5) === u(5) - 1) v = 0;
+        } else {
+          const d = Math.hypot(ax + gw / 2, yy - ph);
+          if (d < gw || d >= gw + pw) continue;
+          if (side > 0 && yy > brk - Math.round(2 * pxHash(dx, seed))) continue;   // half its head is down
+          // voussoirs: the ring cut into wedges, its outer edge (the top) catching the light
+          const ang = Math.atan2(yy - ph, ax + gw / 2) / (Math.PI / 2) * 6;
+          v = ang % 1 < 0.14 ? 0 : (d - gw) / pw > 0.66 ? 0.75 : (d - gw) / pw > 0.33 ? 0.5 : 0.25;
+        }
+        set(dx, yy, v);
+      }
+    }
+  } else if (kind === "stairs") {
+    const n = 5, sd = u(4), sh = u(3), w0 = -Math.round(n * sd / 2);
+    for (let i = 0; i < n; i++) for (let dx = 0; dx < sd; dx++) for (let yy = 0; yy < (i + 1) * sh; yy++) {
+      // treads lit on top, the riser at each step's front toward the light, coursed blocks down the side
+      let v = yy === (i + 1) * sh - 1 ? 1 : dx === 0 && yy >= i * sh ? 0.75 : pxHash(i, Math.floor(yy / sh) + seed) > 0.7 ? 0.25 : 0.5;
+      if (yy % sh === sh - 1 && yy < (i + 1) * sh - 1) v = 0; else if (dx === 0 && (i + Math.floor(yy / sh)) % 2 && yy < i * sh) v = 0;
+      set(w0 + i * sd + dx, yy, v);
+    }
+    // and at the top they stop: a stub of wall broken off, and a step's worth of air
+    const sx = w0 + n * sd;
+    for (let dx = 0; dx < u(3); dx++) { const tp = (n + 1) * sh + Math.round(u(3) * pxHash(dx, seed + 4)); for (let yy = 0; yy < tp; yy++) set(sx + dx, yy, yy === tp - 1 ? 1 : dx === 0 ? 0.5 : yy % sh === sh - 1 ? 0 : 0.25); }
+  } else {
+    // the owl: a plinth with a moulded top and foot, the bird on it, round and upright, ear tufts, worn eye hollows, a carved wing
+    const pr = u(5), ph = u(6), cy = ph + u(6), rx = u(4), ry = u(6), hy = ph + u(12.5), hr = u(3.6);
+    for (let yy = 0; yy < ph; yy++) { const ex = yy === 0 || yy === ph - 1 ? 1 : 0; for (let dx = -pr - ex; dx < pr + ex; dx++) set(dx, yy, yy === ph - 1 ? 0.9 : yy === ph - 2 ? 0.18 : dx < -pr + 1 ? 0.7 : 0.46 - 0.14 * dx / pr); }
+    for (let yy = ph; yy < hy + hr + u(2); yy++) for (let dx = -rx - 1; dx <= rx; dx++) {
+      const bx = (dx + 0.5) / rx, by = (yy + 0.5 - cy) / ry, hx = (dx + 0.5) / hr, hyy = (yy + 0.5 - hy) / hr;
+      const inB = bx * bx + by * by < 1 && yy < cy + ry * 0.5, inH = hx * hx + hyy * hyy < 1;
+      const tuft = yy >= hy + hr * 0.5 && yy < hy + hr + u(1.6) && Math.abs(Math.abs(dx + 0.5) - hr * 0.7) < hr * 0.3 - (yy - hy - hr * 0.5) * 0.3;
+      if (!inB && !inH && !tuft) continue;
+      const [nx, ny] = inH || tuft ? [hx, hyy] : [bx, by];
+      let v = 0.5 + 0.3 * (-nx * 0.6 + ny * 0.8);
+      if (inH) {
+        const ed = Math.min(Math.hypot(dx + 0.5 - hr * 0.42, yy + 0.5 - hy), Math.hypot(dx + 0.5 + hr * 0.42, yy + 0.5 - hy));
+        if (ed < hr * 0.22) v = 0.12; else if (ed < hr * 0.45) v = 0.82;
+        if (Math.abs(dx + 0.5) < 0.6 && yy + 0.5 < hy - hr * 0.2 && yy + 0.5 > hy - hr * 0.6) v = 0.25;
+      } else if (Math.abs(Math.abs(nx) - 0.62) < 0.1 && ny < 0.3) v -= 0.22;
+      else if (Math.abs(nx) < 0.4 && ny < 0.2 && yy % u(2) === 0 && Math.abs(dx + 0.5) < rx * 0.3) v -= 0.12;
+      set(dx, yy, v);
+    }
+  }
+  // what grows on it: moss (or snow) on every face that looks up, lichen in pale spots, then the ivy over it all
+  const lichen = pxHex("#a69e62"), white = pxHex("#e4dfe8");
+  for (const [x, y, v] of cells.values()) {
+    let col = pxBand(RUIN_STONE, v, x, y, 0.3);
+    if (!cells.has(K(x, y - 1))) { if (snow) col = white; else if (pxHash(x, y + seed) > 0.3) col = RUIN_IVY[pxHash(x + 1, y) > 0.55 ? 3 : 2]; }
+    else if (!cells.has(K(x, y - 2)) && !snow && pxHash(x, y + seed + 1) > 0.72) col = RUIN_IVY[1];
+    else if (pxHash(x * 3, y + seed) > 0.985) col = lichen;
+    put(x, y, col);
+  }
+  if (snow || !ivy) return;
+  const [W0, H0] = pxRuinSize(kind, s), leaf = (x, y, r) => { put(x, y, RUIN_IVY[r ? 3 : 4]); put(x + 1, y, RUIN_IVY[r ? 2 : 3]); put(x, y + 1, RUIN_IVY[2]); put(x + 1, y + 1, RUIN_IVY[1]); };
+  for (let k = 0; k < Math.round(ivy * (1 + W0 / 16)); k++) {
+    let x = Math.round(x0 + (pxHash(k, seed + 7) - 0.5) * W0 * 0.8), y = foot - 1;
+    const len = Math.round(H0 * (0.3 + 0.55 * pxHash(seed + 8, k)));
+    for (let j = 0; j < len; j++, y--) {
+      x += Math.round(Math.sin(j * 0.5 + k * 2 + seed) * 0.7);
+      if (!cells.has(K(x, y)) && !cells.has(K(x + 1, y)) && !cells.has(K(x - 1, y))) break;
+      put(x, y, RUIN_IVY[1]);
+      if (j % 3 === 1) leaf(x + (Math.floor(j / 3) % 2 ? 1 : -2), y - 1, Math.floor(j / 3) % 2);
+    }
+  }
+  // and from whatever overhangs (an arch's head), strands hanging down into the air, a leaf every few pixels
+  for (const [x, y] of cells.values()) {
+    if (cells.has(K(x, y + 1)) || y > foot - 6 || pxHash(x, y + seed + 13) > 0.22 * ivy) continue;
+    const len = Math.round(H0 * (0.08 + 0.2 * pxHash(x + 5, seed)));
+    for (let j = 1; j <= len && !cells.has(K(x, y + j)) && y + j < foot - 2; j++) { put(x, y + j, RUIN_IVY[j === len ? 3 : 1]); if (j % 3 === 2) leaf(x + (j % 6 === 2 ? 1 : -2), y + j, j % 6 === 2); }
+  }
+}
+
 // ---------- the glowcap wood, drawn like the tiles (#277): a banded sky, a far ridge, a wooded hill, glowcaps, a meadow ----------
 /** Where the garden's and the camp's trodden paths leave their plot (u, v on its floor, as in roomMaterials' pathD) and how wide
  *  they are there (pr across the floor, as pathD has it; half: how wide that looks on screen, a share of the plot); out on the meadow the backdrop takes each on: the garden's stepping stones toward the shop, the camp's track
@@ -733,6 +851,46 @@ function pixelMeadow(W, H, floor = 0.86, site = null) {
     put(x, y, stars[2]);
     for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { put(x + dx, y + dy, stars[1]); if (k % 2) put(x + 2 * dx, y + 2 * dy, stars[0]); }
   }
+  // old towers, broken off, and a ruined arcade beyond the hill, standing up out of the mist in the hollow (#317): stone paler
+  // than the hills, in the night's blue, lit along their edges toward the moon, dark empty windows, a band of fog lying soft
+  // round their feet (in front of the far ridge, behind the hill and its trees). They stand where the giant glowcaps and the
+  // moon leave room: the first clear spots in from the middle.
+  const far = R(["#1d2048", "#2a2f5e", "#3d4478", "#8a8494"]), fogC = [mist, pxHex("#3383a8")];
+  const fogged = (x, y) => { const m = 1 - (hillY[x] - y) / (sk * 0.2); return m > 0 && PX_B2[((y & 1) << 1) | (x & 1)] < m * 0.7 ? fogC[m > 0.55 ? 1 : 0] : null; };
+  const back = (x, y, col) => { if (x >= 0 && x < W && y >= 0 && y < hillY[x] && Math.hypot(x - mx, y - my) > mr * 1.5) put(x, y, fogged(x, y) || col); };
+  const caps0 = Array.from({ length: 6 }, (_, i) => [sideX(W, i, seed), (W * 0.08 * (0.6 + pxHash(i, 2) * 0.6) + 5) * 0.6]), spots = [];
+  for (const f of [0.5, 0.56, 0.44, 0.62, 0.38, 0.68, 0.32, 0.74, 0.26, 0.8, 0.2]) {
+    const x = W * f, need = sk * 0.12;
+    if (spots.length < 3 && caps0.every(([c, r]) => Math.abs(c - x) > r + need * 0.2) && spots.every(s => Math.abs(s - x) > W * 0.14)) spots.push(x);
+  }
+  spots.forEach((xs, n) => {
+    const xc = Math.round(xs), base = Math.round(hillY[clamp(xc, 0, W - 1)]) + 1, hs = pxHash(seed, n + 7);
+    if (n === 1) {
+      // a run of pointed arches through a wall, its top broken away, one bay fallen right down to its springing
+      const bw = Math.max(7, Math.round(sk * 0.085)), nb = 4, ah = Math.round(sk * 0.32), x0 = xc - Math.round(nb * bw / 2), fall = Math.floor(hs * nb);
+      for (let x = x0; x < x0 + nb * bw; x++) {
+        const b = Math.floor((x - x0) / bw), lx = (x - x0 - b * bw + 0.5) / bw - 0.5, ow = 0.3;
+        const top = base - Math.round(ah * (b === fall ? 0.5 : 0.84 + 0.16 * pxNoise(x * 0.35, seed + 2)));
+        for (let y = top; y < base; y++) {
+          const hy = (base - y) / ah, open = Math.abs(lx) < ow && (hy < 0.45 || Math.hypot(Math.abs(lx) + ow, (hy - 0.45) * bw / ah * 1.2) < 2 * ow * 0.98);
+          if (open) continue;
+          // (the piers lit on their left, the opening's right jamb in shade, a lit line along the broken top)
+          back(x, y, y <= top + 1 ? far[3] : lx < -ow - 0.06 && lx > -0.44 ? far[2] : lx > ow && lx < ow + 0.12 ? far[0] : far[1]);
+        }
+      }
+      return;
+    }
+    const tw = Math.max(6, Math.round(sk * 0.085)), th = Math.round(sk * (0.38 + 0.08 * hs)), x0 = xc - (tw >> 1);
+    for (let x = x0; x < x0 + tw; x++) {
+      // its top: battlements on the side that still stands, a slanting break where the rest came down
+      const k = (x - x0) / tw, top = base - th + (k > 0.5 ? Math.round((k - 0.5) * th * 0.45 + 2 * pxHash(x, seed)) : (x - x0) % 4 >= 2 ? 2 : 0);
+      for (let y = top; y < base; y++) {
+        const wy = (y - (base - th)) / th, slit = Math.abs(x + 0.5 - xc) < 1.2 && ((wy > 0.16 && wy < 0.3) || (wy > 0.48 && wy < 0.6));
+        const course = (base - y) % 5 === 0 && pxHash(x >> 1, (base - y) / 5 + seed) > 0.3;
+        back(x, y, slit ? rock[0] : y === top ? far[3] : x <= x0 + 1 ? (course ? far[1] : far[2]) : x === x0 + tw - 1 ? far[0] : course ? far[0] : far[1]);
+      }
+    }
+  });
   // trees on the hill: round crowns of three lumps, each lit on its top left, and dark pines between
   for (let tx = -4, k = 0; tx < W + 4; k++) {
     const rr = Math.max(2, sk * (0.03 + 0.025 * pxHash(k, seed + 31))), pine = pxHash(k, seed + 32) > 0.68, x0 = Math.round(tx), base = hillY[clamp(x0, 0, W - 1)] + rr * 0.5;
@@ -826,6 +984,15 @@ function pixelMeadow(W, H, floor = 0.86, site = null) {
   }
   for (let k = 0; k < 26; k++) put(pxHash(k, seed + 11) * W, H * 0.2 + pxHash(seed, k) * H * 0.6 * floor, pxHex("#fff0b5"));
   if (site) nightSite(d, W, H, T, floorY, site);
+  // and with a plot laid in it, old stones stand about in the meadow off to its left, clear of the plot, its grass and its path:
+  // a stone owl on its plinth and a broken column (only where there's room for them: not on a phone)
+  if (site) {
+    const sS = Math.max(0.7, site.hw / 140), room = site.cx - site.hw - 14 * sS, ft = site.top + site.hw / 2;
+    if (room > pxRuinSize("column", sS)[0] * 1.6) {
+      pxRuin("owl", put, Math.round(room * 0.62), Math.round(ft - site.hw * 0.08), sS, seed + 1);
+      pxRuin("column", put, Math.round(room * 0.26), Math.round(ft + site.hw * 0.16), sS, seed + 2);
+    }
+  }
   g.putImageData(img, 0, 0);
   return c;
 }

@@ -62,8 +62,9 @@ function page(kind, Wd = 390, Hd = 844, PX = 1) {
 const sum = c => { let h = 0; const d = c.img.data; for (let i = 0; i < d.length; i++) h = (h * 31 + d[i]) >>> 0; return h; };
 const hex = (c, x, y) => { const i = (Math.round(y) * c.width + Math.round(x)) * 4, d = c.img.data; return '#' + [0, 1, 2].map(k => d[i + k].toString(16).padStart(2, '0')).join(''); };
 
-// worked out from the game as it was before #277 (JS_DIR=<staging's js> FINGERPRINTS=1 node tests/outdoor-backdrops.test.cjs)
-const AS_IT_WAS = { smithy: 3406857423, churchyard: 3601599861, abbey: 29634573, summit: 810398794, amethyst: 580735775, forgeRoom: 3644608335, labRoom: 2982072076 };
+// worked out from the game as it was before #277 (JS_DIR=<staging's js> FINGERPRINTS=1 node tests/outdoor-backdrops.test.cjs);
+// the lab's room since #317, which put ivy down its walls, moss in its mortar and chipped corners on its flagstones
+const AS_IT_WAS = { smithy: 3406857423, churchyard: 3601599861, abbey: 29634573, summit: 810398794, amethyst: 580735775, forgeRoom: 3644608335, labRoom: 773877244 };
 function fingerprints() {
   const forge = page('forge'), lab = page('lab'), out = {};
   for (const id of ['smithy', 'churchyard', 'abbey', 'summit', 'amethyst']) out[id] = sum(forge.paintTheme(id, 160, 120, 0.6));
