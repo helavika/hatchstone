@@ -667,6 +667,8 @@ input, select, textarea, #backup textarea, #coopDialog input, #coopDialog select
 .decor.legend:not([disabled]) b { color: var(--px-gold); }
 
 #jukeList h3 { margin: 10px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
+#crystalList .snack img.em { width: 42px; height: 28px; object-fit: contain; image-rendering: pixelated; }
+#crystalList .snack.on,
 #jukeList .snack.on { border-color: var(--px-gold) !important; background: var(--px-gold-lo) !important; }
 #jukeList .snack img.em { width: 34px; height: 34px; object-fit: cover; image-rendering: pixelated; }
 .juke-sounds { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }

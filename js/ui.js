@@ -21,6 +21,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "nest" && cloudAt(x, y)) { pointer.cloud = true; return; }
   if (game.scene === "nest" && arrange.on) { pointer.arrange = true; arrangeDown(x, y); return; }
   if (game.scene === "nest" && sweepDust(x, y)) { pointer = null; return; }
+  if (game.scene === "nest" && !remote && !arrange.on && !actorAt(x, y) && roomDoTap(x, y)) { pointer = null; return; }
   if (game.scene === "nest" && !remote && lanternDown(x, y)) { pointer.lantern = true; return; }
   if (game.scene === "nest" && !remote && wickAt(x, y)) { pointer = null; openWick(); return; }
   if (game.scene === "nest" && !remote && isPlace()) { const hp = helperHit(x, y); if (hp) { pointer = null; tapHelper(hp); return; } }
@@ -627,6 +628,7 @@ $("foundMap").addEventListener("click", () => { if (coopSession) coopEnd("naviga
 $("feedBtn").addEventListener("click", openSnacks);
 $("snackClose").addEventListener("click", () => show("snacks", false));
 $("jukeClose").addEventListener("click", () => show("jukebox", false));
+$("crystalClose").addEventListener("click", () => show("crystalSongs", false));
 $("gardenClose").addEventListener("click", () => show("gardenSheet", false));
 $("wickClose").addEventListener("click", () => show("wickSheet", false));
 $("helpClose").addEventListener("click", () => show("helpSheet", false));
