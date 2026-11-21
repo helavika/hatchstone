@@ -274,6 +274,17 @@ const homeQuiet = () => save.creatures.some(cr => keptQuiet(cr));
 const ROOM_TRAITS = { play: { joy: 0.65 }, garden: { rest: 1.35 }, study: { learn: true } };
 const STUDY_MIN = 30, HELP_GROW_MIN = 30;
 const roomTrait = cr => ROOM_TRAITS[save.rooms[roomOf(cr)]?.kind] || {};
+/**
+ * Less to keep up with in a full nest (#319): the one you're looking after needs you as ever, everyone else's needs drift
+ * down at IDLE_PACE of that (sleep refills just the same). And a little one living in a room with a grown glowling (see
+ * HELP_STAGE) gets hungry and bored a little slower still, CARE_SLOW of the pace: the big one keeps it company, finds it
+ * a berry now and then (see careFor in nest.js), even while you're away.
+ */
+const IDLE_PACE = 0.6, CARE_SLOW = 0.8;
+/** Is this the glowling you're looking after (the first one, when you haven't picked)? */
+const looked = cr => cr.id === (save.active ?? (save.creatures || [])[0]?.id);
+/** A little one with a grown glowling at home in its room. */
+const tended = cr => (save.creatures || []).some(g => g !== cr && !g.out && roomOf(g) === roomOf(cr) && stageOf(g.level || 1) >= HELP_STAGE) && stageOf(cr.level || 1) < HELP_STAGE;
 function applyTime(cr, now = Date.now()) {
   const min = clamp((now - (cr.last || now)) / 60000, 0, AWAY_MIN);
   cr.last = now;
@@ -283,17 +294,17 @@ function applyTime(cr, now = Date.now()) {
     if (cr.job) { cr.jobT = (cr.jobT || 0) + min; const n = Math.floor(cr.jobT / HELP_GROW_MIN); if (n) { cr.jobT -= n * HELP_GROW_MIN; addXP(cr, n); } }
     return;
   }
-  const trait = roomTrait(cr);
+  const trait = roomTrait(cr), pace = looked(cr) ? 1 : IDLE_PACE, kept = pace * (tended(cr) ? CARE_SLOW : 1);
   if (cr.sleeping) {
     cr.energy = clamp(cr.energy + min * 12 * (trait.rest || 1), 0, 100);
-    cr.tummy = clamp(cr.tummy - min * 0.25, 0, 100);
+    cr.tummy = clamp(cr.tummy - min * 0.25 * kept, 0, 100);
   } else {
     // awake time makes a little mess (gatherDust turns it into dust bunnies in the nest), and an untidy nest wears
     // joy down a little faster for those who live in it
     const dust = roomOf(cr) === nestRoom() ? (save.dust || []).length : 0;
-    cr.tummy = clamp(cr.tummy - min * 0.5, 0, 100);
-    cr.joy = clamp(cr.joy - min * (0.4 + dust * 0.15) * (trait.joy || 1), 0, 100);
-    cr.energy = clamp(cr.energy - min * 0.25, 0, 100);
+    cr.tummy = clamp(cr.tummy - min * 0.5 * kept, 0, 100);
+    cr.joy = clamp(cr.joy - min * (0.4 + dust * 0.15) * (trait.joy || 1) * kept, 0, 100);
+    cr.energy = clamp(cr.energy - min * 0.25 * pace, 0, 100);
     cr.messT = (cr.messT || 0) + min;
     if (trait.learn) { cr.studyT = (cr.studyT || 0) + min; const n = Math.floor(cr.studyT / STUDY_MIN); if (n) { cr.studyT -= n * STUDY_MIN; addXP(cr, n); } }
   }

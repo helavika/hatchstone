@@ -223,6 +223,7 @@ function chooseNext(a, list) {
   a.plan = null;
   // up from a doze: one with the habit has a long stretch first
   if (cr && was === "nap" && habitOf(cr) === "stretch") { stretchOut(a, cr); return; }
+  if (cr && careNext(a, cr, list)) return;
   if (cr && habitNext(a, cr, list)) return;
   // content: as often as not it stays where it is and looks about (or, a bit tired, dozes off); a hungry one perks up instead
   if (cr && content(cr) && Math.random() < 0.55) {
@@ -261,6 +262,39 @@ function chooseNext(a, list) {
   [a.tx, a.ty] = roomPoint();
   a.state = "walk";
   if (b === "flutter" && Math.random() < 0.4) emote(a, "✦", 1);
+}
+/** A grown one sees a little one in need (careFor in nest.js): now and then it walks over to look after it. */
+function careNext(a, cr, list) {
+  const c = careFor(cr), f = c && Math.random() < 0.35 && list.find(o => o.id === c.id && o.state !== "sleep" && o.state !== "toBed");
+  if (!f) return false;
+  a.care = f.id; a.careTry = 0; a.friend = a.goal = null;
+  careAim(a, f);
+  return true;
+}
+// (just outside the little one's personal space, or the gentle push apart would keep it from ever arriving)
+// (and the little one sees it coming, and waits)
+const careAim = (a, f) => {
+  if (f.state === "idle" || f.state === "walk") { f.state = "idle"; f.t = Math.max(f.t || 0, 9); f.goal = f.friend = f.care = f.plan = null; f.tx = f.x; f.ty = f.y; }
+  a.state = "walk"; a.tx = clamp(f.x + (a.x < f.x ? -1 : 1) * N.base * 1.1, N.x0, N.x1); a.ty = f.y;
+};
+/** Beside the little one: a berry it found for it (the little one eats), or a little dance together; hearts between them. */
+function careArrive(a, cr) {
+  const f = actors.get(a.care), c = f && save.creatures.find(x => x.id === f.id);
+  // (it wandered off on the way: after it, twice at most)
+  if (c && Math.hypot(f.x - a.x, (f.y - a.y) * 1.6) > N.base * 1.8 && (a.careTry = (a.careTry || 0) + 1) < 3) { careAim(a, f); return; }
+  a.care = null; a.state = "idle"; a.t = rand(1.5, 2.5) * linger(cr);
+  if (!c || Math.hypot(f.x - a.x, (f.y - a.y) * 1.6) > N.base * 1.8) return;
+  const kind = giveCare(cr, c);
+  if (!kind) return;
+  const va = actorView(a), vf = actorView(f), mx = (va.x + vf.x) / 2, my = Math.min(va.y, vf.y) - va.size * 0.35;
+  a.hop = f.hop = 1; f.goal = f.friend = f.care = null; f.tx = f.x; f.ty = f.y;
+  for (let i = 0; i < 3; i++) setTimeout(() => heart(mx + rand(-12, 12), my + rand(-6, 6)), i * 140);
+  if (kind === "feed") { emote(a, "🫐", 1.6); f.state = "eat"; f.t = 1.4; setTimeout(() => emote(f, kaoFor(c, "care"), 1.8), 900); }
+  else { emote(a, "♪", 1.6); emote(f, kaoFor(c, "care"), 1.8); a.state = f.state = "dance"; a.t = f.t = rand(1.4, 2.2); }
+  sfx.chirp(specOf(cr).voice); setTimeout(() => sfx.chirp(specOf(c).voice * 1.2), 200);
+  if (a.id === save.active || f.id === save.active) floatText(tr(kind === "feed" ? "{0} found {1} a berry" : "{0} plays with {1}", cr.name, c.name), mx, my - N.base * 0.6, "#ffc4da");
+  persist();
+  if (a.id === save.active || f.id === save.active) renderNest();
 }
 /** Off to a piece of furniture, to play with it (what it does there: see the arrival in updateActors). */
 function goVisit(a, d) {
@@ -501,8 +535,10 @@ function updateActors(dt) {
       a.stuck = Math.hypot(a.x - a.lastX, a.y - a.lastY) < Math.min(N.base * 0.15, want * 0.5) ? (a.stuck || 0) + dt : 0;
       if (!a.stuck) { a.lastX = a.x; a.lastY = a.y; }
       // (pressed against the very piece it came to see, or nearly there: that's arriving, not being stuck)
+      // (held up on the way to a little one it's looking after: near enough is close enough, or it tries again)
+      if (a.stuck > 1.5 && a.care) { a.stuck = 0; a.lastX = a.lastY = undefined; a.tx = a.x; a.ty = a.y; careArrive(a, cr); }
       if (a.stuck > 1.5 && a.goal && left < N.base * 0.6) { a.stuck = 0; a.lastX = a.lastY = undefined; a.tx = a.x; a.ty = a.y; }
-      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = a.garden = a.bath = a.song = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
+      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = a.care = null; a.rain = a.garden = a.bath = a.song = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
     } else if (moving) {
       const hopper = a.beh === "hop";
       const step = Math.min(d, speed * dt * (hopper ? hopGate(a) : 1));
@@ -525,7 +561,8 @@ function updateActors(dt) {
     else if (a.state === "walk" && a.song) {
       // gathered by the singing crystals: swaying along till the song ends
       a.song = false; a.state = "dance"; a.t = Math.max(1.2, songLeft() + rand(0.2, 0.6)); emote(a, "♪", 1.4);
-    } else if (a.state === "walk" && a.plan) habitArrive(a, cr);
+    } else if (a.state === "walk" && a.care) careArrive(a, cr);
+    else if (a.state === "walk" && a.plan) habitArrive(a, cr);
     else if (a.state === "walk" && a.garden) {
       a.garden = false; a.state = "idle"; a.t = rand(1.5, 3) * linger(cr); emote(a, "💧", 1.6); gardenHelp(cr);
     } else if (a.state === "walk") {

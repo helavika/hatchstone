@@ -52,8 +52,13 @@ function renderNest(full) {
 /** The one cell under the needs: who you're looking after, their mood, and how full this room is. Tap for everyone, room by room. */
 function renderResidentsBtn(cr) {
   const here = residents(save.room).length, others = save.creatures.length - here;
-  const html = `<img src="${creatureImage(specOf(cr), { art: 20, level: cr.level, shiny: cr.shiny, acc: cr.acc })}" alt="">${moodIcon(cr)}<b>${here}/${homeCap(isPlace() ? nestRoom() : save.room)}</b>${others ? `<small>+${others}</small>` : ""}`;
+  // a small badge for the others really unwell (UNWELL: the one you're with shows its own needs above), and a tap on it
+  // goes to the neediest of them (residentsTap)
+  const now = needsNow(), ill = now.filter(c => unwell(c) && c.id !== cr.id).length, go = neediest(now, cr.id);
+  const html = `<img src="${creatureImage(specOf(cr), { art: 20, level: cr.level, shiny: cr.shiny, acc: cr.acc })}" alt="">${moodIcon(cr)}<b>${here}/${homeCap(isPlace() ? nestRoom() : save.room)}</b>${others ? `<small>+${others}</small>` : ""}${ill ? `<i class="unwell" title="${tr("{0} needs you: tap to go to it", go.name)}">${ill}</i>` : ""}`;
   if ($("residentsBtn").dataset.h !== html) { $("residentsBtn").dataset.h = html; $("residentsBtn").innerHTML = html; }
+  const label = go ? tr("Who lives where") + " · " + tr("{0} needs you: tap to go to it", go.name) : tr("Who lives where");
+  if ($("residentsBtn").getAttribute("aria-label") !== label) $("residentsBtn").setAttribute("aria-label", label);
 }
 /** The arrows beside the glowling row show only where there are more glowlings to scroll to. */
 function switchArrows() {
@@ -1010,6 +1015,55 @@ function tapHelper(c) {
   sfx.chirp(specOf(c).voice); buzz(8);
   game.helpTap = { id: c.id, t: game.time, room: save.room, line: tr(pick(h.says)) };
   renderPlaceBar();
+}
+
+// ---------- big ones look after the little ones (#319): a grown glowling at home now and then feeds or plays with a young one ----------
+// A grown one (HELP_STAGE, level 10 and up) awake in a room sees a little one there (not grown yet) whose tummy or joy is
+// under CARE_LOW: it walks over (careNext in iso.js) and shares a moment with it, a berry it found (the tummy, never your
+// pantry) or a little game (joy). Modest and kept small: CARE_MAX times an hour for each grown one, and the neediest first.
+// While you're away the same company keeps the little ones' needs a little slower (CARE_SLOW in save.js).
+const CARE_MAX = 3, CARE_HOUR = 3600e3, CARE_LOW = 45, CARE_TUMMY = 12, CARE_JOY = 10, CARE_DIARY = 4;
+/** A grown glowling at home, awake, with care left this hour. */
+const careLeft = (g, now = Date.now()) => CARE_MAX - (g.cared || []).filter(t => now - t < CARE_HOUR && t <= now).length;
+const canCare = (g, now = Date.now()) => !!g && stageOf(g.level || 1) >= HELP_STAGE && !g.out && !g.sleeping && careLeft(g, now) > 0;
+/** The little one in its room it would look after: hungry or bored enough, awake, the neediest first (null for none). */
+function careFor(g, now = Date.now()) {
+  if (!canCare(g, now)) return null;
+  const young = residents(roomOf(g)).filter(c => c !== g && stageOf(c.level || 1) < HELP_STAGE && !c.sleeping && Math.min(c.tummy, c.joy) < CARE_LOW);
+  return young.sort((a, b) => Math.min(a.tummy, a.joy) - Math.min(b.tummy, b.joy))[0] || null;
+}
+/** What it does for the little one: a berry when the tummy is the lower need, a little game otherwise. */
+const careKind = c => c.tummy <= c.joy ? "feed" : "play";
+/** The moment itself: the little one's tummy or joy up a bit, the big one's hour counted, a diary line now and then.
+ *  Returns what it did ("feed" or "play"), or "" if it may not (any more). Nothing comes out of the pantry. */
+function giveCare(g, c, now = Date.now()) {
+  if (!canCare(g, now) || !c || c === g || c.out || c.sleeping || stageOf(c.level || 1) >= HELP_STAGE || roomOf(c) !== roomOf(g)) return "";
+  const kind = careKind(c);
+  if (kind === "feed") c.tummy = clamp(c.tummy + CARE_TUMMY, 0, 100); else c.joy = clamp(c.joy + CARE_JOY, 0, 100);
+  g.joy = clamp(g.joy + 2, 0, 100);
+  g.cared = [...(g.cared || []).filter(t => now - t < CARE_HOUR && t <= now), now];
+  g.careN = (g.careN || 0) + 1;
+  // the first time, and every CARE_DIARY-th after: a line in both diaries
+  if (g.careN % CARE_DIARY === 1) {
+    remember(c, kind === "feed" ? "Had a berry that {0} found ♥" : "Played with a big one: {0} ♥", g.name);
+    remember(g, "Looked after a little one: {0}", c.name);
+  }
+  return kind;
+}
+/** Really unwell (tummy, joy or energy under UNWELL, awake at home): only these put a badge on the residents button. */
+const UNWELL = 20;
+const unwell = c => !!c && !c.out && !c.sleeping && Math.min(c.tummy, c.joy, c.energy) < UNWELL;
+/** The one who needs you most (the lowest need), leaving out the one you're already with (skip): null when all are well. */
+const neediest = (list, skip) => list.filter(c => unwell(c) && c.id !== skip).sort((a, b) => Math.min(a.tummy, a.joy, a.energy) - Math.min(b.tummy, b.joy, b.energy))[0] || null;
+/** Everyone as they are this moment, looked at on copies (just checking must never change the save; see updateCalls). */
+const needsNow = () => save.creatures.map(c => { const p = { ...c }; applyTime(p); return p; });
+/** The residents button: its badge (someone unwell besides the one you're with) goes to the neediest, in their room;
+ *  anywhere else on it, who lives where, as ever. */
+function residentsTap(ev) {
+  const n = ev && ev.target.closest && ev.target.closest(".unwell") && neediest(needsNow(), save.active);
+  if (!n) { openHome(); return; }
+  if (roomOf(n) !== save.room) goRoom(roomOf(n));
+  selectCreature(n.id);
 }
 
 // ---------- a glowling's own card: its best friend, and a diary of what it has lived through ----------
