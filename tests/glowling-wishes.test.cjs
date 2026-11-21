@@ -12,7 +12,7 @@ const line = (src, re, what) => { const m = src.match(re); assert.ok(m, what); r
 // "fancy"), with what it leans on beside it: what a glowling calls you for, who is content, the kinds, the furniture and
 // the diary, over a pretend nest
 const saveJs = read('save.js'), nestJs = read('nest.js'), isoJs = read('iso.js'), dataJs = read('data.js'), playJs = read('play.js'), walkJs = read('walk.js'), ui = read('ui.js'), crackJs = read('crack.js'), pixelJs = read('pixel.js');
-const callsSrc = cut(saveJs, '/** What a glowling is calling you for', '/** A little "!" on the Nest tab', 'callOf should sit in save.js, before updateCalls');
+const callsSrc = cut(saveJs, '/** What a glowling is calling you for', '/** The mark on the tabs', 'callOf should sit in save.js, before updateCalls');
 const fancySrc = [
   cut(dataJs, 'const DECOR = [', 'if (LANG === "uk")', 'the furniture should be one list in data.js'),
   line(dataJs, /^const DECO = .*$/m, 'DECO should be one line in data.js'),

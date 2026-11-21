@@ -164,10 +164,23 @@ function setScene(scene) {
   talkMoments(scene);
 }
 
+/**
+ * Which top-bar pills have earned their place yet: before the first egg, none. Shards once a geode has given some (or
+ * someone lives at home), stars after a first level, the lantern once a drop is spent or the next trip needs one, the
+ * day's tasks once there's a glowling to do them with. Read from the save itself, not a flag, so an older nest already
+ * past these points sees every pill, and none goes away again. oilNeeded: the next trip burns a drop (see tripCosts).
+ */
+const hudPills = (s, oilNeeded) => {
+  const stars = Object.values(s.stars || {}), home = (s.creatures || []).length > 0;
+  return { shards: stars.length > 0 || home, stars: stars.some(v => v > 0), oil: !!(s.oil && s.oil.t > 0) || !!oilNeeded, tasks: home };
+};
 function updateTopbar() {
   $("shardPill").innerHTML = `${ic("shard")}${save.shards}`;
   $("starPill").innerHTML = `${ic("star")}${totalStars()}`;
-  const n = nextLevel();
+  const n = nextLevel(), pills = hudPills(save, tripCosts(n));
+  $("shardPill").hidden = !pills.shards; $("starPill").hidden = !pills.stars; $("walletPill").hidden = !pills.shards && !pills.stars;
+  $("walletPill").querySelector(".sep").hidden = !(pills.shards && pills.stars);
+  $("oilPill").hidden = !pills.oil; $("taskPill").hidden = !pills.tasks;
   $("crackLvl").textContent = n ? tr("Lv {0}", n) : tr("Step {0}", wanderStep());
   renderTaskPill();
   renderOilPill();
