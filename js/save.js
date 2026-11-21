@@ -115,6 +115,21 @@ function bedsSaveOf(d) {
   return d.rooms;
 }
 
+/** A room keeps what's in its own feeding bowl, in save.rooms[i].bowl (see bowlOf in nest.js). A save from when there was
+ *  only one bowl kept its food in save.bowl: it moves onto the room the bowl stands in (the room you're in when it's out
+ *  there, else the one that has it), or back into the pantry if the bowl was put away. Anything that isn't a snack goes. */
+function bowlSaveOf(d) {
+  const food = a => Array.isArray(a) ? a.filter(id => typeof id === "string" && Object.hasOwn(SNACKS, id)) : [];
+  d.rooms.forEach(r => { if (r.bowl === undefined) return; const f = food(r.bowl); if (f.length) r.bowl = f; else delete r.bowl; });
+  const old = food(d.bowl);
+  delete d.bowl;
+  if (!old.length) return d.rooms;
+  const at = d.decor.bowl?.on ? d.room : d.rooms.findIndex((r, i) => i !== d.room && Array.isArray(r.on) && r.on.includes("bowl"));
+  if (at >= 0) d.rooms[at].bowl = [...food(d.rooms[at].bowl), ...old];
+  else { d.pantry = { ...d.pantry }; for (const id of old) d.pantry[id] = (Number(d.pantry[id]) || 0) + 1; }
+  return d.rooms;
+}
+
 /** Older saves get whatever newer versions added; big geode pictures are dropped and redrawn small. */
 function migrate(d) {
   d.geodes = d.geodes || {}; d.decor = d.decor || {}; d.seen = d.seen || {}; d.forge = d.forge || {};
@@ -187,6 +202,8 @@ function migrate(d) {
   helpersSaveOf(d.creatures);
   // beds: who fits at home (see bedsSaveOf), after the helpers, who are out and need none
   bedsSaveOf(d);
+  // a feeding bowl in every room, each with its own food (see bowlSaveOf)
+  bowlSaveOf(d);
   // rooms used to be seen either from the corner or from the front: now always from the corner, so the choice goes
   delete d.view;
   d.v = SAVE_VERSION;
@@ -334,7 +351,7 @@ const nestRoom = () => save.rooms.findIndex(r => r.kind === "nest");
 function gatherDust() {
   for (const cr of save.creatures) applyTime(cr);
   // and with nobody watching its room, a filled feeding bowl feeds the hungry ones there (see bowlAway in nest.js)
-  if (save.bowl?.length) bowlAway();
+  if (save.rooms.some(r => r.bowl?.length)) bowlAway();
   const n = Math.max(1, save.creatures.length), nest = nestRoom(), dust = save.dust = save.dust || [];
   for (const cr of save.creatures) if (cr.messT) { save.dustT = (save.dustT || 0) + cr.messT / n; cr.messT = 0; }
   if (homeQuiet()) { dust.length = Math.min(dust.length, 1); save.dustT = 0; }
