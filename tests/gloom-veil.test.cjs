@@ -41,7 +41,7 @@ function nest({ calm = false, low = false, shaft = null } = {}) {
     sfx: { ready: () => false }, opts: () => ({ calm }), quality: { low }, setTimeout: () => 0, $$: () => [],
     document: { hidden: false, createElement: () => ({ getContext: fakeCtx }) }, ctx: fakeCtx(),
     talkNow: null, talkQueue: [], giftNow: null, coopSession: null, pointer: null, arrange: { on: false }, startedEmpty: false,
-    emote: () => {}, toast: () => {}, tr: s => s, persist: () => {}, remember: () => {}, areFriends: () => false, charmSpot: () => null, charmHung: () => null,
+    emote: () => {}, kaoFor: () => "", toast: () => {}, tr: s => s, persist: () => {}, remember: () => {}, areFriends: () => false, charmSpot: () => null, charmHung: () => null,
     nestRoom: () => 0, residents: () => creatures, cnt: () => 1, bump: () => {}, tipDone: () => true, dayKey: () => 'today', keeperGift: () => false,
     setHint: () => {}, nestHint: () => '', renderNest: () => {}, updateTopbar: () => {}, checkAwards: () => {}, floatText: () => {}, buzz: () => {}, talk: () => {},
     depth: () => 0.7, gloomArtNow: () => ({ P: 2 }), roomShaft: () => shaft, mossCrack: () => [200, 40], caveArt: () => ({ seed: 1 }), currentTheme: () => 'glowcap',

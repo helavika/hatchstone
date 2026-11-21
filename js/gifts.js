@@ -212,6 +212,9 @@ function giftParcelGo() {
   $("parcelImg").hidden = false; $("parcelEmoji").hidden = true;
   giftNow = null;
   if (game.scene === "nest") renderNest();
+  // (the one you look after is surprised by what came)
+  const a = activeActor(), cr = activeCreature();
+  if (game.scene === "nest" && a && cr && !cr.sleeping) { a.hop = 1; emote(a, kaoFor(cr, "surprise"), 2); }
 }
 /** The friend's charm that hangs on the nest's wall, if one does (kept in save.hung, apart from the chest's list: see hungSaveOf). */
 const charmHung = () => save.hung && CHARMS[save.hung.c] ? save.hung : null;

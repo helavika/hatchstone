@@ -104,7 +104,7 @@ function pet(x, y, d) {
     a.petDist = 0;
     heart(x, y - 10);
     if (!tipDone("pet")) { markTip("pet"); setHint(nestHint()); }
-    if (!(a.petOnce && a.petOnce === (pointer && pointer.t0))) { a.petOnce = pointer && pointer.t0; taskDone("pet"); bump("petted"); rememberFirst(cr, "First stroke from you ♥"); }
+    if (!(a.petOnce && a.petOnce === (pointer && pointer.t0))) { a.petOnce = pointer && pointer.t0; emote(a, kaoFor(cr, "pet"), 1.8); taskDone("pet"); bump("petted"); rememberFirst(cr, "First stroke from you ♥"); }
     cr.joy = clamp(cr.joy + 1.2, 0, 100);
     if (performance.now() - (a.petXpT || 0) > 1500) { a.petXpT = performance.now(); addXP(cr, 1); persist(); renderNest(); }
   }

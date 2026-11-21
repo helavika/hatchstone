@@ -464,6 +464,9 @@ function fancyTick(dt) {
   if (!who.length) { fancy.wait = 20; return; }
   const cr = pick(who), all = fanciesFor(cr), fresh = all.filter(f => f.id !== fancy.last);
   fancy.on = { id: cr.id, what: fancy.last = pick(fresh.length ? fresh : all).id, t: 0 };
+  // (it wonders about it first, with a curious face)
+  const a = actors.get(cr.id);
+  if (a && !a.emote) emote(a, kaoFor(cr, "curious"), 1.6);
 }
 /**
  * Something just happened that a daydream may have been about (a piece tapped, a shower, a song, a game, a walk). If it was,

@@ -48,7 +48,7 @@ function nest(creatures, pieces = [], roll = () => 0) {
     clamp: (v, a, b) => Math.max(a, Math.min(b, v)), tr: fill, specOf: c => c.mix ? { beh: c.mix.beh, voice: 1 } : { voice: 1 },
     keptQuiet: () => false, nestRoom: () => 0, isPlace: () => false,
     addXP: (c, n) => { xp.push([c.id, n]); }, persist: () => { saves.push(1); }, toast: t => { toasts.push(t); },
-    emote: () => {}, burst: () => {}, heart: () => {}, renderNest: () => {}, actorView: () => ({ x: 0, y: 0, size: 60 }), sfx: { chirp: () => {} },
+    emote: () => {}, kaoFor: () => '', burst: () => {}, heart: () => {}, renderNest: () => {}, actorView: () => ({ x: 0, y: 0, size: 60 }), sfx: { chirp: () => {} },
   };
   page.roomOf = c => c.room || 0;
   page.residents = r => page.save.creatures.filter(c => !c.out && page.roomOf(c) === r);
