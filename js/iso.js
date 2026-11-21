@@ -496,7 +496,7 @@ function updateActors(dt) {
       if (!a.stuck) { a.lastX = a.x; a.lastY = a.y; }
       // (pressed against the very piece it came to see, or nearly there: that's arriving, not being stuck)
       if (a.stuck > 1.5 && a.goal && left < N.base * 0.6) { a.stuck = 0; a.lastX = a.lastY = undefined; a.tx = a.x; a.ty = a.y; }
-      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = a.garden = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
+      if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = a.garden = a.bath = a.song = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
     } else if (moving) {
       const hopper = a.beh === "hop";
       const step = Math.min(d, speed * dt * (hopper ? hopGate(a) : 1));
@@ -515,6 +515,10 @@ function updateActors(dt) {
       // under the cloud: a little dance in the rain (or snow)
       a.rain = false; a.state = "dance"; a.t = rand(0.9, 1.6); a.hop = 1;
       emote(a, weather.kind === "snow" ? "❄" : "💧", 1.2);
+    } else if (a.state === "walk" && a.bath) { a.bath = false; a.state = "idle"; a.t = rand(1, 2) * linger(cr); batheAt(a, cr); }
+    else if (a.state === "walk" && a.song) {
+      // gathered by the singing crystals: swaying along till the song ends
+      a.song = false; a.state = "dance"; a.t = Math.max(1.2, songLeft() + rand(0.2, 0.6)); emote(a, "♪", 1.4);
     } else if (a.state === "walk" && a.plan) habitArrive(a, cr);
     else if (a.state === "walk" && a.garden) {
       a.garden = false; a.state = "idle"; a.t = rand(1.5, 3) * linger(cr); emote(a, "💧", 1.6); gardenHelp(cr);

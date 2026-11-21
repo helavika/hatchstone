@@ -1098,6 +1098,7 @@ function drawNest() {
   drawPassages();
   drawDust();
   drawGloomUnder();
+  items.push(...roomDoItems());
   for (const a of actors.values()) {
     // (hiding behind a piece in hide and seek: only the peek past its edge is drawn, by the piece: see drawSeekPeek)
     if (seekHidden(a)) continue;
@@ -2004,4 +2005,272 @@ function drawSeekPeek() {
   ctx.globalAlpha = calm ? Math.min(s0, s1) : 1;
   drawSprite(x, fy - size * 0.45, size, specOf(cr), { ...actorLook(a, cr), mood: "happy", face: "", glow: false });
   ctx.restore();
+}
+
+// ---------- the rooms' own things to do: glowcaps and the spring in the moss garden, the singing crystals in the study ----------
+
+/** Glowcaps come up on the moss garden's moss by themselves, one every few hours of real time, three at most; the spring takes each
+ *  glowling once a day, and the bath is worth a good mood and a clean coat. */
+const CAP_EVERY = 3 * 3600e3, CAP_MAX = 3, BATH_JOY = 15;
+/** Where glowcaps come up on the moss garden's floor (u, v), in the order they come: in front of the beds, by the spring, out on the
+ *  moss under the light; a spot with furniture standing on it is skipped (see capSpots). */
+const CAP_SPOTS = [[0.1, 0.45], [0.2, 0.1], [0.42, 0.11], [0.1, 0.28], [0.3, 0.42]];
+/** What the rooms keep of their doings (save.roomdo), made whole: the glowcaps up (the spots they stand on) and since when the next
+ *  one is coming, and who bathed on which day. A room that never had any starts with one glowcap already up, to be found. */
+function roomDoOf(o, now = Date.now()) {
+  o = o && typeof o === "object" ? o : {};
+  const c = o.caps && typeof o.caps === "object" ? o.caps : null, bath = {};
+  for (const [id, d] of Object.entries(o.bath && typeof o.bath === "object" ? o.bath : {})) if (typeof d === "string") bath[id] = d;
+  const on = c && Array.isArray(c.on) ? [...new Set(c.on.filter(k => Number.isInteger(k) && k >= 0 && k < CAP_MAX))] : [0];
+  return { caps: { on, t: c && Number.isFinite(c.t) ? Math.min(c.t, now) : now }, bath };
+}
+/** The glowcaps up by now: one more every CAP_EVERY since t, on the first free spot, never more than CAP_MAX (and while all are up
+ *  the clock waits, so a picked one takes its full time to come back). */
+function capsGrow(c, now = Date.now()) {
+  const on = [...c.on];
+  let t = c.t;
+  while (on.length < CAP_MAX && now - t >= CAP_EVERY) { t += CAP_EVERY; on.push([...Array(CAP_MAX).keys()].find(k => !on.includes(k))); }
+  return { on, t: on.length >= CAP_MAX ? now : t };
+}
+/** Pick the glowcap on spot k: what's left up, or null if there's none there. */
+function capsPick(c, k, now = Date.now()) {
+  const g = capsGrow(c, now);
+  return g.on.includes(k) ? { on: g.on.filter(q => q !== k), t: g.t } : null;
+}
+/** Has this glowling had its bath today (day: dayKey)? And the list after it has, keeping only today's. */
+const bathOk = (bath, id, day) => bath[id] !== day;
+const bathed = (bath, id, day) => ({ ...Object.fromEntries(Object.entries(bath).filter(([, d]) => d === day)), [id]: day });
+/** The song sparks found so far, in the Book's order: the ones the crystals can sing. */
+const songsFound = got => SPARKS.filter(s => s.kind === "song" && got && got[s.id]).map(s => s.id);
+/** A song's notes as playSpark plays them: when each starts and how long it lasts (seconds), and its pitch in semitones. */
+function songNotes(s) {
+  let at = 0;
+  return s.notes.map(([st, beats]) => { const n = { at, dur: s.beat * beats, st }; at += n.dur; return n; });
+}
+/** Which of n crystals (left to right) a note lights: low notes on the left, high on the right, like a glockenspiel. */
+const noteCrystal = (st, lo, hi, n) => hi > lo ? Math.round((st - lo) / (hi - lo) * (n - 1)) : Math.floor(n / 2);
+
+const roomDoSeen = new WeakSet();
+/** The save's room doings, made whole the first time they're looked at (and again after another tab's save came in). */
+function roomDo() {
+  if (!roomDoSeen.has(save.roomdo)) { save.roomdo = roomDoOf(save.roomdo); roomDoSeen.add(save.roomdo); }
+  return save.roomdo;
+}
+const roomKindHere = () => game.scene === "nest" ? save.rooms[save.room]?.kind : null;
+
+// ---- the moss garden's glowcaps
+
+/** The spots glowcaps can stand on right now, in screen pixels at their foot: the first CAP_MAX of CAP_SPOTS with nothing standing
+ *  on them (the bed neither). */
+function capSpots() {
+  const on = (p, u, v) => u * ISO_G >= p.i - 0.15 && u * ISO_G <= p.i + p.fw + 0.15 && v * ISO_G >= p.j - 0.15 && v * ISO_G <= p.j + p.fd + 0.15, placed = Object.values(isoLayout().placed);
+  return CAP_SPOTS.filter(([u, v]) => !placed.some(p => on(p, u, v))).slice(0, CAP_MAX).map(([u, v]) => isoAt(u, v));
+}
+/** The glowcaps up in the room you're in (none outside the moss garden), each { k, x, y } at its foot. */
+function capsHere() {
+  if (roomKindHere() !== "garden") return [];
+  const r = roomDo(), g = capsGrow(r.caps);
+  if (g.on.length !== r.caps.on.length) r.caps = g;
+  const spots = capSpots();
+  return g.on.filter(k => spots[k]).map(k => ({ k, x: spots[k][0], y: spots[k][1] }));
+}
+/** A glowcap, 13×10 art pixels standing on its foot, as big as the ones growing in the beds: a domed cap glowing from within, lit
+ *  from the top left with a glint, its rim in shade, a dark band of gills under it, and a pale stem flared at the foot, all in a
+ *  dark outline; blue, or pink on the second spot (the moss garden's own two glowcap colours: CAP_BLUE, CAP_PINK). Now and then
+ *  a spark twinkles over it, so it shows it's there to be picked. */
+const CAP_ART = ["....ooooo....", "..oowabbcoo..", ".oaabbbbbccso", "oabbbbbbbccso", "osbbbbbbcccso", ".ossgggggsso.", ".....oefo....", ".....oefo....", "....oeeffo...", "...ooeeffoo.."];
+const capPx = () => Math.max(1, Math.round(PX * Math.max(1, N.isoW / PX / 200)));
+function drawGlowcap(c) {
+  const C = c.k === 1 ? CAP_PINK : CAP_BLUE, col = { o: C[0], w: "#ffffff", a: C[5], b: C[4], c: C[3], s: C[2], g: C[1], e: "#f4f0ff", f: "#c9c0e8" };
+  const p = capPx(), x0 = Math.round(c.x / p - 6.5) * p, y0 = Math.round(c.y / p - 10) * p;
+  const calm = opts().calm, tm = game.time / 1000, pulse = calm ? 0.8 : 0.7 + 0.3 * Math.sin(tm * 1.1 + c.k * 2.1);
+  pxGlow(x0 + 6.5 * p, y0 + 3 * p, p * 14, C[3], pulse);
+  ctx.fillStyle = "rgba(10,4,24,.32)"; ctx.fillRect(x0 + 3 * p, y0 + 10 * p, 7 * p, p);
+  CAP_ART.forEach((row, j) => [...row].forEach((ch, i) => { if (col[ch]) { ctx.fillStyle = col[ch]; ctx.fillRect(x0 + i * p, y0 + j * p, p, p); } }));
+  const tw = (tm * 0.45 + c.k * 0.37) % 1;
+  if (!calm && tw < 0.18) { const k = Math.sin(tw / 0.18 * Math.PI), sx = x0 + (3 + c.k * 3) * p, sy = y0 - 3 * p; ctx.globalAlpha = k; ctx.fillStyle = "#ffffff"; ctx.fillRect(sx, sy, p, p); ctx.fillStyle = C[4]; for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.fillRect(sx + dx * p, sy + dy * p, p, p); ctx.globalAlpha = 1; }
+}
+/** Which glowcap is under a finger, if any (a little more than its own pixels, so it's easy to pick). */
+function capAt(x, y) {
+  const p = capPx();
+  return capsHere().find(c => Math.abs(x - c.x) < Math.max(20, 8 * p) && y < c.y + Math.max(8, 2 * p) && y > c.y - Math.max(34, 14 * p)) || null;
+}
+/** Pick a glowcap: a soft pop and a chime, a puff of its glow, and into the basket it goes. */
+function pickCap(c) {
+  const r = roomDo(), left = capsPick(r.caps, c.k);
+  if (!left) return;
+  r.caps = left;
+  save.pantry = { ...save.pantry, glowcap: ((save.pantry || {}).glowcap || 0) + 1 };
+  if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.tone(t, 260, 0.12, 0.12, "sine", 520); sfx.tone(t + 0.06, 1568, 0.04, 0.5, "sine", null, true); sfx.tone(t + 0.12, 2093, 0.025, 0.4, "sine", null, true); }
+  const C = c.k === 1 ? CAP_PINK : CAP_BLUE;
+  for (let i = 0; i < 10; i++) game.sparks.push({ x: c.x + rand(-8, 8), y: c.y - rand(6, 16), vx: rand(-30, 30), vy: rand(-80, -30), t: 0, life: rand(0.6, 1.1), s: rand(2, 3), color: pick([C[3], C[4], "#fff"]) });
+  floatText(`+${SNACKS.glowcap.emoji} ${SNACKS.glowcap.name.toLowerCase()}`, c.x, c.y - N.base * 0.5, C[4]);
+  if (!tipDone("glowcap")) toast(tr("Into the basket: glowlings love a glowcap. New ones come up on the moss every few hours."));
+  markTip("glowcap"); trackOnce("roomdo", { what: "glowcap" });
+  persist(); setHint(nestHint());
+}
+
+// ---- the moss garden's spring
+
+/** The spring's stone basin against the left wall (see paintMossGarden), in screen pixels: its middle, how wide and how tall. */
+function springBasin() {
+  const [x, y] = isoAt(0.035, MOSS_GARDEN.basin);
+  return { x, y: y - N.isoWall * 0.08, rx: N.isoW * 0.1 + 6, ry: N.isoH * 0.1 + N.isoWall * 0.1 + 6 };
+}
+/** Is a finger on the spring: its basin, or the thread of water falling into it. */
+function springAt(x, y) {
+  if (roomKindHere() !== "garden") return false;
+  const b = springBasin();
+  return Math.hypot((x - b.x) / b.rx, (y - b.y) / b.ry) < 1 || (Math.abs(x - b.x) < b.rx * 0.4 && y < b.y && y > b.y - N.isoWall * 0.45);
+}
+/** A splash at the spring: drops thrown up, rings on the water, and the sound of it. */
+function springSplash(big) {
+  const b = springBasin();
+  if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.grain(t, big ? 0.3 : 0.15, 1800, 0.9, big ? 0.16 : 0.08); sfx.tone(t, rand(1300, 1700), 0.07, 0.35, "sine", null, true); if (big) sfx.tone(t + 0.1, rand(1900, 2300), 0.05, 0.3, "sine", null, true); }
+  for (let i = 0; i < (big ? 3 : 2); i++) game.ripples.push({ x: b.x + rand(-6, 6), y: b.y, t: -i * 0.12, r: b.rx * 0.7, h: 0.5 });
+  for (let i = 0; i < (big ? 16 : 7); i++) game.sparks.push({ x: b.x + rand(-b.rx, b.rx) * 0.6, y: b.y - 4, vx: rand(-60, 60), vy: rand(-170, -80), t: 0, life: rand(0.5, 0.9), s: rand(2, 4), color: pick(["#9fe3e0", "#d4f3ff", "#fff"]) });
+}
+/** Tap the spring: it splashes, and the one you're looking after (or else someone awake who hasn't had one today) goes for a bath. */
+function tapSpring() {
+  springSplash(false);
+  const r = roomDo(), day = dayKey();
+  const free = a => { const cr = crOf(a.id); return cr && !cr.sleeping && !cr.out && ["idle", "walk", "dance", "visit", "nap"].includes(a.state) && bathOk(r.bath, cr.id, day); };
+  const act = activeActor(), a = act && free(act) ? act : [...actors.values()].find(free);
+  if (!a) { toast([...actors.values()].some(o => !crOf(o.id)?.sleeping) ? tr("Everyone here has had a bath today 💧 The spring will be waiting tomorrow.") : tr("Nobody here is awake for a bath")); return; }
+  markTip("bath"); setHint(nestHint());
+  a.goal = a.friend = a.decor = a.plan = null; a.rain = a.garden = a.song = false; a.from = null;
+  a.state = "walk"; a.bath = true; emote(a, "💧", 1.2);
+  [a.tx, a.ty] = standSpot(...isoAt(0.13, MOSS_GARDEN.basin + 0.02));
+}
+/** Arrived at the spring (see updateActors): in it goes, splashing, glad; its coat comes out clean (no mess left to turn to dust). */
+function batheAt(a, cr) {
+  const r = roomDo(), day = dayKey(), b = springBasin();
+  if (roomKindHere() !== "garden" || !bathOk(r.bath, cr.id, day) || Math.hypot(a.x - b.x, a.y - b.y) > N.base * 2.2) return;
+  r.bath = bathed(r.bath, cr.id, day);
+  cr.joy = clamp(cr.joy + BATH_JOY, 0, 100); cr.messT = 0;
+  a.state = "dance"; a.t = 2.2; a.hop = 1; a.bathT = game.time + 2000; emote(a, "💧", 2.2);
+  springSplash(true); sfx.chirp(specOf(cr).voice * 1.2);
+  floatText(tr("{0} splashes in the spring ♥", cr.name), a.x, a.y - N.base * 1.2, "#d4f3ff");
+  trackOnce("roomdo", { what: "bath" }); fancyDone("tap:spring", [cr.id]);
+  persist(); renderNest();
+}
+
+// ---- the crystal study's singing crystals
+
+/** The study's great crystal clusters and its geode (see paintFixtures: where they grow along the walls, and how big), in screen
+ *  pixels at the middle of each, left to right: the ones that light up as they sing. */
+function crystalSpots() {
+  const K = Math.max(0.85, Math.max(0.55, N.isoW / PX / 180)) * PX, o = 0.008, spot = (u, v, z, r) => { const [x, y] = isoAt(u, v); return { x, y: y - z, r }; };
+  const out = [spot(0.012, 0.012, 22 * K, 24 * K), spot(0.47, 0, N.isoWall * 0.5, Math.max(7, N.isoW / PX * 0.075) * PX * 1.3)];
+  for (const [side, s, sz] of [["L", 0.07, 24], ["R", 0.07, 26], ["L", 0.22, 30], ["L", 0.5, 20], ["L", 0.96, 26], ["R", 0.28, 24], ["R", 0.62, 32], ["R", 0.96, 22]]) {
+    if (s > FIXTURE_CLEAR[0] && s < FIXTURE_CLEAR[1]) continue;
+    out.push(side === "L" ? spot(o, s, sz * K * 0.45, sz * K * 0.55) : spot(s, o, sz * K * 0.45, sz * K * 0.55));
+  }
+  return out.sort((p, q) => p.x - q.x);
+}
+/** Is a finger on one of the study's crystals. */
+const crystalAt = (x, y) => roomKindHere() === "study" && crystalSpots().some(c => Math.hypot(x - c.x, (y - c.y) * 0.8) < Math.max(16, c.r));
+/** The song the crystals are singing, if any: { id, t0, notes, lo, hi, tint, heard }. */
+game.crystalSong = null;
+/** Tap the crystals: with songs found they sing one (you pick which, once there are two), with none yet they hum a single note. */
+function tapCrystals() {
+  const first = !tipDone("crystals"), got = songsFound(save.sparks.got);
+  markTip("crystals"); setHint(nestHint());
+  if (!got.length) {
+    singCrystals(null);
+    toast(tr("The crystals hum a single note. Songs come home from expeditions: once your glowlings find one, the crystals can sing it."));
+    trackOnce("roomdo", { what: "hum" });
+    return;
+  }
+  if (got.length === 1) { singCrystals(got[0]); if (first) toast(tr("The crystals sing the songs your glowlings bring home ♪")); return; }
+  openCrystalSongs(got);
+}
+/** The little list of found songs to pick from. */
+function openCrystalSongs(got = songsFound(save.sparks.got)) {
+  sfx.tick();
+  const cur = game.crystalSong?.id;
+  $("crystalList").innerHTML = got.map(id => `<button class="snack song${cur === id ? " on" : ""}" data-crystal="${id}"><img class="em" src="${sparkArt(id)}" alt=""><span><b>${tr(SPARK[id].name)}</b><small>${tr("from {0}'s travels", save.sparks.got[id].by || "?")}</small></span><span class="cost">♪</span></button>`).join("")
+    + (got.length < SPARKS.filter(s => s.kind === "song").length ? `<p class="me-hint">${tr("More songs come home from expeditions.")}</p>` : "");
+  $$("#crystalList [data-crystal]").forEach(b => b.addEventListener("click", () => { show("crystalSongs", false); singCrystals(b.dataset.crystal); }));
+  show("crystalSongs", true);
+}
+/** The crystals sing a song spark (or, with none, hum one note): it plays as in the Book, each note lights its crystal, and the
+ *  glowlings awake in the room gather round and sway till it ends. */
+function singCrystals(id) {
+  const s = id && SPARK[id], notes = s ? songNotes(s) : [{ at: 0, dur: 1.4, st: 0 }], sts = notes.map(n => n.st);
+  if (s) playSpark(id);
+  else if (sfx.ready()) { const t = sfx.ac.currentTime + 0.05; sfx.tone(t, 659.25, 0.06, 1.8, "sine", null, true); sfx.tone(t, 659.25 * 2.76, 0.012, 0.7, "sine"); }
+  game.crystalSong = { id, t0: game.time + 50, notes, lo: Math.min(...sts), hi: Math.max(...sts), tint: s ? s.tint : "#b8e6f5", heard: -1 };
+  if (s) {
+    toast(tr("The crystals sing: {0} ♪", tr(s.name)));
+    trackOnce("roomdo", { what: "song" }); fancyDone("song");
+    const [gx, gy] = isoAt(0.32, 0.32);
+    [...actors.values()].filter(a => ["idle", "walk", "dance"].includes(a.state) && !a.goal && !a.bath && !crOf(a.id)?.sleeping).forEach((a, k) => {
+      a.friend = a.plan = null; a.rain = a.garden = false; a.state = "walk"; a.song = true; emote(a, "♪", 1.2);
+      [a.tx, a.ty] = standSpot(gx + Math.cos(k * 2.4) * N.base * 0.9, gy + Math.sin(k * 2.4) * N.base * 0.45);
+    });
+  }
+}
+/** Seconds left of the crystals' song. */
+const songLeft = () => { const g = game.crystalSong; if (!g) return 0; const n = g.notes[g.notes.length - 1]; return Math.max(0, n.at + n.dur - (game.time - g.t0) / 1000); };
+
+/** Each frame in a room: a little note floats up off each crystal as it sings, the song ends, a bather keeps splashing. */
+function roomDoTick() {
+  const g = game.crystalSong;
+  if (g && roomKindHere() !== "study") game.crystalSong = null;
+  else if (g) {
+    const e = (game.time - g.t0) / 1000, spots = crystalSpots();
+    while (g.heard + 1 < g.notes.length && g.notes[g.heard + 1].at <= e) {
+      const n = g.notes[++g.heard], c = spots[noteCrystal(n.st, g.lo, g.hi, spots.length)];
+      if (c && !opts().calm) floatText(pick(["♪", "♫"]), c.x + rand(-6, 6), c.y - c.r * 0.6, g.tint);
+    }
+    if (songLeft() <= 0 && e > 0.6 + g.notes[g.notes.length - 1].at + g.notes[g.notes.length - 1].dur) game.crystalSong = null;
+  }
+  for (const a of actors.values()) if (a.bathT > game.time && Math.random() < 0.25) {
+    const v = actorView(a);
+    game.sparks.push({ x: v.x + rand(-0.4, 0.4) * v.size, y: v.y - v.size * rand(0.2, 0.7), vx: rand(-40, 40), vy: rand(-110, -50), t: 0, life: rand(0.4, 0.7), s: rand(2, 3), color: pick(["#9fe3e0", "#d4f3ff", "#fff"]) });
+  }
+}
+/** The crystals lit by the song: each note's crystal flares in the song's colour as it sounds, with a white heart, and fades. */
+function drawCrystalSong() {
+  const g = game.crystalSong;
+  if (!g) return;
+  const e = (game.time - g.t0) / 1000, spots = crystalSpots(), calm = opts().calm;
+  for (const n of g.notes) {
+    const a = e - n.at, c = spots[noteCrystal(n.st, g.lo, g.hi, spots.length)];
+    if (!c || a < 0 || a > n.dur + 0.5) continue;
+    const k = a < n.dur ? 1 : 1 - (a - n.dur) / 0.5, r = c.r * (calm ? 2.2 : 2.2 + 0.5 * Math.min(1, a / 0.15));
+    // (twice over, and white at its heart: one glow alone is a breath, and the crystals are bright already)
+    pxGlow(c.x, c.y, r, g.tint, k); pxGlow(c.x, c.y, r * 0.7, g.tint, k);
+    pxGlow(c.x, c.y, c.r * 1.1, "#ffffff", k); pxGlow(c.x, c.y, c.r * 0.55, "#ffffff", k);
+    // and a glint over it: a four-pointed star in art pixels, its arms long while the note sounds, white in the middle
+    const p = Math.max(1, Math.round(c.r / 7)), sx = Math.round(c.x / p) * p, sy = Math.round((c.y - c.r * 0.35) / p) * p, L = Math.round(1 + 3 * k);
+    ctx.globalAlpha = Math.min(1, k * 1.4); ctx.fillStyle = g.tint;
+    for (let q = 2; q <= L; q++) for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.fillRect(sx + dx * q * p, sy + dy * q * p, p, p);
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(sx, sy, p, p); for (const [dx, dy] of [[-1, 0], [1, 0], [0, -1], [0, 1]]) ctx.fillRect(sx + dx * p, sy + dy * p, p, p);
+    ctx.globalAlpha = 1;
+  }
+}
+/** What the room's doings add to its back-to-front order (see drawNest): the glowcaps on the floor, the crystals' light on the walls. */
+function roomDoItems() {
+  const items = capsHere().map(c => { const [u, v] = isoFrom(c.x, c.y); return { y: c.y, draw: () => drawGlowcap(c), box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } }; });
+  if (game.crystalSong) items.push({ y: -0.5, draw: drawCrystalSong });
+  return items;
+}
+/** Is a finger on something the room has to do: a glowcap, the spring, the crystals. Does it, and says so. */
+function roomDoTap(x, y) {
+  if (!["garden", "study"].includes(roomKindHere()) || decorAt(x, y)) return false;
+  const c = capAt(x, y);
+  if (c) { pickCap(c); return true; }
+  if (springAt(x, y)) { tapSpring(); return true; }
+  if (crystalAt(x, y)) { tapCrystals(); return true; }
+  return false;
+}
+/** The hint line's word about the room you're in, the first time (see nestHint). */
+function roomDoHint() {
+  const k = roomKindHere();
+  if (k === "garden" && !tipDone("glowcap") && capsHere().length) return tr("tip: glowcaps grow on the moss here: tap one to pick it 🍄");
+  if (k === "garden" && !tipDone("bath")) return tr("tip: tap the spring, and a glowling goes for a bath (once a day each) 💧");
+  if (k === "study" && !tipDone("crystals")) return tr("tip: tap the crystals, and they sing the songs found on expeditions ♪");
+  return "";
 }

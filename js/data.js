@@ -210,6 +210,8 @@ const SNACKS = {
   tea: { name: "Moon mint tea", emoji: "🍵", tummy: 4, joy: 6, energy: 45, drink: true, garden: true },
   star: { name: "Starfruit", emoji: "🌟", tummy: 35, joy: 10, fav: true, garden: true },
   cap: { name: "Growcap", emoji: "🍄", tummy: 20, joy: 6, xp: 40, garden: true },
+  // and the moss garden's own: glowcaps come up on its moss by themselves, and are picked by hand (see pickCap)
+  glowcap: { name: "Glowcap", emoji: "🍄", tummy: 12, joy: 14, garden: true },
 };
 
 /** Things to buy with shards. Each has a fixed spot in the room and the kinds of glowling that love it. */

@@ -43,6 +43,7 @@ function update(dt) {
     updateSeek(dt);
     updateWeather(dt);
     musicNotes(dt);
+    roomDoTick();
     swingPush *= Math.exp(-0.35 * dt);
     if (n.snack) {
       const a = activeActor();

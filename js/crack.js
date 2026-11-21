@@ -1968,6 +1968,8 @@ function nestHint() {
   // (keepers greet you themselves; only the grotto's hall says what its things do, until you've used them)
   if (isPlace()) return heroHere()?.none && !tipDone("hall") ? tr("the tunnel leads to the next egg · the map on the wall shows every level") : "";
   if (isOutside() && !tipDone("garden")) return tr("tip: tap the garden bed to plant seeds 🌱");
+  const roomTip = roomDoHint();
+  if (roomTip) return roomTip;
   if (!tipDone("decorTap") && DECOR.some(d => hasDecor(d.id) && d.id !== "rug")) return tr("tip: tap your decorations to play with them ✦");
   if (save.incubator && Date.now() >= save.incubator.due) return incHere() ? tr("the egg is ready: tap it three times to hatch ✦") : tr("the egg in the lab is ready to hatch 🧪");
   if (!save.incubator && !tipDone("pair") && save.creatures.filter(c => !pairReason(c)).length >= 2) return incHere() ? tr("two of your glowlings could share an egg: tap the incubator 💞") : tr("two of your glowlings could share an egg: the incubator is in the lab, on the map 🧪");
