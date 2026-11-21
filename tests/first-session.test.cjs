@@ -168,3 +168,43 @@ test('a moment waiting in line keeps its place when it doesn\'t fit yet', () => 
   long.page.STORY[0].at = 1;
   assert.equal(long.moment('nest'), 6);
 });
+
+test('the first glowling\'s hello is its moment alone; Mossa\'s words come next, and her question about your name only after', () => {
+  const c = calm({ lens: { firstHello: 2, firstPet: 3, meet: 1, shiny: 2 }, later: [['shiny', {}]] });
+  Object.assign(c.page, { afterTalk: null, openMe: () => {} });
+  c.page.save.me.name = '';
+  assert.equal(c.moment('nest'), 2, 'the hello and nothing else');
+  assert.equal(c.page.afterTalk, c.page.petInvite, 'then it waits for your stroke (see petInvite)');
+  assert.deepEqual([...c.page.talkLater.map(a => a[0])], ['shiny'], 'what waited keeps waiting');
+  // the next calm moment (as petTold would have it, a stroke or a few seconds later): her words, and no question yet
+  assert.equal(c.moment('nest'), 5);
+  assert.match(String(c.page.afterTalk), /calmEnd = Date\.now\(\) \+ CALM_AFTER/, 'a breath after her words before any banner');
+  assert.ok(!c.page.save.talks.meet);
+  // and at the one after, the name
+  assert.equal(c.moment('nest'), 1);
+  assert.ok(c.page.save.talks.meet);
+  assert.deepEqual(c.said, [['firstHello'], ['shiny'], ['meet']]); // (firstPet itself is left out of what moment() lists)
+});
+
+// the found card's buttons, as foundExtras sets them
+const extrasSrc = cut(crack, 'const FOUND_FIRST', 'function showFound(', 'foundExtras should sit in crack.js, before showFound') + '\nthis.foundExtras = foundExtras;';
+function foundCard({ cracked, seen = [], forge = false, conf = { n: 2 } }) {
+  const els = {}, $ = id => els[id] || (els[id] = { id, hidden: false, className: 'pillbtn', textContent: 'Next level', attrs: {}, setAttribute(k, v) { this.attrs[k] = v; } });
+  const page = { $, tr: s => s, stat: { cracked: () => cracked }, talkSeen: id => seen.includes(id), placeOk: id => id === 'forge' && forge };
+  vm.runInNewContext(extrasSrc, page);
+  page.foundExtras(conf);
+  // what the card shows: the way home always, then whatever isn't hidden
+  const on = id => !$(id).hidden;
+  return { next: [$('nextLvl').className, $('nextLvl').textContent], stats: on('foundStats'), more: on('foundMore'), extra: on('foundExtra'), forge: on('foundForge') };
+}
+
+test('the first three hatches\' found card: the way home and a quiet "Crack another"; the rest as the game opens up', () => {
+  for (const n of [1, 2, 3]) assert.deepEqual(foundCard({ cracked: n }), { next: ['found-link', 'Crack another'], stats: false, more: false, extra: false, forge: false }, 'hatch ' + n);
+  // the fourth: the next level is a button again, and the Grotto, the Forge and Share fold under "⋯ more"
+  assert.deepEqual(foundCard({ cracked: 4 }), { next: ['pillbtn', 'Next level'], stats: false, more: true, extra: false, forge: false });
+  // the numbers once Mossa has told what the stars are for; the Forge once it's open
+  assert.equal(foundCard({ cracked: 2, seen: ['firstGrotto'] }).stats, true);
+  assert.equal(foundCard({ cracked: 9, forge: true }).forge, true);
+  // a moon egg, a heart geode or a shared egg (all wandering ones) keep their own button, even early on
+  assert.deepEqual(foundCard({ cracked: 1, conf: { n: 'moon', moon: true, wander: true } }).next, ['pillbtn', 'Next level']);
+});

@@ -103,7 +103,7 @@ function pet(x, y, d) {
   if (a.petDist > 45) {
     a.petDist = 0;
     heart(x, y - 10);
-    if (!tipDone("pet")) { markTip("pet"); setHint(nestHint()); }
+    if (!tipDone("pet")) { markTip("pet"); setHint(nestHint()); petNoticed(); }
     if (!(a.petOnce && a.petOnce === (pointer && pointer.t0))) { a.petOnce = pointer && pointer.t0; emote(a, kaoFor(cr, "pet"), 1.8); taskDone("pet"); bump("petted"); rememberFirst(cr, "First stroke from you ♥"); }
     cr.joy = clamp(cr.joy + 1.2, 0, 100);
     if (performance.now() - (a.petXpT || 0) > 1500) { a.petXpT = performance.now(); addXP(cr, 1); persist(); renderNest(); }
@@ -406,7 +406,7 @@ if (save.creatures.length) {
 }
 
 // what an older save had already been through, so returning players skip the beginner dialogs
-if (!save.talks && save.creatures.length) talkOld = { intro: 1, firstPet: 1, firstGrotto: 1, firstForge: 1, firstGrow: save.creatures.some(c => stageOf(c.level) > 0),
+if (!save.talks && save.creatures.length) talkOld = { intro: 1, firstHello: 1, firstPet: 1, firstGrotto: 1, firstForge: 1, firstGrow: save.creatures.some(c => stageOf(c.level) > 0),
   ch1: unlocked(7), ch2: unlocked(13), ch3: unlocked(19), allClear: unlocked(LEVELS + 1), shiny: save.creatures.some(c => c.shiny), legendary: save.creatures.some(c => rarityOf(specOf(c)) === "legendary") };
 
 $("play").addEventListener("click", () => {
@@ -472,6 +472,7 @@ $("nextLvl").addEventListener("click", () => {
 });
 $("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
 $("foundShare").addEventListener("click", shareFound);
+$("foundMore").addEventListener("click", () => { sfx.tick(); const open = $("foundExtra").hidden; $("foundExtra").hidden = !open; $("foundMore").setAttribute("aria-expanded", String(open)); });
 $("twinHome").addEventListener("click", () => { sfx.tick(); chooseTwin(true); });
 $("twinVisit").addEventListener("click", () => { sfx.tick(); chooseTwin(false); });
 $("switcher").addEventListener("scroll", switchArrows, { passive: true });

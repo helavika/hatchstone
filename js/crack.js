@@ -1393,6 +1393,24 @@ function chooseTwin(home) {
   if (!$("found").classList.contains("hidden")) $("foundNest").focus({ preventScroll: true });
 }
 
+/** The first eggs this many: the found card is the way home and a link to the next egg, nothing else. */
+const FOUND_FIRST = 3;
+/**
+ * What the found card offers besides the way home, as the game opens up: for the first few hatches only a quiet "Crack
+ * another"; the numbers once Mossa has told what stars are for (in the Grotto); and the Grotto, the Forge (once it's open)
+ * and Share folded under "⋯ more". A moon egg, a heart geode or a shared one keeps its own next button as it was.
+ */
+function foundExtras(conf) {
+  // (a level of the Grotto: a moon egg, a heart geode and a shared egg are all wandering ones)
+  const early = !conf.wander && stat.cracked() <= FOUND_FIRST;
+  $("nextLvl").className = early ? "found-link" : "pillbtn";
+  if (early) $("nextLvl").textContent = tr("Crack another");
+  $("foundStats").hidden = !talkSeen("firstGrotto");
+  $("foundForge").hidden = !placeOk("forge");
+  $("foundMore").hidden = early;
+  $("foundMore").setAttribute("aria-expanded", "false");
+  $("foundExtra").hidden = true;
+}
 function showFound() {
   const e = game.egg, sp = e.species, conf = e.conf, cry = e.crystal;
   if (conf.coop && e.coopRewarded) return;
@@ -1465,6 +1483,7 @@ function showFound() {
   }
   $("nextLvl").textContent = conf.coop ? (coopIsHost() ? tr("Another shared egg") : tr("Waiting for host")) : conf.moon ? tr("Back to the grotto") : conf.wander ? tr("Another egg") : conf.n >= LEVELS ? tr("Wander on") : tr("Next level");
   $("nextLvl").disabled = !!conf.coop && !coopIsHost();
+  foundExtras(conf);
   if (conf.heart) heartFound(conf);
   updateTopbar();
   show("found", true);
@@ -1498,8 +1517,9 @@ const TALKS = {
     [MOSSA, "Glowlings sleep in the stone eggs down here. Crack one, and whoever wakes will need a home.", "#crackTab"],
     [MOSSA, "This nest is yours. One moss cot, and nobody in it yet. Let's find who sleeps in the stone.", null, "warm"]],
   meet: () => [[MOSSA, "We've never been properly introduced. What should I call you?", null, "warm"]],
-  firstPet: () => { const cr = firstPet(), g = glowVoice(cr); return [[g, "Pip?", spotActor], [g, "...pip-pip! ♥", spotActor],
-    [MOSSA, tr("{0} trusts you already. Glowlings remember a kind hand.", cr.name), spotActor, "warm"],
+  // the first glowling at home says hello on its own, and is yours to stroke (see petInvite); then Mossa has her few words
+  firstHello: () => { const g = glowVoice(firstPet()); return [[g, "Pip?", spotActor], [g, "...pip-pip! ♥", spotActor]]; },
+  firstPet: () => { const cr = firstPet(); return [[MOSSA, tr("{0} trusts you already. Glowlings remember a kind hand.", cr.name), spotActor, "warm"],
     [MOSSA, "Stroke it, feed it, play with it, tuck it in when it's sleepy. That's how it grows.", "#nestBottom .acts"],
     [MOSSA, "Every glowling needs a bed of its own, and the cot is taken now. Tansy builds beds at her shop, on the map: build one before the next egg.", "#worldTab"]]; },
   firstGrow: cr => [[glowVoice(cr), "Pip! Pip-pip-pip!", spotActor], [MOSSA, tr("Look at {0}. Not a little one any more.", cr.name), spotActor, "warm"],
@@ -1913,6 +1933,41 @@ const talkLines = () => talkQueue.reduce((a, l) => a + l.length, 0) + (talkNow ?
 const nestBegan = () => Math.min(Date.now(), ...Object.values(save.seen).map(v => Number.isFinite(v.first) ? v.first : 0));
 /** An event is told about once the first cave has been tasted (level 3) and not on the nest's first day or in its first session. */
 const eventToldOk = () => !!save.stars[3] && !startedEmpty && dayKey(new Date(nestBegan())) !== dayKey();
+/**
+ * The first moments with the first glowling are kept calm, one thing at a time: its hello, your first stroke (the hint and the
+ * ghost finger show how; Mossa waits for it, or a few seconds), her few words, and a breath after them. Till then the banners
+ * wait in their line (see nextBanner), and for the rest of that first session they never come over her talk or an open sheet.
+ */
+const PET_WAIT = 6000, PET_AFTER = 1500, CALM_AFTER = 4000;
+let petWait = 0, calmEnd = 0;
+function calmNow() {
+  if (!startedEmpty || !save.creatures.length || game.coopTouched || coopSession) return false;
+  // (from the first hatch on, the found card and cracking too, but not on the map or in the book, where you went yourself)
+  if (!talkSeen("firstPet") && !["map", "lib"].includes(game.scene)) return true;
+  // (the found card is no sheet here: the awards for an egg are at home on it)
+  return Date.now() < calmEnd || !!talkNow || !!document.querySelector(".overlay.modal:not(.hidden)");
+}
+const calmAfter = () => { calmEnd = Date.now() + CALM_AFTER; };
+/** The hello is over: the glowling is yours to stroke. Mossa speaks once you have (a moment for the hearts first), or after a few seconds. */
+function petInvite() { clearTimeout(petWait); petWait = setTimeout(petTold, tipDone("pet") ? PET_AFTER : PET_WAIT); }
+/** The very first stroke (see pet in ui.js). */
+function petNoticed() { if (petWait) { clearTimeout(petWait); petWait = setTimeout(petTold, PET_AFTER); } }
+function petTold() {
+  petWait = 0;
+  // (not over a sheet or another talk: a moment later, or at the next calm moment if you've gone elsewhere)
+  if (game.scene !== "nest") return;
+  if (talkNow || sheetTitle()) { petWait = setTimeout(petTold, PET_AFTER); return; }
+  if (talk("firstPet")) afterTalk = calmAfter;
+}
+/** Mossa hasn't asked your name yet, and it's a moment she could. */
+const nameDue = () => save.creatures.length && !(save.me && save.me.name) && !talkSeen("meet");
+/** After the first glowling's first snack, once it's been greeted: a moment to eat, then Mossa asks what to call you. */
+function askName() {
+  if (game.scene !== "nest" || !nameDue() || !talkSeen("firstPet") || petWait) return;
+  // (not over a talk, a sheet or a banner: a moment later)
+  if (talkNow || sheetTitle() || bannerUp()) { setTimeout(askName, PET_AFTER); return; }
+  if (talk("meet")) afterTalk = () => openMe(true);
+}
 function talkMoments(scene) {
   if (!["nest", "map", "lib"].includes(scene) || !$("found").classList.contains("hidden")) return;
   habitMoments(scene);
@@ -1924,12 +1979,15 @@ function talkMoments(scene) {
     if (now && now + n > TALK_RUN) { full = true; return false; }
     return talk(id, ...args);
   };
+  // the first glowling's hello is the whole of its moment: whatever else waits, waits for the next one
+  if (scene === "nest" && save.creatures.length && !talkSeen("firstPet") && say("firstHello")) { afterTalk = petInvite; return; }
+  const greeted = talkSeen("firstPet");
   const waiting = talkLater.splice(0);
   for (const a of waiting) if (!say(...a) && full) talkLater.push(a);
-  if (scene === "nest" && save.creatures.length) say("firstPet");
+  if (scene === "nest" && save.creatures.length && !petWait && say("firstPet")) afterTalk = calmAfter;
   if (scene === "nest") tellTrips();
-  // (the question that opens the sheet about you: it comes when it's asked, it's one line)
-  if (scene === "nest" && save.creatures.length && !(save.me && save.me.name) && !talkSeen("meet") && talk("meet")) afterTalk = () => openMe(true);
+  // (the question that opens the little sheet about you: one line, at a calm moment after the first glowling's greeting, or after its first snack)
+  if (scene === "nest" && greeted && nameDue() && talk("meet")) afterTalk = () => openMe(true);
   if (scene === "map") say("firstGrotto");
   for (const k of [1, 2, 3]) if (unlocked(k * 6 + 1)) say("ch" + k);
   if (unlocked(LEVELS + 1)) say("allClear");

@@ -24,8 +24,9 @@ function waveHint() {
 
 // one lane for banners: toasts and awards wait in one line and show one at a time, in one slot under the top bar (the
 // hint, where it lives up there too, steps aside for them: see body.banner in style.css)
-let bannerQueue = [], bannerNow = null, bannerTimer = 0, awardHeld = 0;
+let bannerQueue = [], bannerNow = null, bannerTimer = 0, awardHeld = 0, bannerHushed = false;
 const AWARD_HOLD = 6000; // how long an award waits for an open sheet to close before it shows anyway
+const BANNER_BREATH = 1500; // after a quiet spell, a breath between the banners it kept back, so they come gently, one by one
 const AWARD_LINE = 3;    // this many trophies waiting at once arrive as one banner instead
 const TOAST_LINE = 3;    // no more toasts than this wait their turn: the oldest gives up its place
 const bannerEl = b => $(b.text ? "toast" : "award");
@@ -61,8 +62,10 @@ function awardWaits() {
 }
 /** The slot is free: whoever is first in line comes on (a toast goes past an award that is still waiting). */
 function nextBanner() {
-  if (bannerNow || !bannerQueue.length) return;
+  if (bannerNow || !bannerQueue.length) { if (!bannerNow) bannerHushed = false; return; }
   clearTimeout(bannerTimer);
+  // the first moments with a new glowling are kept quiet (see calmNow in crack.js): everyone in line waits them out
+  if (typeof calmNow === "function" && calmNow()) { bannerHushed = true; bannerTimer = setTimeout(nextBanner, 400); return; }
   const wait = bannerQueue.some(b => !b.text) && awardWaits(), i = bannerQueue.findIndex(b => b.text || !wait);
   if (i < 0) { bannerTimer = setTimeout(nextBanner, 400); return; }
   const b = bannerNow = bannerQueue.splice(i, 1)[0], el = bannerEl(b);
@@ -77,7 +80,7 @@ function nextBanner() {
 function endBanner() {
   bannerEl(bannerNow).classList.remove("on");
   // (the slot stays taken while it leaves; the hint comes back once nobody else is next)
-  bannerTimer = setTimeout(() => { bannerNow = null; nextBanner(); if (!bannerNow) document.body.classList.remove("banner"); }, 450);
+  bannerTimer = setTimeout(() => { bannerNow = null; if (bannerHushed && bannerQueue.length) { document.body.classList.remove("banner"); bannerTimer = setTimeout(nextBanner, BANNER_BREATH); return; } nextBanner(); if (!bannerNow) document.body.classList.remove("banner"); }, 450);
 }
 /** Is a banner up right now (not waiting, not already leaving)? */
 const bannerUp = () => !!bannerNow && bannerEl(bannerNow).classList.contains("on");
@@ -262,7 +265,11 @@ function openMe(first) {
   sfx.tick();
   const m = me(), k = keeperLevel();
   $("meName").value = m.name;
-  $("meSave").hidden = !first; $("meSave").dataset.first = first ? "1" : "";
+  // the first time, Mossa only asks your name (and in Ukrainian how to speak to you): a small sheet with her face, the rest comes later
+  $("meSheet").classList.toggle("first", !!first);
+  $("meFace").hidden = !first; if (first) $("meFace").querySelector("img").src = MOSSA.face("warm");
+  $("meSave").hidden = !first; $("meSave").dataset.first = first ? "1" : ""; $("meSave").textContent = first ? tr("That's me") : tr("Save");
+  $("meClose").hidden = !!first;
   $("meForm").hidden = LANG !== "uk";
   $$("#meForm [data-form]").forEach(b => b.classList.toggle("on", b.dataset.form === m.form));
   const nextTitle = KEEPER_TITLES.find(([at]) => at > k.l), gifts = KEEPER_GIFTS.filter(g => keeperGift(g.id)), nextGift = KEEPER_GIFTS.find(g => !keeperGift(g.id));
@@ -275,6 +282,8 @@ function openMe(first) {
       [tr("coming home after a day or more"), HABIT_XP.back], [tr("going back to the stone after one that didn't open"), HABIT_XP.retry], [tr("a small ritual a day: the moon egg, the garden or a walk"), HABIT_XP.ritual], [tr("setting a wardstone"), KEEPER_XP.warded],
       [tr("picking a harvest"), KEEPER_XP.harvested], [tr("playing a mini-game"), KEEPER_XP.played], [tr("buying from Wick"), KEEPER_XP.wickBought],
       [tr("giving a snack"), KEEPER_XP.fed], [tr("petting a glowling"), KEEPER_XP.petted], [tr("an award"), "20–250"]].map(([w, n]) => `<li><span>${w}</span><b>+${n}</b></li>`).join("")}</ul></div>`;
+  // (skills, once there's a first point to put into one)
+  $("meSkills").hidden = !m.pts && !SKILLS.some(sk => skill(sk.id));
   $("meSkills").innerHTML = `<h3>${tr("Skills")}<button class="q" data-q="sk" aria-label="?">?</button></h3>`
     + `<p class="me-hint">${m.pts ? `<b class="me-pts">${tr("Skill points to spend: {0}", m.pts)}</b> ` : ""}${tr("Put a point into a skill with its + button. Each skill goes up to {0}, and points stay with you for good.", SKILL_MAX)}</p>`
     + `<div class="me-more" data-more="sk" hidden><p>${tr("Strength makes every tap on an egg hit harder, so eggs crack in fewer taps. Care makes your glowlings earn more XP, so they grow up sooner. Luck makes shiny glowlings and bars in the rubble a little more likely. Skills don't count in eggs you crack together with a friend.")}</p></div>`
