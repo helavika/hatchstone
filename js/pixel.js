@@ -312,8 +312,8 @@ const ic = (name, cls = "") => `<i class="ic${cls ? " " + cls : ""}" style="back
 // (the pixel fonts have hardly any of these letters, so each face is drawn by hand, in the icons' colours: d ink, R a heart's
 // pink, r a blush, t a tear; simplified to read at a few art pixels high). Its text is what emote() is given and drawEmote looks up.
 const KAO = {
-  // ≧ω≦ happy: eyes squeezed shut into arrows with a line under each, a wide cat's mouth
-  happy: { text: "≧ω≦", rows: ["d...........d", ".d.........d.", "..d.......d..", ".d..d...d..d.", "d...d.d.d...d", "ddd..d.d..ddd"] },
+  // ≧ω≦ happy: eyes squeezed shut into round arcs, the cat's mouth, blushing (the ≧≦ themselves read as "2wS" this small)
+  happy: { text: "≧ω≦", rows: [".dd.........dd.", "d..d.d...d.d..d", ".....d.d.d.....", "rr....d.d....rr"] },
   // ♡﹃♡ loved: two pink hearts for eyes, a flat little mouth with the tip of a tongue out
   loved: { text: "♡﹃♡", rows: ["RR.RR.....RR.RR", "RRRRR.....RRRRR", ".RRR.......RRR.", "..R...ddd...R..", ".......R......."] },
   // ơ.ơ surprised: wide round eyes, a hook on each, and a dot of a mouth
@@ -330,8 +330,8 @@ const KAO = {
   smug: { text: "ˆ>₃<ˆ", rows: [".d..........d.", "d.d........d.d", "...d......d...", "....d.dd.d....", "...d....d.d...", "rr....dd....rr"] },
   // •̄ ̫•̄ shy: dot eyes under flat brows, a tiny mouth, big blushes
   shy: { text: "•̄ ̫•̄", rows: ["ddd.......ddd", ".............", ".dd.......dd.", ".dd.......dd.", "rr..d.d.d..rr", ".....d.d....."] },
-  // ට̫ට curious: round eyes looking up and over, each with a curl, a small open mouth
-  curious: { text: "ට̫ට", rows: [".dd.......dd.", "d.dd.....d.dd", "d..d.....d..d", ".dd..d.d..dd.", "d....ddd.d..."] },
+  // ට̫ට curious: wide round eyes, both looking off to the side, a dot of a mouth
+  curious: { text: "ට̫ට", rows: [".ddddd.....ddddd.", "d.....d...d.....d", "d..dd.d...d..dd.d", "d..dd.d...d..dd.d", ".ddddd..d..ddddd."] },
 };
 /** Its face by the text it was given (null for any other emote: a heart, a note, an emoji). */
 const kaoNamed = text => Object.keys(KAO).find(k => KAO[k].text === text) || null;

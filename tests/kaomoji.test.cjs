@@ -26,7 +26,7 @@ test('every face is a well-made pixel map: even rows, only the icons\' colours, 
   for (const [name, f] of Object.entries(KAO)) {
     assert.ok(f.rows.length >= 3 && f.rows.length <= 6, `${name}: 3 to 6 rows high`);
     const w = f.rows[0].length;
-    assert.ok(w >= 9 && w <= 16, `${name}: 9 to 16 pixels wide`);
+    assert.ok(w >= 9 && w <= 17, `${name}: 9 to 17 pixels wide`);
     for (const row of f.rows) {
       assert.equal(row.length, w, `${name}: every row as long as the first`);
       for (const ch of row) assert.ok(ch === '.' || ch in PX_ICON_COLORS, `${name}: "${ch}" is not one of the icons' colours`);
