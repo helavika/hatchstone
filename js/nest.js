@@ -232,8 +232,26 @@ function landSnack(sn) {
 
 /** The feeding bowl holds up to BOWL_CAP snacks; a glowling in its room whose tummy is under BOWL_AT goes and eats one. */
 const BOWL_CAP = 6, BOWL_AT = 40;
-/** What's in the bowl, first put in first eaten (anything it can't hold left out). */
-const bowlOf = () => (save.bowl || []).filter(roundFood).slice(0, BOWL_CAP);
+/** What's in a room's bowl (the room you're in unless told), first put in first eaten (anything it can't hold left out).
+ *  Each room keeps its own, in save.rooms[i].bowl. */
+const bowlOf = (r = save.room) => (save.rooms[r]?.bowl || []).filter(roundFood).slice(0, BOWL_CAP);
+/** A bowl for every room: it's one piece in save.decor, bought again for each room, and it stands in all the rooms that
+ *  have one (the one you're in by what's out, the others by what they keep; see goRoom). */
+const bowlRooms = () => save.rooms.map((_, i) => i).filter(i => i === save.room ? hasDecor("bowl") : save.rooms[i].on.includes("bowl"));
+/** How many bowls you've bought, and how many of those wait in the chest. */
+const bowlsOwned = () => save.decor.bowl ? Math.max(save.decor.bowl.n || 1, bowlRooms().length) : 0;
+const bowlSpare = () => bowlsOwned() - bowlRooms().length;
+/** The shop sells one more when none waits in the chest and a room at home has none: the room you're in, or, out in one of
+ *  the map's places, any. */
+const bowlMore = () => !!save.decor.bowl && bowlSpare() <= 0 && (isPlace() ? save.rooms.some((_, i) => !isPlace(i) && !bowlRooms().includes(i)) : !hasDecor("bowl"));
+/** Where your bowls stand, for the chest's tile: the room, or how many rooms. */
+const bowlWhere = (at = bowlRooms()) => at.length === 1 ? tr("in {0}", roomName(at[0])) : tr("in {0} rooms", at.length);
+/** A bowl put away empties back into the pantry, so nothing is left behind in a room with no bowl. */
+function bowlEmpty(r = save.room) {
+  const left = bowlOf(r);
+  if (left.length) { save.pantry = { ...save.pantry }; for (const id of left) save.pantry[id] = (save.pantry[id] || 0) + 1; }
+  delete save.rooms[r].bowl;
+}
 /** Topping the bowl up from the pantry: the favourites of those who live with it, taken in turn, then whatever there's most
  *  of. Returns the bowl, the pantry that's left and what went in. */
 function bowlFill(bowl, pantry, want = []) {
@@ -257,25 +275,29 @@ function bowlFeed(list, bowl, favOf = favFood, eat = (cr, id) => eatSnack(cr, SN
   }
   return { left, ate };
 }
-/** While nobody's watching its room (time away, another room, another scene), the bowl feeds the hungry ones there by itself
- *  (see gatherDust); in the room you're looking at, they walk over and eat (bowlCall in iso.js). */
+/** While nobody's watching its room (time away, another room, another scene), each bowl feeds the hungry ones there by
+ *  itself (see gatherDust); in the room you're looking at, they walk over and eat (bowlCall in iso.js). */
 function bowlAway() {
-  const r = decorRoom("bowl"), bowl = bowlOf();
-  if (r < 0 || !bowl.length || (game.scene === "nest" && r === save.room && !document.hidden)) return;
-  const { left, ate } = bowlFeed(residents(r), bowl);
-  if (ate.length) { save.bowl = left; bump("fed", ate.length); }
+  const watched = game.scene === "nest" && !document.hidden ? save.room : -1;
+  for (const r of bowlRooms()) {
+    const bowl = bowlOf(r);
+    if (r === watched || !bowl.length) continue;
+    const { left, ate } = bowlFeed(residents(r), bowl);
+    if (ate.length) { save.rooms[r].bowl = left; bump("fed", ate.length); }
+  }
 }
-/** Fill the bowl from the pantry: it shows how full it is either way. */
+/** Fill this room's bowl from the pantry: it shows how full it is either way. */
 function fillBowl() {
   show("snacks", false);
-  const r = decorRoom("bowl"), now = bowlOf();
+  const r = save.room, now = bowlOf();
+  if (!hasDecor("bowl")) return;
   if (now.length >= BOWL_CAP) { toast(tr("The bowl is full: {0}", `${now.length}/${BOWL_CAP}`)); return; }
   const want = residents(r).sort((p, q) => p.tummy - q.tummy).map(c => specOf(c).snack);
   const { bowl, pantry, added } = bowlFill(now, save.pantry || {}, want);
   if (!added.length) { sfx.refuse(); toast(tr("The bowl: {0} · the pantry has no food for it", `${now.length}/${BOWL_CAP}`)); return; }
-  save.bowl = bowl; save.pantry = pantry;
+  save.rooms[r].bowl = bowl; save.pantry = pantry;
   sfx.setDown();
-  if (r === save.room) { const [x, y] = decorSpot("bowl"); spawnChips(x, y - N.base * 0.3, 8, 0.5, ["#f6e2b8", "#e8c48a", "#fff"]); floatText(`${bowl.length}/${BOWL_CAP}`, x, y - N.base * 0.8, "#fff0b5"); }
+  { const [x, y] = decorSpot("bowl"); spawnChips(x, y - N.base * 0.3, 8, 0.5, ["#f6e2b8", "#e8c48a", "#fff"]); floatText(`${bowl.length}/${BOWL_CAP}`, x, y - N.base * 0.8, "#fff0b5"); }
   toast(tr("Into the bowl: {0} · it holds {1} now", added.map(id => SNACKS[id].emoji).join(""), `${bowl.length}/${BOWL_CAP}`));
   persist();
   taskDone("feed");
@@ -349,10 +371,11 @@ function openShop() {
     body = chestPantry();
   } else {
     const used = isoSpaceUsed();
-    const items = DECOR.filter(d => market ? !save.decor[d.id] && !d.found : !!save.decor[d.id]);
+    // (a feeding bowl is sold again for a room that has none: see bowlMore)
+    const items = DECOR.filter(d => market ? (!save.decor[d.id] || d.id === "bowl" && bowlMore()) && !d.found : !!save.decor[d.id]);
     const tile = d => {
-      const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
-      const tag = owned ? (owned.on ? tr("placed ✓") : decorRoom(d.id) >= 0 ? tr("in {0}", roomName(decorRoom(d.id))) : tr("stored")) : locked ? ic("lock") : "✦ " + d.cost;
+      const more = market && d.id === "bowl" && !!save.decor.bowl, owned = !more && save.decor[d.id], locked = d.legend && !owned && !legendOk();
+      const tag = owned ? (owned.on ? tr("placed ✓") : d.id === "bowl" && bowlSpare() <= 0 ? bowlWhere() : d.id !== "bowl" && decorRoom(d.id) >= 0 ? tr("in {0}", roomName(decorRoom(d.id))) : tr("stored")) : locked ? ic("lock") : "✦ " + d.cost + (more ? ` · 🥣×${bowlRooms().length}` : "");
       return `<button class="tile${owned ? " owned" : ""}${owned && owned.on ? " placed" : ""}${d.legend ? " legend" : ""}${locked || (!owned && save.shards < d.cost) ? " dim" : ""}${st.pick === d.id ? " on" : ""}" data-pick="${d.id}">${decorThumb(d)}<b>${d.name}</b><small>${tag}</small></button>`;
     };
     body = (!market ? `<div class="room-head"><span><b>${roomName(save.room)}</b><small>${tr("Room space")} ${used}/${ISO_CAP}</small></span><i class="room-space" style="--k:${Math.min(1, used / ISO_CAP)}"></i><button class="act" id="arrangeOpen">✥ ${tr("Rearrange")}</button></div>` : "")
@@ -392,10 +415,10 @@ function renderShopPick() {
   const st = shopOf(), d = st.tab === "decor" && DECO[st.pick], box = $("shopPick");
   box.hidden = !d;
   if (!d) return;
-  const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
+  const more = d.id === "bowl" && bowlMore(), owned = !more && save.decor[d.id], locked = d.legend && !owned && !legendOk();
   const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
-  const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.id === "keepjar" ? tr("Every feather and flower from your walks goes into it, and a few of them make something to wear.") : d.id === "bowl" ? tr("Fill it from the pantry: the hungry ones in its room eat from it by themselves · {0}", `${bowlOf().length}/${BOWL_CAP}`) : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
-  const where = owned && !owned.on && decorRoom(d.id) >= 0 ? ` · ${tr("in {0}", roomName(decorRoom(d.id)))}` : "";
+  const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.id === "keepjar" ? tr("Every feather and flower from your walks goes into it, and a few of them make something to wear.") : d.id === "bowl" ? tr("One for each room: the hungry ones there eat from it by themselves") + (hasDecor("bowl") ? ` · ${bowlOf().length}/${BOWL_CAP}` : "") + (save.decor.bowl ? ` · ${tr("rooms with a bowl: {0} of {1}", bowlRooms().length, save.rooms.filter((_, i) => !isPlace(i)).length)}` : "") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
+  const where = owned && !owned.on && d.id !== "bowl" && decorRoom(d.id) >= 0 ? ` · ${tr("in {0}", roomName(decorRoom(d.id)))}` : "";
   const inPlace = isPlace(), label = owned ? (inPlace ? tr("In your chest ✓") : owned.on ? tr("Put away") : tr("Place here")) : `${tr("Buy")} ✦ ${d.cost}`;
   box.innerHTML = `${decorThumb(d)}<span><b>${d.name}</b><small>${note}${where}</small></span><button class="act${owned ? "" : " buy"}" id="shopPickGo" ${locked || (!owned && save.shards < d.cost) || (owned && inPlace) ? "disabled" : ""}>${label}</button>`;
   $("shopPickGo").addEventListener("click", () => buyDecor(d.id));
@@ -2131,23 +2154,25 @@ function buildRoom(id, quiet = false) {
 /** Is there room on the floor for one more of this? (wall pieces don't take floor) */
 const roomFor = id => !ISO_PLACES[id] || isoSpaceUsed() + ISO_PLACES[id].fw * ISO_PLACES[id].fd <= ISO_CAP;
 function buyDecor(id) {
-  const d = DECO[id], owned = save.decor[id];
-  if (owned) {
+  const d = DECO[id], owned = save.decor[id], more = id === "bowl" && bowlMore();
+  if (owned && !more) {
     if (!owned.on && !roomFor(id)) { toast(tr("No room on the floor: put something away first")); sfx.tick(); return; }
     owned.on = !owned.on; owned.on ? sfx.setDown() : sfx.tick();
-    if (owned.on) claimDecor(id);
+    // (a bowl stands in every room that has one; put away, what was in it goes back to the pantry)
+    if (owned.on && id !== "bowl") claimDecor(id);
+    if (!owned.on && id === "bowl") bowlEmpty();
   }
   else {
     if (save.shards < d.cost || (d.legend && !legendOk())) return;
     save.shards -= d.cost;
     // bought at the shop: it waits in the chest; bought at home: it goes straight onto the floor if there's room
     const fits = roomFor(id) && !isPlace();
-    save.decor[id] = { on: fits, at: Date.now() };
+    save.decor[id] = more ? { ...owned, on: fits, n: bowlsOwned() + 1 } : { on: fits, at: Date.now() };
     if (isPlace()) toast(tr("{0} is waiting in your chest ✦", d.name));
     else if (!fits) toast(tr("{0} is in storage: the floor is full. Put something away to place it", d.name));
     taskDone("decor");
     sfx.levelUp();
-    if (fits) { claimDecor(id); toast(save.room ? tr("{0} placed in the {1} ✦", d.name, roomName(save.room).toLowerCase()) : tr("{0} placed in the nest ✦", d.name)); }
+    if (fits) { if (id !== "bowl") claimDecor(id); toast(save.room ? tr("{0} placed in the {1} ✦", d.name, roomName(save.room).toLowerCase()) : tr("{0} placed in the nest ✦", d.name)); }
   }
   persist();
   updateTopbar();

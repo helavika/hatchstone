@@ -312,7 +312,7 @@ function bowlArrive(a, cr) {
   if (!bowl.length || cr.tummy >= HUNGRY_AT) { a.state = "idle"; a.t = rand(1, 2) * linger(cr); emote(a, bowl.length ? "♥" : "…", 1.6); return; }
   const [id] = bowl.splice(bowlPick(cr, bowl), 1), fav = favFood(cr, id), v = actorView(a);
   a.atBowl = true;
-  save.bowl = bowl;
+  save.rooms[save.room].bowl = bowl;
   eatSnack(cr, SNACKS[id], fav);
   bump("fed");
   sfx.munch(); setTimeout(() => sfx.chirp(specOf(cr).voice * 1.1), 300);
@@ -3274,7 +3274,7 @@ function arrangeFlip() {
 function arrangeStore() {
   const id = arrange.sel;
   if (!id || ISO_FIXED[id] || !save.decor[id]) return;
-  save.decor[id].on = false; isoLayoutCache = null; persist(); sfx.tick();
+  save.decor[id].on = false; isoLayoutCache = null; if (id === "bowl") bowlEmpty(); persist(); sfx.tick();
   arrange.sel = null; arrangeUi();
 }
 /** While arranging: the floor's tiles, the chosen piece's place, and where it would land. */

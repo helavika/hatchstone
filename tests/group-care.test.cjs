@@ -11,19 +11,22 @@ const plain = v => JSON.parse(JSON.stringify(v));
 const cut = (src, a, b, what) => { const from = src.indexOf(a), to = src.indexOf(b, from); assert.ok(from >= 0 && to > from, what); return src.slice(from, to); };
 const nestJs = read('nest.js'), playJs = read('play.js'), isoJs = read('iso.js'), saveJs = read('save.js'), dataJs = read('data.js'), i18n = read('i18n.js'), uiJs = read('ui.js');
 
-/** A pretend nest with the feeding code in it: the kinds' favourite snacks, the bowl in room 1 unless told otherwise. */
+/** A pretend nest with the feeding code in it: the kinds' favourite snacks, three rooms (the third one of the map's places),
+ *  and a bowl in room 1 unless told otherwise (bowls: { room: its food }). You're in room `room` (0 unless told). */
 function nest(o = {}) {
-  const xp = [];
+  const xp = [], bowls = o.bowls || { 1: [] }, here = o.room ?? 0;
+  const rooms = [0, 1, 2].map(i => ({ kind: i === 2 ? 'shop' : 'nest', on: i !== here && bowls[i] ? ['bowl'] : [], ...(bowls[i]?.length ? { bowl: [...bowls[i]] } : {}) }));
   const page = {
-    Math, save: { pantry: {}, creatures: [], bowl: [], ...o.save }, game: { scene: o.scene || 'nest' }, document: { hidden: !!o.hidden },
+    Math, save: { pantry: {}, creatures: [], rooms, room: here, decor: Object.keys(bowls).length ? { bowl: { on: !!bowls[here], at: 1, ...o.bowlRec } } : {}, ...o.save }, game: { scene: o.scene || 'nest' }, document: { hidden: !!o.hidden },
     clamp: (v, a, b) => Math.max(a, Math.min(b, v)), addXP: (c, n) => xp.push([c.id, n]), bump: () => {},
-    specOf: c => ({ snack: c.fav || 'cookie' }), decorRoom: () => o.bowlRoom ?? 1,
+    specOf: c => ({ snack: c.fav || 'cookie' }), hasDecor: id => !!page.save.decor[id]?.on, isPlace: (i = page.save.room) => page.save.rooms[i].kind === 'shop',
+    tr: (s, ...a) => s.replace(/\{(\d)\}/g, (_, k) => a[k]), roomName: i => 'room ' + i,
     residents: r => page.save.creatures.filter(c => !c.out && c.room === r),
   };
   vm.createContext(page);
   vm.runInContext(cut(dataJs, 'const SNACKS = {', '\n};', 'the snacks should sit in data.js') + '\n};\n'
     + cut(nestJs, '/** What a snack does for whoever eats it', '/** Magic dust', 'the feeding code should sit in nest.js, before the magic dust')
-    + '\nObject.assign(this, { HUNGRY_AT, BOWL_CAP, BOWL_AT, roundFood, favFood, feedPlan, bowlOf, bowlFill, bowlPick, bowlFeed, bowlAway, eatSnack, SNACKS });', page);
+    + '\nObject.assign(this, { HUNGRY_AT, BOWL_CAP, BOWL_AT, roundFood, favFood, feedPlan, bowlOf, bowlRooms, bowlsOwned, bowlSpare, bowlMore, bowlWhere, bowlEmpty, bowlFill, bowlPick, bowlFeed, bowlAway, eatSnack, SNACKS });', page);
   return { page, xp };
 }
 const g = (id, o = {}) => ({ id, room: 1, tummy: 20, joy: 50, energy: 70, sleeping: false, ...o });
@@ -64,8 +67,9 @@ test('the bowl fills from the pantry up to its cap, the room\'s favourites first
   assert.deepEqual(plain(page.bowlFill(Array(6).fill('dew'), { cookie: 5 }).added), []);
   assert.deepEqual(plain(page.bowlFill([], { milk: 3, feast: 1 }).added), []);
   // whatever an odd save holds, the bowl shows only what it can hold, six at most
-  const { page: odd } = nest({ save: { bowl: ['dew', 'nope', 'milk', ...Array(9).fill('cookie')] } });
-  assert.deepEqual([...odd.bowlOf()], ['dew', 'cookie', 'cookie', 'cookie', 'cookie', 'cookie']);
+  const { page: odd } = nest({ bowls: { 1: ['dew', 'nope', 'milk', ...Array(9).fill('cookie')] } });
+  assert.deepEqual([...odd.bowlOf(1)], ['dew', 'cookie', 'cookie', 'cookie', 'cookie', 'cookie']);
+  assert.deepEqual([...odd.bowlOf()], [], 'the room you are in has no bowl, so nothing in it');
 });
 
 test('who eats from the bowl: the hungry ones under BOWL_AT, hungriest first, favourite first, until nobody is or it\'s empty', () => {
@@ -84,21 +88,121 @@ test('who eats from the bowl: the hungry ones under BOWL_AT, hungriest first, fa
 
 test('while nobody is watching its room, the bowl feeds the hungry ones there; in the room you look at, they walk over themselves', () => {
   const kids = () => [g(1, { tummy: 5 }), g(2, { tummy: 90 }), g(3, { tummy: 30, room: 0 })];
-  const away = nest({ scene: 'crack', save: { creatures: kids(), bowl: ['cookie', 'cookie', 'dew'] } });
+  const away = nest({ scene: 'crack', save: { creatures: kids() }, bowls: { 1: ['cookie', 'cookie', 'dew'] } });
   away.page.bowlAway();
-  assert.deepEqual([...away.page.save.bowl], ['dew'], 'one hungry one in its room ate twice, till its tummy was over BOWL_AT');
+  assert.deepEqual([...away.page.bowlOf(1)], ['dew'], 'one hungry one in its room ate twice, till its tummy was over BOWL_AT');
   assert.equal(away.page.save.creatures[2].tummy, 30, 'the one in another room has no bowl');
   // the nest in another room, or with the page hidden: the same
-  const other = nest({ save: { room: 0, creatures: kids(), bowl: ['cookie'] } }); other.page.save.room = 0; other.page.bowlAway();
-  assert.deepEqual([...other.page.save.bowl], []);
-  const watched = nest({ save: { creatures: kids(), bowl: ['cookie'] } }); watched.page.save.room = 1; watched.page.bowlAway();
-  assert.deepEqual([...watched.page.save.bowl], ['cookie'], 'watched: the bowl waits for them to come');
+  const other = nest({ save: { creatures: kids() }, bowls: { 1: ['cookie'] } }); other.page.bowlAway();
+  assert.deepEqual([...other.page.bowlOf(1)], []);
+  const hidden = nest({ hidden: true, room: 1, save: { creatures: kids() }, bowls: { 1: ['cookie'] } }); hidden.page.bowlAway();
+  assert.deepEqual([...hidden.page.bowlOf(1)], []);
+  const watched = nest({ room: 1, save: { creatures: kids() }, bowls: { 1: ['cookie'] } }); watched.page.bowlAway();
+  assert.deepEqual([...watched.page.bowlOf(1)], ['cookie'], 'watched: the bowl waits for them to come');
   // the hook sits next to the catch-up, and the decay itself is untouched
-  assert.match(cut(saveJs, 'function gatherDust() {', '\n}\n', 'gatherDust'), /for \(const cr of save\.creatures\) applyTime\(cr\);\n.*\n  if \(save\.bowl\?\.length\) bowlAway\(\);/);
+  assert.match(cut(saveJs, 'function gatherDust() {', '\n}\n', 'gatherDust'), /for \(const cr of save\.creatures\) applyTime\(cr\);\n.*\n  if \(save\.rooms\.some\(r => r\.bowl\?\.length\)\) bowlAway\(\);/);
   assert.doesNotMatch(cut(saveJs, 'function applyTime(', '\n}\n', 'applyTime'), /bowl/);
   // and in the room, a hungry one goes to the bowl first thing
   assert.match(isoJs, /if \(cr && hasDecor\("bowl"\) && bowlCall\(a, cr\)\) return;/);
   assert.match(isoJs, /if \(d\.id === "bowl"\) \{ a\.goal = null; bowlArrive\(a, cr\); \}/);
+});
+
+test('a bowl in every room: each room\'s hungry ones eat only from their own, here and while nobody watches', () => {
+  // you're in room 0, with a bowl; room 1 has one too; the third room is a shop
+  const kids = [g(1, { room: 0, tummy: 5, fav: 'berry' }), g(2, { room: 1, tummy: 30, fav: 'dew' })];
+  const { page } = nest({ room: 0, bowls: { 0: ['berry', 'cookie'], 1: ['dew', 'dew', 'dew'] }, save: { creatures: kids } });
+  assert.deepEqual(plain(page.bowlRooms()), [0, 1]);
+  assert.deepEqual([...page.bowlOf()], ['berry', 'cookie'], 'the room you are in');
+  assert.deepEqual([...page.bowlOf(1)], ['dew', 'dew', 'dew']);
+  page.bowlAway();
+  assert.deepEqual([...page.bowlOf()], ['berry', 'cookie'], 'watched: the bowl here waits for its own to walk over');
+  assert.deepEqual([...page.bowlOf(1)], ['dew', 'dew'], 'the other room\'s one ate from its own bowl');
+  assert.equal(kids[0].tummy, 5, 'and not from the other room\'s');
+  // off cracking geodes: both bowls feed their own rooms
+  page.game.scene = 'crack'; page.bowlAway();
+  assert.deepEqual([...page.bowlOf()], ['cookie'], 'its favourite from its own bowl');
+  assert.ok(kids[0].tummy >= page.BOWL_AT);
+  // in the room, a glowling only looks in the bowl here, and what it eats comes out of this room's
+  const arrive = cut(isoJs, 'function bowlArrive(a, cr) {', '\n}\n', 'bowlArrive');
+  assert.match(arrive, /const bowl = bowlOf\(\);/);
+  assert.match(arrive, /save\.rooms\[save\.room\]\.bowl = bowl;/);
+  assert.match(cut(isoJs, 'function bowlCall(a, cr) {', '\n}\n', 'bowlCall'), /!bowlOf\(\)\.length \|\| !isoLayout\(\)\.placed\.bowl/);
+  // filling from the Tummy sheet (or a tap on the bowl) fills this room's
+  const fill = cut(nestJs, 'function fillBowl() {', '\n}\n', 'fillBowl');
+  assert.match(fill, /const r = save\.room, now = bowlOf\(\);/);
+  assert.match(fill, /save\.rooms\[r\]\.bowl = bowl; save\.pantry = pantry;/);
+  assert.doesNotMatch(nestJs + isoJs + playJs, /save\.bowl\b/, 'nothing keeps one bowl for the whole nest any more');
+});
+
+test('a second bowl: sold again for a room with none, paid for each time, and the chest says where they stand', () => {
+  // one bowl, standing in room 1; you're in room 0, which has none: the shop sells another
+  const one = nest({ room: 0, bowls: { 1: [] } }).page;
+  assert.equal(one.bowlsOwned(), 1);
+  assert.equal(one.bowlSpare(), 0);
+  assert.equal(one.bowlMore(), true);
+  assert.equal(one.bowlWhere(), 'in {0}'.replace('{0}', 'room 1'));
+  // here already: no second one for this room
+  const here = nest({ room: 1, bowls: { 1: [] } }).page;
+  assert.equal(here.bowlMore(), false);
+  // one bought and waiting in the chest: place that one, don't buy another
+  assert.equal(nest({ room: 0, bowls: { 1: [] }, bowlRec: { n: 2 } }).page.bowlMore(), false);
+  // out at the shop: another one, as long as a room at home still has none
+  assert.equal(nest({ room: 2, bowls: { 1: [] } }).page.bowlMore(), true);
+  const both = nest({ room: 2, bowls: { 0: [], 1: [] }, bowlRec: { n: 2 } }).page;
+  assert.equal(both.bowlMore(), false);
+  assert.equal(both.bowlWhere(), 'in {0} rooms'.replace('{0}', 2));
+  // none bought yet: the usual first buy, not "one more"
+  assert.equal(nest({ bowls: {} }).page.bowlMore(), false);
+  // the shop code: the bowl stays on the market while bowlMore, a buy counts one more, and it never pulls the bowl out of another room
+  const buy = cut(nestJs, 'function buyDecor(id) {', '\n}\n', 'buyDecor');
+  assert.match(buy, /more = id === "bowl" && bowlMore\(\);\n  if \(owned && !more\) \{/);
+  assert.match(buy, /save\.decor\[id\] = more \? \{ \.\.\.owned, on: fits, n: bowlsOwned\(\) \+ 1 \} : \{ on: fits, at: Date\.now\(\) \};/);
+  assert.match(buy, /if \(owned\.on && id !== "bowl"\) claimDecor\(id\);/);
+  assert.match(buy, /if \(fits\) \{ if \(id !== "bowl"\) claimDecor\(id\);/);
+  assert.match(buy, /save\.shards -= d\.cost;/);
+  assert.match(nestJs, /market \? \(!save\.decor\[d\.id\] \|\| d\.id === "bowl" && bowlMore\(\)\) && !d\.found/);
+  assert.match(nestJs, /rooms with a bowl: \{0\} of \{1\}/);
+  for (const s of ['One for each room: the hungry ones there eat from it by themselves', 'rooms with a bowl: {0} of {1}', 'in {0} rooms'])
+    assert.ok(i18n.includes(JSON.stringify(s) + ':'), s);
+});
+
+test('a bowl put away (from the chest or while rearranging) empties back into the pantry', () => {
+  const { page } = nest({ room: 1, bowls: { 1: ['dew', 'cookie', 'dew'] }, save: { pantry: { dew: 1 } } });
+  page.bowlEmpty();
+  assert.deepEqual(plain(page.save.pantry), { dew: 3, cookie: 1 });
+  assert.equal(page.save.rooms[1].bowl, undefined);
+  assert.match(cut(nestJs, 'function buyDecor(id) {', '\n}\n', 'buyDecor'), /if \(!owned\.on && id === "bowl"\) bowlEmpty\(\);/);
+  assert.match(cut(isoJs, 'function arrangeStore() {', '\n}\n', 'arrangeStore'), /if \(id === "bowl"\) bowlEmpty\(\);/);
+});
+
+test('an older save\'s one bowl moves onto the room it stands in, and save.bowl goes', () => {
+  const page = { SNACKS: { cookie: {}, dew: {} } };
+  vm.createContext(page);
+  vm.runInContext(cut(saveJs, 'function bowlSaveOf(d) {', '\n}\n', 'bowlSaveOf in save.js') + '\n}\nthis.bowlSaveOf = bowlSaveOf;', page);
+  const rooms = () => [{ kind: 'nest', on: [] }, { kind: 'cozy', on: ['bowl'] }, { kind: 'yard', on: [] }];
+  // out in another room
+  const a = { room: 0, rooms: rooms(), decor: { bowl: { on: false } }, bowl: ['cookie', 'nope', 'dew', 7] };
+  page.bowlSaveOf(a);
+  assert.deepEqual(plain(a.rooms[1].bowl), ['cookie', 'dew']);
+  assert.equal('bowl' in a, false);
+  assert.equal(a.rooms[0].bowl, undefined);
+  // out in the room you're in
+  const b = { room: 0, rooms: [{ kind: 'nest', on: [] }, { kind: 'yard', on: [] }], decor: { bowl: { on: true } }, bowl: ['dew'] };
+  page.bowlSaveOf(b);
+  assert.deepEqual(plain(b.rooms[0].bowl), ['dew']);
+  // put away: back into the pantry
+  const c = { room: 0, rooms: rooms().map(r => ({ ...r, on: [] })), decor: { bowl: { on: false } }, bowl: ['dew', 'dew'], pantry: { dew: 1 } };
+  page.bowlSaveOf(c);
+  assert.deepEqual(plain(c.pantry), { dew: 3 });
+  assert.equal(c.rooms.some(r => r.bowl), false);
+  // a save that's already per room: kept, with anything odd dropped; and one with no bowl at all is untouched
+  const d = { room: 0, rooms: [{ kind: 'nest', on: [], bowl: ['cookie', 'x'] }, { kind: 'yard', on: [], bowl: 'junk' }], decor: {} };
+  page.bowlSaveOf(d);
+  assert.deepEqual(plain(d.rooms), [{ kind: 'nest', on: [], bowl: ['cookie'] }, { kind: 'yard', on: [] }]);
+  const e = { room: 0, rooms: rooms(), decor: {} };
+  page.bowlSaveOf(e);
+  assert.deepEqual(plain(e.rooms), plain(rooms()));
+  assert.match(cut(saveJs, 'function migrate(d) {', '\n}\n', 'migrate'), /bowlSaveOf\(d\);/);
 });
 
 test('the bowl is a piece of furniture like the others: sold at the shop, drawn, placed, its fill shown on it, both languages', () => {
