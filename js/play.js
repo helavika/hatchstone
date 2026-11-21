@@ -1573,10 +1573,10 @@ function openGames() {
   const hasPlay = save.rooms.some(r => r.kind === "play"), here = inPlayroom(), why = here ? seekBlock() : "";
   const hide = hasPlay ? [["hide", "🙈", tr("Hide and seek"), why || (here ? tr("it hides behind your furniture: find it in three tries") : tr("in the Playroom, among your furniture"))]] : [];
   // with everyone first: a short game the whole room plays at once; then the games for the one you picked
-  const join = save.creatures.filter(c => actors.has(c.id) && partyOk(c)).length;
-  $("gamesList").innerHTML = `<h3 class="forge-h">${tr("With everyone")}</h3><button class="snack" data-game="party"${join ? "" : " disabled"}><span class="em">🫧</span><span><b>${tr("Bubbles for everyone")}</b><small>${join ? tr("a short game the whole room plays: everyone who joins is glad · {0} can join", join) : tr("everyone here is too sleepy to play")}</small></span></button>`
-    + `<h3 class="forge-h">${tr("Just for {0}", cr.name)}</h3>` + [...(here ? hide : []), ["catch", "✨", tr("Sparkle catch"), tr("drag to catch sparkles, dodge pebbles")], ["echo", "🎵", tr("Echo song"), tr("listen to the tune, then sing it back")], ["walk", "🌿", tr("A walk outside"), tr("a little path to stroll, with things to find")], ...(here ? [] : hide)]
-    .map(([id, em, name, how]) => `<button class="snack" data-game="${id}"${id === "hide" && why ? " disabled" : ""}><span class="em">${em}</span><span><b>${name}</b><small>${how}</small></span>${id === "echo" && save.echoBest ? `<span class="cost">♪ ${save.echoBest}</span>` : ""}</button>`).join("");
+  const join = save.creatures.filter(c => actors.has(c.id) && partyOk(c)).length, wait = partyWait();
+  $("gamesList").innerHTML = `<h3 class="forge-h">${tr("With everyone")}</h3><button class="snack" data-game="party"${join && !wait ? "" : " disabled"}><span class="em">🫧</span><span><b>${tr("Bubbles for everyone")}</b><small>${wait ? tr("the bubbles need a rest · again in {0} min", wait) : join ? tr("a short game the whole room plays: everyone who joins is glad · {0} can join", join) : tr("everyone here is too sleepy to play")}</small></span></button>`
+    + `<h3 class="forge-h">${tr("Just for {0}", cr.name)}</h3>` + (cr.sleeping ? `<p class="me-hint">${tr("{0} is asleep: play when it wakes.", cr.name)}</p>` : "") + [...(here ? hide : []), ["catch", "✨", tr("Sparkle catch"), tr("drag to catch sparkles, dodge pebbles")], ["echo", "🎵", tr("Echo song"), tr("listen to the tune, then sing it back")], ["walk", "🌿", tr("A walk outside"), tr("a little path to stroll, with things to find")], ...(here ? [] : hide)]
+    .map(([id, em, name, how]) => `<button class="snack" data-game="${id}"${cr.sleeping || (id === "hide" && why) ? " disabled" : ""}><span class="em">${em}</span><span><b>${name}</b><small>${how}</small></span>${id === "echo" && save.echoBest ? `<span class="cost">♪ ${save.echoBest}</span>` : ""}</button>`).join("");
   $$("#gamesList .snack").forEach(b => b.addEventListener("click", () => { show("games", false); ({ party: startParty, echo: startEcho, walk: openWalk, hide: () => { if (!inPlayroom()) toRoomKind("play"); startSeek(); } }[b.dataset.game] || startCatch)(); }));
   show("games", true);
 }
@@ -1587,6 +1587,9 @@ function openGames() {
 
 /** How long it lasts (seconds); the joy each one who joined gets, a little more per bubble it popped, up to PARTY_MAX; what it tires them. */
 const PARTY_T = 15, PARTY_JOY = 15, PARTY_POP = 2, PARTY_MAX = 27, PARTY_TIRE = 8;
+/** The bubbles rest a while between games, so the whole room's fun stays a treat: minutes left to wait, or 0. */
+const PARTY_GAP = 30 * 60e3;
+const partyWait = (now = Date.now()) => Math.max(0, Math.ceil((PARTY_GAP - (now - (save.partyAt || 0))) / 60e3));
 /** Who can join in: awake, at home and not too sleepy to play. */
 const partyOk = cr => !!cr && !cr.sleeping && !cr.out && cr.energy >= 15;
 /** The joy one gets for joining, with this many bubbles popped. */
@@ -1597,11 +1600,12 @@ function partyEnd(list, pops) {
   return list.length;
 }
 function startParty() {
-  if (game.nest.party) return;
+  if (game.nest.party || partyWait()) return;
   const here = save.creatures.filter(c => actors.has(c.id));
   here.forEach(c => applyTime(c));
   const who = here.filter(partyOk);
   if (!who.length) { toast(tr("Everyone here is too sleepy to play. Try a nap 🌙")); return; }
+  save.partyAt = Date.now();
   const P = game.nest.party = { t: PARTY_T, room: save.room, who: who.map(c => c.id), pops: {}, bubbles: [] };
   for (let i = 0; i < who.length + 2; i++) addBubble(P, i * 0.12);
   sfx.shimmer();

@@ -34,13 +34,12 @@ function renderNest(full) {
   $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Rest");
   $("sleepBtn").setAttribute("aria-label", cr.sleeping ? tr("Wake") : tr("Sleep"));
   $("sleepBtn").classList.toggle("rested", !cr.sleeping && cr.energy >= SLEEPY_AT);
-  $("feedBtn").disabled = cr.sleeping;
+  // (asleep, the one you picked can't eat or play, but the room still can: its sheet says so)
   // the button for what it needs lights up, the way a Tamagotchi's attention icon does
   const wants = callOf(cr);
   $("feedBtn").classList.toggle("want", wants === "hungry");
   $("playBtn").classList.toggle("want", wants === "lonely");
   $("sleepBtn").classList.toggle("want", wants === "sleepy");
-  $("playBtn").disabled = cr.sleeping;
   renderResidentsBtn(cr);
   if (full) {
     $("switcher").innerHTML = save.creatures.filter(c => !c.job).map(c =>
@@ -85,7 +84,7 @@ function openSnacks() {
   const row = ([id, s]) => {
     const fav = id === sp.snack || s.fav, more = [s.all && tr("everyone in the room"), s.energy && `${tr("Rest")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), fav && tr("favorite!")].filter(Boolean);
     const cost = pantry[id] ? `🧺 ×${pantry[id]}` : s.garden ? "🌱" : `✦ ${s.cost}`;
-    return `<button class="snack" data-id="${id}" ${!pantry[id] && (s.garden || save.shards < s.cost) ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${fav ? " ♥" : ""}</b><small>${[`${tr("Tummy")} +${s.tummy}`, ...more].join(" · ")}</small></span><span class="cost">${cost}</span></button>`;
+    return `<button class="snack" data-id="${id}" ${cr.sleeping || (!pantry[id] && (s.garden || save.shards < s.cost)) ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${fav ? " ♥" : ""}</b><small>${[`${tr("Tummy")} +${s.tummy}`, ...more].join(" · ")}</small></span><span class="cost">${cost}</span></button>`;
   };
   const all = Object.entries(SNACKS), bought = all.filter(([, s]) => !s.garden);
   // for the whole room first: a snack each for the hungry, and the bowl when it stands here
@@ -93,7 +92,8 @@ function openSnacks() {
   const group = `<h3 class="forge-h">${tr("For the whole room")}</h3>`
     + `<button class="snack" id="feedAllBtn" ${hungry && food ? "" : "disabled"}><span class="em">🧺</span><span><b>${tr("Feed everyone hungry")}</b><small>${!hungry ? tr("nobody here is hungry right now") : !food ? tr("the pantry has no food to hand round") : tr("one snack each from the pantry · hungry here: {0}", hungry)}</small></span><span class="cost">🧺 ×${food}</span></button>`
     + (hasDecor("bowl") ? `<button class="snack" id="fillBowlBtn" ${bowl < BOWL_CAP && food ? "" : "disabled"}><span class="em">🥣</span><span><b>${tr("Fill the bowl")}</b><small>${tr("the hungry ones here eat from it by themselves")}</small></span><span class="cost">${bowl}/${BOWL_CAP}</span></button>` : "");
-  $("snackList").innerHTML = group + `<h3 class="forge-h">${tr("Just for {0}", cr.name)}</h3>` + bought.filter(([, s]) => !s.drink).map(row).join("")
+  const asleep = cr.sleeping ? `<p class="me-hint">${tr("{0} is asleep: feed it when it wakes.", cr.name)}</p>` : "";
+  $("snackList").innerHTML = group + `<h3 class="forge-h">${tr("Just for {0}", cr.name)}</h3>` + asleep + bought.filter(([, s]) => !s.drink).map(row).join("")
     + `<h3 class="forge-h">${tr("Drinks")}</h3><p class="me-hint">${tr("A sip doesn't fill the tummy or make anyone drowsy. Starfizz perks a sleepy glowling up.")}</p>` + bought.filter(([, s]) => s.drink).map(row).join("")
     + `<h3 class="forge-h">${tr("From the garden")}</h3><p class="me-hint">${tr("No shop sells these: they only grow in the garden bed outside.")}</p>` + all.filter(([, s]) => s.garden).map(row).join("");
   $$("#snackList .snack[data-id]").forEach(b => b.addEventListener("click", () => feed(b.dataset.id)));
