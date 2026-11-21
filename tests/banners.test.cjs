@@ -123,3 +123,23 @@ test('a held banner stays for as long as it is held, then has a moment more', t 
   l.tick(150); assert.equal(l.said(), null);
   l.tick(450); assert.equal(l.said(), 'two');
 });
+
+test('in the first moments with a new glowling, toasts and awards wait their turn, then come one by one with a breath between', t => {
+  const l = lane(t);
+  let calm = true;
+  l.page.calmNow = () => calm;
+  l.page.toast('Task done'); l.page.queueAwards(cup('First crack'), cup('Hello, little one'));
+  l.tick(20000);
+  assert.ok(!l.showing('toast') && !l.showing('award') && !l.page.document.body.on.has('banner'), 'nothing while it is calm');
+  calm = false; l.tick(450);
+  assert.equal(l.said(), 'Task done');
+  l.tick(2600 + 450); assert.ok(!l.showing('toast') && !l.showing('award'), 'a breath before the next');
+  l.tick(1500); assert.ok(l.showing('award'));
+  // calm again (Mossa asks your name, say): the one up stays its time, the next waits for the calm to pass
+  calm = true; l.tick(3400 + 450 + 1500 + 2000); assert.ok(!l.showing('award'));
+  calm = false; l.tick(450); assert.ok(l.showing('award'));
+  assert.deepEqual(l.painted.map(a => a.name), ['First crack', 'Hello, little one']);
+  // the line kept back is all told: what comes next comes at once again
+  l.tick(3400 + 450);
+  l.page.toast('later'); assert.equal(l.said(), 'later');
+});

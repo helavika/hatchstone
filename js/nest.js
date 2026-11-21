@@ -156,6 +156,8 @@ function finishSnack(sn) {
   persist();
   taskDone("feed");
   renderNest();
+  // (the first snack, after the greeting: Mossa asks your name once it's eaten)
+  setTimeout(askName, 1800);
 }
 
 // ---------- feeding the whole room, and the bowl that feeds them by itself (#318) ----------
