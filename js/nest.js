@@ -83,10 +83,17 @@ function openSnacks() {
     return `<button class="snack" data-id="${id}" ${!pantry[id] && (s.garden || save.shards < s.cost) ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${fav ? " ♥" : ""}</b><small>${[`${tr("Hunger")} +${s.tummy}`, ...more].join(" · ")}</small></span><span class="cost">${cost}</span></button>`;
   };
   const all = Object.entries(SNACKS), bought = all.filter(([, s]) => !s.garden);
-  $("snackList").innerHTML = `<h3 class="forge-h">${tr("Snacks")}</h3>` + bought.filter(([, s]) => !s.drink).map(row).join("")
+  // for the whole room first: a snack each for the hungry, and the bowl when it stands here
+  const hungry = roomHungry().length, food = Object.keys(pantry).filter(id => pantry[id] > 0 && roundFood(id)).reduce((n, id) => n + pantry[id], 0), bowl = bowlOf().length;
+  const group = `<h3 class="forge-h">${tr("For the whole room")}</h3>`
+    + `<button class="snack" id="feedAllBtn" ${hungry && food ? "" : "disabled"}><span class="em">🧺</span><span><b>${tr("Feed everyone hungry")}</b><small>${!hungry ? tr("nobody here is hungry right now") : !food ? tr("the pantry has no food to hand round") : tr("one snack each from the pantry · hungry here: {0}", hungry)}</small></span><span class="cost">🧺 ×${food}</span></button>`
+    + (hasDecor("bowl") ? `<button class="snack" id="fillBowlBtn" ${bowl < BOWL_CAP && food ? "" : "disabled"}><span class="em">🥣</span><span><b>${tr("Fill the bowl")}</b><small>${tr("the hungry ones here eat from it by themselves")}</small></span><span class="cost">${bowl}/${BOWL_CAP}</span></button>` : "");
+  $("snackList").innerHTML = group + `<h3 class="forge-h">${tr("Just for {0}", cr.name)}</h3>` + bought.filter(([, s]) => !s.drink).map(row).join("")
     + `<h3 class="forge-h">${tr("Drinks")}</h3><p class="me-hint">${tr("A sip doesn't fill the tummy or make anyone drowsy. Starfizz perks a sleepy glowling up.")}</p>` + bought.filter(([, s]) => s.drink).map(row).join("")
     + `<h3 class="forge-h">${tr("From the garden")}</h3><p class="me-hint">${tr("No shop sells these: they only grow in the garden bed outside.")}</p>` + all.filter(([, s]) => s.garden).map(row).join("");
-  $$("#snackList .snack").forEach(b => b.addEventListener("click", () => feed(b.dataset.id)));
+  $$("#snackList .snack[data-id]").forEach(b => b.addEventListener("click", () => feed(b.dataset.id)));
+  $("feedAllBtn").addEventListener("click", feedAll);
+  $("fillBowlBtn")?.addEventListener("click", fillBowl);
   show("snacks", true);
 }
 
@@ -115,21 +122,26 @@ function feed(id) {
   updateTopbar();
 }
 
+/** What a snack does for whoever eats it, wherever: the tummy fills, a big one makes drowsy (a drink doesn't, and some wake
+ *  you up), a few crumbs for the dust clock, joy (more for a favourite) and a step toward growing up. */
+function eatSnack(cr, s, fav) {
+  cr.tummy = clamp(cr.tummy + s.tummy, 0, 100);
+  if (s.drink) cr.energy = clamp(cr.energy + (s.energy || 0), 0, 100);
+  else cr.energy = clamp(cr.energy - s.tummy * 0.25 - (cr.tummy > 85 ? 6 : 0), 0, 100);
+  cr.messT = (cr.messT || 0) + 15;
+  cr.joy = clamp(cr.joy + s.joy + (fav ? 15 : 0), 0, 100);
+  addXP(cr, (fav ? 12 : 6) + (s.xp || 0));
+}
+
 function finishSnack(sn) {
   const cr = activeCreature(), a = activeActor();
   if (a) { a.state = "eat"; a.t = 1.4; a.tx = a.x; a.ty = a.y; }
   const v = a ? actorView(a) : { x: sn.x, y: sn.ty, size: N.base };
   sfx.munch();
-  cr.tummy = clamp(cr.tummy + sn.s.tummy, 0, 100);
-  // a full tummy makes you drowsy: the bigger the snack, the sleepier; a drink doesn't, and some wake you up
-  if (sn.s.drink) cr.energy = clamp(cr.energy + (sn.s.energy || 0), 0, 100);
-  else cr.energy = clamp(cr.energy - sn.s.tummy * 0.25 - (cr.tummy > 85 ? 6 : 0), 0, 100);
+  eatSnack(cr, sn.s, sn.fav);
   if (sn.s.energy && a) setTimeout(() => { emote(a, "⚡", 1.6); a.hop = 1; }, 900);
   else if (cr.energy < 40 && a) setTimeout(() => { emote(a, "🥱", 1.8); sfx.yawn(); }, 1500);
-  cr.messT = (cr.messT || 0) + 15;
   bump("fed");
-  cr.joy = clamp(cr.joy + sn.s.joy + (sn.fav ? 15 : 0), 0, 100);
-  addXP(cr, (sn.fav ? 12 : 6) + (sn.s.xp || 0));
   spawnChips(v.x, v.y, 8, 0.6, ["#f6e2b8", "#e8c48a", "#fff"]);
   floatText(sn.fav ? tr("favorite! ♥") : sn.s.xp ? tr("growing! ✦") : sn.s.drink ? tr("slurp") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
   if (sn.fav) { for (let i = 0; i < 5; i++) heart(v.x + rand(-30, 30), v.y - v.size * 0.3); if (a) emote(a, kaoFor(cr, "fave"), 1.8); }
@@ -139,6 +151,127 @@ function finishSnack(sn) {
   persist();
   taskDone("feed");
   renderNest();
+}
+
+// ---------- feeding the whole room, and the bowl that feeds them by itself (#318) ----------
+// With many glowlings, feeding each by hand is a chore: the Hunger sheet can hand one snack each to everyone hungry in the
+// room, and a feeding bowl, filled now and then from the pantry, lets the hungry ones go and eat by themselves.
+
+/** Under this, a glowling is hungry enough to be handed a snack when the whole room is fed (two icons of four or fewer). */
+const HUNGRY_AT = 60;
+/** What goes round the room and into the bowl: real food. Not a drink (it doesn't fill), not the magic dust (it's for
+ *  everyone already), not a growcap (too precious to hand out unasked). */
+const roundFood = id => { const s = SNACKS[id]; return !!s && !s.drink && !s.all && !s.xp; };
+/** A favourite: its kind's own snack, or one every glowling loves. */
+const favFood = (cr, id) => id === specOf(cr).snack || !!SNACKS[id]?.fav;
+/** What there's most of in a heap of food (the bigger snack on a tie), from those it may give. */
+const mostOf = (left, ok = roundFood) => Object.keys(left).filter(id => left[id] > 0 && ok(id)).sort((p, q) => left[q] - left[p] || SNACKS[q].tummy - SNACKS[p].tummy)[0];
+/** Who gets what: the hungriest first, each its favourite while the pantry has one, else whatever there's most of.
+ *  Returns the snack for each ([glowling, snack id]), the pantry that's left, and how many went without. */
+function feedPlan(hungry, pantry, favOf = favFood) {
+  const left = { ...pantry }, plan = [];
+  for (const cr of [...hungry].sort((p, q) => p.tummy - q.tummy)) {
+    const id = Object.keys(left).find(k => left[k] > 0 && roundFood(k) && favOf(cr, k)) || mostOf(left);
+    if (!id) break;
+    left[id]--; plan.push([cr, id]);
+  }
+  return { plan, left, short: hungry.length - plan.length };
+}
+/** Everyone awake in the room you're looking at whose tummy is under HUNGRY_AT, their time caught up. */
+function roomHungry() {
+  const here = save.creatures.filter(c => actors.has(c.id) && !c.out);
+  here.forEach(c => applyTime(c));
+  return here.filter(c => !c.sleeping && c.tummy < HUNGRY_AT);
+}
+/** One snack each for the hungry ones in the room, out of the pantry: they drop to each in turn, and each chirps as it eats. */
+function feedAll() {
+  show("snacks", false);
+  const hungry = roomHungry();
+  if (!hungry.length) { sfx.refuse(); toast(tr("Nobody here is hungry right now")); return; }
+  const { plan, left, short } = feedPlan(hungry, save.pantry || {});
+  if (!plan.length) { sfx.refuse(); toast(tr("The pantry has no food to hand round: buy some at the shop, or grow it in the garden")); return; }
+  save.pantry = left;
+  // (what it does is done at once, so it counts even if you leave before the last one lands; the drops are the show)
+  for (const [cr, id] of plan) eatSnack(cr, SNACKS[id], favFood(cr, id));
+  plan.forEach(([cr, id], i) => setTimeout(() => dropSnack(cr, id), 150 + i * 280));
+  bump("fed", plan.length);
+  toast(short ? tr("The pantry ran short: {0} fed, {1} still hungry", plan.length, short) : tr("A snack for everyone hungry: {0} fed ✦", plan.length));
+  persist();
+  taskDone("feed");
+  updateTopbar();
+  renderNest();
+}
+/** A snack falling from above onto one glowling (see landSnack, when it gets there). */
+function dropSnack(cr, id) {
+  const a = actors.get(cr.id);
+  if (!a || game.scene !== "nest") return;
+  const v = actorView(a), s = SNACKS[id];
+  a.hop = 1; a.goal = a.friend = null;
+  if (a.state !== "eat") { a.state = "idle"; a.t = 2.5; a.tx = a.x; a.ty = a.y; }
+  (game.nest.drops = game.nest.drops || []).push({ id: cr.id, emoji: s.emoji, x: v.x, y: v.y - N.base * 2.2, ty: v.y, vy: 0, fav: favFood(cr, id), s });
+}
+/** It landed: a munch, crumbs, a happy face and a chirp of its own. */
+function landSnack(sn) {
+  const a = actors.get(sn.id), cr = save.creatures.find(c => c.id === sn.id);
+  if (!a || !cr) return;
+  a.state = "eat"; a.t = 1.4; a.tx = a.x; a.ty = a.y;
+  const v = actorView(a);
+  sfx.munch(); setTimeout(() => sfx.chirp(specOf(cr).voice * 1.1), 260);
+  spawnChips(v.x, v.y, 6, 0.5, ["#f6e2b8", "#e8c48a", "#fff"]);
+  emote(a, kaoFor(cr, sn.fav ? "fave" : "fed"), 1.8);
+  if (sn.fav) for (let i = 0; i < 3; i++) heart(v.x + rand(-20, 20), v.y - v.size * 0.3);
+  if (a.id === save.active) floatText(sn.fav ? tr("favorite! ♥") : tr("yum"), v.x, v.y - v.size * 0.7, sn.fav ? "#ffb3d4" : "#fff");
+}
+
+/** The feeding bowl holds up to BOWL_CAP snacks; a glowling in its room whose tummy is under BOWL_AT goes and eats one. */
+const BOWL_CAP = 6, BOWL_AT = 40;
+/** What's in the bowl, first put in first eaten (anything it can't hold left out). */
+const bowlOf = () => (save.bowl || []).filter(roundFood).slice(0, BOWL_CAP);
+/** Topping the bowl up from the pantry: the favourites of those who live with it, taken in turn, then whatever there's most
+ *  of. Returns the bowl, the pantry that's left and what went in. */
+function bowlFill(bowl, pantry, want = []) {
+  const left = { ...pantry }, out = bowl.slice(0, BOWL_CAP), added = [];
+  while (out.length < BOWL_CAP) {
+    const turn = [...want.slice(added.length % (want.length || 1)), ...want], id = turn.find(w => left[w] > 0 && roundFood(w)) || mostOf(left);
+    if (!id) break;
+    left[id]--; out.push(id); added.push(id);
+  }
+  return { bowl: out, pantry: left, added };
+}
+/** Which one in the bowl a glowling takes: its favourite if there's one, else the first. */
+const bowlPick = (cr, bowl, favOf = favFood) => Math.max(0, bowl.findIndex(id => favOf(cr, id)));
+/** The bowl feeding a room by itself: the hungriest under BOWL_AT eats one, then the next, until nobody is or it's empty.
+ *  Returns what's left in it and who ate what. */
+function bowlFeed(list, bowl, favOf = favFood, eat = (cr, id) => eatSnack(cr, SNACKS[id], favOf(cr, id))) {
+  const left = [...bowl], ate = [];
+  for (let cr; left.length && (cr = list.filter(c => !c.out && !c.sleeping && c.tummy < BOWL_AT).sort((p, q) => p.tummy - q.tummy)[0]);) {
+    const [id] = left.splice(bowlPick(cr, left, favOf), 1);
+    eat(cr, id); ate.push([cr, id]);
+  }
+  return { left, ate };
+}
+/** While nobody's watching its room (time away, another room, another scene), the bowl feeds the hungry ones there by itself
+ *  (see gatherDust); in the room you're looking at, they walk over and eat (bowlCall in iso.js). */
+function bowlAway() {
+  const r = decorRoom("bowl"), bowl = bowlOf();
+  if (r < 0 || !bowl.length || (game.scene === "nest" && r === save.room && !document.hidden)) return;
+  const { left, ate } = bowlFeed(residents(r), bowl);
+  if (ate.length) { save.bowl = left; bump("fed", ate.length); }
+}
+/** Fill the bowl from the pantry: it shows how full it is either way. */
+function fillBowl() {
+  show("snacks", false);
+  const r = decorRoom("bowl"), now = bowlOf();
+  if (now.length >= BOWL_CAP) { toast(tr("The bowl is full: {0}", `${now.length}/${BOWL_CAP}`)); return; }
+  const want = residents(r).sort((p, q) => p.tummy - q.tummy).map(c => specOf(c).snack);
+  const { bowl, pantry, added } = bowlFill(now, save.pantry || {}, want);
+  if (!added.length) { sfx.refuse(); toast(tr("The bowl: {0} · the pantry has no food for it", `${now.length}/${BOWL_CAP}`)); return; }
+  save.bowl = bowl; save.pantry = pantry;
+  sfx.setDown();
+  if (r === save.room) { const [x, y] = decorSpot("bowl"); spawnChips(x, y - N.base * 0.3, 8, 0.5, ["#f6e2b8", "#e8c48a", "#fff"]); floatText(`${bowl.length}/${BOWL_CAP}`, x, y - N.base * 0.8, "#fff0b5"); }
+  toast(tr("Into the bowl: {0} · it holds {1} now", added.map(id => SNACKS[id].emoji).join(""), `${bowl.length}/${BOWL_CAP}`));
+  persist();
+  taskDone("feed");
 }
 
 /** Magic dust isn't fed to one: it settles on the whole room at once, sleepers too, and fills every tummy that has room. Nobody gets drowsy from it. */
@@ -178,7 +311,7 @@ const MARKET_TABS = [["food", "cookie", "Food"], ["decor", "candle", "Furniture"
 const CHEST_SHOP = { look: ["reno", "New rooms and renovation"] };
 const DECOR_CATS = [["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
-  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty", keepjar: "pretty" };
+  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty", keepjar: "pretty", bowl: "comfort" };
 const shopOf = () => (game.shop = game.shop || { mode: "chest", tab: "decor", pick: null });
 function openShop() {
   sfx.tick();
@@ -254,7 +387,7 @@ function renderShopPick() {
   if (!d) return;
   const owned = save.decor[d.id], locked = d.legend && !owned && !legendOk();
   const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
-  const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.id === "keepjar" ? tr("Every feather and flower from your walks goes into it, and a few of them make something to wear.") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
+  const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.id === "keepjar" ? tr("Every feather and flower from your walks goes into it, and a few of them make something to wear.") : d.id === "bowl" ? tr("Fill it from the pantry: the hungry ones in its room eat from it by themselves · {0}", `${bowlOf().length}/${BOWL_CAP}`) : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
   const where = owned && !owned.on && decorRoom(d.id) >= 0 ? ` · ${tr("in {0}", roomName(decorRoom(d.id)))}` : "";
   const inPlace = isPlace(), label = owned ? (inPlace ? tr("In your chest ✓") : owned.on ? tr("Put away") : tr("Place here")) : `${tr("Buy")} ✦ ${d.cost}`;
   box.innerHTML = `${decorThumb(d)}<span><b>${d.name}</b><small>${note}${where}</small></span><button class="act${owned ? "" : " buy"}" id="shopPickGo" ${locked || (!owned && save.shards < d.cost) || (owned && inPlace) ? "disabled" : ""}>${label}</button>`;

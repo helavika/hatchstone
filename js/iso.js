@@ -223,6 +223,8 @@ function chooseNext(a, list) {
   a.plan = null;
   // up from a doze: one with the habit has a long stretch first
   if (cr && was === "nap" && habitOf(cr) === "stretch") { stretchOut(a, cr); return; }
+  // hungry, with food in the bowl here: off to eat, before anything else
+  if (cr && hasDecor("bowl") && bowlCall(a, cr)) return;
   if (cr && habitNext(a, cr, list)) return;
   // content: as often as not it stays where it is and looks about (or, a bit tired, dozes off); a hungry one perks up instead
   if (cr && content(cr) && Math.random() < 0.55) {
@@ -261,6 +263,36 @@ function chooseNext(a, list) {
   [a.tx, a.ty] = roomPoint();
   a.state = "walk";
   if (b === "flutter" && Math.random() < 0.4) emote(a, "✦", 1);
+}
+/** Hungry enough, and there's food in the bowl: it heads over to eat (what it does there: bowlArrive). */
+function bowlCall(a, cr) {
+  if (cr.sleeping || cr.tummy >= BOWL_AT || !bowlOf().length || !isoLayout().placed.bowl) return false;
+  goVisit(a, DECO.bowl); if (Math.random() < 0.5) emote(a, SNACKS[specOf(cr).snack].emoji, 1.4);
+  return true;
+}
+/** At the bowl: one snack out of it (its favourite if it's there), a munch and a happy face; an empty bowl gets a sad look. */
+function bowlArrive(a, cr) {
+  const bowl = bowlOf();
+  a.state = "eat"; a.t = 1.6; a.tx = a.x; a.ty = a.y;
+  // (only looking in, not hungry: a happy look; an empty bowl, a little sigh)
+  if (!bowl.length || cr.tummy >= HUNGRY_AT) { a.state = "idle"; a.t = rand(1, 2) * linger(cr); emote(a, bowl.length ? "♥" : "…", 1.6); return; }
+  const [id] = bowl.splice(bowlPick(cr, bowl), 1), fav = favFood(cr, id), v = actorView(a);
+  a.atBowl = true;
+  save.bowl = bowl;
+  eatSnack(cr, SNACKS[id], fav);
+  bump("fed");
+  sfx.munch(); setTimeout(() => sfx.chirp(specOf(cr).voice * 1.1), 300);
+  spawnChips(v.x, v.y, 6, 0.5, ["#f6e2b8", "#e8c48a", "#fff"]);
+  setTimeout(() => emote(a, kaoFor(cr, fav ? "fave" : "fed"), 1.8), 500);
+  if (a.id === save.active) { floatText(fav ? tr("favorite! ♥") : tr("yum"), v.x, v.y - v.size * 0.7, fav ? "#ffb3d4" : "#fff"); renderNest(); }
+  persist();
+}
+/** Playing with a toy on its own cheers a glowling up a little: once in TOY_GAP at most, so a toy is a nice extra, not a way to never play. */
+const TOY_JOY = 4, TOY_GAP = 3 * 60e3;
+function toyJoy(cr, id, now = Date.now()) {
+  if (DECOR_CAT[id] !== "play" || now - (cr.toyAt || 0) < TOY_GAP) return false;
+  cr.toyAt = now; cr.joy = clamp(cr.joy + TOY_JOY, 0, 100);
+  return true;
 }
 /** Off to a piece of furniture, to play with it (what it does there: see the arrival in updateActors). */
 function goVisit(a, d) {
@@ -420,6 +452,8 @@ function updateActors(dt) {
       else if (cr.sleeping && cr.energy >= 99) wakeRested(cr, a);
       // grown, on one of its days: it looks toward the valley (a compass over its head; now and then again, never more)
       else if (noteWish(cr) || (!a.emote && wishing(cr) && !cr.sleeping && Math.random() < 0.04)) { emote(a, "🧭", 2.6); a.hop = Math.max(a.hop, 0.5); }
+      // hungry and standing about, with food in the bowl: it doesn't wait for its next idea
+      else if (a.state === "idle" && hasDecor("bowl")) bowlCall(a, cr);
     }
     // an unhurried pace, slower with age, and a stroll when there's nothing it needs
     const calm = calmOf(cr.level), base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100 * 0.8 * calm.go;
@@ -445,6 +479,12 @@ function updateActors(dt) {
       target = [f.x + Math.cos(an) * N.base * 0.75, f.y + Math.sin(an) * N.base * 0.4];
       speed = base * 2.6;
     } else if (a.state === "begging") { a.state = "idle"; a.t = rand(1, 2); }
+    // bubbles for everyone (see startParty): off after the next bubble, at a run
+    const bub = !target && !cr.sleeping && a.state !== "eat" && partyBubble(a);
+    if (bub) {
+      if (a.state !== "party") { a.goal = a.friend = a.decor = a.plan = null; a.rain = a.garden = false; }
+      a.state = "party"; target = [bub.x, bub.y]; speed = base * 2.1;
+    } else if (a.state === "party") { a.state = "idle"; a.t = rand(1, 2); }
     // the Gloom's shadows are in: the little ones huddle close together, and gather round your light while it shines (gloomHuddle)
     const hud = !target && !cr.sleeping && a.state !== "eat" && gloomHuddle(a);
     if (hud) {
@@ -458,7 +498,10 @@ function updateActors(dt) {
     }
     if (petted(a)) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
     else if (target) { a.tx = target[0]; a.ty = target[1]; }
-    else if (a.state === "eat") { if ((a.t -= dt) <= 0) { if (habitOf(cr) === "meal") { a.state = "nap"; a.t = rand(5, 8) * calm.rest; emote(a, "zz", 2.5); } else { a.state = "idle"; a.t = rand(1, 2) * linger(cr); } } }
+    else if (a.state === "eat") { if ((a.t -= dt) <= 0) {
+      // fed at the bowl: it steps away to make room for the next one (and has its after-meal nap over there, if that's its way)
+      if (a.atBowl) { a.atBowl = false; [a.tx, a.ty] = roomPoint(); a.state = "walk"; if (habitOf(cr) === "meal") { a.plan = "napby"; a.napT = rand(5, 8) * calm.rest; } }
+      else if (habitOf(cr) === "meal") { a.state = "nap"; a.t = rand(5, 8) * calm.rest; emote(a, "zz", 2.5); } else { a.state = "idle"; a.t = rand(1, 2) * linger(cr); } } }
     else if (a.state === "idle" || a.state === "nap" || a.state === "dance" || a.state === "visit") { if ((a.t -= dt) <= 0) { a.decor = null; chooseNext(a, list); } }
 
     // a little personal space: glowlings gently push apart instead of piling up
@@ -501,22 +544,25 @@ function updateActors(dt) {
       a.stuck = Math.hypot(a.x - a.lastX, a.y - a.lastY) < Math.min(N.base * 0.15, want * 0.5) ? (a.stuck || 0) + dt : 0;
       if (!a.stuck) { a.lastX = a.x; a.lastY = a.y; }
       // (pressed against the very piece it came to see, or nearly there: that's arriving, not being stuck)
-      if (a.stuck > 1.5 && a.goal && left < N.base * 0.6) { a.stuck = 0; a.lastX = a.lastY = undefined; a.tx = a.x; a.ty = a.y; }
+      if (a.stuck > 1.5 && a.goal && left < N.base * (a.goal === "bowl" ? 1.1 : 0.6)) { a.stuck = 0; a.lastX = a.lastY = undefined; a.tx = a.x; a.ty = a.y; }
       if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = null; a.rain = a.garden = a.bath = a.song = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
     } else if (moving) {
       const hopper = a.beh === "hop";
       const step = Math.min(d, speed * dt * (hopper ? hopGate(a) : 1));
       a.x += dx / d * step; a.y += dy / d * step;
     } else if (a.state === "walk" && a.goal) {
-      // arrived at a favorite thing
+      // arrived at a favorite thing (or at the bowl, to eat)
       const d = DECO[a.goal];
-      a.decor = a.goal; a.goal = null;
-      a.state = d.id === "cushion" ? "nap" : d.id === "rug" ? "dance" : "visit";
-      if (d.id === "swing" || d.id === "mushrooms") { a.from = [a.x, a.y, a.alt]; a.blend = 0; }
-      a.t = (d.id === "cushion" ? rand(6, 10) : rand(3, 6)) * calm.rest;
-      emote(a, d.emote === "!" && Math.random() < 0.5 ? kaoFor(cr, "surprise") : d.emote, 2);
-      if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
-
+      if (d.id === "bowl") { a.goal = null; bowlArrive(a, cr); }
+      else {
+        a.decor = a.goal; a.goal = null;
+        toyJoy(cr, d.id);
+        a.state = d.id === "cushion" ? "nap" : d.id === "rug" ? "dance" : "visit";
+        if (d.id === "swing" || d.id === "mushrooms") { a.from = [a.x, a.y, a.alt]; a.blend = 0; }
+        a.t = (d.id === "cushion" ? rand(6, 10) : rand(3, 6)) * calm.rest;
+        emote(a, d.emote === "!" && Math.random() < 0.5 ? kaoFor(cr, "surprise") : d.emote, 2);
+        if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
+      }
     } else if (a.state === "walk" && a.rain) {
       // under the cloud: a little dance in the rain (or snow)
       a.rain = false; a.state = "dance"; a.t = rand(0.9, 1.6); a.hop = 1;
@@ -844,6 +890,7 @@ const ISO_PLACES = {
   blocks: { fw: 1, fd: 1, at: [[1, 2], [2, 1], [4, 5]] },
   telescope: { fw: 1, fd: 1, at: [[0, 1], [1, 0], [5, 1]] },
   keepjar: { fw: 1, fd: 1, at: [[2, 5], [5, 3], [0, 4]] },
+  bowl: { fw: 1, fd: 1, at: [[1, 5], [5, 1], [3, 5]] },
 };
 /** The arches between home rooms (see roomDoors): where along its wall each stands (0 at the back corner, 1 at the front) and its half width. */
 const DOOR_AT = 0.8, DOOR_W = 0.085;
@@ -1074,6 +1121,8 @@ const DECO_VELVET = ["#c2e6a0", "#82bc6a", "#528c52", "#346642", "#1e402e"].map(
 const DECO_ROSEWOOD = ["#d8907a", "#a85a50", "#7a3a40", "#52243a", "#301428"].map(pxHex);
 const DECO_LACQUER = ["#ffc2b4", "#f0705e", "#c4404a", "#8a2440", "#561634"].map(pxHex);
 const DECO_MOON = ["#ffffff", "#fff4c4", "#f6dc8a", "#d9b25a", "#a57a34"].map(pxHex);
+// the feeding bowl's lilac glaze, darkest last, and the cream of the band painted round it
+const BOWL_GLAZE = ["#f6ecff", "#dcc4f4", "#b494de", "#8466b8", "#553e86", "#fff4dc"].map(pxHex);
 const DECO_AQUA = ["#ffffff", "#d4f6ff", "#9fe4f4", "#5cc0dc", "#3a8eb4", "#24607e"].map(pxHex);
 /** A turned shape standing at (x, y): a lamp's foot, a pedestal, a pot, a drum. Rings from z0 up to z1, r(z) wide, each in
  *  the flat bands of its ramp from the lit left to the shaded right, dithered only where two bands meet; then its top as a lid
@@ -1489,6 +1538,33 @@ const ISO_ART = {
         else { T.ball(hx, hy, r, c[2], c[1], c[0], r * 0.85); T.px(hx, hy, c[3]); }
       }
     }
+  },
+  bowl(t, T, ax, ay, o = {}) {
+    // a feeding bowl of glazed stoneware, wide and low on a little turned foot: a lilac glaze lit from the top left, a cream
+    // band round its belly dotted with stars, a rolled rim, and inside, heaped as high as it's full, the snacks you put in,
+    // each drawn as itself: cookies with their chips, moonberries, dewdrops, starfruit, glowcaps. Empty, it shows its hollow.
+    // (the Chest's picture, drawn with nothing to go on, is a full one)
+    const food = o.food !== undefined ? o.food.split(",").filter(Boolean) : ["cookie", "berry", "dew", "berry", "cookie", "star"];
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), R = Math.max(5, t * 0.46), h = Math.max(4, Math.round(t * 0.3)), hf = Math.max(1, Math.round(t * 0.06)), zb = Math.round(hf + (h - hf) * 0.5);
+    isoLathe(T, x, y, 0, hf, () => R * 0.55, BOWL_GLAZE, { lid: false });
+    isoLathe(T, x, y, hf + 1, h, z => R * (0.7 + 0.3 * Math.sin((z - hf) / (h - hf) * Math.PI / 2)), BOWL_GLAZE, { lid: false,
+      band: (k, xx, yy, z) => z === zb || z === zb + 1 ? ((xx + z) % 4 === 0 && z === zb ? 2 : k > 3 ? 1 : 5) : k });
+    decoGloss(T, x - R * 0.72, y - h * 0.72, 1);
+    // the rolled rim and the hollow inside, its far side in shadow under the rim
+    T.disc(x, y - h, R + 0.4, (xx, yy) => xx < x - R * 0.3 ? BOWL_GLAZE[0] : BOWL_GLAZE[1]);
+    const ri = R - Math.max(1.2, t * 0.06);
+    T.disc(x, y - h, ri, (xx, yy) => yy < y - h - ri * 0.15 ? IC.ink2 : xx > x + ri * 0.3 ? BOWL_GLAZE[3] : BOWL_GLAZE[4]);
+    // the snacks, heaped: the more there are, the higher the heap, the back ones first
+    const s2 = Math.max(1.6, t * 0.1), SLOTS = [[-0.42, 0.12, 0], [0.38, 0.14, 0], [0, 0.3, 0], [-0.12, -0.2, 1], [0.3, -0.18, 1], [0.02, 0.02, 2]];
+    food.slice(0, 6).map((id, k) => [id, SLOTS[k]]).sort((p, q) => p[1][1] - q[1][1] || p[1][2] - q[1][2]).forEach(([id, [du, dv, lift]]) => {
+      const cx = x + du * ri * 1.3, cy = y - h + dv * ri * 0.6 - lift * s2 * 0.8 + s2 * 0.4;
+      if (id === "cookie") { T.disc(cx, cy, s2 * 1.15, (xx) => xx < cx ? IC.w0 : IC.w1, s2 * 0.7); T.px(cx - 1, cy, IC.w3); T.px(cx + 1, cy - 1, IC.w3); T.px(cx, cy + 1, IC.w2); }
+      else if (id === "berry") { T.ball(cx, cy - s2 * 0.5, s2 * 0.85, IC.l1, IC.l3, IC.l4); T.px(cx - s2 * 0.3, cy - s2 * 0.9, IC.white); }
+      else if (id === "dew") { T.ball(cx, cy - s2 * 0.5, s2 * 0.8, IC.b0, IC.b1, IC.b2); T.px(cx, cy - s2 * 1.4, IC.b1); T.px(cx - s2 * 0.3, cy - s2 * 0.8, IC.white); }
+      else if (id === "star") { for (const [ox, oy, c] of [[0, -2, IC.y0], [-1, -1, IC.y0], [0, -1, IC.white], [1, -1, IC.y1], [-2, 0, IC.y0], [-1, 0, IC.y0], [0, 0, IC.y1], [1, 0, IC.y1], [2, 0, IC.y1], [-1, 1, IC.y1], [1, 1, IC.w1]]) T.px(cx + ox, cy - s2 * 0.4 + oy, c); }
+      else if (id === "glowcap") bedGlowcap(T, cx, cy, Math.max(2, Math.round(s2 * 1.1)), s2 * 0.95);
+      else T.ball(cx, cy - s2 * 0.4, s2 * 0.8, IC.y0, IC.w1, IC.w2);
+    });
   },
   chest(t, T, ax, ay) {
     // a toy chest like a little steamer trunk: oak boards, a domed lid painted rose, brass straps running up the front and
@@ -5612,7 +5688,7 @@ function paintRoomIso(id) {
 
 /** How wide each piece's contact shadow is, in tiles across (pieces that stand on legs or roots, or sit squat on the floor). */
 const CONTACT = { bed: 1.5, lamp: 0.42, table: 0.62, chest: 0.82, musicbox: 0.74, swing: 0.9, mushrooms: 0.78, armchair: 0.8, bookcase: 0.72,
-  plant: 0.44, keepjar: 0.4, drum: 0.55, blocks: 0.7, telescope: 0.6, bench: 0.8, lamppost: 0.4, birdbath: 0.5 };
+  plant: 0.44, keepjar: 0.4, bowl: 0.6, drum: 0.55, blocks: 0.7, telescope: 0.6, bench: 0.8, lamppost: 0.4, birdbath: 0.5 };
 /** The isometric room's furniture, back to front: the pixel pieces on the floor, then the swing and the lights on the walls. */
 function drawRoomIso() {
   if (!isPlace()) drawBaked(isoRug(hasDecor("rug")));
