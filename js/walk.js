@@ -1,6 +1,6 @@
 "use strict";
 // Hatchstone · a walk outside: you take a glowling (or two) out along a little path for a minute or two.
-// Tap where to go (or hold an arrow) and they stroll there; find berries, seeds, a shiny pebble, a feather, a flower, now and then a spark,
+// Hold an arrow (or tap where to go) and they stroll there; find berries, seeds, a shiny pebble, a feather, a flower, now and then a spark,
 // and once each walk clear a tangle of Gloom-thorn with your light, which opens the short way. No enemies, no hurry,
 // nothing to lose: the path is drawn to match the garden's backdrop and the season, and they come home tired and happy.
 // The rules (paths, the save, what a walk gives) are plain functions at the top, so the tests can load them in Node.
@@ -255,7 +255,7 @@ if (typeof window === "object") {
     "a climb up the rocks to a ledge with a view": "підйом скелями до уступу, звідки видно далеко",
     "Wild berries": "Дикі ягоди", "Wild seeds": "Дике насіння", "A shiny pebble": "Блискучий камінчик",
     "A soft feather": "М'яка пір'їнка", "A little flower": "Квіточка", "A hidden spark": "Захована іскра",
-    "Take a glowling out for a little walk: tap where to go, look around, find small things on the way. You come home a little tired and a lot happier.": "Візьми глоулінга на коротку прогулянку: торкайся, куди йти, роздивляйся, знаходь дрібнички дорогою. Додому — трохи втоми й багато радості.",
+    "Take a glowling out for a little walk: hold ◀ ▶ to stroll, look closer at what you pass, find small things on the way. You come home a little tired and a lot happier.": "Візьми глоулінга на коротку прогулянку: тримай ◀ ▶, щоб іти, роздивляйся все дорогою, знаходь дрібнички. Додому — трохи втоми й багато радості.",
     "Who's coming?": "Хто йде гуляти?",
     "a little path to stroll, with things to find": "коротка стежка, а на ній дрібнички",
     "Paths": "Стежки",
@@ -288,6 +288,7 @@ if (typeof window === "object") {
     "Tap where to go": "Торкнися, куди йти",
     "Tap where to go, or hold an arrow": "Торкнися, куди йти, або тримай стрілку",
     "Hold an arrow to walk; ✦ or space does what's close": "Тримай стрілку, щоб іти; ✦ чи пробіл робить те, що поруч",
+    "Hold ◀ ▶ to walk, ✦ to look closer": "Тримай ◀ ▶, щоб іти, ✦ — роздивитися",
     "Do what's close": "Зробити те, що поруч",
     "Walk left": "Йти ліворуч",
     "Walk right": "Йти праворуч",
@@ -344,7 +345,7 @@ function openWalk() {
 function renderWalkSheet() {
   const w = save.walks, home = walkWho();
   $("walkSheetTitle").textContent = tr("A walk outside");
-  $("walkSheetSub").textContent = tr("Take a glowling out for a little walk: tap where to go, look around, find small things on the way. You come home a little tired and a lot happier.");
+  $("walkSheetSub").textContent = tr("Take a glowling out for a little walk: hold ◀ ▶ to stroll, look closer at what you pass, find small things on the way. You come home a little tired and a lot happier.");
   $("walkWhoH").innerHTML = `${tr("Who's coming?")} <small>${tr("up to two")}</small>`;
   $("walkWho").innerHTML = home.map(c => {
     const ok = walkFit(c), on = walkPick.includes(c.id);
@@ -387,9 +388,12 @@ function startWalk(path) {
   $("walkHud").classList.remove("done"); $("walkPad").classList.remove("done");
   $("walkName").textContent = tr(WALKS[path].name);
   walkBag();
-  setTimeout(() => walkSay(tr("Hold an arrow to walk; ✦ or space does what's close"), "go"), 300);
+  // (a phone has no space bar: there it's the two arrows and the ✦ between them, on screen)
+  setTimeout(() => walkSay(walkTouch() ? tr("Hold ◀ ▶ to walk, ✦ to look closer") : tr("Hold an arrow to walk; ✦ or space does what's close"), "go"), 300);
 }
 /** A hint, once per walk each. */
+/** A finger, not a keyboard: hints there name the arrows on screen, never a key. */
+const walkTouch = () => !!(typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches);
 function walkSay(text, id) {
   const g = game.walk;
   if (!g || g.ended || (id && g.hinted[id])) return;

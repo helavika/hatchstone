@@ -330,7 +330,8 @@ body.scene-walk #walkPad:not(.done) button { pointer-events: auto; }
 #walkPad .ic { width: 28px; height: 28px; }
 #walkBag { display: flex; align-items: center; gap: 2px; }
 #walkBag .ic { width: 22px; height: 22px; margin-right: 2px; }
-body.scene-walk #hint { bottom: calc(var(--bottom) + 28px); }
+/* (above the walk pad, a little clear of it: the pad is 60px tall, 84px up) */
+body.scene-walk #hint { bottom: calc(var(--bottom) + 156px); }
 .walk-who button.on { box-shadow: 0 0 0 2px var(--px-gold, #eec26a); background: rgba(255, 233, 168, .12); }
 .card-pic { display: block; width: min(62vw, 252px, calc((100dvh - 330px) * .8)); aspect-ratio: 4 / 5; margin: 6px auto 4px; image-rendering: pixelated; box-shadow: var(--px-frame); }
 #cardOpts .opt-toggle { margin: 8px 0 4px; }
@@ -601,8 +602,6 @@ body { font-size: 18px; }
 #tabs { padding: 6px; gap: 6px; }
 #tabs button { color: var(--soft); padding: 6px 12px; }
 #tabs button.on { background: var(--px-gold) !important; color: var(--px-ink); box-shadow: inset 3px 3px 0 0 var(--px-gold-hi), inset -3px -3px 0 0 var(--px-gold-lo); }
-#tabs button.call { position: relative; }
-#tabs button.call::after { content: "!"; position: absolute; top: -9px; right: -3px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
 #hint, #toast { box-shadow: var(--px-frame), inset 3px 3px 0 0 var(--px-hi), inset -3px -3px 0 0 var(--px-deep) !important; }
 #toast.glass { background: var(--px-raise) !important; }
 .seg { background: var(--px-deep); box-shadow: var(--px-frame); padding: 3px; }
@@ -778,7 +777,6 @@ body.scene-map #tabs, body.scene-lib #tabs, body.scene-nest #tabs { z-index: 3; 
 @keyframes spotPulse { 50% { box-shadow: 0 0 0 5px var(--px-gold), 0 0 0 8px var(--px-ink), 0 0 0 200vmax rgba(8, 5, 26, .58); } }
 @keyframes spotBob { 50% { margin-top: -6px; } }
 /* today's tasks */
-#taskPill.fresh::after { content: "!"; position: absolute; top: -9px; right: -6px; width: 18px; height: 18px; display: grid; place-items: center; font-size: 14px; color: #fff; background: #b8323b; box-shadow: var(--px-frame); animation: pxBob .8s steps(2) infinite; }
 #taskPill { position: relative; }
 #oilPill.empty { animation: pxBob .8s steps(2) infinite; }
 /* not sleepy: the Sleep button looks it */
@@ -978,9 +976,10 @@ i.mood.zz { font-style: normal; font-size: 13px; color: #b8e6f5; }
 #oilCount em { font-style: normal; font-size: .8em; color: var(--soft); }
 #oilPill small { display: none; }
 body:not(.scene-nest) #homePill { display: none; }
-/* a dot, not a shout: something waits behind this tab or pill */
-#tabs button.call::after, #taskPill.fresh::after { content: "" !important; width: 10px !important; height: 10px !important; top: 2px !important; right: 6px !important; border-radius: 0; animation: none !important; box-shadow: 0 0 0 2px var(--px-ink) !important; }
-#taskPill.fresh::after { right: -3px !important; top: -3px !important; }
+/* a soft gold sparkle, never a red dot: only for something new behind this tab or pill (today's tasks not yet seen, a place just opened), never for a chore left undone */
+#tabs button.fresh::after, #taskPill.fresh::after { content: ""; position: absolute; top: 3px; right: calc(50% - 24px); width: 12px; height: 12px; background: var(--px-gold-hi); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); filter: drop-shadow(0 0 3px var(--px-gold)); animation: freshTwinkle 1.8s steps(3) infinite; pointer-events: none; }
+@keyframes freshTwinkle { 0%, 100% { opacity: .6; transform: scale(.75); } 50% { opacity: 1; transform: scale(1); } }
+#taskPill.fresh::after { right: -4px; top: -5px; }
 /* the open tab is marked under its label too */
 #tabs button { position: relative; }
 #tabs button[data-tab].on::before { content: ""; position: absolute; left: 30%; right: 30%; bottom: 2px; height: 3px; background: var(--px-gold); }
@@ -1041,7 +1040,7 @@ body:not(.scene-nest) #homePill { display: none; }
 #nestTop, #nestBottom, #catchHud { z-index: 2; }
 #toast { z-index: 8; }
 /* the nest header: one quiet line (name, level, a thin bar), so the room isn't crowded from above */
-#nestTop { display: flex; align-items: center; justify-content: center; gap: 8px; top: calc(var(--top) + 52px) !important; }
+#nestTop { display: flex; align-items: center; justify-content: center; gap: 8px; top: calc(var(--top) + 56px) !important; }
 #nestTop #nestName { font-size: 26px; text-shadow: 0 2px 0 var(--px-ink); }
 #nestTop #nestLvl { order: 2; margin: 0; font-size: 15px; color: var(--px-gold); }
 #nestTop #xpBar { order: 3; width: 54px; height: 6px; margin: 0; }
@@ -1052,7 +1051,7 @@ body.scene-nest { --lane: calc(var(--top) + 92px); }
 body.scene-nest #hint, body.compact.scene-nest #hint { top: var(--lane) !important; }
 body.banner.scene-nest #hint, body.banner.scene-catch #hint, body.banner.scene-echo #hint { opacity: 0; }
 body.compact #nestTop #nestName { font-size: 22px; }
-body.compact #nestTop { top: calc(var(--top) + 46px) !important; }
+body.compact #nestTop { top: calc(var(--top) + 54px) !important; }
 .switch-wrap { display: flex; align-items: center; gap: 4px; max-width: min(460px, 100%); }
 .switch-wrap #switcher { flex: 1; min-width: 0; }
 .sw-arrow { flex: 0 0 26px; height: 40px; border: 0; padding: 0; cursor: pointer; font-size: 26px; line-height: 1; color: var(--px-ink); background: var(--px-gold); box-shadow: var(--px-frame), inset 2px 2px 0 0 var(--px-gold-hi), inset -2px -2px 0 0 var(--px-gold-lo); }
@@ -1196,7 +1195,6 @@ body.narrow h1 { font-size: 50px; }
 #tabs #crackTab:active { transform: translateY(-13px) !important; }
 #tabs #worldTab.on, #tabs #decorBtn.on { background: var(--px-raise) !important; color: #ffe9a8 !important; box-shadow: inset 0 0 0 2px var(--px-edge) !important; }
 #tabs #worldTab.on::before { content: ""; position: absolute; left: 30%; right: 30%; bottom: 2px; height: 3px; background: var(--px-gold); }
-#tabs button.call::after { width: 8px !important; height: 8px !important; top: 5px !important; right: calc(50% - 19px) !important; background: #e0634f !important; box-shadow: 0 0 0 2px var(--px-ink) !important; }
 /* one row above the bar: the three needs and the glowlings cell */
 #nestBottom .acts { width: min(100%, 520px); }
 #residentsBtn { flex: 0 0 auto !important; display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px 4px 4px !important; position: relative; }
@@ -1457,3 +1455,16 @@ body.compact .place-who img { width: 39px; height: 39px; }
 .niche.empty .hole::after { content: ""; position: absolute; left: 9px; bottom: 3px; width: 3px; height: 3px; background: var(--px-edge); box-shadow: 6px 0 0 var(--px-raise), 15px 0 0 var(--px-edge), 12px -3px 0 var(--px-raise); }
 /* the Book says where a missing geode is at home, in plain small letters so a long cave name fits its card */
 #libGrid small.home { margin-top: 2px; padding-top: 0; font-size: 13px; line-height: 1.05; text-transform: none; letter-spacing: 0; overflow-wrap: anywhere; }
+/* every tap target at least 44×44 CSS px, the floor a fingertip needs: the bars' pills and round buttons a little taller
+   and wider, the small buttons a little roomier; art that must stay small (the gold "?") gets an invisible ring around it */
+#topbar .pill, #hud .pill, body.compact #topbar .pill, body.compact #hud .pill { height: 44px; }
+#topbar .round, #hud .round { width: 44px; }
+#nestTop #nestName { min-width: 44px; min-height: 44px; margin: -10px 0; padding: 0 4px; }
+#nestTop #nestShare { padding: 12px; margin: -12px -10px; }
+#meSheet .q, #oilHelp { position: relative; }
+#meSheet .q::before, #oilHelp::before { content: ""; position: absolute; inset: -11px; }
+#meSheet [data-skill] { min-width: 44px; min-height: 44px; }
+.overlay .card > .x-close { top: 6px; right: 6px; width: 44px; height: 44px; }
+.overlay .card:has(> .x-close) > h2:first-of-type { padding: 0 40px; }
+#found .pillbtn { min-height: 44px; }
+#nestBottom .acts .act { min-height: 44px; }

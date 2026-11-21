@@ -355,16 +355,14 @@ function callOf(cr, now = Date.now()) {
   return "";
 }
 
-/** A little "!" on the Nest tab whenever someone at home needs you. */
+/** The mark on the tabs: a soft gold sparkle on the valley when something new waits there. */
 function updateCalls() {
-  const t = document.querySelector('#tabs [data-tab="nest"]');
-  if (!t) return;
-  // looks ahead on a copy: just checking must never change the save
-  const n = save.creatures.filter(c => { const p = { ...c }; applyTime(p); return callOf(p); }).length;
-  t.classList.toggle("call", n > 0 && game.scene !== "nest");
+  // (no mark on the Nest tab for needs any more: a chore left undone isn't news; the glowling's own call says it, at home)
   checkPlaces();
-  // (the first minute home after Mossa looked in, the valley's dot waits too)
-  $("worldTab")?.classList.toggle("call", !homeQuiet() && ((!moonDone() && game.scene !== "map") || (placeOk("forge") && canForge()) || (placeOk("garden") && ripePlots() > 0) || (save.mapFresh || []).length > 0 || (!!save.incubator && Date.now() >= save.incubator.due && !incHere())));
+  // the valley's soft gold sparkle is only for something new there: a place just opened, something ripe, an egg that has
+  // hatched in the incubator (not today's moon egg or a Forge you could afford: those wait without nagging).
+  // (the first minute home after Mossa looked in, it waits too)
+  $("worldTab")?.classList.toggle("fresh", !homeQuiet() && ((placeOk("garden") && ripePlots() > 0) || (save.mapFresh || []).length > 0 || (!!save.incubator && Date.now() >= save.incubator.due && !incHere())));
 }
 
 function moodOf(cr) {

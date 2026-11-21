@@ -23,7 +23,7 @@ function renderNest(full) {
   $("nestTop").title = tr("Level {0} · {1} {2}", cr.level, STAGES[stageOf(cr.level)], sp.name);
   $("xpBar").firstElementChild.style.width = (cr.level >= MAX_LEVEL ? 100 : cr.xp / xpNeed(cr.level) * 100) + "%";
   for (const [k, id] of [["tummy", "Tummy"], ["joy", "Joy"], ["energy", "Energy"]]) {
-    // four icons per need, like an old handheld pet (and like the Sims: a full Hunger bar means a full tummy)
+    // four icons per need, like an old handheld pet (and like the Sims: a full Tummy bar means a full tummy)
     const el = $("b" + id), full = Math.ceil(cr[k] / 25);
     if (el.dataset.full !== String(full)) { el.dataset.full = full; el.innerHTML = [0, 1, 2, 3].map(i => ic(el.dataset.need, i < full ? "" : "off")).join(""); }
     el.classList.toggle("low", cr[k] < 25);
@@ -31,7 +31,7 @@ function renderNest(full) {
     if (btn) { btn.style.setProperty("--fill", full / 4); btn.classList.toggle("lowfill", cr[k] < 25); }
     $("v" + id).textContent = Math.round(cr[k]);
   }
-  $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Sleepiness");
+  $("sleepBtn").innerHTML = cr.sleeping ? ic("sun") + tr("Wake") : ic("moon") + tr("Rest");
   $("sleepBtn").setAttribute("aria-label", cr.sleeping ? tr("Wake") : tr("Sleep"));
   $("sleepBtn").classList.toggle("rested", !cr.sleeping && cr.energy >= SLEEPY_AT);
   $("feedBtn").disabled = cr.sleeping;
@@ -78,9 +78,9 @@ function openSnacks() {
   $("snackSub").textContent = tr("You have ✦ {0} shards. {1}s love {2}.", save.shards, sp.name, LANG === "uk" ? snack : snack.replace(/([^aeiou])y$/, "$1ie") + "s");
   const pantry = save.pantry || {};
   const row = ([id, s]) => {
-    const fav = id === sp.snack || s.fav, more = [s.all && tr("everyone in the room"), s.energy && `${tr("Sleepiness")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), fav && tr("favorite!")].filter(Boolean);
+    const fav = id === sp.snack || s.fav, more = [s.all && tr("everyone in the room"), s.energy && `${tr("Rest")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), fav && tr("favorite!")].filter(Boolean);
     const cost = pantry[id] ? `🧺 ×${pantry[id]}` : s.garden ? "🌱" : `✦ ${s.cost}`;
-    return `<button class="snack" data-id="${id}" ${!pantry[id] && (s.garden || save.shards < s.cost) ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${fav ? " ♥" : ""}</b><small>${[`${tr("Hunger")} +${s.tummy}`, ...more].join(" · ")}</small></span><span class="cost">${cost}</span></button>`;
+    return `<button class="snack" data-id="${id}" ${!pantry[id] && (s.garden || save.shards < s.cost) ? "disabled" : ""}><span class="em">${s.emoji}</span><span><b>${s.name}${fav ? " ♥" : ""}</b><small>${[`${tr("Tummy")} +${s.tummy}`, ...more].join(" · ")}</small></span><span class="cost">${cost}</span></button>`;
   };
   const all = Object.entries(SNACKS), bought = all.filter(([, s]) => !s.garden);
   $("snackList").innerHTML = `<h3 class="forge-h">${tr("Snacks")}</h3>` + bought.filter(([, s]) => !s.drink).map(row).join("")
@@ -333,7 +333,7 @@ function buyFood(id, n = 1) {
 }
 function marketFood() {
   const pantry = save.pantry || {}, row = ([id, s]) => {
-    const more = [`${tr("Hunger")} +${s.tummy}`, s.all && tr("everyone in the room"), s.energy && `${tr("Sleepiness")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), s.fav && tr("favorite!")].filter(Boolean).join(" · ");
+    const more = [`${tr("Tummy")} +${s.tummy}`, s.all && tr("everyone in the room"), s.energy && `${tr("Rest")} +${s.energy}`, s.xp && tr("+{0} toward growing up", s.xp), s.fav && tr("favorite!")].filter(Boolean).join(" · ");
     return `<div class="snack seed"><span class="em">${s.emoji}</span><span><b>${s.name} <em>×${pantry[id] || 0}</em></b><small>${more}</small></span><span class="seed-btns">${s.garden ? `<small class="only">🌱 ${tr("garden only")}</small>`
       : `<button class="act" data-food="${id}" ${save.shards < s.cost ? "disabled" : ""}>+1 ✦ ${s.cost}</button><button class="act" data-food="${id}" data-n="5" ${save.shards < s.cost * 5 ? "disabled" : ""}>+5</button>`}</span></div>`;
   };
