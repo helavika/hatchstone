@@ -90,6 +90,8 @@ function helpersSaveOf(creatures) {
  * the smallest that still fits, so it rounds up only there), and a cot at least; whoever was already out exploring stays out, as before.
  */
 const BED_PLACES = { cot: 1, bunk: 2, tree: 4 }, BED_SPOTS = 3, HOME_KINDS = ["nest", "play", "garden", "study"];
+/** What each step of the old "room for one more" cost (NEST_UP_COST before beds): given back to a save that bought them. */
+const NEST_UP_PAID = [150, 300, 500];
 /** Beds that sleep n in BED_SPOTS spots (12 at most): nest-trees while four or more are left, then a bunk, a cot; the last spot the smallest that fits. */
 function bedsFor(n) {
   const beds = [], tiers = Object.keys(BED_PLACES);
@@ -106,7 +108,9 @@ function bedsSaveOf(d) {
     const had = Array.isArray(r.beds) ? r.beds.filter(t => BED_PLACES[t]).slice(0, BED_SPOTS) : null;
     r.beds = had ? (had.length ? had : ["cot"]) : bedsFor(at(i));
   });
-  // (the old "room for one more" is the beds' now)
+  // the old "room for one more" is the beds' now: what it cost comes back, once, and Tansy says so (see roomCreatures)
+  const back = NEST_UP_PAID.slice(0, Math.max(0, Math.floor(Number(d.nestUp)) || 0)).reduce((n, v) => n + v, 0);
+  if (back) { d.shards = (Number(d.shards) || 0) + back; d.bedRefund = (d.bedRefund || 0) + back; }
   delete d.nestUp;
   return d.rooms;
 }

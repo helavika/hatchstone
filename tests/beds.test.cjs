@@ -55,8 +55,16 @@ test('an older save: everyone at home has a bed, room by room, rounded up to who
   // nobody moved, nobody was sent out or called home
   assert.deepEqual(s.creatures.map(c => [c.id, !!c.out]), creatures.map(c => [c.id, !!c.out]));
   assert.equal('nestUp' in s, false, 'room for one more is the beds\' now');
-  // loaded again, nothing changes (the beds it got are its own now)
-  assert.deepEqual(plain(load(s).save.rooms), s.rooms);
+  // what its two steps cost (150 + 300) comes back, and Tansy says so once, at home
+  assert.deepEqual([s.shards, s.bedRefund], [100 + 450, 450]);
+  assert.match(nestJs, /if \(save\.bedRefund > 0 && game\.scene === "nest"\) \{ const n = save\.bedRefund; delete save\.bedRefund;.*toast\(tr\("Tansy gave back ✦ \{0\} for the old extra space: beds are home now", n\)\)/);
+  // all three steps: 950; none, or a broken number: nothing
+  assert.equal(load(old({ rooms, creatures, nestUp: 3 })).save.shards, 1050);
+  for (const nestUp of [0, -1, 'x', undefined]) { const { save: z } = load(old({ rooms, creatures, nestUp })); assert.deepEqual([z.shards, 'bedRefund' in z], [100, false], String(nestUp)); }
+  // loaded again, nothing changes (the beds it got are its own now, and nothing is paid twice)
+  const again = load({ ...s, bedRefund: undefined }).save;
+  assert.deepEqual(plain(again.rooms), s.rooms);
+  assert.equal(again.shards, s.shards);
 });
 
 test('the beds an older room gets: never fewer places than sleepers, three spots at most, one spare place at most', () => {
@@ -226,6 +234,20 @@ test('a new game: the first glowling takes the cot; the second, with no bed buil
   const b = home({ beds: [['cot', 'cot']] });
   hatch(b, 1); hatch(b, 2);
   assert.ok(b.save.creatures.every(c => !c.out));
+});
+
+test('the early game: two at home in two cots, a third with no bed: the second goes, never the very first', () => {
+  // the second is the one you're looking after (a newcomer always is, see adopt), and still the first glowling stays
+  const h = home({ beds: [['cot', 'cot']], creatures: [glow(1, 0), glow(2, 0)] });
+  h.save.active = 2;
+  const c = hatch(h, 3);
+  assert.deepEqual(h.save.creatures.map(x => [x.id, !!x.out]), [[1, false], [2, true], [3, false]]);
+  assert.equal(c.room, 0);
+  // with someone else at home, neither the first nor the one you look after goes
+  const k = home({ beds: [['cot', 'cot', 'cot']], creatures: [glow(1, 0), glow(2, 0), glow(4, 0)] });
+  k.save.active = 2;
+  hatch(k, 5);
+  assert.deepEqual(k.save.creatures.filter(x => x.out).map(x => x.id), [4]);
 });
 
 test('a newcomer settles where a bed is free, room by room: the beds decide, not a fixed number', () => {

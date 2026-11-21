@@ -2103,12 +2103,13 @@ function settleNew(c, want = atHome() ? save.room : nestRoom()) {
   return c.room;
 }
 /**
- * Who goes to make room: someone at home, never the newcomer, and not the one you're looking after while anyone else can.
+ * Who goes to make room: someone at home, never the newcomer, and neither the one you're looking after nor your very first
+ * glowling while anyone else can (then the one you're looking after before the first).
  * One whose going frees a bed (not one of an old save's crowd), awake before a sleeper, then not your very first glowling,
  * then one from the newcomer's own room, then rested and content, the liveliest first.
  */
 function roomMaker(c, want) {
-  const home = save.creatures.filter(x => x !== c && !x.out && !x.trip && !x.job), pool = home.filter(x => x.id !== save.active);
+  const home = save.creatures.filter(x => x !== c && !x.out && !x.trip && !x.job), pool = home.filter(x => x.id !== save.active && x !== save.creatures[0]);
   const score = x => (residents(roomOf(x)).filter(y => y !== c).length <= homeCap(roomOf(x)) ? 32 : 0) + (x.sleeping ? 0 : 16) + (x !== save.creatures[0] ? 8 : 0) + (roomOf(x) === want ? 4 : 0) + ((x.energy ?? 0) >= 50 ? 2 : 0) + (content(x) ? 1 : 0);
   return (pool.length ? pool : home).sort((p, q) => score(q) - score(p) || (q.energy ?? 0) - (p.energy ?? 0))[0] || null;
 }
@@ -2275,6 +2276,8 @@ function tapResident(id) {
 /** The glowlings in the room you're in: the ones who live here. */
 function roomCreatures() {
   if (settleHome().length && game.scene === "nest") talk("firstExplore");
+  // an older nest's "room for one more", paid back (see bedsSaveOf): said once, at home
+  if (save.bedRefund > 0 && game.scene === "nest") { const n = save.bedRefund; delete save.bedRefund; persist(); updateTopbar(); setTimeout(() => toast(tr("Tansy gave back ✦ {0} for the old extra space: beds are home now", n)), 1800); }
   return residents(save.room);
 }
 
