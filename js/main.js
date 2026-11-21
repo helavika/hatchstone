@@ -51,6 +51,14 @@ function update(dt) {
       n.snack.vy += GRAVITY * dt; n.snack.y += n.snack.vy * dt;
       if (n.snack.y >= n.snack.ty) { const sn = n.snack; n.snack = null; finishSnack(sn); }
     }
+    // the whole room fed at once: a snack falls to each, following it if it moves
+    if (n.drops?.length) for (const sn of [...n.drops]) {
+      const a = actors.get(sn.id);
+      if (a) { const v = actorView(a); sn.x = v.x; sn.ty = v.y; }
+      sn.vy += GRAVITY * dt; sn.y += sn.vy * dt;
+      if (sn.y >= sn.ty || !a) { n.drops.splice(n.drops.indexOf(sn), 1); landSnack(sn); }
+    }
+    partyTick(dt);
     // needs are worked out from time stamps, so the per-second refresh only redraws (saving here would make tabs fight)
     if ((nestTick += dt) > 1 && activeCreature()) { nestTick = 0; renderNest(); }
   }

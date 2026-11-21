@@ -333,6 +333,8 @@ const nestRoom = () => save.rooms.findIndex(r => r.kind === "nest");
 /** Catch up everyone's time and wind the dust clock: returns the bunny that just landed, if one did. */
 function gatherDust() {
   for (const cr of save.creatures) applyTime(cr);
+  // and with nobody watching its room, a filled feeding bowl feeds the hungry ones there (see bowlAway in nest.js)
+  if (save.bowl?.length) bowlAway();
   const n = Math.max(1, save.creatures.length), nest = nestRoom(), dust = save.dust = save.dust || [];
   for (const cr of save.creatures) if (cr.messT) { save.dustT = (save.dustT || 0) + cr.messT / n; cr.messT = 0; }
   if (homeQuiet()) { dust.length = Math.min(dust.length, 1); save.dustT = 0; }

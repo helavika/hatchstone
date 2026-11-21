@@ -7,7 +7,7 @@
 /** Where each piece was drawn last, for tapping it (see spriteHit). */
 const pieceHits = {};
 /** What a piece's picture depends on right now (the lamp being off, the pond's ripple frame...). */
-const pieceExtra = p => p.id === "altar" ? { done: !!moonDone() } : p.id === "shrine" ? { event: eventNow()?.id || "", colors: eventNow()?.egg || [] } : p.id === "campfire" ? { frame: Math.floor(game.time / 160) % 4 } : p.id === "furnace" ? { frame: Math.floor(game.time / 220) % 3 } : p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : p.id === "keepjar" ? keepjarView(jarOf(save.walks)) : {};
+const pieceExtra = p => p.id === "altar" ? { done: !!moonDone() } : p.id === "shrine" ? { event: eventNow()?.id || "", colors: eventNow()?.egg || [] } : p.id === "campfire" ? { frame: Math.floor(game.time / 160) % 4 } : p.id === "furnace" ? { frame: Math.floor(game.time / 220) % 3 } : p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : p.id === "keepjar" ? keepjarView(jarOf(save.walks)) : p.id === "bowl" ? { food: bowlOf().join(",") } : {};
 
 const decorFx = {};
 let swingPush = 0;
@@ -74,6 +74,11 @@ function playDecor(hit) {
     case "musicbox":
       openJukebox();
       break;
+    case "bowl":
+      // a tap on the bowl tops it up from the pantry (and says how full it is)
+      if (sfx.ready()) sfx.tone(t, 1046.5, 0.02, 0.25, "sine", null, true);
+      fillBowl();
+      return;
     case "painting": {
       save.paintScene = ((save.paintScene || 0) + 1) % PAINTINGS.length; persist();
       toast(tr("The painting now shows: {0}", PAINTINGS[save.paintScene].name));
@@ -1150,8 +1155,9 @@ function drawNest() {
   drawVeil();
   drawGloomOver();
   if (isPlace()) drawPlaceLife();
-  const sn = game.nest.snack;
-  if (sn) {
+  drawBubbles();
+  for (const sn of [game.nest.snack, ...(game.nest.drops || [])]) {
+    if (!sn) continue;
     fx.font = `${Math.round(N.base * 0.32)}px system-ui`; fx.textAlign = "center";
     fx.fillText(sn.emoji, sn.x, sn.y);
     fx.textAlign = "start";
@@ -1566,10 +1572,117 @@ function openGames() {
   // the Playroom's own game comes first there; from any other room with a Playroom built, it takes you there to play
   const hasPlay = save.rooms.some(r => r.kind === "play"), here = inPlayroom(), why = here ? seekBlock() : "";
   const hide = hasPlay ? [["hide", "🙈", tr("Hide and seek"), why || (here ? tr("it hides behind your furniture: find it in three tries") : tr("in the Playroom, among your furniture"))]] : [];
-  $("gamesList").innerHTML = [...(here ? hide : []), ["catch", "✨", tr("Sparkle catch"), tr("drag to catch sparkles, dodge pebbles")], ["echo", "🎵", tr("Echo song"), tr("listen to the tune, then sing it back")], ["walk", "🌿", tr("A walk outside"), tr("a little path to stroll, with things to find")], ...(here ? [] : hide)]
+  // with everyone first: a short game the whole room plays at once; then the games for the one you picked
+  const join = save.creatures.filter(c => actors.has(c.id) && partyOk(c)).length;
+  $("gamesList").innerHTML = `<h3 class="forge-h">${tr("With everyone")}</h3><button class="snack" data-game="party"${join ? "" : " disabled"}><span class="em">🫧</span><span><b>${tr("Bubbles for everyone")}</b><small>${join ? tr("a short game the whole room plays: everyone who joins is glad · {0} can join", join) : tr("everyone here is too sleepy to play")}</small></span></button>`
+    + `<h3 class="forge-h">${tr("Just for {0}", cr.name)}</h3>` + [...(here ? hide : []), ["catch", "✨", tr("Sparkle catch"), tr("drag to catch sparkles, dodge pebbles")], ["echo", "🎵", tr("Echo song"), tr("listen to the tune, then sing it back")], ["walk", "🌿", tr("A walk outside"), tr("a little path to stroll, with things to find")], ...(here ? [] : hide)]
     .map(([id, em, name, how]) => `<button class="snack" data-game="${id}"${id === "hide" && why ? " disabled" : ""}><span class="em">${em}</span><span><b>${name}</b><small>${how}</small></span>${id === "echo" && save.echoBest ? `<span class="cost">♪ ${save.echoBest}</span>` : ""}</button>`).join("");
-  $$("#gamesList .snack").forEach(b => b.addEventListener("click", () => { show("games", false); ({ echo: startEcho, walk: openWalk, hide: () => { if (!inPlayroom()) toRoomKind("play"); startSeek(); } }[b.dataset.game] || startCatch)(); }));
+  $$("#gamesList .snack").forEach(b => b.addEventListener("click", () => { show("games", false); ({ party: startParty, echo: startEcho, walk: openWalk, hide: () => { if (!inPlayroom()) toRoomKind("play"); startSeek(); } }[b.dataset.game] || startCatch)(); }));
   show("games", true);
+}
+
+// ---------- bubbles for everyone: a short game the whole room plays at once (#318) ----------
+// Bubbles float up all round the room and everyone awake chases them, hopping up to pop one, then the next, for PARTY_T
+// seconds; then everyone who joined is glad. It's the room's walking and hopping, with bubbles to go after.
+
+/** How long it lasts (seconds); the joy each one who joined gets, a little more per bubble it popped, up to PARTY_MAX; what it tires them. */
+const PARTY_T = 15, PARTY_JOY = 15, PARTY_POP = 2, PARTY_MAX = 27, PARTY_TIRE = 8;
+/** Who can join in: awake, at home and not too sleepy to play. */
+const partyOk = cr => !!cr && !cr.sleeping && !cr.out && cr.energy >= 15;
+/** The joy one gets for joining, with this many bubbles popped. */
+const partyJoy = pops => Math.min(PARTY_MAX, PARTY_JOY + pops * PARTY_POP);
+/** The end of it: everyone who joined is glad, a little tired and a little peckish. Returns how many. */
+function partyEnd(list, pops) {
+  for (const cr of list) { cr.joy = clamp(cr.joy + partyJoy(pops[cr.id] || 0), 0, 100); cr.energy = clamp(cr.energy - PARTY_TIRE, 0, 100); cr.tummy = clamp(cr.tummy - 3, 0, 100); }
+  return list.length;
+}
+function startParty() {
+  if (game.nest.party) return;
+  const here = save.creatures.filter(c => actors.has(c.id));
+  here.forEach(c => applyTime(c));
+  const who = here.filter(partyOk);
+  if (!who.length) { toast(tr("Everyone here is too sleepy to play. Try a nap 🌙")); return; }
+  const P = game.nest.party = { t: PARTY_T, room: save.room, who: who.map(c => c.id), pops: {}, bubbles: [] };
+  for (let i = 0; i < who.length + 2; i++) addBubble(P, i * 0.12);
+  sfx.shimmer();
+  who.forEach((cr, i) => setTimeout(() => { const a = actors.get(cr.id); if (a) { a.hop = 1; emote(a, "!", 1); } if (i < 4) sfx.chirp(specOf(cr).voice * 1.2); }, i * 140));
+  toast(tr("Bubbles! Everyone pops as many as they can ✦"));
+}
+/** One more bubble, somewhere on the floor where a glowling can stand under it. */
+function addBubble(P, late = 0) {
+  // (away from everyone, a few tries: one that turns up right on a glowling would be popped before anyone saw it)
+  let at = roomPoint();
+  for (let k = 0; k < 6 && [...actors.values()].some(a => Math.hypot(a.x - at[0], (a.y - at[1]) * 1.6) < N.base * 1.5); k++) at = roomPoint();
+  P.bubbles.push({ x: at[0], y: at[1], z: N.base * 0.8, t: -late, ph: rand(0, TAU) });
+}
+/** The bubble this one is after: the nearest nobody else is after (or just the nearest), kept until it's popped or out of reach. */
+function partyBubble(a) {
+  const P = game.nest.party;
+  if (!P || !P.who.includes(a.id)) return null;
+  if (!a.bub || !P.bubbles.includes(a.bub)) {
+    const taken = new Set([...actors.values()].filter(o => o !== a).map(o => o.bub)), far = b => Math.hypot(b.x - a.x, (b.y - a.y) * 1.6);
+    a.bub = [...P.bubbles].sort((p, q) => (taken.has(p) - taken.has(q)) || far(p) - far(q))[0] || null; a.bubT = 0;
+  }
+  return a.bub;
+}
+function partyTick(dt) {
+  const P = game.nest.party;
+  if (!P) return;
+  if (P.room !== save.room) { endParty(); return; }
+  P.t -= dt;
+  for (const b of P.bubbles) { b.t += dt; b.z = N.base * (0.75 + 0.18 * Math.sin(b.t * 1.8 + b.ph)); }
+  for (const id of P.who) {
+    const a = actors.get(id), b = a && a.state === "party" && a.bub;
+    if (!b) continue;
+    // (a hop up and a moment to land between pops: about one a second at the most)
+    if (b.t > 0.3 && game.time - (a.popAt || -1e9) > 1100 && Math.hypot(a.x - b.x, (a.y - b.y) * 1.6) < N.base * 0.5) popBubble(P, a, b);
+    // (one it can't get to: off after another)
+    else if ((a.bubT = (a.bubT || 0) + dt) > 5) a.bub = null;
+  }
+  while (P.t > 1.5 && P.bubbles.length < P.who.length + 2) addBubble(P);
+  if (P.t <= 0) endParty();
+}
+/** A hop up, and pop: a splash of sparkle, a bright note and a glad face. */
+function popBubble(P, a, b) {
+  const cr = save.creatures.find(c => c.id === a.id);
+  P.bubbles.splice(P.bubbles.indexOf(b), 1); a.bub = null; a.popAt = game.time;
+  P.pops[a.id] = (P.pops[a.id] || 0) + 1;
+  a.hop = 1;
+  burst(b.x, b.y - b.z, 10, ["#ffffff", "#d4f6ff", "#ffc4da"], 0.7);
+  if (sfx.ready()) sfx.tone(sfx.ac.currentTime, rand(1100, 1700), 0.02, 0.18, "sine", rand(1800, 2400));
+  emote(a, Math.random() < 0.4 && cr ? kaoFor(cr, "won") : pick(["♪", "✦", "♥"]), 1.2);
+  if (cr && Math.random() < 0.4) sfx.chirp(specOf(cr).voice * 1.15);
+}
+function endParty() {
+  const P = game.nest.party;
+  game.nest.party = null;
+  for (const a of actors.values()) { a.bub = null; if (a.state === "party") { a.state = "idle"; a.t = rand(1.5, 3); a.tx = a.x; a.ty = a.y; } }
+  const list = P.who.map(id => save.creatures.find(c => c.id === id)).filter(Boolean), popped = Object.values(P.pops).reduce((n, v) => n + v, 0);
+  partyEnd(list, P.pops);
+  for (const cr of list) addXP(cr, 4 + Math.min(6, P.pops[cr.id] || 0));
+  list.forEach((cr, i) => setTimeout(() => { const a = actors.get(cr.id); if (a && game.scene === "nest") { a.hop = 1; emote(a, kaoFor(cr, "won"), 2); for (let k = 0; k < 2; k++) { const v = actorView(a); heart(v.x + rand(-14, 14), v.y - v.size * 0.4); } } if (i < 4) sfx.chirp(specOf(cr).voice); }, 200 + i * 160));
+  toast(tr("Bubble game: {0} played and popped {1} · everyone who joined is glad ✦", list.length, popped));
+  persist();
+  renderNest();
+}
+/** The bubbles, drawn in art pixels: a pale ring with a pink and a white glint, a faint fill, a soft shadow on the floor under it. */
+function drawBubbles() {
+  const P = game.nest.party;
+  if (!P) return;
+  const px = Math.max(2, PX);
+  for (const b of P.bubbles) {
+    if (b.t < 0) continue;
+    const r = N.base * depth() * 0.34 * Math.min(1, b.t * 3), cx = Math.round(b.x / px) * px, cy = Math.round((b.y - b.z) / px) * px;
+    ctx.fillStyle = "rgba(10,4,24,.22)"; ctx.beginPath(); ctx.ellipse(b.x, b.y, r * 0.7, r * 0.25, 0, 0, TAU); ctx.fill();
+    ctx.fillStyle = "rgba(212,246,255,.22)"; ctx.beginPath(); ctx.arc(cx, cy, r, 0, TAU); ctx.fill();
+    const n = Math.max(12, Math.round(TAU * r / px));
+    for (let k = 0; k < n; k++) {
+      const an = k / n * TAU, x = Math.round((cx + Math.cos(an) * r) / px) * px, y = Math.round((cy + Math.sin(an) * r) / px) * px;
+      ctx.fillStyle = an > 3.5 && an < 4.4 ? "#ffffff" : an > 0.2 && an < 1.1 ? "#ffc4da" : "rgba(184,230,245,.9)";
+      ctx.fillRect(x - px / 2, y - px / 2, px, px);
+    }
+    ctx.fillStyle = "#ffffff"; ctx.fillRect(cx - r * 0.45, cy - r * 0.45, px, px);
+  }
 }
 
 function startCatch() {

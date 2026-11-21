@@ -341,9 +341,9 @@ const KAO_GLAD = ["happy", "loved", "excited", "pleased", "smug", "shy", "sleepy
 const KAO_MOMENTS = {
   pet: ["loved", "loved", "happy"], fave: ["happy", "excited"], full: ["shy", "surprised"], won: ["excited", "excited", "happy"],
   sad: ["sad"], wake: ["sleepy"], rest: ["sleepy", "pleased"], friend: ["pleased", "pleased", "smug"], dressed: ["smug", "pleased"],
-  surprise: ["surprised"], curious: ["curious"], care: ["pleased", "loved", "happy"],
+  surprise: ["surprised"], curious: ["curious"], care: ["pleased", "loved", "happy"], fed: ["pleased", "happy"],
 };
-const KAO_GLAD_MOMENTS = ["pet", "fave", "won", "rest", "friend", "dressed", "care"];
+const KAO_GLAD_MOMENTS = ["pet", "fave", "won", "rest", "friend", "dressed", "care", "fed"];
 /** Each kind's own favourite face, pulled a bit more often than the rest. */
 const KAO_FAVE = { flutter: "loved", hop: "excited", nap: "sleepy", dance: "smug", curious: "curious", swim: "pleased" };
 /** The face a glowling pulls for a moment (see KAO_MOMENTS), as the text to give emote(): its kind's favourite is likelier. */
