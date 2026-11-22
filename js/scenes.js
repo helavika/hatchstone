@@ -98,8 +98,9 @@ function dismissBanner() {
 }
 
 /**
- * The open sheet's title block on screen (whatever sits above its title and the title itself, and its ×): { top, bottom,
- * sheet } (sheet: a card over the scene, not a full screen like the Book), or null with none open. The topmost one counts.
+ * The open sheet's header on screen (whatever sits above its title, the title itself, the lines under it that say what the
+ * sheet is for, and its ×): { top, bottom, sheet } (sheet: a card over the scene, not a full screen like the Book), or null
+ * with none open. The topmost one counts.
  */
 function sheetTitle() {
   let best = null, bz = -Infinity;
@@ -109,12 +110,14 @@ function sheetTitle() {
   }
   if (!best) return null;
   const [o, card] = best, r = card.getBoundingClientRect();
-  let bottom = r.top + 12;
+  let bottom = r.top + 12, titled = false;
   for (const el of card.children) {
     if (el.matches(".x-close, [id$=Close]")) { const b = el.getBoundingClientRect(); if (b.top < r.top + 90) bottom = Math.max(bottom, b.bottom); continue; }
+    // past the title only its subtitle (and an ornament or a note) still belong to the header; the list starts after them
+    if (titled && !el.matches(".orn, .sub, .gift-note")) break;
     const b = el.getBoundingClientRect();
     if (b.height) bottom = Math.max(bottom, b.bottom);
-    if (el.tagName === "H2") break;
+    if (el.tagName === "H2") titled = true;
     if (b.top > r.top + innerHeight * 0.45) { bottom = r.top + 12; break; } // no title near the top: only the card's own top edge
   }
   return { top: r.top, bottom, sheet: o.classList.contains("modal") || !o.classList.contains("screen") };
@@ -125,7 +128,10 @@ function sheetTitle() {
  */
 function placeBanner(el) {
   el.style.top = "";
-  const top = parseFloat(getComputedStyle(el).top) || 0, h = el.offsetHeight, s = sheetTitle();
+  // over an open sheet a toast keeps to one line (smaller, the rest cut short), so it covers as little of the sheet as it can
+  const s = sheetTitle(), small = !!s && s.sheet;
+  if (el.classList.contains("insheet") !== small) el.classList.toggle("insheet", small);
+  const top = parseFloat(getComputedStyle(el).top) || 0, h = el.offsetHeight;
   let y = top;
   if (s && y < s.bottom && y + h > s.top) y = s.bottom + 8;
   if (y !== top) el.style.top = Math.round(Math.min(y, innerHeight - h - 12)) + "px";

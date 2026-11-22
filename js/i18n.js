@@ -107,6 +107,8 @@ const UK = {
   "Next level": "Наступний рівень",
   "Crack another": "Розбий ще одне",
   "⋯ more": "⋯ ще",
+  "more": "ще",
+  "less": "згорнути",
   "Share": "Поділитися",
   "Share a postcard": "Надіслати листівку",
   "A postcard": "Листівка",

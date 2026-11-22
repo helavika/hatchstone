@@ -564,11 +564,12 @@ function screenFit() {
 function computeLayout() {
   screenFit();
   const top = 100, bottom = 96;
-  L.ew = clamp(Math.min(W * 0.62, (H - top - bottom - 40) / 1.28), 170, 400);
+  L.ew = clamp(Math.min(W * 0.74, (H - top - bottom - 40) / 1.28), 170, 400);
   L.eh = L.ew * 1.28;
   L.k = L.ew / 240;
   L.ecx = W / 2;
-  L.ecy = top + (H - top - bottom) / 2 - 6;
+  // a little above the middle, closing the empty cave under the HUD (but never up under it)
+  L.ecy = Math.max(top - 20 + L.eh / 2, top + (H - top - bottom) / 2 - 36);
   L.ex0 = L.ecx - L.ew / 2;
   L.ey0 = L.ecy - L.eh / 2;
   L.floor = L.ecy + L.eh / 2;

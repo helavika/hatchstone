@@ -472,6 +472,7 @@ $("nextLvl").addEventListener("click", () => {
 });
 $("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
 $("foundShare").addEventListener("click", shareFound);
+$("loreMore").addEventListener("click", () => { sfx.tick(); foldLore($("loreMore").getAttribute("aria-expanded") !== "true"); });
 $("foundMore").addEventListener("click", () => { sfx.tick(); const open = $("foundExtra").hidden; $("foundExtra").hidden = !open; $("foundMore").setAttribute("aria-expanded", String(open)); });
 $("twinHome").addEventListener("click", () => { sfx.tick(); chooseTwin(true); });
 $("twinVisit").addEventListener("click", () => { sfx.tick(); chooseTwin(false); });
