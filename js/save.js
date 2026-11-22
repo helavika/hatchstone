@@ -586,10 +586,24 @@ function computeLayout() {
   // but on a phone held upright most of it goes above: the room sits low, near the needs, and the cave floor runs on down behind them
   N.isoWall = clamp(room - N.isoW - 4, N.base * 1.2, N.isoW * 1.25);
   N.isoTop = nBottom - N.isoW - 6 - Math.max(0, room - N.isoW - 4 - N.isoWall) / (H > W ? 4 : 2);
+  // a phone held upright: its width, not its height, is what the room runs out of, so it's seen closer up: the floor wider than
+  // the screen (its side corners cut off by the edges, nothing that matters standing there: see ISO_CROP), the walls lower, the
+  // glowlings grown with it, all of it in the space between the name and the needs and on the room's own pixel grid
+  N.zoom = 1; N.crop = false; N.kbase = N.base; // (the keepers keep this size: see drawHero)
+  if (H > W * 1.4 && W < 600) {
+    const g = PX * 2, w0 = N.isoW;
+    N.isoW = Math.round(Math.min(W * 0.57, room * 0.56) / g) * g; N.isoH = N.isoW / 2;
+    N.isoWall = Math.round(Math.min(N.isoW * 0.8, room - N.isoW - 12) / PX) * PX;
+    // (most of what's left over goes above, where the room's name hangs: the room sits low, near the needs, as it does wider)
+    N.isoTop = Math.round((nTop + (room - N.isoW - N.isoWall) * 0.75 + N.isoWall) / PX) * PX;
+    N.zoom = N.isoW / w0; N.crop = N.isoW > W / 2;
+    N.base = Math.min(120, N.base * N.zoom);
+  }
   N.y0 = N.isoTop; N.y1 = N.isoTop + N.isoW;
   N.wallTop = N.isoTop - N.isoWall;
   N.back = N.isoTop + N.isoH; N.front = N.y1 + 10;
-  N.x0 = N.cx - N.isoW; N.x1 = N.cx + N.isoW;
+  // (what can be walked to or called to stays on the screen, the cut-off corners aside)
+  N.x0 = Math.max(N.cx - N.isoW, N.base * 0.4); N.x1 = Math.min(N.cx + N.isoW, W - N.base * 0.4);
   N.dk = W < 520 ? 0.8 : 0.92; // decorations a touch smaller on a phone, so the room doesn't feel stuffed
   [N.bedX, N.bedY] = roomSpot("bed");
 }

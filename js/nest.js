@@ -804,7 +804,7 @@ function wickMoment(ms) {
 /** Where Wick sits (his sprite's top left corner) and how big one of his pixels is on screen. */
 function wickBox() {
   // (on coarse room pixels he would come out too big pixel for pixel, so then S is a fraction and his pictures are shrunk to it)
-  const k = WICK_NATIVE, f = Math.round(N.base * 1.55 / PX) / 104, S = f >= 0.8 ? Math.max(1, Math.floor(f + 0.2)) : f, u = S * PX, [x, y] = wickSeat(k.at);
+  const k = WICK_NATIVE, f = Math.round(N.kbase * 1.55 / PX) / 104, S = f >= 0.8 ? Math.max(1, Math.floor(f + 0.2)) : f, u = S * PX, [x, y] = wickSeat(k.at);
   return { S, u, left: Math.round((x - k.ax * u) / PX) * PX, top: Math.round((y - k.seat * u) / PX) * PX };
 }
 /** The bench's lanterns and, on his days, Wick at work on them (drawn right after the bench itself). */
@@ -1624,8 +1624,9 @@ function pixShrink(src, tall, id) {
 function drawHero() {
   if (heroHere().none) return;
   // drawn on the room's own pixel grid: S of the room's pixels to each of the keeper's, as tall as about one and a half glowlings
-  const h = heroHere(), idle = KEEPER_NATIVE[h.icon] ? keeperIdle(h.icon, game.time) : null, blink = game.time % 3700 < 140 && !String(idle).startsWith("act"), S = Math.max(1, Math.round(N.base * 1.55 / PX / KH)), tall = Math.round(N.base * 1.55 / PX), pose = (b, f) => keeperSized(h.icon, b, f, S, tall), img = pose(blink, idle ?? (KEEPER_PIX[h.icon] ? Math.floor(game.time / 450) % KEEPER_PIX[h.icon].frames.length : 0));
-  const [x, y] = heroSpot(), s = Math.round(N.base * 1.05 / 18) * 18 || 18, t = game.time, me = game.hero && game.hero.room === save.room ? game.hero : null;
+  // (N.kbase: a phone's close-up grows the glowlings, not the keepers, who are already as big as they can be pixel for pixel)
+  const h = heroHere(), idle = KEEPER_NATIVE[h.icon] ? keeperIdle(h.icon, game.time) : null, blink = game.time % 3700 < 140 && !String(idle).startsWith("act"), S = Math.max(1, Math.round(N.kbase * 1.55 / PX / KH)), tall = Math.round(N.kbase * 1.55 / PX), pose = (b, f) => keeperSized(h.icon, b, f, S, tall), img = pose(blink, idle ?? (KEEPER_PIX[h.icon] ? Math.floor(game.time / 450) % KEEPER_PIX[h.icon].frames.length : 0));
+  const [x, y] = heroSpot(), s = Math.round(N.kbase * 1.05 / 18) * 18 || 18, t = game.time, me = game.hero && game.hero.room === save.room ? game.hero : null;
   const since = me ? t - me.t : 1e9, jump = me && me.startle ? 0.45 : 0.18;
   const hop = since < 500 ? Math.sin(since / 500 * Math.PI) * s * jump : 0;
   const breathe = 1 + Math.sin(t * 0.004) * 0.03;
@@ -1676,7 +1677,7 @@ function drawBubble(x, y, text, alpha = 1) {
   rows.forEach((r, k) => fx.fillText(r, bx + 8, by + 6 + k * lh));
   fx.restore();
 }
-const heroAt = (x, y) => { if (!heroHere() || heroHere().none) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.base * 0.6 && y < hy + N.base * 0.15 && y > hy - N.base * 1.6; };
+const heroAt = (x, y) => { if (!heroHere() || heroHere().none) return false; const [hx, hy] = heroSpot(); return Math.abs(x - hx) < N.kbase * 0.6 && y < hy + N.kbase * 0.15 && y > hy - N.kbase * 1.6; };
 const propAt = (x, y) => Object.values(isoLayout().placed).find(p => PLACE_PROPS.has(p.id) && pieceHits[p.id] && spriteHit(pieceHits[p.id].c, pieceHits[p.id].x, pieceHits[p.id].y, x, y))?.id || null;
 /** Things in a place that do something of their own when tapped (the keeper's counter, anvil and map table do the keeper's job). */
 const PROP_TAP = {
