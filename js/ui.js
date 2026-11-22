@@ -962,6 +962,9 @@ function renderLib() {
   }));
   $$("#libGrid [data-hy]").forEach(b => b.addEventListener("click", () => openHybrid(save.creatures.find(c => c.id === Number(b.dataset.hy)))));
   $("toLab")?.addEventListener("click", () => { sfx.tick(); arriveAt("lab"); });
+  // the count stays on the title's line; a page's few words about itself (awards, folk, sparks) go at the top of the page, and scroll away with it
+  const sub = $("libSub").textContent, cut = sub.indexOf(". ");
+  if (cut > 0) { $("libSub").textContent = sub.slice(0, cut); const note = document.createElement("p"); note.className = "lib-note"; note.textContent = sub.slice(cut + 2); $("libGrid").prepend(note); }
 }
 
 // ---------- postcards: a picture of your glowling to send to friends ----------
