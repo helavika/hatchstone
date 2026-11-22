@@ -576,7 +576,8 @@ function computeLayout() {
   L.egg = eggPoly(L.ecx, L.ecy, L.ew, L.eh);
   // the nest leaves room for the name above and the needs, buttons and tabs below
   const compact = true;
-  const nTop = compact ? 98 : 116, nBottom = H - (compact ? 206 : 280);
+  // (the needs row, the gap and the 66px tab bar under it: see --tabbar in style.css)
+  const nTop = compact ? 98 : 116, nBottom = H - (compact ? 166 : 280);
   N.top = nTop;
   N.base = clamp(Math.min(W * 0.18, (nBottom - nTop) * 0.28), 56, 120);
   // the room: a diamond of floor with two walls behind it, like a little diorama

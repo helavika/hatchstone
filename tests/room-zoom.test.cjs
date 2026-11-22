@@ -39,7 +39,7 @@ test('on a phone held upright the floor is bigger, the walls lower and the glowl
 
 test('the close-up room stays between the name row and the needs', () => {
   for (const [w, h, px] of PHONES) {
-    const n = page.size(w, h, px), bottom = h - 206;
+    const n = page.size(w, h, px), bottom = h - 166;
     assert.ok(n.wallTop >= n.top + 30, `${w}: the walls' top ${n.wallTop} under the room's name`);
     assert.ok(n.isoTop + n.isoW <= bottom, `${w}: the floor's front ${n.isoTop + n.isoW} above the needs (${bottom})`);
     assert.ok(n.x0 >= 0 && n.x1 <= w, `${w}: walking room ${n.x0}..${n.x1} on the screen`);
@@ -56,7 +56,7 @@ test('the tunnels stay whole on the screen, rim and all', () => {
 
 test('wider screens and phones on their side keep the room as it was', () => {
   for (const [w, h, px] of [[1280, 800, 2], [844, 390, 1], [768, 1024, 2]]) {
-    const n = page.size(w, h, px), room = h - 206 - 98;
+    const n = page.size(w, h, px), room = h - 166 - 98;
     assert.equal(n.zoom, 1, `${w}x${h}`); assert.equal(n.crop, false, `${w}x${h}`);
     assert.equal(n.isoW, Math.min(w * 0.47, 400, room * 0.9), `${w}x${h}: floor`);
     assert.equal(n.base, n.kbase, `${w}x${h}: glowlings and keepers as before`);
