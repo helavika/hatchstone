@@ -929,21 +929,25 @@ const ISO_PLACES = {
   keepjar: { fw: 1, fd: 1, at: [[2, 5], [5, 3], [0, 4]] },
   bowl: { fw: 1, fd: 1, at: [[1, 5], [5, 1], [3, 5]] },
 };
-/** The arches between home rooms (see roomDoors): where along its wall each stands (0 at the back corner, 1 at the front) and its half width. */
-const DOOR_AT = 0.8, DOOR_W = 0.085;
-/** The floor kept clear at a room's passages: the tiles under each arch and the row in front, so nothing stands in a doorway or hides it. */
+/** The arches between home rooms (see roomDoors): where along its wall each stands (0 at the back corner, 1 at the front) and its half width.
+ *  (in from the front corner far enough to stay whole on a phone held upright, where the room is seen closer and its corners are cut off) */
+const DOOR_AT = 0.74, DOOR_W = 0.07;
+/** The floor kept clear at a room's passages: the tiles under each arch out to the front corner and the row in front, so nothing stands in a doorway or hides it. */
 function doorTiles(room = save.room) {
-  const out = new Set(), s0 = Math.floor((DOOR_AT - DOOR_W) * ISO_G), s1 = Math.ceil((DOOR_AT + DOOR_W) * ISO_G) - 1;
+  const out = new Set(), s0 = Math.floor((DOOR_AT - DOOR_W) * ISO_G), s1 = ISO_G - 1;
   for (const d of roomDoors(room)) for (let s = s0; s <= s1; s++) for (let k = 0; k < 2; k++) out.add(d.wall === "R" ? `${s},${k}` : `${k},${s}`);
   return out;
 }
+/** The side corners' tiles: seen close up on a phone held upright, the screen's edges cut through them, so nothing stands there then
+ *  (a piece put there on a wider screen stands in its own spot meanwhile, and is back in the corner on the wider screen). */
+const ISO_CROP = [`${ISO_G - 1},0`, `0,${ISO_G - 1}`];
 /** Would a piece on these tiles stand in a doorway? */
 function inDoorway(i, j, fw, fd, tiles = doorTiles()) {
   for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) if (tiles.has(`${i + a},${j + b}`)) return true;
   return false;
 }
-/** Would a wall piece in this slot hang over an arch? (they're about a tile and a half wide) */
-const wallInDoor = (wall, s, room = save.room) => Math.abs(s + 0.5 - DOOR_AT * ISO_G) < 0.75 + DOOR_W * ISO_G && roomDoors(room).some(d => d.wall === wall);
+/** Would a wall piece in this slot hang over an arch? (they hang well above its mouth: only the two slots nearest the front corner are its) */
+const wallInDoor = (wall, s, room = save.room) => s + 1 > (DOOR_AT - DOOR_W) * ISO_G + 0.5 && roomDoors(room).some(d => d.wall === wall);
 /** Just inside an arch, on the floor: where you come in. */
 const doorStep = wall => { const m = isoMargin(0.42) + 0.02; return wall === "R" ? isoAt(DOOR_AT, m) : isoAt(m, DOOR_AT); };
 /** Older saves may have pieces standing in what's now a doorway (or one opened up behind them when a room was carved): they go back to their own spots. */
@@ -993,7 +997,7 @@ const pieceDims = (id, flip) => { const f = ISO_FIXED[id] || ISO_PLACES[id]; ret
 let isoLayoutCache = null;
 function isoLayout() {
   const out = Object.keys(ISO_PLACES).filter(hasDecor), mine = save.layout || {};
-  const key = save.room + "|" + roomDoors().map(d => d.wall).join("") + "|" + out.join(",") + JSON.stringify(mine);
+  const key = save.room + "|" + roomDoors().map(d => d.wall).join("") + "|" + (N.crop ? "crop|" : "") + out.join(",") + JSON.stringify(mine);
   if (isoLayoutCache && isoLayoutCache.key === key) return isoLayoutCache;
   const busy = new Set(), placed = {};
   const take = (i, j, fw, fd) => { for (let a = 0; a < fw; a++) for (let b = 0; b < fd; b++) busy.add(`${i + a},${j + b}`); };
@@ -1001,7 +1005,9 @@ function isoLayout() {
   // every tile, nearest a piece's own spot first (ties go to the back of the room)
   const near = ([i0, j0]) => Array.from({ length: ISO_G * ISO_G }, (_, k) => [k % ISO_G, Math.floor(k / ISO_G)]).sort((p, q) => Math.hypot(p[0] - i0, p[1] - j0) - Math.hypot(q[0] - i0, q[1] - j0));
   // the doorways stay open: nothing stands in front of a passage, not even a spot you chose before the passage was there
+  // (and on a phone held upright, the two side corners the screen's edges cut through: see ISO_CROP)
   const doors = doorTiles();
+  if (N.crop) ISO_CROP.forEach(t => doors.add(t));
   doors.forEach(t => busy.add(t));
   const fixed = Object.fromEntries((ROOM_FIXED[save.rooms[save.room]?.kind] || ["bed"]).map(id => [id, ISO_FIXED[id]]));
   const all = [...Object.keys(fixed), ...out];
@@ -3243,7 +3249,7 @@ function arrangeMove(x, y) {
     if (!p) return;
     const [u, v] = isoFrom(x, y), i = Math.round(u * ISO_G - arrange.grab[0]), j = Math.round(v * ISO_G - arrange.grab[1]), flip = autoFlip(id, i, j, p.flip);
     const dd = pieceDims(id, flip);
-    arrange.drag = { id, i, j, flip, ok: pieceFits(id, i, j, flip), door: inDoorway(i, j, dd.fw, dd.fd, isoLayout().doors) };
+    arrange.drag = { id, i, j, flip, ok: pieceFits(id, i, j, flip), door: inDoorway(i, j, dd.fw, dd.fd, doorTiles()) };
   }
 }
 function arrangeUp() {
@@ -4591,7 +4597,7 @@ function paintFixtures(room, { put, d, w, h, at, cx, top, hw, hh, wall, S, seed,
     cluster(...P("L", 0.012, 0, 0.012), 46 * K, 9, 1, 0.05);
     cluster(...P("L", 0.07, 0, 0.008), 24 * K, 5, 3, -0.45);
     cluster(...P("R", 0.07, 0, 0.008), 26 * K, 5, 4, 0.45);
-    for (const [side, s, n, sz] of [["L", 0.22, 6, 30], ["L", 0.5, 4, 20], ["L", 0.96, 5, 26], ["R", 0.28, 5, 24], ["R", 0.62, 6, 32], ["R", 0.96, 4, 22]]) {
+    for (const [side, s, n, sz] of [["L", 0.22, 6, 30], ["L", 0.5, 4, 20], ["L", 0.96, 5, 26], ["R", 0.28, 5, 24], ["R", 0.57, 6, 32], ["R", 0.96, 4, 22]]) {
       if (!clear(s)) continue;
       cluster(...P(side, s, 0, 0.008), sz * K, n, Math.round(s * 100) + (side === "L" ? 0 : 50), side === "L" ? -0.3 : 0.3);
       lightAt(side, s, 8 * K, hw * 0.3, art.glow, 0.7);

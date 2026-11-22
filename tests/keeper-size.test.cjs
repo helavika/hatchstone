@@ -26,7 +26,7 @@ const keepers = read('keepers.js'), nest = read('nest.js');
 vm.runInContext(cut(keepers, 'const KEEPER_NATIVE = {', '\nfunction keeperPixCanvas', 'KEEPER_NATIVE')
   + cut(keepers, 'const keeperCache = {};', '\n/** A keeper\'s full-length', 'keeperCache')
   + '\nconst KEEPER_PIX = {};\n' + cut(nest, 'const keeperSizedCache = {};', '\nfunction drawHero', 'keeperSized')
-  + '\nconst WICK_NATIVE = { ax: 20, seat: 40 }; const wickSeat = () => [200, 300]; let PX = 1; const N = { base: 70.2 };\n'
+  + '\nconst WICK_NATIVE = { ax: 20, seat: 40 }; const wickSeat = () => [200, 300]; let PX = 1; const N = { base: 70.2, kbase: 70.2 };\n'
   + cut(nest, 'function wickBox() {', '\n/** The bench', 'wickBox')
   + '\nthis.KN = KEEPER_NATIVE; this.sized = keeperSized; this.wickBox = wickBox; this.setPX = p => { PX = p; };', page);
 
