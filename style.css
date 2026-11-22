@@ -257,7 +257,7 @@ body.scene-nest #nestBottom > * { pointer-events: auto; }
 body.scene-nest #nestName { pointer-events: auto; }
 /* the arrows to the next rooms sit on the sides of the room, halfway down; the room's name under the glowling's */
 /* the room's or place's name: a small plaque in the HUD's own pixel frame, so it reads over any sky or wall */
-#roomLabel { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 96px); z-index: 2; white-space: nowrap; pointer-events: none; opacity: 0; transition: opacity .4s;
+#roomLabel { position: fixed; left: 50%; transform: translateX(-50%); top: calc(var(--top) + 96px); z-index: 2; white-space: nowrap; text-align: center; pointer-events: none; opacity: 0; transition: opacity .4s;
   padding: 3px 14px 4px; background: var(--px-deep); box-shadow: var(--px-frame), inset 0 2px 0 0 var(--px-raise), inset 0 -2px 0 0 var(--px-ink); }
 .reno-trait { display: block; margin-top: 3px; color: var(--gold, #ffe9a8) !important; }
 #roomLabel b { display: block; font-size: 18px; font-weight: 400; line-height: 1.15; letter-spacing: .5px; color: var(--gold, #ffe9a8); }
@@ -1279,20 +1279,33 @@ body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigte
 .overlay .card:has(> .x-close) > h2:first-of-type { padding: 0 34px; }
 #meSave { margin: 12px auto 0; }
 
-/* a place's keeper and what they do, under the room */
-#placeBar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) + 168px); width: min(100vw - 16px, 520px); z-index: 2; display: flex; flex-direction: column; gap: 8px; }
-#placeBar[hidden] { display: none; }
-.place-who { display: flex; align-items: center; gap: 10px; padding: 6px 10px; }
-.place-who img { width: 52px; height: 52px; image-rendering: pixelated; flex: none; }
-.place-who b { display: block; font-weight: 400; font-size: 20px; color: var(--px-gold); line-height: 1; }
-.place-who small { font-size: 14px; color: var(--soft); }
-#placeActs { display: flex; gap: 8px; align-items: stretch; }
-#placeActs .act { flex: 1; justify-content: center; }
+/* a place's bar under the room, one row: the keeper's face (tap to chat, a little scroll on its corner says so), then what to do there.
+   Who the keeper is sits on the place's plaque up top (#placeWho) */
+#placeBar { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) + 168px); width: min(100vw - 16px, 520px); z-index: 2; display: flex; align-items: stretch; gap: 8px; }
+#placeBar[hidden], #placeWays[hidden], #placeTalk[hidden] { display: none; }
+.place-face { position: relative; flex: none; width: var(--tap); height: var(--tap); min-height: var(--tap); padding: 0 !important; overflow: visible; }
+.place-face img { width: 100%; height: 100%; display: block; image-rendering: pixelated; }
+.place-face .ic { position: absolute; right: -7px; bottom: -7px; width: 18px; height: 18px; margin: 0; filter: drop-shadow(0 2px 0 var(--px-ink)); }
+/* the buttons share the row; one too many for the words, and all but a wish's show just their icons (see placeFit); the row scrolls as a last resort.
+   (the padding keeps the buttons' frames and drop shadows inside the scrolling box) */
+#placeActs { flex: 1 1 0; min-width: 0; display: flex; gap: 8px; align-items: stretch; overflow-x: auto; scrollbar-width: none; overscroll-behavior-x: contain; padding: 3px 3px 9px; margin: -3px -3px -9px; }
+#placeActs::-webkit-scrollbar { display: none; }
+#placeActs .act { flex: 1 1 0; min-width: max-content; justify-content: center; }
+#placeActs .act.give { flex: 2 1 0; min-width: 132px; white-space: normal; line-height: 1.05; text-align: left; }
+#placeActs.tight .act:not(.give) { flex: none; min-width: var(--tap); width: var(--tap); padding: 0 !important; }
+#placeActs.tight .act:not(.give) span { display: none; }
 body.compact #placeBar { bottom: calc(var(--bottom) + 124px); }
-/* the arrows to the next places round the valley: at the screen's edges, just over the bar, in the empty ground by the room's front corners.
-   Quiet signposts, not buttons: a gold pixel chevron and the place's name on a small dark see-through chip with a faint glow,
+/* the keeper on the plaque, under the place's name: who, what they do, the marks of their wishes, and the wish itself once they've said it */
+#placeWho { display: block; font-size: 14px; line-height: 1.1; color: var(--soft); text-align: center; }
+#placeWho[hidden] { display: none; }
+#placeWho .marks { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: -3px; }
+#placeWho .marks .ic { width: 14px; height: 14px; }
+#placeWho .wish { display: block; max-width: calc(100vw - 2 * var(--gutter) - 28px); margin-top: 2px; white-space: normal; color: var(--ink, #efe6ff); }
+/* the arrows to the next places round the valley: at the screen's edges, at the height of the room's side corners (top is set in placeFit),
+   clear of the floor's front. Quiet signposts, not buttons: a gold pixel chevron and the place's name on a small dark see-through chip with a faint glow,
    like the map's name chips. The button itself is a bigger invisible ring (44px tall at least), so the chip can stay small */
-#placeWays { position: absolute; bottom: calc(100% + var(--s1)); left: calc((100% - 100vw) / 2 + var(--gutter) - var(--s2)); width: calc(100vw - 2 * var(--gutter) + 2 * var(--s2)); display: flex; justify-content: space-between; align-items: flex-end; pointer-events: none; }
+#placeWays { position: fixed; z-index: 2; top: 50%; transform: translateY(-50%); left: calc(var(--gutter) - var(--s2)); right: calc(var(--gutter) - var(--s2)); display: flex; justify-content: space-between; align-items: center; pointer-events: none; }
+body:not(.scene-nest) #placeWays, body.arranging #placeWays { display: none; }
 .place-way { position: relative; isolation: isolate; pointer-events: auto; display: flex; align-items: center; gap: var(--s1); max-width: 40vw; min-width: var(--tap); min-height: var(--tap); padding: 0 var(--s4) 0 var(--s2);
   border: 0; cursor: pointer; font: inherit; font-size: 15px; line-height: 1.05; color: var(--ink); background: none; opacity: .8; transition: opacity .2s; }
 .place-way.next { flex-direction: row-reverse; padding: 0 var(--s2) 0 var(--s4); }
@@ -1305,14 +1318,8 @@ body.compact #placeBar { bottom: calc(var(--bottom) + 124px); }
 .place-way:focus-visible { outline: 0; }
 .place-way:focus-visible::before { box-shadow: 0 0 0 2px var(--px-gold), 0 0 12px 2px rgba(238, 194, 106, .3); }
 .place-way:active { transform: translateY(1px); }
-body.compact .place-who img { width: 39px; height: 39px; }
-/* errands: a keeper's marks by the name (lit once a wish is brought), the wish in one quiet line, one clear button when you have it;
+/* errands (the marks and the wish now sit on the plaque, see #placeWho, and the button to bring it at the front of the bar);
    the bed's fourth plot; and the lines of a keeper's own story under their card in the Book */
-.place-who .marks { display: inline-flex; gap: 2px; margin-left: 8px; vertical-align: middle; }
-.place-who .marks .ic { width: 16px; height: 16px; }
-.place-who .wish { display: block; color: var(--ink, #efe6ff); line-height: 1.15; margin-top: 2px; }
-.place-who > span { flex: 1; min-width: 0; }
-.place-who .act.give { display: flex; width: calc(100% - 8px); margin: 6px 4px 3px; padding: 7px 6px; font-size: 16px; white-space: normal; line-height: 1.1; }
 .plots.four { grid-template-columns: repeat(4, 1fr); gap: 6px; }
 .plots.four .plot { padding: 8px 2px; }
 @media (max-width: 540px) {
@@ -1386,7 +1393,6 @@ body.compact .place-who img { width: 39px; height: 39px; }
 #worldMap.far .wplace.pin .wbanner .ic { width: 21px; height: 21px; }
 #worldMap { --k: 3; }
 #worldMap.far .wplace.call .wbanner::after { width: 12px; height: 12px; font-size: 10px; transform: translate(85%, -75%); }
-.place-who img.small { padding: 8px; box-sizing: border-box; }
 #placeActs .act { font-size: 16px; padding-left: 4px; padding-right: 4px; }
 .wplace.mystery .wbanner { background: rgba(10, 6, 20, .7); color: var(--soft); }
 .wplace.mystery .wbanner b { font-size: 14px; }
@@ -1517,9 +1523,9 @@ body.compact .place-who img { width: 39px; height: 39px; }
 #nestBottom .acts .act:not(#residentsBtn) { flex: 1 1 0; min-height: var(--tap); }
 .need { padding: 0 var(--pad-btn); }
 #placeBar { width: min(100vw - 2 * var(--gutter), var(--bar-w)); gap: var(--gap); }
-.place-who { gap: var(--s3); padding: var(--s2) var(--pad-btn); }
 #placeActs { gap: var(--gap); }
-#placeActs .act { flex: 1 1 0; min-width: 0; min-height: var(--tap); padding: 0 var(--s2); }
+#placeActs .act { min-height: var(--tap); padding: 0 var(--s2); }
+#placeActs .act.give { padding: 0 var(--s3); }
 #tabs { width: min(100vw - 2 * var(--gutter), var(--bar-w)) !important; padding: var(--s2) !important; }
 /* sheets: the same margin round the card, the same margin inside it, titles and section heads on the scale */
 .overlay.modal, body.compact .overlay.modal { padding: max(var(--gutter), env(safe-area-inset-top)) var(--gutter) max(var(--gutter), env(safe-area-inset-bottom)); }
@@ -1568,3 +1574,35 @@ h3, .forge-h { margin: var(--s5) 0 var(--s3); }
 #worldStrip { width: min(100vw - 2 * var(--gutter), var(--bar-w)); }
 /* on big screens the sheet's margin grows a step, like the cards do */
 @media (min-width: 900px) and (min-height: 760px) { :root { --pad-card: var(--s6); } }
+
+/* ---------- the Book, compact: the title and the count on one line, all seven tabs in one row of icons with a tiny name under each,
+   and cards about 130px tall, three to a row from the narrowest phone up (the picture, the name and the rarity close together) ---------- */
+#lib .lib-head { display: flex; align-items: center; gap: var(--s3); margin: 0 0 var(--s3); padding: 0 var(--s1); }
+#lib .lib-head h2 { flex: none; margin: 0; font-size: 26px; line-height: 1; }
+#lib .lib-head .sub { flex: 1 1 0; min-width: 0; margin: 0; font-size: 14px; line-height: 1.1; text-align: right;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+/* (the row reaches out over the card's margin, so the seven tabs are each a fingertip wide even on a 360px phone) */
+#lib .seg { display: flex; width: auto; max-width: none; margin: 0 calc(var(--s1) - var(--pad-card)); gap: 0; padding: 2px; overflow: hidden; }
+#lib .seg button { flex: 1 1 0; min-width: 0; min-height: var(--tap); gap: 1px; padding: var(--s1) 0 2px; font-size: 11px; line-height: 1; overflow: hidden; justify-content: center; }
+#lib .seg button .ic { width: 22px; height: 22px; }
+#libGrid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); padding: var(--s3) 0 var(--s1); }
+#libGrid button { padding: var(--s1) var(--s1) 4px; }
+#libGrid .no { top: var(--s2); left: var(--s2); right: auto; z-index: 1; font-size: 9px; line-height: 1; padding: 1px 2px; background: rgba(22, 12, 38, .7); }
+#libGrid .pg { margin: 0 0 var(--s1); padding: 2px; }
+#libGrid .pg img { height: 56px; }
+#libGrid .pg img.lib-px, #libGrid .pg img.lib-px.px2 { width: 64px; height: 64px; }
+#libGrid .pg img.spark-px { width: 96px; height: 56px; }
+#libGrid b { font-size: 16px; padding: 0 2px; line-height: 1; }
+#libGrid small { font-size: 12px; padding-top: 2px; line-height: 1; letter-spacing: .5px; }
+/* a page not found yet: the "?" on its picture says so, so the card skips the "???" and has room for where to look */
+#libGrid .unk:has(small.home) b { display: none; }
+#libGrid small.home { font-size: 12px; line-height: 1; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+#libGrid .spark-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s2); }
+/* (a page with a note is a list, not cards: its rows keep their own heights) */
+#libGrid:has(> .lib-note) { grid-auto-rows: auto; }
+#libGrid .lib-note { grid-column: 1 / -1; margin: 0 var(--s1) var(--s1); font-size: 14px; line-height: 1.15; color: var(--soft); text-align: left; }
+@media (min-width: 560px) {
+  #libGrid, #libGrid .spark-grid { grid-template-columns: repeat(auto-fill, minmax(112px, 1fr)); }
+  #lib .seg button { font-size: 13px; }
+  #lib .seg button .ic { width: 24px; height: 24px; }
+}

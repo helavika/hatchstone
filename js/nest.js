@@ -1876,31 +1876,52 @@ function tapHero(auto = false) {
   game.hero = { t: game.time, line, room: save.room, curl, startle: h.quirk === "startle" };
   persist(); renderPlaceBar();
 }
-/** The bar under a place: who runs it, and the one thing to do there. */
+/** The bar under a place, one row: the keeper's face (tap it to chat) and the things to do there. Who they are, what they do and
+ *  the marks of their wishes sit under the place's name on its plaque, so the bar never grows over the room. */
 function renderPlaceBar() {
   const h = isPlace() && heroHere(), bar = $("placeBar");
   bar.hidden = !h || game.scene !== "nest";
+  $("placeWays").hidden = bar.hidden; $("placeWho").hidden = !h;
   if (!h) return;
   $("placeFace").src = h.none ? pxIcon(h.icon) : keeperFace(h.icon); $("placeFace").classList.toggle("small", !!h.none);
+  // (a place without a keeper, the grotto, has no face to tap: its buttons take the whole row)
+  $("placeTalk").hidden = !!h.none;
+  $("placeTalk").setAttribute("aria-label", `${tr("Chat")}: ${tr(h.who.name)}`); $("placeTalk").title = tr("Chat");
   // a keeper with wishes: a mark by the name for each one, lit once it's brought; the wish itself in one quiet line once they've said it,
-  // and, when you have what they asked for, one clear button in that line's place (so the bar never grows over the room)
+  // and, when you have what they asked for, one clear button at the front of the row
   const kind = save.rooms[save.room].kind, n = (h.asks || []).length, lit = Math.min(bondOf(kind), n), a = wishTold(kind) ? wishOf(kind) : null;
-  $("placeWho").innerHTML = tr(h.who.name) + (n ? `<span class="marks" role="img" aria-label="${lit}/${n}">${h.asks.map((_, k) => ic(h.mark || "sparkle", k < lit ? "" : "off")).join("")}</span>` : "");
-  // a helper just tapped: the way to bring it home takes that line's place a while (one clear button, as for a wish)
+  $("placeWho").innerHTML = (h.none ? tr(h.role) : `${tr(h.who.name)} · ${tr(h.role)}`)
+    + (n ? `<span class="marks" role="img" aria-label="${lit}/${n}">${h.asks.map((_, k) => ic(h.mark || "sparkle", k < lit ? "" : "off")).join("")}</span>` : "")
+    + (a && !a.have() ? `<span class="wish">${tr(a.wish)}</span>` : "");
+  // a helper just tapped: the way to bring it home takes that place a while (one clear button, as for a wish)
   const ht = game.helpTap && game.helpTap.room === save.room && save.creatures.find(c => c.id === game.helpTap.id && c.job);
-  $("placeRole").innerHTML = ht ? `<button class="act give" id="placeHelperHome">${ic("nest")}${tr("Bring {0} home", ht.name)}</button>`
-    : a && a.have() ? `<button class="act buy give" id="placeGive">${ic(h.mark || "sparkle")}${tr(a.btn)}</button>` : tr(h.role) + (a ? `<span class="wish">${tr(a.wish)}</span>` : "");
-  $("placeHelperHome")?.addEventListener("click", () => { if (helperHome(ht.id)) renderPlaceBar(); });
-  $("placeActs").innerHTML = h.act.map(([icon, name], k) => `<button class="act buy" data-act="${k}">${ic(icon)}${tr(name)}</button>`).join("")
-    + (h.none ? "" : `<button class="act" id="placeTalk">${ic("scroll")}${tr("Chat")}</button>`);
+  const give = ht ? `<button class="act give" id="placeHelperHome">${ic("nest")}<span>${tr("Bring {0} home", ht.name)}</span></button>`
+    : a && a.have() ? `<button class="act buy give" id="placeGive">${ic(h.mark || "sparkle")}<span>${tr(a.btn)}</span></button>` : "";
+  $("placeActs").innerHTML = give + h.act.map(([icon, name], k) => `<button class="act buy" data-act="${k}" aria-label="${tr(name)}" title="${tr(name)}">${ic(icon)}<span>${tr(name)}</span></button>`).join("");
   $$("#placeActs [data-act]").forEach(b => b.addEventListener("click", () => { sfx.tick(); h.act[Number(b.dataset.act)][2](); }));
-  $("placeTalk")?.addEventListener("click", () => tapHero());
+  $("placeHelperHome")?.addEventListener("click", () => { if (helperHome(ht.id)) renderPlaceBar(); });
   $("placeGive")?.addEventListener("click", bringWish);
-  // the arrows at the screen's edges, to the places either side round the valley, each with its name under it
+  // the arrows at the screen's edges, to the places either side round the valley, each with its name by it
   const ways = ringWays(wherePlace());
   $("placeWays").innerHTML = [["prev", "left"], ["next", "right"]].map(([k, icon]) => ways[k] ? `<button class="place-way ${k}" data-way-to="${ways[k]}" aria-label="${tr(k === "prev" ? "Previous place: {0}" : "Next place: {0}", tr(WORLD.find(w => w.id === ways[k]).name))}">${ic(icon)}<small>${tr(WORLD.find(w => w.id === ways[k]).name)}</small></button>` : "<span></span>").join("");
   $$("#placeWays [data-way-to]").forEach(b => b.addEventListener("click", () => goWay(b.dataset.wayTo)));
+  placeFit();
 }
+/**
+ * Fit the bar to the screen: the arrows stand at the height of the room's side corners (where its floor meets the screen's edges,
+ * clear of the floor's front), and when the buttons' words don't fit in one row, all but a wish's button show just their icons.
+ */
+function placeFit() {
+  const bar = $("placeBar"), row = $("placeActs");
+  if (bar.hidden) return;
+  const [, y] = isoAt(0, 1), top = bar.getBoundingClientRect().top;
+  $("placeWays").style.top = Math.round(clamp(y, N.top + 60, top - 30)) + "px";
+  row.classList.remove("tight");
+  if (row.scrollWidth > row.clientWidth + 1) row.classList.add("tight");
+}
+addEventListener("resize", () => requestAnimationFrame(placeFit));
+// the keeper's face in the bar: tap it to chat
+$("placeTalk").addEventListener("click", () => tapHero());
 /** Arriving at a place: its keeper says hello. */
 function arriveAt(kind) {
   game.helpTap = null;

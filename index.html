@@ -180,7 +180,7 @@
   <div id="nestLvl"></div>
   <div class="bar" id="xpBar"><i></i></div>
 </div>
-<div id="roomLabel" hidden><b id="roomName"></b></div>
+<div id="roomLabel" hidden><b id="roomName"></b><small id="placeWho" hidden></small></div>
 <div id="nestEmpty" hidden>
   <div class="card glass dark">
     <h2>Your nest is empty</h2>
@@ -189,10 +189,10 @@
   </div>
 </div>
 <div id="placeBar" hidden>
-  <div class="place-who glass"><img id="placeFace" alt=""><span><b id="placeWho"></b><small id="placeRole"></small></span></div>
+  <button class="act place-face" id="placeTalk"><img id="placeFace" alt=""><i class="ic" data-ic="scroll"></i></button>
   <div class="place-acts" id="placeActs"></div>
-  <nav id="placeWays"></nav>
 </div>
+<nav id="placeWays" hidden></nav>
 <div id="nestBottom">
   <div class="needs glass">
     <div class="need"><label>Tummy <span id="vTummy"></span></label><div class="hearts" id="bTummy" data-need="cookie"></div></div>
@@ -455,10 +455,8 @@
 
 <div id="lib" class="overlay screen hidden">
   <div class="card glass dark wide">
-    <h2>Glowpedia</h2>
-    <div class="orn" aria-hidden="true"></div>
-    <p class="sub" id="libSub"></p>
-    <div class="seg" id="libTabs" role="tablist" aria-label="Glowpedia"><button data-lib="sp" role="tab" class="on"><i class="ic" data-ic="glowling"></i>Glowlings</button><button data-lib="cr" role="tab"><i class="ic" data-ic="egg"></i>Geodes</button><button data-lib="hy" role="tab"><i class="ic" data-ic="flask"></i>Hybrids</button><button data-lib="fk" role="tab"><i class="ic" data-ic="folk"></i>Folk</button><button data-lib="sk" role="tab"><i class="ic" data-ic="sparkle"></i>Sparks</button><button data-lib="st" role="tab"><i class="ic" data-ic="scroll"></i>Story</button><button data-lib="aw" role="tab"><i class="ic" data-ic="trophy_legendary"></i>Awards</button></div>
+    <div class="lib-head"><h2>Glowpedia</h2><p class="sub" id="libSub"></p></div>
+    <div class="seg" id="libTabs" role="tablist" aria-label="Glowpedia"><button data-lib="sp" role="tab" title="Glowlings" class="on"><i class="ic" data-ic="glowling"></i>Glowlings</button><button data-lib="cr" role="tab" title="Geodes"><i class="ic" data-ic="egg"></i>Geodes</button><button data-lib="hy" role="tab" title="Hybrids"><i class="ic" data-ic="flask"></i>Hybrids</button><button data-lib="fk" role="tab" title="Folk"><i class="ic" data-ic="folk"></i>Folk</button><button data-lib="sk" role="tab" title="Sparks"><i class="ic" data-ic="sparkle"></i>Sparks</button><button data-lib="st" role="tab" title="Story"><i class="ic" data-ic="scroll"></i>Story</button><button data-lib="aw" role="tab" title="Awards"><i class="ic" data-ic="trophy_legendary"></i>Awards</button></div>
     <div class="scroll"><div id="libGrid"></div></div>
   </div>
 </div>
