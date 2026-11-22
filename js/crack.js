@@ -1411,6 +1411,15 @@ function foundExtras(conf) {
   $("foundMore").setAttribute("aria-expanded", "false");
   $("foundExtra").hidden = true;
 }
+/** The tale under the name folds to two lines, with a small "more" to open it (only when there is more), so the card's
+ *  buttons stay in view on a small phone. */
+function foldLore(open = false) {
+  const t = $("foundTale"), b = $("loreMore");
+  t.classList.toggle("clamp", !open);
+  b.textContent = tr(open ? "less" : "more");
+  b.setAttribute("aria-expanded", String(open));
+  b.hidden = !open && t.scrollHeight <= t.clientHeight + 1;
+}
 function showFound() {
   const e = game.egg, sp = e.species, conf = e.conf, cry = e.crystal;
   if (conf.coop && e.coopRewarded) return;
@@ -1462,6 +1471,7 @@ function showFound() {
   $("foundRarity").className = `rarity r-${rarityOf(sp)}`;
   $("foundLore").textContent = sp.lore;
   $("foundFact").textContent = `💎 ${cry.fact}`;
+  foldLore();
   $("foundNote").textContent = (conf.coop ? tr("Shared egg · ") : "") + note + (conf.moon ? moonNote() : "") + (rubble ? tr(" · {0} in the rubble", barName(rubble)) : "") + (fleck ? tr(" · a pinch of magic dust under the frost ✨") : "") + buddyNote(e.buddy);
   $("stShine").textContent = Math.round(shine * 100) + "%";
   // aim, and on a line of its own the mark of the next star up (of the third, once it is earned)

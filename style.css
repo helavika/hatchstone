@@ -17,6 +17,7 @@
   --pad-card: var(--s5);   /* a sheet's inner margin */
   --pad-btn: var(--s4);    /* a button's sides */
   --tap: 44px;             /* every button's height: the floor a fingertip needs */
+  --tabbar: 66px;          /* the tab bar's height (Crack stands a little above it); whatever sits over the bar leaves this much and a --s4 */
   --bar-w: 520px;          /* the bars at the bottom (needs, a keeper's buttons, the tabs) all one width */
   --btn-w: 276px;          /* a stack of big buttons (the found card's) all one width */
 }
@@ -340,15 +341,15 @@ body.scene-walk #walkHud:not(.done) { opacity: 1; }
 #walkQuit { position: absolute; left: 14px; top: var(--top); }
 body.scene-walk #walkHud:not(.done) #walkQuit { pointer-events: auto; }
 body:not(.scene-walk) #walkQuit { visibility: hidden; }
-#walkPad { position: fixed; inset: auto 0 calc(var(--bottom) + 84px) 0; display: flex; justify-content: space-between; padding: 0 16px; pointer-events: none; opacity: 0; transition: opacity .4s; z-index: 2; }
+#walkPad { position: fixed; inset: auto 0 var(--bottom) 0; display: flex; justify-content: space-between; padding: 0 16px; pointer-events: none; opacity: 0; transition: opacity .4s; z-index: 2; }
 body.scene-walk #walkPad:not(.done) { opacity: 1; }
 body.scene-walk #walkPad:not(.done) button { pointer-events: auto; }
 #walkPad button { pointer-events: none; width: 60px; height: 60px; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
 #walkPad .ic { width: 28px; height: 28px; }
 #walkBag { display: flex; align-items: center; gap: 2px; }
 #walkBag .ic { width: 22px; height: 22px; margin-right: 2px; }
-/* (above the walk pad, a little clear of it: the pad is 60px tall, 84px up) */
-body.scene-walk #hint { bottom: calc(var(--bottom) + 156px); }
+/* (the walk has no tabs: the pad sits down in the thumbs' reach, and the hint up in the banners' slot under the HUD, off the ground) */
+body.scene-walk #hint { bottom: auto; top: var(--lane); }
 .walk-who button.on { box-shadow: 0 0 0 2px var(--px-gold, #eec26a); background: rgba(255, 233, 168, .12); }
 .card-pic { display: block; width: min(62vw, 252px, calc((100dvh - 330px) * .8)); aspect-ratio: 4 / 5; margin: 6px auto 4px; image-rendering: pixelated; box-shadow: var(--px-frame); }
 #cardOpts .opt-toggle { margin: 8px 0 4px; }
@@ -1065,6 +1066,8 @@ body:not(.scene-nest) #homePill { display: none; }
 /* layers, bottom to top: canvas (0), canvas text (1), the nest's own panels (2), hint and tabs (3), top bar (4), cards (5), toasts (8), dialogs (9) */
 #nestTop, #nestBottom, #catchHud { z-index: 2; }
 #toast { z-index: 8; }
+/* over an open sheet (see placeBanner): one line, a size smaller, under the sheet's header; held, it still stays to be read */
+#toast.insheet { font-size: 16px; padding: var(--s2) var(--s4); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: calc(100vw - 2 * var(--gutter)); }
 /* the nest header: one quiet line (name, level, a thin bar), so the room isn't crowded from above */
 #nestTop { display: flex; align-items: center; justify-content: center; gap: 8px; top: calc(var(--top) + 56px) !important; }
 #nestTop #nestName { font-size: 26px; text-shadow: 0 2px 0 var(--px-ink); }
@@ -1075,7 +1078,7 @@ body:not(.scene-nest) #homePill { display: none; }
 /* in the nest the banners' slot sits lower, under the name and the level: the hint lives in it too, and steps aside for a banner */
 body.scene-nest { --lane: calc(var(--top) + 92px); }
 body.scene-nest #hint, body.compact.scene-nest #hint { top: var(--lane) !important; }
-body.banner.scene-nest #hint, body.banner.scene-catch #hint, body.banner.scene-echo #hint { opacity: 0; }
+body.banner.scene-nest #hint, body.banner.scene-catch #hint, body.banner.scene-echo #hint, body.banner.scene-walk #hint { opacity: 0; }
 body.compact #nestTop #nestName { font-size: 22px; }
 body.compact #nestTop { top: calc(var(--top) + 54px) !important; }
 .switch-wrap { display: flex; align-items: center; gap: 4px; max-width: min(460px, 100%); }
@@ -1173,7 +1176,9 @@ body.compact #tabs button.on { transform: translateY(-4px); }
 body.compact #crackTab { transform: translateY(-9px); padding: 5px 2px !important; font-size: 16px !important; }
 body.compact #crackTab .ic { width: 28px !important; height: 28px !important; }
 body.compact #crackTab small { font-size: 11px; }
-body.compact .overlay.screen { padding-bottom: calc(var(--bottom) + 84px); }
+body.compact .overlay.screen { padding-bottom: calc(var(--bottom) + var(--tabbar) + var(--s4)); }
+/* a screen's card (the Book) keeps its top where it was, tucked a little under the top bar, and runs down to a --s4 over the tabs */
+body.compact .overlay.screen:not(.modal) .card.wide { align-self: end; max-height: calc(100dvh - var(--top) - 33px - var(--bottom) - var(--tabbar) - var(--s4)); }
 /* the found card keeps its buttons in view, at the bottom of the card; the rest scrolls above them */
 #found .found-actions { padding-top: 4px; }
 body.compact #found { padding-top: calc(var(--top) + 58px); place-items: start center; }
@@ -1213,12 +1218,14 @@ body.narrow #startCorner .pill { height: 34px; width: 34px; }
 body.narrow h1 { font-size: 50px; }
 
 /* the bottom bar, last word: two tabs, the Crack button standing up in the middle, two tabs; small dots for news */
-#tabs { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) 84px repeat(2, minmax(0, 1fr)); gap: 2px !important; width: min(100vw - 12px, 560px) !important; padding: 5px !important; align-items: stretch; }
-#tabs button { flex: none !important; min-width: 0; padding: 7px 0 6px !important; font-size: 13px !important; line-height: 1.1; white-space: nowrap; overflow: visible; }
-#tabs button .ic { width: 26px !important; height: 26px !important; margin: 0 0 2px !important; }
-#tabs #crackTab { transform: translateY(-16px) !important; padding: 8px 0 6px !important; font-size: 15px !important; }
-#tabs #crackTab .ic { width: 38px !important; height: 38px !important; }
-#tabs #crackTab:active { transform: translateY(-13px) !important; }
+#tabs { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) 84px repeat(2, minmax(0, 1fr)); gap: 2px !important; width: min(100vw - 12px, 560px) !important; padding: 5px !important; align-items: stretch; height: var(--tabbar); }
+#tabs button { flex: none !important; min-width: 0; justify-content: center; padding: 0 !important; font-size: 13px !important; line-height: 1.1; white-space: nowrap; overflow: visible; }
+#tabs button .ic { width: 24px !important; height: 24px !important; margin: 0 0 2px !important; }
+/* Crack stands a --s4 taller than its row (the negative margin), so it rises above the bar without making the bar taller */
+#tabs #crackTab { transform: none !important; margin-top: calc(-1 * var(--s4)); padding: 0 !important; font-size: 15px !important; }
+#tabs #crackTab .ic { width: 30px !important; height: 30px !important; margin-bottom: 0 !important; }
+#tabs #crackTab small { font-size: 11px; }
+#tabs #crackTab:active { transform: translateY(var(--s1)) !important; }
 #tabs #worldTab.on, #tabs #decorBtn.on { background: var(--px-raise) !important; color: #ffe9a8 !important; box-shadow: inset 0 0 0 2px var(--px-edge) !important; }
 #tabs #worldTab.on::before { content: ""; position: absolute; left: 30%; right: 30%; bottom: 2px; height: 3px; background: var(--px-gold); }
 /* one row above the bar: the three needs and the glowlings cell */
@@ -1228,7 +1235,7 @@ body.narrow h1 { font-size: 50px; }
 #residentsBtn b { font-weight: 400; color: #ffe9a8; font-size: 15px; }
 #residentsBtn small { font-size: 12px; color: var(--soft); }
 #residentsBtn .mood { position: absolute; left: 26px; top: 1px; }
-#nestBottom { bottom: calc(var(--bottom) + 118px) !important; }
+#nestBottom { bottom: calc(var(--bottom) + var(--tabbar) + var(--s4)) !important; }
 #nestBottom .acts { gap: 5px !important; max-width: calc(100vw - 16px); }
 #nestBottom .acts .act { min-width: 0; }
 body.phone #nestBottom .acts .act { padding-left: 4px !important; padding-right: 4px !important; font-size: 15px !important; gap: 4px !important; }
@@ -1288,7 +1295,7 @@ body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigte
 .place-who small { font-size: 14px; color: var(--soft); }
 #placeActs { display: flex; gap: 8px; align-items: stretch; }
 #placeActs .act { flex: 1; justify-content: center; }
-body.compact #placeBar { bottom: calc(var(--bottom) + 124px); }
+body.compact #placeBar { bottom: calc(var(--bottom) + var(--tabbar) + var(--s4)); }
 /* the arrows to the next places round the valley: at the screen's edges, just over the bar, in the empty ground by the room's front corners.
    Quiet signposts, not buttons: a gold pixel chevron and the place's name on a small dark see-through chip with a faint glow,
    like the map's name chips. The button itself is a bigger invisible ring (44px tall at least), so the chip can stay small */
@@ -1331,7 +1338,7 @@ body.compact .place-who img { width: 39px; height: 39px; }
 #worldScroll::-webkit-scrollbar { display: none; }
 #worldScroll.panning, #worldScroll.panning * { cursor: grabbing; }
 /* (room is left under the map for the strip: the stones in hand and a lock's hint) */
-#worldMap { position: relative; margin: calc(var(--top) + 64px) auto calc(var(--bottom) + 148px); }
+#worldMap { position: relative; margin: calc(var(--top) + 64px) auto calc(var(--bottom) + var(--tabbar) + var(--s4) + 43px); }
 #worldMap img { pointer-events: none; }
 #worldCv { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; box-shadow: var(--px-frame); }
 #worldClose { position: fixed; top: calc(var(--top) + 66px); right: 12px; z-index: 3; }
@@ -1397,7 +1404,7 @@ body.compact .place-who img { width: 39px; height: 39px; }
 .wward { position: absolute; transform: translate(-50%, -50%); width: calc(var(--k) * 12px); height: calc(var(--k) * 12px); min-width: 30px; min-height: 30px; border: 0; padding: 0; background: none; cursor: pointer; border-radius: 50%; z-index: 1; }
 .wward:focus-visible { outline: 2px solid var(--px-gold); }
 /* the strip under the map, over the tabs (so clear of the safe area): the stones in hand, and the hint of the lock that was tapped */
-#worldStrip { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) + 105px); z-index: 3; width: min(100vw - 16px, 470px); min-height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 10px; color: var(--soft); background: rgba(22, 12, 38, .94); box-shadow: var(--px-frame); }
+#worldStrip { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(var(--bottom) + var(--tabbar) + var(--s4)); z-index: 3; width: min(100vw - 16px, 470px); min-height: 36px; display: flex; align-items: center; gap: 10px; padding: 0 10px; color: var(--soft); background: rgba(22, 12, 38, .94); box-shadow: var(--px-frame); }
 #worldStrip:not(:has(#wardHand:not([hidden]), #worldHint:not(:empty))) { display: none; }
 #worldHint { flex: 1; min-width: 0; margin: 0; padding: 5px 0; display: flex; align-items: center; gap: 6px; font-size: 15px; line-height: 1.1; }
 #worldHint:empty { display: none; }
@@ -1568,3 +1575,23 @@ h3, .forge-h { margin: var(--s5) 0 var(--s3); }
 #worldStrip { width: min(100vw - 2 * var(--gutter), var(--bar-w)); }
 /* on big screens the sheet's margin grows a step, like the cards do */
 @media (min-width: 900px) and (min-height: 760px) { :root { --pad-card: var(--s6); } }
+/* the snack sheet on a small phone: the title and the line under it one line each, and every row a name and a line, so a
+   screen holds as many rows as it can (what's cut short is said again on the row: the favourite has its ♥) */
+#snacks .card > h2 { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: min(34px, 7.4vw); }
+#snackSub { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#snackList .snack > .em, #snackList .snack > .cost { flex: none; }
+#snackList .snack > span:not(.em, .cost) { flex: 1 1 0; min-width: 0; }
+#snackList .snack b, #snackList .snack small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+@media (max-width: 400px) { #snackList .snack { gap: var(--s3); } #snackList .snack b { font-size: 17px; } #snackList .snack small { font-size: 14px; } }
+/* the found card on a small phone: the stars beside the heading, a smaller plate, the tale folded to two lines (see foldLore) */
+#found #foundHead, #found #stars { display: inline-block; vertical-align: middle; margin: 0; }
+#found #stars { margin-left: var(--s3); font-size: 22px; letter-spacing: 2px; line-height: 1; }
+#found #stars.step { font-size: 18px; letter-spacing: 1px; }
+body.compact #found .plate { padding: var(--s2); margin: var(--s2) auto var(--s1); }
+body.compact #found .plate #foundImg { height: 78px; padding: var(--s1) var(--s3); }
+#found .tale.clamp { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden; }
+#found .tale.clamp p { display: inline; }
+#found .tale.clamp .fact::before { content: " "; }
+/* (a fingertip tall, but it gives back most of that to the lines around it) */
+#found #loreMore { display: block; min-width: 0; min-height: var(--tap); margin: calc(-1 * var(--s4)) auto calc(-1 * var(--s3)); border: 0; padding: 0 var(--s4); background: none !important; box-shadow: none !important; color: var(--soft); font-size: 16px; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+#found #loreMore[hidden] { display: none; }
