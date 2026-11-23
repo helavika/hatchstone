@@ -1156,6 +1156,7 @@ function drawNest() {
   drawGloomOver();
   if (isPlace()) drawPlaceLife();
   drawBubbles();
+  drawCareOver();
   for (const sn of [game.nest.snack, ...(game.nest.drops || [])]) {
     if (!sn) continue;
     fx.font = `${Math.round(N.base * 0.32)}px system-ui`; fx.textAlign = "center";
@@ -1244,10 +1245,10 @@ function actorLook(a, cr) {
   if (game.seek && game.seek.id === a.id && game.seek.phase === "count") return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood: "asleep", hop: 0, t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 };
   // near the Gloom's shadows a glowling dims and looks worried; shining with your light, it brightens and cheers up (see updateGloom)
   const gk = asleep ? 0 : a.gloomK || 0, lit = a.gloomLit || 0;
-  const mood = asleep ? "asleep" : petted(a) ? "joy" : a.state === "dance" || a.state === "visit" || a.state === "bath" || lit > 0.5 || (a.emote && (a.emote.text === "♥" || KAO_GLAD.includes(kaoNamed(a.emote.text)))) ? "happy" : gk > 0.35 ? "sad" : moodOf(cr);
+  const mood = asleep ? "asleep" : petted(a) ? "joy" : a.cmMood ? a.cmMood : a.state === "dance" || a.state === "visit" || a.state === "bath" || lit > 0.5 || (a.emote && (a.emote.text === "♥" || KAO_GLAD.includes(kaoNamed(a.emote.text)))) ? "happy" : gk > 0.35 ? "sad" : moodOf(cr);
   // only a truly tired one (not just a bit low) looks sleepy-eyed; a little moment's face while it rests; older ones hop lower
   return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, cap: a.state === "sleep", hop: a.hop, hopK: calmOf(cr.level).hop * 0.75, eating: a.state === "eat", t: game.time + a.id * 997, glowK: (mine ? 0.7 : 0.35) * (1 - gk * 0.7) + lit * 0.7,
-    tired: cr.energy < 12, face: faceNow(a), dim: gk * 0.6 * (1 - lit) };
+    tired: cr.energy < 12, face: a.cmFace || faceNow(a), dim: gk * 0.6 * (1 - lit) };
 }
 
 function drawActor(a) {
@@ -1265,8 +1266,12 @@ function drawActor(a) {
       ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.5, v.size * 0.13, 0, 0, TAU); ctx.stroke();
     }
     const asleep = a.state === "sleep" || a.state === "nap";
+    // (squished in a hug: wider and lower, about its feet)
+    if (a.squish) { const fy = a.y - (a.perch || 0); ctx.save(); ctx.translate(v.x, fy); ctx.scale(1 + a.squish, 1 - a.squish); ctx.translate(-v.x, -fy); }
     drawSprite(v.x, v.y, v.size, sp, actorLook(a, cr));
+    if (a.squish) ctx.restore();
     if (wet) springFront();
+    drawCareProps(a, v);
     if (asleep) {
       fx.font = `400 ${Math.round(Math.max(14, v.size * 0.2))}px ${PIXEL_FONT}`;
       fx.fillStyle = "#d2bfff";

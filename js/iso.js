@@ -155,7 +155,8 @@ function syncActors() {
 /** Where a glowling is drawn: its center and size (smaller further back in the room). */
 function actorView(a) {
   const k = depth(a.y), size = N.base * k;
-  return { x: a.x + (a.shake ? Math.sin(game.time * 0.045) * a.shake * size * 0.08 : 0), y: a.y - size * 0.45 - a.alt - (a.perch || 0), size, k };
+  // (lean and dip: a care moment's offsets, see careTick)
+  return { x: a.x + (a.lean || 0) + (a.shake ? Math.sin(game.time * 0.045) * a.shake * size * 0.08 : 0), y: a.y - size * 0.45 - a.alt - (a.perch || 0) + (a.dip || 0), size, k };
 }
 
 /** How low a tummy must be for a glowling to come running when someone else is fed. */
@@ -270,39 +271,25 @@ function chooseNext(a, list) {
   a.state = "walk";
   if (b === "flutter" && Math.random() < 0.4) emote(a, "✦", 1);
 }
-/** A grown one sees a little one in need (careFor in nest.js): now and then it walks over to look after it. */
-function careNext(a, cr, list) {
-  const c = careFor(cr), f = c && Math.random() < 0.35 && list.find(o => o.id === c.id && o.state !== "sleep" && o.state !== "toBed");
+/** A grown one sees a little one in need (careFor in nest.js), or, with nobody in need, now and then one to brush (groomFor):
+ *  it goes to look after it (what happens then: the care moments, after meetFriend). One moment in a room at a time. sure:
+ *  no dice (a little one has waited CARE_SOON for someone to notice it: see careDue). */
+function careNext(a, cr, list, sure = false) {
+  const need = careFor(cr), groom = !need && groomFor(cr), c = need || (groom && Math.random() < 0.15 ? groom : null);
+  if (!c || careBusy()) return false;
+  const f = (sure || careDue() || Math.random() < 0.35) && list.find(o => o.id === c.id && !["sleep", "toBed", "eat", "care"].includes(o.state));
   if (!f) return false;
-  a.care = f.id; a.careTry = 0; a.friend = a.goal = null;
-  careAim(a, f);
+  careStart(a, f, need ? careKind(c) : "groom");
   return true;
 }
 // (just outside the little one's personal space, or the gentle push apart would keep it from ever arriving)
 // (and the little one sees it coming, and waits)
 const careAim = (a, f) => {
   if (f.state === "idle" || f.state === "walk") { f.state = "idle"; f.t = Math.max(f.t || 0, 9); f.goal = f.friend = f.care = f.plan = null; f.tx = f.x; f.ty = f.y; }
-  a.state = "walk"; a.tx = clamp(f.x + (a.x < f.x ? -1 : 1) * N.base * 1.1, N.x0, N.x1); a.ty = f.y;
+  // (its own side first, the other one if that's up on the bed or off the floor)
+  const side = a.x < f.x ? -1 : 1, at = k => clamp(f.x + k * N.base * 1.1, N.x0, N.x1), ok = k => !isoOnBed(at(k), f.y) && Math.abs(at(k) - f.x) > N.base;
+  a.state = "walk"; a.tx = at(ok(side) || !ok(-side) ? side : -side); a.ty = f.y;
 };
-/** Beside the little one: a berry it found for it (the little one eats), or a little dance together; hearts between them. */
-function careArrive(a, cr) {
-  const f = actors.get(a.care), c = f && save.creatures.find(x => x.id === f.id);
-  // (it wandered off on the way: after it, twice at most)
-  if (c && Math.hypot(f.x - a.x, (f.y - a.y) * 1.6) > N.base * 1.8 && (a.careTry = (a.careTry || 0) + 1) < 3) { careAim(a, f); return; }
-  a.care = null; a.state = "idle"; a.t = rand(1.5, 2.5) * linger(cr);
-  if (!c || Math.hypot(f.x - a.x, (f.y - a.y) * 1.6) > N.base * 1.8) return;
-  const kind = giveCare(cr, c);
-  if (!kind) return;
-  const va = actorView(a), vf = actorView(f), mx = (va.x + vf.x) / 2, my = Math.min(va.y, vf.y) - va.size * 0.35;
-  a.hop = f.hop = 1; f.goal = f.friend = f.care = null; f.tx = f.x; f.ty = f.y;
-  for (let i = 0; i < 3; i++) setTimeout(() => heart(mx + rand(-12, 12), my + rand(-6, 6)), i * 140);
-  if (kind === "feed") { emote(a, "🫐", 1.6); f.state = "eat"; f.t = 1.4; setTimeout(() => emote(f, kaoFor(c, "care"), 1.8), 900); }
-  else { emote(a, "♪", 1.6); emote(f, kaoFor(c, "care"), 1.8); a.state = f.state = "dance"; a.t = f.t = rand(1.4, 2.2); }
-  sfx.chirp(specOf(cr).voice); setTimeout(() => sfx.chirp(specOf(c).voice * 1.2), 200);
-  if (a.id === save.active || f.id === save.active) floatText(tr(kind === "feed" ? "{0} found {1} a berry" : "{0} plays with {1}", cr.name, c.name), mx, my - N.base * 0.6, "#ffc4da");
-  persist();
-  if (a.id === save.active || f.id === save.active) renderNest();
-}
 /** Hungry enough, and there's food in the bowl: it heads over to eat (what it does there: bowlArrive). */
 function bowlCall(a, cr) {
   if (cr.sleeping || cr.tummy >= BOWL_AT || !bowlOf().length || !isoLayout().placed.bowl) return false;
@@ -448,6 +435,282 @@ function meetFriend(a, f, cr) {
   if (cr.pals[fc.id] === 5) { emote(a, kaoFor(cr, "friend"), 2); emote(f, kaoFor(fc, "friend"), 2); }
 }
 
+// ---------- care moments: a grown one looking after a little one, in a way you can see (#319; the rules: careFor in nest.js) ----------
+// The grown one walks over (or first to the bowl or the wall, for a snack) and the two share a few seconds standing still
+// ("care" for both, its steps in a.cm.ph, timed by a.cm.t): nobody else moves them, and a call, a stroke or a snack for
+// anyone breaks it off gently (what it took from the bowl goes back). Drawn as offsets on top of where they stand: lean
+// (sideways), dip (down), squish (wider and lower), so the walking and the room's push apart never fight it.
+//   feed:  to the bowl (a snack lifted out) or to the wall (a berry picked), held in front on the way back, set down at
+//          the little one's feet, nudged over twice with its nose; the little one hops to it and munches.
+//   play:  a ball of sparkles made in its paws, tossed between them five times (a bell each catch, one note higher), then a
+//          pop of sparkles and a little dance together.
+//   hug:   a sad face; the two lean in till they touch and squish together twice in a soft pink glow; the sad face turns pleased.
+//   tuck:  a moon and a yawn; the little one goes to its bed, the big one follows, covers it with a leaf, pats it three
+//          times, "shh…", and stays by it a moment.
+//   groom: it leans in and brushes, dust flying off the little one in specks, which squints; then it shines.
+/** In the room, a little one in need is noticed within this long (ms) of the last moment or of coming in. */
+const CARE_SOON = 50e3;
+/** How long each step stands (s): the moment's own steps, then the walks between them (no timer). */
+const CARE_T = { pick: 1.1, feed: 3.4, play: 4.6, hug: 3.6, tuck: 1.4, pat0: 6, pat: 2.6, watch: 3, groom: 2.8 };
+/** The line over the pair as it happens, by what they do. */
+const CARE_SAYS = { feed: "{0} found {1} a berry", bowl: "{0} brings {1} a snack", play: "{0} plays with {1}", hug: "{0} hugs {1}", tuck: "{0} tucks {1} in", groom: "{0} brushes {1} clean" };
+const careBusy = () => [...actors.values()].some(o => o.cm);
+/** Has anyone in need waited long enough here to be noticed for sure (a moment, or coming into the room, starts the wait). */
+function careDue() {
+  const n = game.nest;
+  if (n.careRoom !== save.room) { n.careRoom = save.room; n.careAt = game.time; }
+  return game.time - n.careAt > CARE_SOON;
+}
+function careStart(a, f, kind) {
+  a.care = f.id; a.careTry = 0; a.friend = a.goal = a.plan = null;
+  a.cm = { kind, ph: "go", t: 0 };
+  game.nest.careAt = game.time;
+  if (kind !== "feed") { careAim(a, f); return; }
+  // a snack first: from the bowl here if there's food in it, else a berry by the wall
+  a.cm.ph = "fetch"; a.cm.bowl = !!(hasDecor("bowl") && isoLayout().placed.bowl && bowlOf().length);
+  [a.tx, a.ty] = a.cm.bowl ? standSpot(...decorSpot("bowl")) : cornerPoint();
+  a.state = "walk"; emote(a, "!", 1);
+}
+/** Both stand still for the next step (the little one too, when told). */
+function careStep(a, ph, f) {
+  a.cm.ph = ph; a.cm.t = 0; a.state = "care"; a.tx = a.x; a.ty = a.y;
+  if (f) { f.state = "care"; f.cmBy = a.id; f.goal = f.friend = f.care = f.plan = null; f.tx = f.x; f.ty = f.y; }
+}
+/** Got where it was walking: to the snack, to the bed, or beside the little one (it wandered off on the way: after it, twice at most). */
+function careArrive(a, cr) {
+  const m = a.cm, f = actors.get(a.care), c = f && save.creatures.find(x => x.id === f.id);
+  if (!m || !c) { careEnd(a); return; }
+  if (m.ph === "fetch") { careStep(a, "pick"); return; }
+  if (m.ph === "bed") { careStep(a, "pat0"); return; }
+  const far = Math.hypot(f.x - a.x, (f.y - a.y) * 1.6) > N.base * 1.8;
+  if (far && (a.careTry = (a.careTry || 0) + 1) < 3 && careYoung(cr, c)) { careAim(a, f); return; }
+  // (and it went and ate at the bowl by itself meanwhile, or cheered up: no longer needed, and what it brought goes back)
+  const needed = m.kind === "groom" || Math.min(c.tummy, c.joy) < CARE_LOW || careSleepy(c);
+  if (far || !needed || !canCare(cr) || !careYoung(cr, c) || ["sleep", "toBed", "eat"].includes(f.state)) { careEnd(a); return; }
+  careStep(a, m.kind === "feed" ? "feed" : m.kind, f);
+}
+/** All done, or broken off: both let go, and a snack it took and never gave goes back in the bowl. */
+function careEnd(a, done = false) {
+  const m = a.cm, f = actors.get(a.care);
+  if (m && m.from === "bowl" && !m.gone) careBack(save.room, m.snack);
+  for (const b of [a, f]) if (b) { b.lean = b.dip = b.squish = 0; b.cmMood = b.cmFace = null; }
+  if (f && f.cmBy === a.id) { f.cmBy = null; if (f.state === "care") { f.state = "idle"; f.t = rand(1, 2); } }
+  a.cm = a.care = null;
+  if (a.state === "care" || a.state === "walk") { a.state = "idle"; a.t = done ? rand(2, 3.5) : rand(0.5, 1.5); a.tx = a.x; a.ty = a.y; }
+  game.nest.careAt = game.time;
+}
+/** The need met: the little one's tummy, joy or sleep, the line over them, hearts, the diary's note, and the first time, Mossa. */
+function careGive(a, cr, f, c) {
+  const m = a.cm, kind = giveCare(cr, c, Date.now(), m.kind, m.from === "bowl" ? m.snack : "");
+  if (!kind) return false;
+  if (m.from === "bowl") m.gone = true;
+  const va = actorView(a), vf = actorView(f), mx = (va.x + vf.x) / 2, my = Math.min(va.y, vf.y) - va.size * 0.35;
+  for (let i = 0; i < 3; i++) setTimeout(() => heart(mx + rand(-12, 12), my + rand(-6, 6)), i * 160);
+  floatText(tr(CARE_SAYS[m.from === "bowl" ? "bowl" : kind], cr.name, c.name), mx, my - N.base * 0.6, "#ffc4da");
+  if (cr.careNoted && Date.now() - cr.careNoted < 1000) setTimeout(() => floatText(tr("✎ in the diary"), mx, my - N.base * 0.25, "#d2bfff"), 900);
+  if (!talkSeen("bigCare")) setTimeout(() => careHint(cr, a.id, f.id), 2600);
+  persist();
+  if (a.id === save.active || f.id === save.active) renderNest();
+  return true;
+}
+/** The first moment you see: Mossa says what the big ones do (pointing at the pair), when nothing else is going on; else next time. */
+function careHint(cr, ...ids) {
+  if (game.scene !== "nest" || talkNow || sheetTitle() || bannerUp() || calmNow()) return;
+  game.nest.carePair = ids;
+  talk("bigCare", cr);
+}
+/** Where the two of them are on screen, for Mossa to point at. */
+function spotPair() {
+  const ps = game.scene === "nest" && (game.nest.carePair || []).map(id => actors.get(id)).filter(Boolean);
+  if (!ps || !ps.length) return null;
+  const vs = ps.map(actorView), r = vs[0].size * 0.6, x0 = Math.min(...vs.map(v => v.x)) - r, x1 = Math.max(...vs.map(v => v.x)) + r, y0 = Math.min(...vs.map(v => v.y)) - r * 1.1, y1 = Math.max(...vs.map(v => v.y)) + r;
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+const ease01 = k => { k = clamp(k, 0, 1); return k * k * (3 - 2 * k); };
+const pulse = (t, at, len) => t > at && t < at + len ? Math.sin((t - at) / len * Math.PI) : 0;
+/** Each moment, step by step: called every frame for the grown one in it. */
+function careTick(a, cr, dt) {
+  const m = a.cm, f = actors.get(a.care), c = f && save.creatures.find(x => x.id === f.id);
+  const walk = ["go", "fetch", "bring", "bed"].includes(m.ph), bed = ["pat0", "pat", "watch"].includes(m.ph);
+  // (called over, stroked, someone fed: it lets the moment be; and so when the little one is gone, or isn't in it any more)
+  if (!c || a.state !== (walk ? "walk" : "care") || (bed ? !c.sleeping : !walk && m.ph !== "pick" && !["care", "eat"].includes(f.state))) { careEnd(a); return; }
+  if (walk) return;
+  const t0 = m.t, t = m.t += dt, at = k => t0 < k && t >= k, v = actorView(a), S = v.size, s = Math.sign(f.x - a.x) || 1, voice = specOf(cr).voice, fv = specOf(c).voice;
+  for (const p of m.specks || []) { p.t += dt; p.x += p.vx * dt; p.y += p.vy * dt; p.vy += 30 * dt; }
+  if (m.specks) m.specks = m.specks.filter(p => p.t < 0.8);
+  if (m.ph === "pick") {
+    // down to the floor and up again, the snack in its paws
+    a.dip = Math.sin(clamp(t / 0.9, 0, 1) * Math.PI) * S * 0.12;
+    if (at(0.45)) {
+      const id = m.bowl ? careTake(cr, c) : "";
+      m.snack = id || "berry"; m.from = id ? "bowl" : "found";
+      sfx.pluck(voice); burst(v.x + s * S * 0.2, a.y - S * 0.15, 6, id ? ["#efe6ff", "#ffffff"] : ["#a3dd9b", "#d2bfff", "#ffffff"], 0.4);
+    }
+    if (t >= CARE_T.pick) { a.dip = 0; m.ph = "bring"; careAim(a, f); }
+    return;
+  }
+  if (m.ph === "feed") {
+    // set down at the little one's feet, nudged twice, then eaten
+    a.lean = s * S * 0.2 * (pulse(t, 0.55, 0.4) + pulse(t, 1.0, 0.4)); a.dip = S * 0.06 * (pulse(t, 0, 0.5) + pulse(t, 0.55, 0.4) + pulse(t, 1.0, 0.4));
+    m.nudge = ease01((t - 0.55) / 0.3) + ease01((t - 1.0) / 0.3);
+    if (at(0.45)) sfx.setDown();
+    if (at(0.7) || at(1.15)) sfx.boop(voice);
+    if (t > 1.3 && t < 1.65) f.lean = -s * S * 0.18 * pulse(t, 1.3, 0.35);
+    if (at(1.6)) {
+      f.lean = 0; m.eaten = true;
+      if (!careGive(a, cr, f, c)) { careEnd(a); return; }
+      f.state = "eat"; f.t = 1.6; f.hop = 1; sfx.munch();
+      const fw = actorView(f); spawnChips(fw.x, fw.y, 6, 0.5, ["#f6e2b8", "#e8c48a", "#fff"]);
+      setTimeout(() => emote(f, kaoFor(c, "care"), 1.8), 700);
+    }
+    if (t >= CARE_T.feed) { emote(a, "♥", 1.6); careEnd(a, true); }
+    return;
+  }
+  if (m.ph === "play") {
+    // five tosses of a sparkle ball, 0.6 s each from 0.4 s, each catch a hop and a bell; then a pop and a dance
+    a.cmMood = f.cmMood = "happy";
+    if (at(0.05)) { burst(v.x, v.y - S * 0.3, 8, ["#fff6c2", "#ffffff", "#ffc4da"], 0.4); sfx.shimmer(); emote(a, "♪", 1.2); }
+    const k = (t - 0.4) / 0.6, n = Math.floor(k);
+    m.ball = t < 0.4 ? { from: a, to: a, k: 0 } : n < 5 ? { from: n % 2 ? f : a, to: n % 2 ? a : f, k: k - n } : null;
+    for (let i = 1; i <= 5; i++) if (at(0.4 + i * 0.6)) { const who = i % 2 ? f : a; who.hop = 0.8; sfx.note(Math.min(3, i - 1)); }
+    if (at(3.45)) {
+      const fw = actorView(f); burst(fw.x, fw.y - S * 0.2, 14, ["#fff6c2", "#ffffff", "#ffc4da", "#d2bfff"], 0.8); sfx.shimmer();
+      if (!careGive(a, cr, f, c)) { careEnd(a); return; }
+      emote(f, kaoFor(c, "care"), 1.8);
+    }
+    if (t > 3.4) { a.hop = Math.abs(Math.sin(t * 7)) * 0.5; f.hop = Math.abs(Math.sin(t * 7 + 1)) * 0.5; }
+    if (t >= CARE_T.play) careEnd(a, true);
+    return;
+  }
+  if (m.ph === "hug") {
+    // lean in till they touch, squish together twice in a glow, then a step back
+    const d = Math.abs(f.x - a.x), meet = Math.max(0, (d - S * 0.55) / 2), k = ease01(t / 0.6) * (1 - ease01((t - 2.8) / 0.6));
+    a.lean = s * meet * k; f.lean = -s * meet * k;
+    a.squish = f.squish = 0.1 * (pulse(t, 0.7, 0.8) + pulse(t, 1.6, 0.8));
+    m.glow = k;
+    if (at(0.01)) emote(f, KAO.sad.text, 1.4);
+    if (at(0.6)) sfx.hug(voice);
+    if (at(1.0) || at(1.6) || at(2.2)) heart((v.x + actorView(f).x) / 2 + rand(-8, 8), v.y - S * 0.4);
+    if (at(2.6)) { if (!careGive(a, cr, f, c)) { careEnd(a); return; } emote(f, KAO.pleased.text, 2); emote(a, "♥", 1.6); sfx.chirp(fv * 1.2); }
+    if (t >= CARE_T.hug) careEnd(a, true);
+    return;
+  }
+  if (m.ph === "tuck") {
+    // a moon, a yawn, and off to bed (the little one goes by itself, as a sleepy one does); the big one follows
+    if (at(0.01)) emote(a, "🌙", 1.6);
+    if (at(0.5)) { emote(f, "🥱", 1.6); sfx.yawn(); f.hop = 0.6; }
+    a.lean = s * S * 0.12 * pulse(t, 0.2, 1);
+    if (t >= CARE_T.tuck) {
+      if (!careGive(a, cr, f, c)) { careEnd(a); return; }
+      f.cmBy = null; f.state = "toBed";
+      const [bx, by] = bedSpot(f.id);
+      m.ph = "bed"; a.state = "walk"; a.lean = 0; a.tx = clamp(bx + (a.x < bx ? -1 : 1) * N.base * 0.85, N.x0, N.x1); a.ty = by;
+    }
+    return;
+  }
+  if (m.ph === "pat0") { if (f.state === "sleep" || t >= CARE_T.pat0) { careStep(a, "pat"); f.blanket = game.time; } return; }
+  if (m.ph === "pat") {
+    // the leaf drawn over it (see drawCareProps), three pats, "shh…"
+    a.lean = s * S * 0.16 * (pulse(t, 0.5, 0.35) + pulse(t, 0.95, 0.35) + pulse(t, 1.4, 0.35)); a.dip = a.lean * s * 0.3;
+    if (at(0.3)) { const fw = actorView(f); floatText(tr("shh…"), fw.x, fw.y - S * 0.7, "#d2bfff"); }
+    if (at(0.65) || at(1.1) || at(1.55)) sfx.pat();
+    if (at(1.7)) sfx.hush();
+    if (at(2.1)) emote(a, KAO.sleepy.text, 2.4);
+    if (t >= CARE_T.pat) { a.lean = a.dip = 0; careStep(a, "watch"); }
+    return;
+  }
+  if (m.ph === "watch") { if (t >= CARE_T.watch) careEnd(a, true); return; }
+  if (m.ph === "groom") {
+    // leaning in and brushing, the dust flying off in specks; then it shines
+    const k = ease01(t / 0.4) * (1 - ease01((t - 2.2) / 0.4));
+    // (up close, however far apart they stood)
+    const reach = Math.max(S * 0.2, Math.abs(f.x - a.x) - S * 0.7);
+    a.lean = s * (reach + Math.sin(t * 14) * S * 0.06) * k; f.cmFace = t > 0.4 && t < 2.3 ? "squint" : null;
+    if (t > 0.4 && t < 2.2 && Math.floor(t / 0.07) !== Math.floor(t0 / 0.07)) for (let i = 0; i < 2; i++) {
+      const fw = actorView(f), an = rand(-0.9, 0.9);
+      (m.specks = m.specks || []).push({ x: fw.x + s * rand(-0.1, 0.35) * S, y: fw.y + rand(-0.3, 0.25) * S, vx: s * Math.cos(an) * rand(40, 90), vy: -rand(20, 60), t: 0, c: pick(["#ffffff", "#e6e0ff", "#c9b8ff", "#b9b3c0"]) });
+    }
+    if (at(0.45) || at(1.05) || at(1.65)) sfx.brush();
+    if (at(2.2)) {
+      if (!careGive(a, cr, f, c)) { careEnd(a); return; }
+      const fw = actorView(f); burst(fw.x, fw.y, 12, ["#ffffff", "#fff6c2", "#efe6ff"], 0.6); sfx.shimmer(); f.hop = 1; emote(f, kaoFor(c, "care"), 1.8);
+    }
+    if (t >= CARE_T.groom) careEnd(a, true);
+  }
+}
+
+// the little things the moments are drawn with, as pixel maps in the furniture's colours (IC, written out: it comes later) (outlined in ink like them, but the ball)
+const CARE_ART = {
+  berry: { pal: { l: "#d2bfff", m: "#8a6cc9", d: "#6b4fa8", w: "#ffffff", g: "#57ad6a" }, rows: ["..gg..", ".llll.", "lwllmm", "llllmm", "lllmmd", ".mmdd."] },
+  cookie: { pal: { c: "#eec26a", s: "#c98f3a", b: "#5e3a1c" }, rows: [".cccc.", "ccbccc", "cccccb", "cbcccs", "ccsbss", ".ssss."] },
+  dew: { pal: { b: "#69b7d6", l: "#b8e6f5", d: "#3383a8", w: "#ffffff" }, rows: ["..b..", "..b..", ".blb.", "bwlbb", "bbbbd", ".bdd."] },
+  star: { pal: { y: "#fff0b5", o: "#eec26a", w: "#ffffff" }, rows: ["..y..", ".ywy.", "yyyoo", ".yoo.", ".y.o."] },
+  glowcap: { pal: { r: "#e88bb1", w: "#ffffff", d: "#c25586", s: "#e4dfe8" }, rows: [".rrrr.", "rwrrrd", "rrrrdd", "..ss..", "..ss.."] },
+  // the ball of sparkles: a little glowing star, no outline
+  ball: { pal: { w: "#ffffff", y: "#fff6c2", o: "#fff0b5" }, rows: ["..w..", ".wyw.", "wyoyw", ".wyw.", "..w.."], bare: true },
+  // the leaf blanket: a broad leaf lying over the sleeper, its vein along the middle and its stalk out at one end
+  leaf: { pal: { G: "#a3dd9b", g: "#57ad6a", d: "#2f7d4a", v: "#2f7d4a", s: "#946027" }, rows: ["......gggg......", "...ggGGGGGGgg...", ".gGGGGGGGGGGGGg.", "gGvvvvvvvvvvvvGgss", "ggggggggggggggd..", ".dddddddddddd...."] },
+};
+const careArts = {};
+function careArt(id) {
+  if (careArts[id]) return careArts[id];
+  const A = CARE_ART[id] || CARE_ART.berry, w = Math.max(...A.rows.map(r => r.length)), h = A.rows.length, o = A.bare ? 0 : 1;
+  const c = document.createElement("canvas"); c.width = w + 2 * o; c.height = h + 2 * o;
+  const g = c.getContext("2d"), on = (x, y) => (A.rows[y] || "")[x] in A.pal;
+  if (o) { g.fillStyle = "#160c26"; for (let y = -1; y <= h; y++) for (let x = -1; x <= w; x++) if (!on(x, y) && (on(x - 1, y) || on(x + 1, y) || on(x, y - 1) || on(x, y + 1))) g.fillRect(x + o, y + o, 1, 1); }
+  A.rows.forEach((row, y) => [...row].forEach((ch, x) => { if (A.pal[ch]) { g.fillStyle = A.pal[ch]; g.fillRect(x + o, y + o, 1, 1); } }));
+  return careArts[id] = c;
+}
+/** One of them drawn centred on (x, y), about wide across (in screen px), on whole art pixels. */
+function drawCareArt(id, x, y, wide, alpha = 1) {
+  const art = careArt(id), P = PX * Math.max(1, Math.round(wide / art.width / PX)), w = art.width * P, h = art.height * P;
+  ctx.save(); ctx.globalAlpha = alpha; ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(art, Math.round((x - w / 2) / PX) * PX, Math.round((y - h / 2) / PX) * PX, w, h);
+  ctx.restore();
+}
+/** Where the grown one holds the snack: in front of it, low, bobbing with its step. */
+const careHand = (a, v) => [v.x + (Math.sign(actors.get(a.care)?.x - a.x) || 1) * v.size * 0.22, v.y + v.size * 0.18 + Math.sin(a.ph * 9) * v.size * 0.02];
+/** On a glowling, after it's drawn: the snack it carries, and the leaf over one tucked in (it slides up over it as it's laid on). */
+function drawCareProps(a, v) {
+  const m = a.cm;
+  if (m && m.snack && (m.ph === "pick" || m.ph === "bring" || (m.ph === "feed" && m.t < 0.45))) { const [hx, hy] = careHand(a, v); if (m.ph !== "feed") drawCareArt(m.snack, hx, hy, v.size * 0.3); }
+  if (a.blanket && a.state !== "sleep" && game.time - a.blanket > 8000) a.blanket = 0;
+  if (a.blanket && a.state === "sleep") { const k = ease01((game.time - a.blanket) / 500); drawCareArt("leaf", v.x, v.y + v.size * (0.2 + 0.12 * (1 - k)), v.size * 0.85, k); }
+}
+/** Over the room, after everyone: the snack set down and nudged, the ball in the air, the hug's glow, the dust brushed off. */
+function drawCareOver() {
+  for (const a of actors.values()) {
+    const m = a.cm, f = m && actors.get(a.care);
+    if (!f) continue;
+    const va = actorView(a), vf = actorView(f), S = va.size, s = Math.sign(f.x - a.x) || 1;
+    if (m.ph === "feed" && m.snack && !m.eaten) {
+      // from its paws down to the floor in a little arc, then a nudge nearer the little one each time
+      // (set down just in front of the little one's feet, whatever way they stand)
+      const [hx, hy] = careHand(a, va), fx0 = f.x - s * S * (0.62 - 0.2 * (m.nudge || 0)), fy0 = f.y - S * 0.08, k = ease01(m.t / 0.45);
+      drawCareArt(m.snack, lerp(hx, fx0, k), lerp(hy, fy0, k) - Math.sin(k * Math.PI) * S * 0.15, S * 0.3);
+    }
+    if (m.ph === "play" && m.ball) {
+      const p = actorView(m.ball.from), q = actorView(m.ball.to), k = m.ball.k, x = lerp(p.x, q.x, k), y = lerp(p.y - S * 0.25, q.y - S * 0.25, k) - Math.sin(k * Math.PI) * S * 0.7;
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createRadialGradient(x, y, 0, x, y, S * 0.4); g.addColorStop(0, "rgba(255,240,190,.7)"); g.addColorStop(1, "rgba(255,240,190,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, S * 0.4, 0, TAU); ctx.fill(); ctx.restore();
+      // (a trail of three fading dots behind it)
+      ctx.fillStyle = "#fff6c2";
+      for (let i = 1; i <= 3; i++) { const j = clamp(k - i * 0.07, 0, 1), tx = lerp(p.x, q.x, j), ty = lerp(p.y - S * 0.25, q.y - S * 0.25, j) - Math.sin(j * Math.PI) * S * 0.7; ctx.globalAlpha = 0.6 - i * 0.15; ctx.fillRect(Math.round(tx / PX) * PX, Math.round(ty / PX) * PX, 2 * PX, 2 * PX); }
+      ctx.globalAlpha = 1;
+      drawCareArt("ball", x, y, S * 0.26);
+    }
+    if (m.ph === "hug" && m.glow > 0.02) {
+      const x = (va.x + vf.x) / 2, y = (va.y + vf.y) / 2, r = S * (0.75 + 0.06 * Math.sin(game.time * 0.006)) * (0.6 + 0.4 * m.glow);
+      ctx.save(); ctx.globalCompositeOperation = "lighter";
+      const g = ctx.createRadialGradient(x, y, S * 0.1, x, y, r); g.addColorStop(0, `rgba(255,170,210,${0.32 * m.glow})`); g.addColorStop(0.6, `rgba(255,200,170,${0.14 * m.glow})`); g.addColorStop(1, "rgba(255,200,170,0)");
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); ctx.restore();
+    }
+    for (const p of m.specks || []) { ctx.globalAlpha = 1 - p.t / 0.8; ctx.fillStyle = p.c; ctx.fillRect(Math.round(p.x / PX) * PX, Math.round(p.y / PX) * PX, PX * (p.t < 0.3 ? 3 : 2), PX * (p.t < 0.3 ? 3 : 2)); }
+    ctx.globalAlpha = 1;
+  }
+}
+
 /** A hopper's way forward comes in pushes, one per hop (on average as fast as a steady walk). */
 const hopGate = a => Math.sin(((a.gait || 0) % 1) * Math.PI) * Math.PI / 2;
 
@@ -493,10 +756,13 @@ function updateActors(dt) {
       else if (noteWish(cr) || (!a.emote && wishing(cr) && !cr.sleeping && Math.random() < 0.04)) { emote(a, "🧭", 2.6); a.hop = Math.max(a.hop, 0.5); }
       // hungry and standing about, with food in the bowl: it doesn't wait for its next idea
       else if (a.state === "idle" && hasDecor("bowl")) bowlCall(a, cr);
+      // a little one in need here, and nobody's noticed it for a while: a grown one standing about goes over now
+      if (a.state === "idle" && !cr.sleeping && careDue()) careNext(a, cr, [...actors.values()], true);
     }
     // an unhurried pace, slower with age, and a stroll when there's nothing it needs
     const calm = calmOf(cr.level), base = (a.beh === "flutter" || a.beh === "swim" ? 85 : a.beh === "nap" ? 35 : 55) * N.base / 100 * 0.8 * calm.go;
-    let speed = base * (a.rain ? 1.6 : content(cr) ? 0.85 : 1), target = null;
+    // (on its way to look after a little one, it hurries a little)
+    let speed = base * (a.rain ? 1.6 : content(cr) ? 0.85 : 1) * (a.care ? 1.5 : 1), target = null;
     if (cr.sleeping) {
       target = bedSpot(a.id);
       // asleep somewhere else (the bed moved, or someone else lay down and the places shifted): shuffle over and lie down again
@@ -542,11 +808,14 @@ function updateActors(dt) {
       if (a.atBowl) { a.atBowl = false; [a.tx, a.ty] = roomPoint(); a.state = "walk"; if (habitOf(cr) === "meal") { a.plan = "napby"; a.napT = rand(5, 8) * calm.rest; } }
       else if (habitOf(cr) === "meal") { a.state = "nap"; a.t = rand(5, 8) * calm.rest; emote(a, "zz", 2.5); } else { a.state = "idle"; a.t = rand(1, 2) * linger(cr); } } }
     else if (a.state === "idle" || a.state === "nap" || a.state === "dance" || a.state === "visit") { if ((a.t -= dt) <= 0) { a.decor = null; chooseNext(a, list); } }
+    // (in a care moment whose grown one has let go: back to itself)
+    else if (a.state === "care" && !a.cm && !actors.get(a.cmBy)?.cm) { a.state = "idle"; a.t = rand(1, 2); a.cmBy = null; a.lean = a.dip = a.squish = 0; }
 
     // a little personal space: glowlings gently push apart instead of piling up
     // (except on the way to bed: sleepy ones squeeze in and cuddle up)
-    if (a.state !== "sleep" && a.state !== "visit" && a.state !== "toBed" && a.state !== "bath") for (const o of list) {
-      if (o === a || o.state === "sleep" || o.state === "visit" || o.state === "toBed" || o.state === "bath") continue;
+    // (nor the two in a care moment: they stand where they are)
+    if (a.state !== "sleep" && a.state !== "visit" && a.state !== "toBed" && a.state !== "bath" && a.state !== "care") for (const o of list) {
+      if (o === a || o.state === "sleep" || o.state === "visit" || o.state === "toBed" || o.state === "bath" || o.state === "care") continue;
       const ox = a.x - o.x, oy = (a.y - o.y) * 1.6, od = Math.hypot(ox, oy), min = N.base * 0.95;
       if (od > 0.01 && od < min) {
         // step aside, and move where you were heading too, or you'd walk straight back into them
@@ -559,11 +828,11 @@ function updateActors(dt) {
     // the way around the furniture (this also moves a goal that's inside a piece to the free spot beside it)
     // (the last stretch to bed goes straight to the sleeping spot: a way around the bed would stop beside it, never in it)
     const tucking = a.state === "toBed" && Math.hypot(a.tx - a.x, a.ty - a.y) < N.base * 0.9;
-    const walking = !tucking && !["nap", "dance", "eat", "sleep", "visit", "bath"].includes(a.state) && !petted(a);
+    const walking = !tucking && !["nap", "dance", "eat", "sleep", "visit", "bath", "care"].includes(a.state) && !petted(a);
     const wp = walking ? nextWaypoint(a, dt) : null;
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
     if (a.state === "toBed" && d <= 8) { a.state = "sleep"; a.hop = 1; } // close enough: lie down (the room's edge may keep the exact spot just out of reach)
-    const still = ["nap", "dance", "eat", "sleep", "visit", "bath"].includes(a.state);
+    const still = ["nap", "dance", "eat", "sleep", "visit", "bath", "care"].includes(a.state);
     const moving = d > 3 && !still;
     if (!moving) a.vx = a.vy = 0;
     if (moving && wp) {
@@ -677,6 +946,7 @@ function updateActors(dt) {
     // in the spring: hopping in, soaking, hopping out and shaking dry, placed by hand (see bathTick)
     if (a.state === "bath") bathTick(a, cr);
     faceMoments(a, cr, dt);
+    if (a.cm) careTick(a, cr, dt);
     if (habitOf(cr) === "hum") humAlong(a, cr, dt);
     // needs show up as little thought bubbles now and then
     const wants = callOf(cr);

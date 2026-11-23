@@ -1175,37 +1175,78 @@ function tapHelper(c) {
   renderPlaceBar();
 }
 
-// ---------- big ones look after the little ones (#319): a grown glowling at home now and then feeds or plays with a young one ----------
-// A grown one (HELP_STAGE, level 10 and up) awake in a room sees a little one there (not grown yet) whose tummy or joy is
-// under CARE_LOW: it walks over (careNext in iso.js) and shares a moment with it, a berry it found (the tummy, never your
-// pantry) or a little game (joy). Modest and kept small: CARE_MAX times an hour for each grown one, and the neediest first.
+// ---------- big ones look after the little ones (#319): a grown glowling at home looks after the young ones in its room ----------
+// A grown one (HELP_STAGE, level 10 and up) awake in a room sees a little one there (not grown yet) in need: its tummy or
+// joy under CARE_LOW, or sleepy (energy under CARE_SLEEPY, and not one you've only just woken). It walks over (careNext in
+// iso.js) and has a moment with it, what the moment is going by what it needs most (careKind):
+//   feed: a snack brought over, from the room's bowl if there's food in it (the bowl's rules: the little one's favourite
+//         first, and it's a real snack, as if it had eaten it there), else a berry it found by the wall (nothing from you);
+//   play: a game of catch with a ball of sparkles, a bored one;  hug: a sad one (joy under CARE_SAD) is hugged better;
+//   tuck: a sleepy one is walked to bed and covered with a leaf;  groom: now and then, with nobody in need, the dust brushed
+//         off one it hasn't brushed for GROOM_GAP.
+// Modest and kept small: CARE_MAX moments an hour for each grown one (a groom counts too), and the neediest first.
 // While you're away the same company keeps the little ones' needs a little slower (CARE_SLOW in save.js).
 const CARE_MAX = 3, CARE_HOUR = 3600e3, CARE_LOW = 45, CARE_TUMMY = 12, CARE_JOY = 10, CARE_DIARY = 4;
+const CARE_SAD = 25, CARE_HUG = 15, CARE_SLEEPY = 30, CARE_WOKE = 3 * 60e3, CARE_GROOM = 5, GROOM_GAP = 30 * 60e3;
 /** A grown glowling at home, awake, with care left this hour. */
 const careLeft = (g, now = Date.now()) => CARE_MAX - (g.cared || []).filter(t => now - t < CARE_HOUR && t <= now).length;
 const canCare = (g, now = Date.now()) => !!g && stageOf(g.level || 1) >= HELP_STAGE && !g.out && !g.sleeping && careLeft(g, now) > 0;
-/** The little one in its room it would look after: hungry or bored enough, awake, the neediest first (null for none). */
+/** A little one (not grown yet) awake at home in the grown one's room. */
+const careYoung = (g, c) => !!c && c !== g && !c.out && !c.sleeping && stageOf(c.level || 1) < HELP_STAGE && roomOf(c) === roomOf(g);
+/** Sleepy enough to be put to bed: not one you've only just woken up (it would go straight back, as with going to bed by itself). */
+const careSleepy = (c, now = Date.now()) => c.energy < CARE_SLEEPY && now - (c.wokeAt || 0) > CARE_WOKE;
+/** How much it needs looking after: its lowest need (energy only counts once it's sleepy). */
+const careNeed = (c, now = Date.now()) => Math.min(c.tummy, c.joy, careSleepy(c, now) ? c.energy : 100);
+/** The little one in its room it would look after: hungry, bored or sleepy enough, awake, the neediest first (null for none). */
 function careFor(g, now = Date.now()) {
   if (!canCare(g, now)) return null;
-  const young = residents(roomOf(g)).filter(c => c !== g && stageOf(c.level || 1) < HELP_STAGE && !c.sleeping && Math.min(c.tummy, c.joy) < CARE_LOW);
-  return young.sort((a, b) => Math.min(a.tummy, a.joy) - Math.min(b.tummy, b.joy))[0] || null;
+  const young = residents(roomOf(g)).filter(c => careYoung(g, c) && (Math.min(c.tummy, c.joy) < CARE_LOW || careSleepy(c, now)));
+  return young.sort((a, b) => careNeed(a, now) - careNeed(b, now))[0] || null;
 }
-/** What it does for the little one: a berry when the tummy is the lower need, a little game otherwise. */
-const careKind = c => c.tummy <= c.joy ? "feed" : "play";
-/** The moment itself: the little one's tummy or joy up a bit, the big one's hour counted, a diary line now and then.
- *  Returns what it did ("feed" or "play"), or "" if it may not (any more). Nothing comes out of the pantry. */
-function giveCare(g, c, now = Date.now()) {
-  if (!canCare(g, now) || !c || c === g || c.out || c.sleeping || stageOf(c.level || 1) >= HELP_STAGE || roomOf(c) !== roomOf(g)) return "";
-  const kind = careKind(c);
-  if (kind === "feed") c.tummy = clamp(c.tummy + CARE_TUMMY, 0, 100); else c.joy = clamp(c.joy + CARE_JOY, 0, 100);
+/** With nobody in need: a little one it hasn't brushed for GROOM_GAP, the longest ago first (null for none). */
+function groomFor(g, now = Date.now()) {
+  if (!canCare(g, now)) return null;
+  return residents(roomOf(g)).filter(c => careYoung(g, c) && now - (c.groomAt || 0) > GROOM_GAP).sort((a, b) => (a.groomAt || 0) - (b.groomAt || 0))[0] || null;
+}
+/** What it does for the little one: off to bed when it's sleepy and that's its lowest need; else a snack when the tummy is
+ *  the lower need, a hug when it's sad, a game when it's only bored. */
+function careKind(c, now = Date.now()) {
+  if (careSleepy(c, now) && c.energy <= Math.min(c.tummy, c.joy)) return "tuck";
+  if (c.tummy <= c.joy) return "feed";
+  return c.joy < CARE_SAD ? "hug" : "play";
+}
+/** A snack out of the bowl in the grown one's room, for this little one (its favourite if it's there), or "" when it's empty. */
+function careTake(g, c, favOf = favFood) {
+  const r = roomOf(g), bowl = bowlOf(r);
+  if (!bowl.length) return "";
+  const [id] = bowl.splice(bowlPick(c, bowl, favOf), 1);
+  save.rooms[r].bowl = bowl;
+  return id;
+}
+/** A snack it took and never gave (the little one wandered off, someone called them): back into the bowl. */
+const careBack = (r, id) => { if (id && save.rooms[r]) save.rooms[r].bowl = [...bowlOf(r), id]; };
+/** The lines each moment leaves in the two diaries: the little one's, then the big one's. */
+const CARE_LINES = {
+  feed: ["Had a berry that {0} found ♥", "Brought a little one a berry: {0}"], bowl: ["Had a snack from the bowl that {0} brought ♥", "Brought a little one a snack: {0}"],
+  play: ["Played catch with a big one: {0} ♥", "Played catch with a little one: {0}"], hug: ["Was sad, and got a hug from {0} ♥", "Hugged a sad little one: {0}"],
+  tuck: ["Tucked in under a leaf by {0} ♥", "Tucked a little one into bed: {0}"], groom: ["Had the dust brushed off by {0} ✦", "Brushed the dust off a little one: {0}"],
+};
+/** The moment itself: the little one's need met a bit, the big one's hour counted, a diary line the first time for each kind
+ *  of moment and every CARE_DIARY-th after. kind is what it came to do (careKind unless told); snack, one it took from the
+ *  bowl (eaten as a real snack). Returns the kind, or "" if it may not (any more). Nothing comes out of your pantry. */
+function giveCare(g, c, now = Date.now(), kind = careKind(c, now), snack = "", eat = (cr, id) => eatSnack(cr, SNACKS[id], favFood(cr, id))) {
+  if (!canCare(g, now) || !careYoung(g, c) || (kind === "tuck" && !careSleepy(c, now))) return "";
+  if (kind === "feed") { if (snack) eat(c, snack); else c.tummy = clamp(c.tummy + CARE_TUMMY, 0, 100); }
+  else if (kind === "play" || kind === "hug") c.joy = clamp(c.joy + (kind === "hug" ? CARE_HUG : CARE_JOY), 0, 100);
+  else if (kind === "tuck") { c.sleeping = true; c.selfSlept = true; c.joy = clamp(c.joy + 3, 0, 100); }
+  else if (kind === "groom") { c.joy = clamp(c.joy + CARE_GROOM, 0, 100); c.groomAt = now; }
+  else return "";
   g.joy = clamp(g.joy + 2, 0, 100);
   g.cared = [...(g.cared || []).filter(t => now - t < CARE_HOUR && t <= now), now];
   g.careN = (g.careN || 0) + 1;
-  // the first time, and every CARE_DIARY-th after: a line in both diaries
-  if (g.careN % CARE_DIARY === 1) {
-    remember(c, kind === "feed" ? "Had a berry that {0} found ♥" : "Played with a big one: {0} ♥", g.name);
-    remember(g, "Looked after a little one: {0}", c.name);
-  }
+  const line = kind === "feed" && snack ? "bowl" : kind, first = !(g.careKinds || []).includes(line);
+  if (first) g.careKinds = [...(g.careKinds || []), line];
+  if (first || g.careN % CARE_DIARY === 1) { remember(c, CARE_LINES[line][0], g.name); remember(g, CARE_LINES[line][1], c.name); g.careNoted = now; }
   return kind;
 }
 /** Really unwell (tummy, joy or energy under UNWELL, awake at home): only these put a badge on the residents button. */

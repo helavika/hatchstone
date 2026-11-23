@@ -491,6 +491,48 @@ const sfx = {
   },
 
   /** Off to another room: a soft rush of air going by. */
+  // the big ones looking after the little ones (careTick in iso.js): soft, in the grown one's own voice where it speaks
+  /** A berry picked (or a snack lifted out of the bowl): a little pop and a bright lift. */
+  pluck(voice = 1) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime, f = 760 * voice;
+    this.tone(t, f, 0.025, 0.08, "triangle", f * 1.6);
+    this.grain(t, 0.015, 3200, 2, 0.03);
+  },
+  /** A nudge with the nose: a low round "boop", going up. */
+  boop(voice = 1) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime, f = 300 * voice;
+    this.tone(t, f, 0.03, 0.12, "sine", f * 1.5);
+  },
+  /** A hug: two warm low notes held together, a soft breath under them. */
+  hug(voice = 1) {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime, f = 262 * voice;
+    this.tone(t, f, 0.03, 0.9, "sine", null, true);
+    this.tone(t + 0.12, f * 1.26, 0.022, 1.0, "sine", null, true);
+    this.grain(t, 0.5, 500, 0.6, 0.03, "lowpass");
+  },
+  /** A pat on a sleeper: a dull soft tap. */
+  pat() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.tone(t, rand(190, 230), 0.03, 0.07, "sine", 150);
+    this.grain(t, 0.025, 700, 1, 0.03, "lowpass");
+  },
+  /** "Shh": a breath of hush, then three low notes going down to sleep. */
+  hush() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.wash(t, 0.45, 3800, 2400, 0.8, 0.02);
+    [523.25, 440, 392].forEach((f, i) => this.tone(t + 0.4 + i * 0.32, f, 0.02, 0.8, "sine", null, true));
+  },
+  /** A brush through fur: a quick airy stroke. */
+  brush() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    this.wash(t, 0.16, 2600, 5200, 1.2, 0.03);
+  },
   whoosh() {
     if (!this.ready()) return;
     const t = this.ac.currentTime;

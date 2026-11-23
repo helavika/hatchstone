@@ -40,7 +40,7 @@ function room(creatures, pieces = [], seed = 7) {
     specOf: () => ({ voice: 1 }), callOf: () => '', calmOf: () => ({ rest: 1, go: 1, fidget: 1, hop: 1 }),
     isOutside: () => false, weatherOn: () => false, isoLayout: () => ({ placed: {} }), rugSize: () => [80, 40],
     isoAt: (u, v) => [u * 600, 100 + v * 400], isoMargin: () => 0, standSpot: (x, y) => [x, y], emote: () => {}, kaoFor: () => "", setTimeout: () => {}, sfx: { stretch: () => {}, ready: () => false },
-    careFor: () => null, // (no grown one looking after a little one here: see gentle-care.test.cjs)
+    careFor: () => null, groomFor: () => null, // (no grown one looking after a little one here: see gentle-care.test.cjs)
   };
   // each piece stands at its own place on the floor
   page.decorSpot = id => { const k = [...id].reduce((h, c) => h * 31 + c.charCodeAt(0), 7); return [60 + (k % 480), 140 + ((k >> 4) % 320)]; };
