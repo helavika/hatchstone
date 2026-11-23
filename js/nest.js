@@ -2507,8 +2507,8 @@ function callHome(id) {
 /** A glowling's mood in one small icon: what it needs most, or a heart when all is well. */
 const MOOD_ICON = { hungry: "cookie", sleepy: "moon", messy: "broom", lonely: "heart" };
 function moodIcon(c) { return  c.out ? "" : c.sleeping ? `<i class="mood zz">z</i>` : ic(MOOD_ICON[callOf(c)] || "heart", "mood" + (callOf(c) ? " want" : "")); }
-/** How the residents sheet lists each room: as they came, or by level. */
-const HOME_SORTS = ["came", "high", "low"], HOME_SORT_NAMES = { came: "As they came", high: "Level ↓", low: "Level ↑" };
+/** How the residents sheet lists them: as they came, or by level (one button steps through the three); room by room, or everyone together. */
+const HOME_SORTS = ["came", "high", "low"], HOME_SORT_NAMES = { came: "Level", high: "Level ↓", low: "Level ↑" };
 /** Everyone, room by room: drag a glowling onto another room to move it (or onto Exploring to send it off), tap to look after it. */
 function openHome() {
   sfx.tick();
@@ -2518,13 +2518,22 @@ function openHome() {
   // each room's glowlings as they came, or by level, highest or lowest first (kept between visits)
   const sort = HOME_SORTS.includes(opts().homeSort) ? opts().homeSort : "came", order = list => sort === "came" ? list : [...list].sort((a, b) => ((a.level || 1) - (b.level || 1)) * (sort === "high" ? -1 : 1) || a.id - b.id);
   const zone = (r, title, list, empty) => `<section class="res-zone${r === save.room ? " here" : ""}" data-room="${r}"><h3>${title}</h3><div class="home-grid">${order(list).map(card).join("") || `<p class="sub">${empty}</p>`}</div></section>`;
-  $("homeList").innerHTML = `<div class="seg home-sort" role="group" aria-label="${tr("Sort")}">${HOME_SORTS.map(k => `<button data-sort="${k}" class="${sort === k ? "on" : ""}">${tr(HOME_SORT_NAMES[k])}</button>`).join("")}</div>`
+  const all = opts().homeAll === true, next = HOME_SORTS[(HOME_SORTS.indexOf(sort) + 1) % HOME_SORTS.length];
+  const bar = `<div class="home-sort" role="group" aria-label="${tr("Sort")}"><div class="seg"><button data-group="rooms" class="${all ? "" : "on"}">${tr("By room")}</button><button data-group="all" class="${all ? "on" : ""}">${tr("Everyone")}</button></div>`
+    + `<button class="act${sort === "came" ? "" : " on"}" data-sort="${next}">${tr(HOME_SORT_NAMES[sort])}</button></div>`;
+  // everyone together: one list (a tap looks after one; moving between rooms is in the room-by-room view)
+  if (all) {
+    const everyone = save.creatures.filter(c => !c.dead);
+    $("homeSub").textContent = tr("Everyone you have, wherever they are. Tap one to look after it; to move one, switch to rooms.");
+    $("homeList").innerHTML = bar + zone("all", `${tr("Everyone")} <span>${everyone.length}</span>`, everyone, "");
+  } else $("homeList").innerHTML = bar
     + save.rooms.map((_, r) => isPlace(r) ? "" : zone(r, `${roomName(r)} <span>${residents(r).length}/${homeCap(r)}</span>`, residents(r), tr("empty: drag someone here"))).join("")
     + zone("out", `${tr("Exploring")} <span>${away.length}</span>`, away, tr("drag someone here to send them exploring"))
     + (helping.length ? zone("help", `${tr("Helping in the valley")} <span>${helping.length}</span>`, helping, "") : "")
     + `<p class="me-hint">${tr("More beds, more space at home: the shop builds them, in Renovation.")}</p>`;
   $$("#homeList .res").forEach(b => b.addEventListener("pointerdown", dragResident));
   $$("#homeList [data-sort]").forEach(b => b.addEventListener("click", () => { setOpt("homeSort", b.dataset.sort); openHome(); }));
+  $$("#homeList [data-group]").forEach(b => b.addEventListener("click", () => { setOpt("homeAll", b.dataset.group === "all"); openHome(); }));
   show("homeSheet", true);
 }
 /** Pick a glowling up in the residents sheet and drop it on a room; a tap without moving looks after it instead. */
@@ -2544,7 +2553,7 @@ function dragResident(ev) {
     if (!ghost) { tapResident(id); return; }
     ghost.remove(); b.classList.remove("lifted"); over?.classList.remove("drop");
     const r = over && over.dataset.room;
-    if (r === "out") sendExploring(id); else if (r != null && r !== "help") moveGlowling(id, Number(r));
+    if (r === "out") sendExploring(id); else if (r != null && r !== "help" && r !== "all") moveGlowling(id, Number(r));
     openHome();
   };
   b.addEventListener("pointermove", move); b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up);
