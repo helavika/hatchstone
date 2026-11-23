@@ -965,7 +965,17 @@ function clearDoorways() {
 }
 /** Pieces on the walls: which wall (L is the left one, along j; R the right one, along i) and the slot along it, in tiles. */
 const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.64 } };
-const wallSlot = id => { const m = save.layout && save.layout[id]; return m && m.wall ? m : WALL_ITEMS[id]; };
+/** What a room's own fixtures (paintFixtures) take, kept clear of furniture as a doorway is: the floor tiles they stand on, the
+ *  wall slots below each wall's number (the back of the wall), and where its wall pieces hang instead. The playroom's slide runs
+ *  down the back of the left wall onto a mat, its climbing wall stands at the back of the right one over another: the back
+ *  corner's two tiles are theirs, and the one in front of the slide's end (where you shoot off, before the slate under the
+ *  window); what's put out by itself keeps off the row in front of them too (front); the shelf and the painting hang over the
+ *  bed, clear of both. */
+const ROOM_KEEPS = { play: { tiles: ["0,0", "0,1", "0,2"], front: ["1,0", "1,1", "1,2"], walls: { L: 2, R: 1 }, hang: { shelf: { wall: "R", s: 1.4 }, painting: { wall: "R", s: 3.45 } } } };
+const roomKeeps = (room = save.room) => ROOM_KEEPS[save.rooms?.[room]?.kind] || {};
+/** Is this wall slot one the room's own fixtures take? */
+const wallKept = (wall, s, room = save.room) => s < ((roomKeeps(room).walls || {})[wall] || 0);
+const wallSlot = id => { const m = save.layout && save.layout[id]; return m && m.wall && !wallKept(m.wall, m.s) ? m : (roomKeeps().hang || {})[id] || WALL_ITEMS[id]; };
 /** Where a wall slot meets the floor. */
 const wallFoot = (wall, s) => { const c = (s + 0.5) / ISO_G; return wall === "R" ? isoAt(c, 0) : isoAt(0, c); };
 /**
@@ -1008,6 +1018,8 @@ function isoLayout() {
   // (and on a phone held upright, the two side corners the screen's edges cut through: see ISO_CROP)
   const doors = doorTiles();
   if (N.crop) ISO_CROP.forEach(t => doors.add(t));
+  // (and the floor the room's own slide and mats stand on: see ROOM_KEEPS)
+  (roomKeeps().tiles || []).forEach(t => doors.add(t));
   doors.forEach(t => busy.add(t));
   const fixed = Object.fromEntries((ROOM_FIXED[save.rooms[save.room]?.kind] || ["bed"]).map(id => [id, ISO_FIXED[id]]));
   const all = [...Object.keys(fixed), ...out];
@@ -1021,7 +1033,8 @@ function isoLayout() {
     if (spot) { take(spot[0], spot[1], f.fw, f.fd); placed[id] = { id, i: spot[0], j: spot[1], fw: f.fw, fd: f.fd, flip: false }; }
   }
   // the rug's middle stays open for pieces placed on their own: glowlings dance there
-  const center = ["2,2", "2,3", "3,2", "3,3"].filter(t => !busy.has(t));
+  // (and, in the playroom, the floor in front of its slide and climbing wall, so they aren't hidden: you can still put things there)
+  const center = ["2,2", "2,3", "3,2", "3,3", ...(roomKeeps().front || [])].filter(t => !busy.has(t));
   center.forEach(t => busy.add(t));
   for (const id of out) {
     if (placed[id]) continue;
@@ -3221,7 +3234,7 @@ function pieceFits(id, i, j, flip) {
   return true;
 }
 /** Is this wall slot clear of the other wall piece? */
-const wallFree = (id, wall, s) => !wallInDoor(wall, s) && Object.keys(WALL_ITEMS).every(o => o === id || !hasDecor(o) || wallSlot(o).wall !== wall || Math.abs(wallSlot(o).s - s) >= 1.6);
+const wallFree = (id, wall, s) => !wallInDoor(wall, s) && !wallKept(wall, s) && Object.keys(WALL_ITEMS).every(o => o === id || !hasDecor(o) || wallSlot(o).wall !== wall || Math.abs(wallSlot(o).s - s) >= 1.6);
 function setLayout(id, m) {
   save.layout = { ...save.layout, [id]: m };
   isoLayoutCache = null; persist(); sfx.setDown();
@@ -4542,8 +4555,9 @@ const PLAY_PAINT = [["#ffc4dc", "#ff7eb6", "#c24d86"], ["#fff2a8", "#ffd84a", "#
  * moved, and keeps to the walls, the wall tops and the very foot of them, clear of the tunnels and of the tiles furniture
  * stands on), drawn in the look's own crystals and rock. The crystal study grows crystals everywhere: big clusters in the back
  * corner and along the foot of the walls, points hanging from the top of the rock, a vein across the right wall into a geode
- * that glows; the playroom has a slide out of a hole in the left wall, a climbing wall of coloured holds on the right one,
- * chalk drawings low down and bunting along the top; in the moss garden moss creeps up the walls in any look (its beds, its
+ * that glows; the playroom has a slide out of a hole in the back of the left wall onto a landing mat, a climbing board with a
+ * bell over a crash mat at the back of the right one (the back corner's floor is theirs: ROOM_KEEPS), a chalk slate and a low
+ * shelf of toys under the window, and bunting along the top; in the moss garden moss creeps up the walls in any look (its beds, its
  * spring and its shaft of light are the garden's own already: paintMossGarden, roomShaft). The nest keeps its bed corner.
  * Lights go onto lights before paintRoomIso shines them; what shines itself is drawn in the function it returns.
  */
@@ -4649,75 +4663,154 @@ function paintFixtures(room, { put, d, w, h, at, cx, top, hw, hh, wall, S, seed,
   }
 
   if (room === "play") {
-    const ink = pxHex("#1a1020"), rope = pxHex("#c9a46a"), ropeD = pxHex("#7a5a34");
-    // ---- the climbing wall: coloured holds bolted all over the right wall, each lit on its top left, a shadow below right
-    for (let k = 0; k < 34; k++) {
-      const s = 0.1 + 0.46 * ((k % 6) + 0.2 + 0.6 * pxHash(k, seed + 2)) / 6, z = wall * (0.08 + 0.72 * (Math.floor(k / 6) + 0.2 + 0.6 * pxHash(seed + 5, k)) / 6);
-      const c = PLAY_PAINT[Math.floor(pxHash(k, seed + 8) * PLAY_PAINT.length)], [x, y] = P("R", s, z), r = Math.max(2, Math.round((1.6 + pxHash(k, 1)) * S));
-      for (let yy = -r; yy <= r + 1; yy++) for (let xx = -r - 1; xx <= r + 1; xx++) {
-        const e = Math.hypot(xx / (r + 1), yy / r);
-        if (e > 1.05) { if (e < 1.4 && xx >= 0 && yy > 0) put(x + xx + 1, y + yy + 1, ink); continue; }
-        put(x + xx, y + yy, xx + yy < -r * 0.6 ? c[0] : xx + yy > r * 0.8 ? c[2] : c[1]);
+    // Everything stands where a glowling could reach it and keeps to the back corner's two tiles (ROOM_KEEPS: no furniture
+    // there) and the walls under the window; the light falls from the top left, so each thing is lit on its top left and
+    // throws a soft dithered shadow down and to the right on the wall, or straight down onto the floor.
+    const ink = pxHex("#1a1020"), wood = ["#3a2418", "#6e4a2c", "#9c7046", "#c49a62", "#e2c48c"].map(pxHex), slate = ["#1e222c", "#2b3140", "#394254"].map(pxHex);
+    const dim = (x, y, k) => { const c = get(x, y); if (c && bay(x, y) < k * 1.6) put(x, y, c.map(v => Math.round(v * (1 - Math.min(0.55, k))))); };
+    const ds = 0.35 / hw;
+    /** A padded mat on the floor along a wall: s0..s1 along it, out to o1, t pixels thick, quilted in squares, with a soft
+     *  shadow round its foot; its top and its two faces toward the room in the paint's three tones. */
+    const mat = (side, s0, s1, o1, c, t) => {
+      for (let s = s0 - 0.012; s <= s1 + 0.02; s += ds) for (let o = 0; o <= o1 + 0.025; o += ds) { const [x, y] = P(side, s, 0, o); dim(x, y, 0.32); }
+      const q = 0.045;
+      for (let z = 0; z <= t; z++) for (let s = s0; s <= s1; s += ds) for (let o = 0; o <= o1; o += ds) {
+        const edgeO = o1 - o < ds, edgeS = s1 - s < ds;
+        if (z < t && !edgeO && !edgeS) continue;
+        const [x, y] = P(side, s, z, o), seam = z === t && (Math.abs(((s - s0) % q) - q / 2) < ds * 0.7 || Math.abs((o % q) - q / 2) < ds * 0.7);
+        put(x, y, z === t ? (seam ? c[2] : s - s0 < ds * 2 || o < ds * 2 ? c[0] : c[1]) : z === 0 ? ink : edgeO === (side === "L") ? c[2] : c[1]);
+      }
+    };
+    // ---- the climbing wall: a plywood board bolted to the back of the right wall, one tile wide and as high as two glowlings,
+    // coloured holds in three staggered lines up it, and a little brass bell at the top to ring when you get there
+    const C0 = 0.02, C1 = 0.175, ch = Math.round(wall * 0.56);
+    for (let s = C0; s <= C1 + 0.012; s += ds) for (let z = 0; z <= ch + 2; z++) { const [x, y] = P("R", s, z); if (s > C1 || z < 2) dim(x + 1, y + 1, 0.4); }
+    for (let s = C0; s <= C1; s += ds) for (let z = 0; z <= ch; z++) {
+      const [x, y] = P("R", s, z), e = s - C0 < ds * 1.5 || z === ch, f = C1 - s < ds * 1.5 || z === 0;
+      const seam = z % Math.max(6, Math.round(ch / 4)) === 0, nut = (Math.round(z) % 5 === 2) && Math.abs(((s - C0) * hw) % 4 - 2) < 0.6;
+      put(x, y, e ? wood[4] : f ? wood[1] : seam ? wood[2] : nut ? wood[1] : wood[pxHash(Math.round((s - C0) * hw / 3), z >> 2) > 0.5 ? 3 : 2]);
+    }
+    const rows = Math.max(5, Math.round(ch / (5.5 * S + 2)));
+    for (let r = 0; r < rows; r++) for (let k = 0; k < 3; k++) {
+      if (pxHash(r * 3 + k, seed + 2) > 0.8) continue;
+      const s = C0 + (C1 - C0) * (0.2 + 0.3 * k + (r % 2 ? 0.1 : -0.05) + 0.06 * (pxHash(k, r + seed) - 0.5)), z = ch * (0.08 + 0.84 * (r + 0.5) / rows);
+      const c = PLAY_PAINT[Math.floor(pxHash(r * 7 + k, seed + 8) * PLAY_PAINT.length)], [x, y] = P("R", s, z), rr = Math.max(1.5, (1.1 + 0.6 * pxHash(k, r)) * S + 0.4);
+      for (let yy = -Math.ceil(rr); yy <= Math.ceil(rr) + 1; yy++) for (let xx = -Math.ceil(rr) - 1; xx <= Math.ceil(rr) + 1; xx++) {
+        const e = Math.hypot(xx / (rr + 0.6), yy / rr);
+        if (e > 1) { if (e < 1.45 && xx >= 0 && yy >= 0) dim(x + xx + 1, y + yy + 1, 0.5); continue; }
+        put(x + xx, y + yy, xx + yy < -rr * 0.5 ? c[0] : xx + yy > rr * 0.7 ? c[2] : c[1]);
       }
     }
-    // and a rope down it from a ring at the top, knotted every so often
-    for (let z = Math.round(wall * 0.92); z > wall * 0.05; z--) { const [x, y] = P("R", 0.33, z, 0.01), kn = z % Math.round(9 * S + 2) === 0; put(x, y, rope); put(x + 1, y, ropeD); if (kn) { put(x - 1, y, rope); put(x + 2, y, ropeD); } }
-    { const [x, y] = P("R", 0.33, wall * 0.92, 0.01); for (const [dx, dy] of [[-1, -1], [0, -2], [1, -2], [2, -1], [-1, 0], [2, 0]]) put(x + dx, y + dy, pxHex("#8a8494")); }
-    // ---- the slide: out of a round hole high in the left wall, down toward the back corner, a red trough on yellow legs
-    const hs = 0.27, hz = wall * 0.58, hr = Math.max(4, Math.round(hw * 0.045));
+    { // the bell on a little bracket over the top
+      const [x, y] = P("R", (C0 + C1) / 2, ch + 1), b = Math.max(2, Math.round(1.8 * S)), y1 = y - Math.round(3 * S) - 2, gold = PLAY_PAINT[1];
+      for (let yy = y1 - 2; yy < y; yy++) put(x, yy, wood[1]);
+      for (let yy = 0; yy <= b * 2; yy++) { const half = Math.round(b * (0.45 + 0.55 * yy / (b * 2))); for (let xx = -half; xx <= half; xx++) put(x + xx, y1 + yy, xx < -half * 0.3 ? gold[0] : xx > half * 0.4 ? gold[2] : gold[1]); }
+      put(x, y1 + b * 2 + 1, gold[2]); put(x + b + 1, y1 + b, ink);
+    }
+    // and its crash mat on the floor under it
+    mat("R", 0, 0.19, 0.125, PLAY_PAINT[4], Math.max(2, Math.round(2.4 * S)));
+
+    // ---- the slide: a tube comes out of a round hole high in the back of the left wall and the slide runs down from it along
+    // the wall toward the room, steep in the middle and flat at both ends, onto a soft landing mat; a red trough with a polished
+    // yellow bed and a rail each side, on two pairs of yellow legs with feet on the floor
+    const hs = 0.075, hr = Math.max(4, Math.round(hw * 0.04)), hz = wall * 0.46, s1 = 0.285, D = 0.07, side = Math.round(3.5 * S) + 2;
+    const zt = hz - hr * 0.55, zl = Math.max(2, Math.round(2.6 * S)) + 1, zOf = s => s <= hs ? zt : s >= s1 ? zl : zl + (zt - zl) * (1 + Math.cos(Math.PI * (s - hs) / (s1 - hs))) / 2;
+    mat("L", 0.235, 0.325, 0.15, PLAY_PAINT[2], Math.max(2, Math.round(2.4 * S)));
     { const f = onWall("L", hs, hz), red = PLAY_PAINT[0], dark = pxHex("#0b0614");
       for (let b = -hr - 3; b <= hr + 3; b++) for (let a = -hr - 3; a <= hr + 3; a++) {
         const e = Math.hypot(a, b) / hr, [x, y] = f(a, b);
-        if (e < 0.82) put(x, y, e < 0.5 && a > 0 ? pxHex("#22143a") : dark);
+        if (e < 0.82) put(x, y, e < 0.55 && a < 0 && b > 0 ? pxHex("#22143a") : dark);
         else if (e < 1.25) put(x, y, (Math.atan2(b, a) * 4 / Math.PI + 8) % 2 < 1 ? red[b > 0 ? 0 : 1] : PLAY_PAINT[1][b > 0 ? 0 : 1]);
-        else if (e < 1.4 && b < 0) put(x, y, ink);
+        else if (e < 1.5 && b < 0) dim(x + 1, y + 1, 0.5);
       } }
-    const run = t => [hs - 0.23 * t, Math.max(wall * 0.03, hz - hr * 0.6 - wall * 0.55 * (1 - (1 - t) ** 1.7))];
-    const D = 0.075, st = 0.3 / hw, side = Math.round(5 * S) + 2;
-    for (let t = 0; t <= 1; t += st * 0.6) {
-      const [s, z] = run(t);
-      // the legs, where they stand
-      for (const lt of [0.35, 0.72]) if (Math.abs(t - lt) < st) for (let zz = 0; zz < z; zz++) for (const o of [0.008, D]) { const [x, y] = P("L", s, zz, o); put(x, y, PLAY_PAINT[1][o > 0.02 ? 2 : 1]); put(x + 1, y, PLAY_PAINT[1][2]); }
-      // the side toward the room, under the lip
+    // its shadow, on the wall under it and straight down on the floor (darker the nearer it runs to the floor)
+    for (let s = hs; s <= s1; s += ds) {
+      const z = zOf(s);
+      for (let k = 1; k <= side + 3 * S; k++) { const [x, y] = P("L", s, z - side - k + 2); dim(x, y, 0.45 * (1 - k / (side + 3 * S + 1))); }
+      for (let o = 0; o <= D + 0.015; o += ds) { const [x, y] = P("L", s, 0, o); dim(x, y, 0.42 * (1 - z / zt) + 0.08); }
+    }
+    // the legs, under its steep part, each with a foot and its shadow
+    for (const s of [hs + (s1 - hs) * 0.42, hs + (s1 - hs) * 0.7]) {
+      const z = zOf(s) - side;
+      for (const o of [0.006, D]) {
+        { const [fx, fy] = P("L", s, 0, o); for (let xx = -2; xx <= 3; xx++) dim(fx + xx, fy + 1, 0.5); }
+        for (let zz = 0; zz < z; zz++) { const [x, y] = P("L", s, zz, o); put(x, y, PLAY_PAINT[1][o > 0.02 ? 1 : 2]); put(x + 1, y, PLAY_PAINT[1][2]); }
+        const [x, y] = P("L", s, 0, o); put(x - 1, y, PLAY_PAINT[1][2]); put(x + 2, y, ink); put(x, y, PLAY_PAINT[1][2]); put(x + 1, y, ink);
+      }
+    }
+    for (let s = hs; s <= s1; s += ds * 0.6) {
+      const z = zOf(s), end = s1 - s < ds;
+      // the side toward the room, under the lip (and the end of the run-out, where you shoot off onto the mat)
       for (let k = 1; k <= side; k++) { const [x, y] = P("L", s, z - k, D); put(x, y, k === side ? ink : PLAY_PAINT[0][k < 2 ? 1 : 2]); }
-      // the trough: its bed polished yellow, a red rail along each edge standing up a little
-      for (let o = 0; o <= D; o += st) { const [x, y] = P("L", s, z, o); put(x, y, o > D - st * 3 || o < st * 3 ? PLAY_PAINT[0][1] : PLAY_PAINT[1][o < D * 0.4 ? 0 : 1]); }
+      if (end) for (let o = 0; o <= D; o += ds) for (let k = 0; k <= side; k++) { const [x, y] = P("L", s, z - k, o); put(x, y, k === side ? ink : PLAY_PAINT[0][2]); }
+      // the trough: its bed polished yellow with a shine down the middle, a red rail along each edge standing up a little
+      for (let o = 0; o <= D; o += ds) { const [x, y] = P("L", s, z, o); put(x, y, o > D - ds * 2.5 || o < ds * 2.5 ? PLAY_PAINT[0][1] : Math.abs(o - D * 0.4) < ds * 1.2 ? PLAY_PAINT[1][0] : PLAY_PAINT[1][o < D * 0.4 ? 1 : 2]); }
       for (const o of [0.002, D]) for (let k = 1; k <= 2; k++) { const [x, y] = P("L", s, z + k, o); put(x, y, PLAY_PAINT[0][o > 0.02 ? (k === 2 ? 0 : 1) : 2]); }
     }
-    // ---- chalk drawings low on the left wall: a sun, a glowling, a heart, a little house, a row of stars (the chalk worn through here and there)
-    const chalk = (f, pts, col) => { for (let k = 0; k < pts.length - 1; k++) { const [a0, b0] = pts[k], [a1, b1] = pts[k + 1], n = Math.ceil(Math.hypot(a1 - a0, b1 - b0) * 2) + 1; for (let i = 0; i <= n; i++) { const [x, y] = f(a0 + (a1 - a0) * i / n, b0 + (b1 - b0) * i / n); if (pxHash(Math.round(x), Math.round(y)) > 0.12) put(x, y, col); } } };
-    const ring = (r, n = 14) => [...Array(n + 1)].map((_, k) => [Math.cos(k / n * TAU) * r, Math.sin(k / n * TAU) * r]);
-    const at2 = (pts, a, b) => pts.map(([x, y]) => [x + a, y + b]), C = ["#fffbe6", "#ffc4dc", "#fff2a8", "#c4f4fb", "#cdf5b4"].map(pxHex), u = 3.6 * Math.max(0.7, S);
-    { // a sun
-      const f = onWall("L", 0.49, wall * 0.15); chalk(f, ring(1.6 * u, 10), C[2]);
-      for (let k = 0; k < 8; k++) { const an = k / 8 * TAU; chalk(f, [[Math.cos(an) * 2.3 * u, Math.sin(an) * 2.3 * u], [Math.cos(an) * 3.1 * u, Math.sin(an) * 3.1 * u]], C[2]); } }
+
+    // ---- under the window, at a glowling's height: a slate in a wooden frame with chalk drawings on it (a sun, a glowling, a
+    // little house), a ledge with two sticks of chalk, and beside it a low shelf of toys (a striped ball, a stacking tower, a block)
+    const B0 = 0.37, B1 = 0.5, bz0 = Math.round(wall * 0.05), bz1 = Math.round(wall * 0.05 + Math.max(10, Math.min(wall * 0.18, (B1 - B0) * hw * 0.62)));
+    for (let s = B0; s <= B1 + 0.01; s += ds) for (let z = bz0 - 1; z <= bz1; z++) { const [x, y] = P("L", s, z); if (s > B1 || z < bz0) dim(x + 1, y + 1, 0.4); }
+    for (let s = B0; s <= B1; s += ds) for (let z = bz0; z <= bz1; z++) {
+      const [x, y] = P("L", s, z), fr = s - B0 < ds * 2.2 || B1 - s < ds * 2.2 || z - bz0 < 2 || bz1 - z < 2;
+      put(x, y, fr ? wood[s - B0 < ds * 2.2 || bz1 - z < 1 ? 3 : z - bz0 < 1 ? 1 : 2] : slate[pxFbm(x * 0.2, y * 0.2 + seed) > 0.62 ? 2 : bay(x, y) > 0.85 ? 0 : 1]);
+    }
+    for (let s = B0 + 0.01; s <= B1 - 0.01; s += ds) { const [x, y] = P("L", s, bz0, 0.012); put(x, y, wood[3]); put(x, y + 1, wood[1]); }
+    for (const [s, c] of [[B0 + 0.03, pxHex("#fffbe6")], [B0 + 0.06, pxHex("#ffc4dc")]]) { const [x, y] = P("L", s, bz0 + 1, 0.008); put(x, y, c); put(x - 1, y + 1, c); }
+    const chalk = (f, pts, col) => { for (let k = 0; k < pts.length - 1; k++) { const [a0, b0] = pts[k], [a1, b1] = pts[k + 1], n = Math.ceil(Math.hypot(a1 - a0, b1 - b0) * 2) + 1; for (let i = 0; i <= n; i++) { const [x, y] = f(a0 + (a1 - a0) * i / n, b0 + (b1 - b0) * i / n); if (pxHash(Math.round(x), Math.round(y)) > 0.1) put(x, y, col); } } };
+    const ring = (r, n = 12) => [...Array(n + 1)].map((_, k) => [Math.cos(k / n * TAU) * r, Math.sin(k / n * TAU) * r]);
+    const C = ["#fffbe6", "#ffc4dc", "#fff2a8", "#c4f4fb", "#cdf5b4"].map(pxHex), u = Math.max(1.2, (bz1 - bz0 - 4) / 7.5), bw = (B1 - B0) * hw, mid = bz0 + (bz1 - bz0) / 2;
+    { // a sun in the top corner
+      const f = onWall("L", B0 + (B1 - B0) * 0.2, bz1 - 2 - 1.6 * u); chalk(f, ring(0.9 * u, 8), C[2]);
+      for (let k = 0; k < 8; k++) { const an = k / 8 * TAU; chalk(f, [[Math.cos(an) * 1.4 * u, Math.sin(an) * 1.4 * u], [Math.cos(an) * 1.9 * u, Math.sin(an) * 1.9 * u]], C[2]); } }
     { // a glowling: a round body, two ears, two eyes and a smile
-      const f = onWall("L", 0.565, wall * 0.08); chalk(f, ring(2 * u, 14), C[0]); chalk(f, [[-1.4 * u, 1.4 * u], [-1.6 * u, 2.8 * u], [-0.5 * u, 1.9 * u]], C[0]); chalk(f, [[0.5 * u, 1.9 * u], [1.6 * u, 2.8 * u], [1.4 * u, 1.4 * u]], C[0]);
-      for (const a of [-0.7, 0.7]) chalk(f, [[a * u, 0.4 * u], [a * u, 0.7 * u]], C[3]);
-      chalk(f, [[-0.7 * u, -0.6 * u], [0, -1 * u], [0.7 * u, -0.6 * u]], C[1]); }
-    { // a heart
-      const f = onWall("L", 0.625, wall * 0.17); chalk(f, [[0, -1.4 * u], [-1.4 * u, 0.1 * u], [-1.1 * u, 1 * u], [-0.4 * u, 1.1 * u], [0, 0.5 * u], [0.4 * u, 1.1 * u], [1.1 * u, 1 * u], [1.4 * u, 0.1 * u], [0, -1.4 * u]], C[1]); }
-    { // a little house with a door
-      const f = onWall("L", 0.66, wall * 0.05); chalk(f, [[-1.6 * u, 0], [-1.6 * u, 2.2 * u], [0, 3.6 * u], [1.6 * u, 2.2 * u], [1.6 * u, 0], [-1.6 * u, 0]], C[4]); chalk(f, [[-0.4 * u, 0], [-0.4 * u, 1.2 * u], [0.4 * u, 1.2 * u], [0.4 * u, 0]], C[2]); }
-    { // stars in a row, and a squiggle
-      const f = onWall("L", 0.455, wall * 0.04);
-      for (let k = 0; k < 3; k++) chalk(f, at2([[0, 0.9 * u], [0.3 * u, 0.2 * u], [0.9 * u, 0.2 * u], [0.4 * u, -0.3 * u], [0.6 * u, -1 * u], [0, -0.5 * u], [-0.6 * u, -1 * u], [-0.4 * u, -0.3 * u], [-0.9 * u, 0.2 * u], [-0.3 * u, 0.2 * u], [0, 0.9 * u]], k * 2.6 * u, 0), C[[3, 2, 1][k]]); }
-    // ---- bunting along the top of both walls: a string sagging from peg to peg, a flag of each colour hanging from it
+      const f = onWall("L", B0 + (B1 - B0) * 0.47, mid - 0.4 * u); chalk(f, ring(1.7 * u, 12), C[0]); chalk(f, [[-1.2 * u, 1.2 * u], [-1.4 * u, 2.4 * u], [-0.4 * u, 1.6 * u]], C[0]); chalk(f, [[0.4 * u, 1.6 * u], [1.4 * u, 2.4 * u], [1.2 * u, 1.2 * u]], C[0]);
+      for (const a of [-0.6, 0.6]) chalk(f, [[a * u, 0.3 * u], [a * u, 0.6 * u]], C[3]);
+      chalk(f, [[-0.6 * u, -0.5 * u], [0, -0.85 * u], [0.6 * u, -0.5 * u]], C[1]); }
+    { // a little house with a door, and a heart over it
+      const f = onWall("L", B0 + (B1 - B0) * 0.79, bz0 + 2.5); chalk(f, [[-1.2 * u, 0], [-1.2 * u, 1.8 * u], [0, 2.9 * u], [1.2 * u, 1.8 * u], [1.2 * u, 0]], C[4]); chalk(f, [[-0.35 * u, 0], [-0.35 * u, 1 * u], [0.35 * u, 1 * u], [0.35 * u, 0]], C[2]);
+      if (bw > 30) chalk(onWall("L", B0 + (B1 - B0) * 0.79, bz0 + 2.5 + 4 * u), [[0, -0.6 * u], [-0.7 * u, 0.1 * u], [-0.35 * u, 0.5 * u], [0, 0.2 * u], [0.35 * u, 0.5 * u], [0.7 * u, 0.1 * u], [0, -0.6 * u]], C[1]); }
+    // the toy shelf: a plank on two brackets, its shadow on the wall, and the toys standing on it
+    const T0 = 0.53, T1 = 0.645, tz = Math.round(Math.max(wall * 0.13, bz0 + 6)), td = 0.03;
+    for (let s = T0; s <= T1 + 0.01; s += ds) for (let k = 1; k <= Math.round(3 * S) + 2; k++) { const [x, y] = P("L", s, tz - k); dim(x + 1, y, 0.45 * (1 - k / (3 * S + 3))); }
+    for (const s of [T0 + 0.015, T1 - 0.015]) for (let k = 1; k <= Math.round(3 * S) + 1; k++) for (let o = 0; o <= td * (1 - k / (3 * S + 2)); o += ds) { const [x, y] = P("L", s, tz - k, o); put(x, y, wood[1]); }
+    for (let s = T0; s <= T1; s += ds) {
+      for (let o = 0; o <= td; o += ds) { const [x, y] = P("L", s, tz, o); put(x, y, o > td - ds * 1.5 ? wood[4] : wood[3]); }
+      const [x, y] = P("L", s, tz - 1, td); put(x, y, wood[2]); put(x, y + 1, wood[0]);
+    }
+    { const sit = (s, h) => { const [x, y] = P("L", s, tz + 1, td * 0.5); return [x, y - h]; }, r = Math.max(2, Math.round(2.2 * S));
+      // a striped ball
+      { const [x, y] = sit(T0 + 0.025, r), red = PLAY_PAINT[0], W = pxHex("#fff8ec");
+        for (let yy = -r; yy <= r; yy++) for (let xx = -r; xx <= r; xx++) { const e = Math.hypot(xx, yy) / (r + 0.4); if (e > 1) continue; const band = Math.abs(yy + xx * 0.4) < r * 0.28; put(x + xx, y + yy, xx + yy < -r * 0.6 ? (band ? W : red[0]) : xx + yy > r * 0.6 ? (band ? pxHex("#d8cfc2") : red[2]) : band ? W : red[1]); }
+        put(x - Math.round(r * 0.4), y - Math.round(r * 0.5), W); }
+      // a stacking tower: rings getting smaller up a post, a round knob on top
+      { const [x, y] = sit(T0 + 0.065, 0), rings = [PLAY_PAINT[2], PLAY_PAINT[3], PLAY_PAINT[1], PLAY_PAINT[5]], rh = Math.max(1, Math.round(1.1 * S));
+        rings.forEach((c, k) => { const half = Math.max(1, Math.round((2.4 - k * 0.45) * S + 0.4)); for (let yy = 0; yy < rh + 1; yy++) for (let xx = -half; xx <= half; xx++) put(x + xx, y - k * (rh + 1) - yy, yy === rh ? c[0] : xx < 0 ? c[1] : c[2]); });
+        const ty = y - rings.length * (rh + 1); put(x, ty, wood[3]); put(x, ty - 1, PLAY_PAINT[0][1]); put(x + 1, ty - 1, PLAY_PAINT[0][2]); put(x, ty - 2, PLAY_PAINT[0][0]); }
+      // a wooden block with a letter on its face
+      { const [x, y] = sit(T1 - 0.025, 0), b = Math.max(3, Math.round(2.8 * S)), c = PLAY_PAINT[3];
+        for (let yy = 0; yy < b; yy++) for (let xx = 0; xx < b; xx++) put(x - (b >> 1) + xx, y - yy, yy === b - 1 ? c[0] : xx === b - 1 ? c[2] : c[1]);
+        put(x - (b >> 1) + (b >> 1), y - (b >> 1), pxHex("#fff8ec")); } }
+
+    // ---- bunting along the top of both walls: a string sagging from peg to peg, a flag of each colour hanging from it (to just
+    // past the arches: on a phone held upright the walls' far ends are off the screen)
     for (const side of ["L", "R"]) {
-      const pegs = [0.03, 0.27, 0.52, 0.76, 0.98];
+      const pegs = [0.03, 0.25, 0.47, 0.69, 0.9];
       for (let k = 0; k < pegs.length - 1; k++) {
-        const s0 = pegs[k], s1 = pegs[k + 1], zs = wall * 0.84, sag = wall * 0.08, line = s => zs - sag * 4 * ((s - s0) / (s1 - s0)) * (1 - (s - s0) / (s1 - s0));
+        const s0 = pegs[k], s1 = pegs[k + 1], zs = wall * 0.84, sag = wall * 0.07, line = s => zs - sag * 4 * ((s - s0) / (s1 - s0)) * (1 - (s - s0) / (s1 - s0));
+        { const [x, y] = P(side, s0, zs); put(x, y, pxHex("#8a8494")); put(x, y - 1, pxHex("#8a8494")); }
         for (let s = s0; s <= s1; s += 0.3 / hw) { const [x, y] = P(side, s, line(s)); put(x, y, pxHex("#efe4d0")); }
         const n = Math.max(3, Math.round((s1 - s0) * hw / (6 * S + 1)));
         for (let i = 1; i < n; i++) {
           const s = s0 + (s1 - s0) * i / n, c = PLAY_PAINT[(i + k * 2 + (side === "L" ? 0 : 3)) % PLAY_PAINT.length], f = onWall(side, s, line(s)), fw = 2 * S + 0.6, fh = 4.5 * S + 1;
           for (let b = 0; b <= fh; b++) { const half = fw * (1 - b / fh); for (let a = -half; a <= half; a += 0.5) { const [x, y] = f(a, -1 - b); put(x, y, a < -half * 0.3 ? c[0] : a > half * 0.4 ? c[2] : c[1]); } }
+          const [x, y] = f(0.8, -2 - fh); dim(x + 1, y + 1, 0.35);
         }
       }
     }
     return null;
   }
-
   if (room === "garden" && !mossy) {
     // moss creeping up the foot of both walls, thick low down and in tongues higher up, the rock's own light kept under it;
     // a fringe of it under the top of the rock too
