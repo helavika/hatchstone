@@ -69,18 +69,22 @@ const LOOKS = ['amethyst', 'celestite', 'glowcap', 'smithy', 'abbey', 'churchyar
 const ROOMS = { nest: 0, play: 2, garden: 3, study: 4 };
 const paint = (kind, id) => { const p = page(ROOMS[kind], id); return { p, c: p.paintRoomIso(p.currentTheme()) }; };
 /** How many pixels two paintings of a room differ in, all told and where the floor's tiles are (inset from its edges and the walls'
- *  foot, where furniture stands), there only counting those painted in one of the colours given (not just lit by a glow). */
-function diff(a, b, p, solid = []) {
+ *  foot, where furniture stands, leaving out the tiles the room keeps for its own fixtures: `kept`, "i,j" as in ROOM_KEEPS),
+ *  there only counting those painted in one of the colours given (not just lit by a glow). */
+function diff(a, b, p, solid = [], kept = []) {
   const { cx, isoTop: top, isoW: hw } = p.N, hh = hw / 2, d0 = a.img.data, d1 = b.img.data, w = a.width;
   let all = 0, floor = 0;
   for (let i = 0; i < d0.length; i += 4) {
     if (d0[i] === d1[i] && d0[i + 1] === d1[i + 1] && d0[i + 2] === d1[i + 2] && d0[i + 3] === d1[i + 3]) continue;
     all++;
     const x = (i / 4) % w, y = Math.floor(i / 4 / w), u = ((x - cx) / hw + (y - top) / hh) / 2, v = ((y - top) / hh - (x - cx) / hw) / 2;
+    if (kept.includes(`${Math.floor(u * 6)},${Math.floor(v * 6)}`)) continue;
     if (u > 0.1 && v > 0.1 && u < 0.99 && v < 0.99 && solid.includes(hex([d1[i], d1[i + 1], d1[i + 2]]))) floor++;
   }
   return { all, floor };
 }
+// the floor the playroom keeps for its slide and mats (no furniture stands there: see ROOM_KEEPS in iso.js)
+const KEEPS = new Function(`${line(iso, /^const ROOM_KEEPS = .*$/m, 'ROOM_KEEPS should be one line in iso.js')}; return ROOM_KEEPS;`)();
 const hasAny = (cols, list) => list.some(c => cols.has(c));
 
 test('the crystal study grows crystals and the playroom its play things, whatever look the room has', () => {
@@ -115,7 +119,7 @@ test('what a room is built with keeps off the floor where furniture stands, and 
     const nest = paint('nest', id), plain = page(ROOMS.nest, id);
     for (const kind of ['play', 'study']) {
       // (their light falls on the floor, as a lamp's would; nothing painted stands on it)
-      const { p, c } = paint(kind, id), solid = [...p.roomMaterials(id, 180, 150, 1).crys, ...p.PLAY_PAINT.flat()].map(hex), dd = diff(nest.c, c, plain, solid);
+      const { p, c } = paint(kind, id), solid = [...p.roomMaterials(id, 180, 150, 1).crys, ...p.PLAY_PAINT.flat()].map(hex), dd = diff(nest.c, c, plain, solid, (KEEPS[kind] || {}).tiles);
       assert.ok(dd.all > 3000, `${kind} in ${id} has fixtures of its own (${dd.all} pixels)`);
       assert.ok(dd.floor < 60, `${kind} in ${id}: ${dd.floor} pixels of its fixtures on the furniture's tiles`);
     }
