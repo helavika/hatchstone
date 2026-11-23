@@ -1532,6 +1532,9 @@ const TALKS = {
   firstPet: () => { const cr = firstPet(); return [[MOSSA, tr("{0} trusts you already. Glowlings remember a kind hand.", cr.name), spotActor, "warm"],
     [MOSSA, "Stroke it, feed it, play with it, tuck it in when it's sleepy. That's how it grows.", "#nestBottom .acts"],
     [MOSSA, "Every glowling needs a bed of its own, and the cot is taken now. Tansy builds beds at her shop, on the map: build one before the next egg.", "#worldTab"]]; },
+  // the first care moment you see (careHint in iso.js): what the big ones do, pointing at the two of them
+  bigCare: cr => [[MOSSA, "Look — the big ones are looking after the little ones.", spotPair, "warm"], [MOSSA, tr("{0} is grown now. It brings the young ones a snack, plays with them, hugs them when they're sad, and tucks them in when they're sleepy.", cr.name), spotPair],
+    [MOSSA, "I used to watch over the little ones like that, too. It's nice to see someone else do it.", null, "warm"]],
   firstGrow: cr => [[glowVoice(cr), "Pip! Pip-pip-pip!", spotActor], [MOSSA, tr("Look at {0}. Not a little one any more.", cr.name), spotActor, "warm"],
     [MOSSA, "Glowlings grow when they're loved. Keep on, and one day it will be Radiant.", "#xpBar"]],
   firstGrotto: () => [[MOSSA, "This is the Grotto. Each level is a geode, a little harder than the last.", "#mapList .lvl.next"],
