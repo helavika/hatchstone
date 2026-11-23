@@ -4892,7 +4892,7 @@ const PLAY_PAINT = [["#ffc4dc", "#ff7eb6", "#c24d86"], ["#fff2a8", "#ffd84a", "#
  * moved, and keeps to the walls, the wall tops and the very foot of them, clear of the tunnels and of the tiles furniture
  * stands on), drawn in the look's own crystals and rock. The crystal study grows crystals everywhere: big clusters in the back
  * corner and along the foot of the walls, points hanging from the top of the rock, a vein across the right wall into a geode
- * that glows; the playroom has a slide out of a hole in the back of the left wall onto a landing mat, a climbing board with a
+ * that glows; the playroom has a slide standing by the back of the left wall, a ladder up to its deck, onto a landing mat, a climbing board with a
  * bell over a crash mat at the back of the right one (the back corner's floor is theirs: ROOM_KEEPS), a chalk slate and a low
  * shelf of toys under the window, and bunting along the top; in the moss garden moss creeps up the walls in any look (its beds, its
  * spring and its shaft of light are the garden's own already: paintMossGarden, roomShaft). The nest keeps its bed corner.
@@ -5047,19 +5047,25 @@ function paintFixtures(room, { put, d, w, h, at, cx, top, hw, hh, wall, S, seed,
     // and its crash mat on the floor under it
     mat("R", 0, 0.19, 0.125, PLAY_PAINT[4], Math.max(2, Math.round(2.4 * S)));
 
-    // ---- the slide: a tube comes out of a round hole high in the back of the left wall and the slide runs down from it along
-    // the wall toward the room, steep in the middle and flat at both ends, onto a soft landing mat; a red trough with a polished
-    // yellow bed and a rail each side, on two pairs of yellow legs with feet on the floor
+    // ---- the slide: it stands on its own by the back of the left wall, a ladder up to a little deck at its top end, then a run
+    // down along the wall toward the room, steep in the middle and flat at both ends, onto a soft landing mat; a red trough with
+    // a polished yellow bed and a rail each side, on two pairs of yellow legs with feet on the floor
     const hs = 0.075, hr = Math.max(4, Math.round(hw * 0.04)), hz = wall * 0.46, s1 = 0.285, D = 0.07, side = Math.round(3.5 * S) + 2;
     const zt = hz - hr * 0.55, zl = Math.max(2, Math.round(2.6 * S)) + 1, zOf = s => s <= hs ? zt : s >= s1 ? zl : zl + (zt - zl) * (1 + Math.cos(Math.PI * (s - hs) / (s1 - hs))) / 2;
     mat("L", 0.235, 0.325, 0.15, PLAY_PAINT[2], Math.max(2, Math.round(2.4 * S)));
-    { const f = onWall("L", hs, hz), red = PLAY_PAINT[0], dark = pxHex("#0b0614");
-      for (let b = -hr - 3; b <= hr + 3; b++) for (let a = -hr - 3; a <= hr + 3; a++) {
-        const e = Math.hypot(a, b) / hr, [x, y] = f(a, b);
-        if (e < 0.82) put(x, y, e < 0.55 && a < 0 && b > 0 ? pxHex("#22143a") : dark);
-        else if (e < 1.25) put(x, y, (Math.atan2(b, a) * 4 / Math.PI + 8) % 2 < 1 ? red[b > 0 ? 0 : 1] : PLAY_PAINT[1][b > 0 ? 0 : 1]);
-        else if (e < 1.5 && b < 0) dim(x + 1, y + 1, 0.5);
-      } }
+    { // the ladder at the back end: two yellow rails from the floor to the deck, red rungs a step apart, feet and a shadow
+      const sl = hs - 0.035, step = Math.max(3, Math.round(3 * S));
+      for (const o of [0.006, D]) {
+        { const [fx, fy] = P("L", sl, 0, o); for (let xx = -2; xx <= 3; xx++) dim(fx + xx, fy + 1, 0.5); }
+        for (let z = 0; z <= zt + 2; z++) { const [x, y] = P("L", sl, z, o); put(x, y, PLAY_PAINT[1][o > 0.02 ? 1 : 2]); put(x + 1, y, ink); }
+      }
+      for (let z = step; z < zt; z += step) for (let o = 0.006; o <= D; o += ds) { const [x, y] = P("L", sl, z, o); put(x, y, PLAY_PAINT[0][1]); put(x, y + 1, PLAY_PAINT[0][2]); }
+      // the deck between the ladder and the slide's top, with a little rail round its back
+      for (let s0 = sl; s0 <= hs; s0 += ds) for (let o = 0; o <= D; o += ds) { const [x, y] = P("L", s0, zt, o); put(x, y, PLAY_PAINT[1][s0 - sl < ds * 1.5 ? 2 : 1]); }
+      for (let o = 0; o <= D; o += ds) { const [x, y] = P("L", sl, zt + 3, o); put(x, y, PLAY_PAINT[0][0]); }
+      for (let s0 = sl; s0 <= hs; s0 += ds) { const [x, y] = P("L", s0, zt + 3, 0.002); put(x, y, PLAY_PAINT[0][1]); }
+      for (let z = 0; z <= zt; z++) { const [x, y] = P("L", sl, z, 0); dim(x - 1, y + 1, 0.35); }
+    }
     // its shadow, on the wall under it and straight down on the floor (darker the nearer it runs to the floor)
     for (let s = hs; s <= s1; s += ds) {
       const z = zOf(s);
