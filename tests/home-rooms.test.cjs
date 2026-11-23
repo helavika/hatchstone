@@ -135,10 +135,13 @@ test('the moss garden\'s own garden is drawn into the room: it takes no floor ti
   const G = vm.runInNewContext('(' + line(iso, /^const MOSS_GARDEN = .*$/m, 'MOSS_GARDEN should be one line in iso.js').replace(/^const MOSS_GARDEN = /, '').replace(/;$/, '') + ')');
   const [at, dw] = line(iso, /^const DOOR_AT = .*$/m, 'DOOR_AT').match(/[\d.]+/g).map(Number), door = at - dw;
   assert.ok(G.bedL[1] < door && G.bedR[1] < door, 'the beds end before the tunnels');
-  assert.ok(G.basin + 0.08 < door && G.basin > 0.08, 'and so does the basin');
+  // the spring's pool sits in the back corner of the left wall, between the right bed's front and the left bed, its rim and all
+  const [su, sv, sr] = G.spring, R = sr + Number(line(iso, /^const SPRING = .*$/m, 'SPRING').match(/rim: ([\d.]+)/)[1]);
+  assert.ok(sv + R < G.bedL[0] && sv - R > 0.05 && sv + R < door, 'and so does the spring');
+  assert.ok(su - R < 0.01 && su + R < 0.3, 'against the wall, not out in the middle of the floor');
   // they stand against the walls, less than a third of a tile deep (6 tiles to the floor)
   const paint = cut(iso, 'function paintMossGarden(', '\nconst mossLight', 'paintMossGarden should sit in iso.js');
-  for (const depth of [paint.match(/const D = ([\d.]+)/)[1], paint.match(/rb = ([\d.]+)/)[1]].map(Number)) assert.ok(depth < 1 / 6 / 3 + 0.05 && depth <= 0.11, 'depth ' + depth);
+  for (const depth of [paint.match(/const D = ([\d.]+)/)[1]].map(Number)) assert.ok(depth < 1 / 6 / 3 + 0.05 && depth <= 0.11, 'depth ' + depth);
   // and its light respects less motion
   assert.match(cut(iso, 'function drawMossLight(', '\n}\n', 'drawMossLight'), /opts\(\)\.calm/);
 });
