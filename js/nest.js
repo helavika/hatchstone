@@ -2466,18 +2466,24 @@ function callHome(id) {
 /** A glowling's mood in one small icon: what it needs most, or a heart when all is well. */
 const MOOD_ICON = { hungry: "cookie", sleepy: "moon", messy: "broom", lonely: "heart" };
 function moodIcon(c) { return  c.out ? "" : c.sleeping ? `<i class="mood zz">z</i>` : ic(MOOD_ICON[callOf(c)] || "heart", "mood" + (callOf(c) ? " want" : "")); }
+/** How the residents sheet lists each room: as they came, or by level. */
+const HOME_SORTS = ["came", "high", "low"], HOME_SORT_NAMES = { came: "As they came", high: "Level ↓", low: "Level ↑" };
 /** Everyone, room by room: drag a glowling onto another room to move it (or onto Exploring to send it off), tap to look after it. */
 function openHome() {
   sfx.tick();
   const away = save.creatures.filter(c => c.out && !c.job), helping = save.creatures.filter(c => c.job);
   $("homeSub").textContent = tr("A room fits as many as its beds sleep. Drag one onto another room to move it in, or tap it to look after it.");
-  const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><small>${c.name}</small>${c.trip ? `<small class="away">🧭 ${fmtLeft(Math.max(0, c.trip.until - Date.now()))}</small>` : c.job ? `<small class="away">${tr(roomName(save.rooms.findIndex(r => r.kind === c.job.place)))}</small>` : c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
-  const zone = (r, title, list, empty) => `<section class="res-zone${r === save.room ? " here" : ""}" data-room="${r}"><h3>${title}</h3><div class="home-grid">${list.map(card).join("") || `<p class="sub">${empty}</p>`}</div></section>`;
-  $("homeList").innerHTML = save.rooms.map((_, r) => isPlace(r) ? "" : zone(r, `${roomName(r)} <span>${residents(r).length}/${homeCap(r)}</span>`, residents(r), tr("empty: drag someone here"))).join("")
+  const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><i class="res-lv">${tr("Lv {0}", c.level || 1)}</i><small>${c.name}</small>${c.trip ? `<small class="away">🧭 ${fmtLeft(Math.max(0, c.trip.until - Date.now()))}</small>` : c.job ? `<small class="away">${tr(roomName(save.rooms.findIndex(r => r.kind === c.job.place)))}</small>` : c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
+  // each room's glowlings as they came, or by level, highest or lowest first (kept between visits)
+  const sort = HOME_SORTS.includes(opts().homeSort) ? opts().homeSort : "came", order = list => sort === "came" ? list : [...list].sort((a, b) => ((a.level || 1) - (b.level || 1)) * (sort === "high" ? -1 : 1) || a.id - b.id);
+  const zone = (r, title, list, empty) => `<section class="res-zone${r === save.room ? " here" : ""}" data-room="${r}"><h3>${title}</h3><div class="home-grid">${order(list).map(card).join("") || `<p class="sub">${empty}</p>`}</div></section>`;
+  $("homeList").innerHTML = `<div class="seg home-sort" role="group" aria-label="${tr("Sort")}">${HOME_SORTS.map(k => `<button data-sort="${k}" class="${sort === k ? "on" : ""}">${tr(HOME_SORT_NAMES[k])}</button>`).join("")}</div>`
+    + save.rooms.map((_, r) => isPlace(r) ? "" : zone(r, `${roomName(r)} <span>${residents(r).length}/${homeCap(r)}</span>`, residents(r), tr("empty: drag someone here"))).join("")
     + zone("out", `${tr("Exploring")} <span>${away.length}</span>`, away, tr("drag someone here to send them exploring"))
     + (helping.length ? zone("help", `${tr("Helping in the valley")} <span>${helping.length}</span>`, helping, "") : "")
     + `<p class="me-hint">${tr("More beds, more space at home: the shop builds them, in Renovation.")}</p>`;
   $$("#homeList .res").forEach(b => b.addEventListener("pointerdown", dragResident));
+  $$("#homeList [data-sort]").forEach(b => b.addEventListener("click", () => { setOpt("homeSort", b.dataset.sort); openHome(); }));
   show("homeSheet", true);
 }
 /** Pick a glowling up in the residents sheet and drop it on a room; a tap without moving looks after it instead. */

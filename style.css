@@ -700,6 +700,9 @@ input, select, textarea, #backup textarea, #coopDialog input, #coopDialog select
 .home-grid button img { width: 40px; height: 40px; image-rendering: pixelated; }
 .home-grid button small { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .home-grid button.out img { opacity: .5; filter: grayscale(.5); }
+.home-grid .res-lv { position: absolute; left: 3px; top: 3px; font-style: normal; font-size: 10px; line-height: 1; padding: 1px 3px; color: var(--px-gold); background: rgba(22, 12, 38, .75); pointer-events: none; }
+.home-sort { display: flex; width: 100%; margin: 0 0 var(--s3); }
+.home-sort button { flex: 1 1 0; min-height: var(--tap); font-size: 15px; }
 .home-grid button small.away { color: var(--soft); font-size: 10px; }
 .home-grid button.out::after { content: "🧭"; position: absolute; right: 4px; top: 4px; font-size: 12px; }
 #homeList h3 { margin: 8px 0 6px; font-size: 15px; color: var(--soft); text-align: left; }
