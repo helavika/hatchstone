@@ -74,3 +74,19 @@ test('the glowcap is a snack in the pantry, and every new word has its Ukrainian
   // each counted once a session, by what was done
   for (const what of ['glowcap', 'bath', 'song', 'hum']) assert.ok(section.includes(`trackOnce("roomdo", { what: "${what}" })`), what);
 });
+
+test('a bath at the spring: in, soaking, out and shaking dry in four to six seconds, one at a time, gentler with less motion', () => {
+  const spring = cut(play, '// ---- the moss garden\'s spring', '// ---- the crystal study');
+  const T = vm.runInNewContext(spring.match(/const BATH_T = (\[[^\]]+\])/)[1]), total = T.reduce((a, b) => a + b, 0);
+  assert.equal(T.length, 4); assert.ok(total >= 4 && total <= 6, 'about five seconds: ' + total);
+  // the rules stay: once a day each, joy, a clean coat
+  const bathe = cut(spring, 'function batheAt(', '\n}\n');
+  assert.match(bathe, /bathOk\(r\.bath, cr\.id, day\)/); assert.match(bathe, /r\.bath = bathed\(/); assert.match(bathe, /cr\.joy = clamp\(cr\.joy \+ BATH_JOY/); assert.match(bathe, /cr\.messT = 0/);
+  // never two in the water: a second one tapped while it's busy waits, and goes in when it's free (roomDoTick)
+  assert.match(cut(spring, 'function tapSpring(', '\n}\n'), /if \(!bathBusy\(\)\) \{ goBath\(a\); return; \}[\s\S]*bathNext = game\.time/);
+  assert.match(cut(play, 'function roomDoTick(', '\n}\n'), /!bathBusy\(\)[\s\S]*goBath\(a\)/);
+  // half under water: the pool's front laid over the bather, a happy face, and less motion kept to
+  assert.match(cut(play, 'function drawActor(', '\n}\n'), /if \(wet\) springFront\(\)/);
+  const tick = cut(spring, 'function bathTick(', '\n}\n');
+  assert.match(tick, /kaoFor\(cr, "\w+"\)/); assert.match(tick, /opts\(\)\.calm/); assert.match(cut(spring, 'function drawSpring(', '\n}\n'), /opts\(\)\.calm/);
+});

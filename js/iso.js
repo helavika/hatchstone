@@ -99,6 +99,11 @@ function pushOutOfPieces(a) {
     moved = true;
     if (d > 1e-4) { U = pu + dx / d * r; V = pv + dy / d * r; } else U = pu + r;
   }
+  // the moss garden's spring: round it, never through it (feet may touch its rim), unless it's the one having a bath
+  if (a.state !== "bath" && game.scene === "nest" && save.rooms[save.room]?.kind === "garden") {
+    const [su, sv, sr] = MOSS_GARDEN.spring, pu = su * ISO_G, pv = sv * ISO_G, dx = U - pu, dy = V - pv, d = Math.hypot(dx, dy), r = (sr + SPRING.rim) * ISO_G * 0.8 + BODY_R * 0.6;
+    if (d < r) { moved = true; if (d > 1e-4) { U = pu + dx / d * r; V = pv + dy / d * r; } else U = pu + r; }
+  }
   if (moved) [a.x, a.y] = isoAt(U / ISO_G, V / ISO_G);
 }
 /** Is a floor point (in tiles) on a piece, or just behind one (a piece within a tile in front of it on the floor), where it'd be out of sight? */
@@ -530,7 +535,7 @@ function updateActors(dt) {
       target = decorSpot("rug"); a.goal = a.friend = null;
       if (a.state !== "idle") { a.state = "idle"; a.t = 1; }
     }
-    if (petted(a)) { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
+    if (petted(a) && a.state !== "bath") { a.tx = a.x; a.ty = a.y; a.state = "idle"; a.t = 1.5; }
     else if (target) { a.tx = target[0]; a.ty = target[1]; }
     else if (a.state === "eat") { if ((a.t -= dt) <= 0) {
       // fed at the bowl: it steps away to make room for the next one (and has its after-meal nap over there, if that's its way)
@@ -540,8 +545,8 @@ function updateActors(dt) {
 
     // a little personal space: glowlings gently push apart instead of piling up
     // (except on the way to bed: sleepy ones squeeze in and cuddle up)
-    if (a.state !== "sleep" && a.state !== "visit" && a.state !== "toBed") for (const o of list) {
-      if (o === a || o.state === "sleep" || o.state === "visit" || o.state === "toBed") continue;
+    if (a.state !== "sleep" && a.state !== "visit" && a.state !== "toBed" && a.state !== "bath") for (const o of list) {
+      if (o === a || o.state === "sleep" || o.state === "visit" || o.state === "toBed" || o.state === "bath") continue;
       const ox = a.x - o.x, oy = (a.y - o.y) * 1.6, od = Math.hypot(ox, oy), min = N.base * 0.95;
       if (od > 0.01 && od < min) {
         // step aside, and move where you were heading too, or you'd walk straight back into them
@@ -554,11 +559,11 @@ function updateActors(dt) {
     // the way around the furniture (this also moves a goal that's inside a piece to the free spot beside it)
     // (the last stretch to bed goes straight to the sleeping spot: a way around the bed would stop beside it, never in it)
     const tucking = a.state === "toBed" && Math.hypot(a.tx - a.x, a.ty - a.y) < N.base * 0.9;
-    const walking = !tucking && !["nap", "dance", "eat", "sleep", "visit"].includes(a.state) && !petted(a);
+    const walking = !tucking && !["nap", "dance", "eat", "sleep", "visit", "bath"].includes(a.state) && !petted(a);
     const wp = walking ? nextWaypoint(a, dt) : null;
     const dx = a.tx - a.x, dy = a.ty - a.y, d = Math.hypot(dx, dy);
     if (a.state === "toBed" && d <= 8) { a.state = "sleep"; a.hop = 1; } // close enough: lie down (the room's edge may keep the exact spot just out of reach)
-    const still = ["nap", "dance", "eat", "sleep", "visit"].includes(a.state);
+    const still = ["nap", "dance", "eat", "sleep", "visit", "bath"].includes(a.state);
     const moving = d > 3 && !still;
     if (!moving) a.vx = a.vy = 0;
     if (moving && wp) {
@@ -580,7 +585,7 @@ function updateActors(dt) {
       // (pressed against the very piece it came to see, or nearly there: that's arriving, not being stuck)
       // (held up on the way to a little one it's looking after: near enough is close enough, or it tries again)
       if (a.stuck > 1.5 && a.care) { a.stuck = 0; a.lastX = a.lastY = undefined; a.tx = a.x; a.ty = a.y; careArrive(a, cr); }
-      if (a.stuck > 1.5 && a.goal && left < N.base * (a.goal === "bowl" ? 1.1 : 0.6)) { a.stuck = 0; a.lastX = a.lastY = undefined; a.tx = a.x; a.ty = a.y; }
+      if (a.stuck > 1.5 && (a.goal || a.bath) && left < N.base * (a.goal === "bowl" || a.bath ? 1.1 : 0.6)) { a.stuck = 0; a.lastX = a.lastY = undefined; a.tx = a.x; a.ty = a.y; }
       if (a.stuck > 1.5) { a.stuck = 0; a.lastX = a.lastY = undefined; a.goal = a.friend = a.care = null; a.rain = a.garden = a.bath = a.song = false; if (a.state === "walk" || a.state === "idle") { a.state = "idle"; a.t = rand(0.5, 1.5) * linger(cr); a.tx = a.x; a.ty = a.y; } else a.repath = 0; }
     } else if (moving) {
       const hopper = a.beh === "hop";
@@ -669,6 +674,8 @@ function updateActors(dt) {
         if (a.blend >= 1) a.from = null;
       }
     } else a.from = null;
+    // in the spring: hopping in, soaking, hopping out and shaking dry, placed by hand (see bathTick)
+    if (a.state === "bath") bathTick(a, cr);
     faceMoments(a, cr, dt);
     if (habitOf(cr) === "hum") humAlong(a, cr, dt);
     // needs show up as little thought bubbles now and then
@@ -4197,7 +4204,19 @@ function roomMaterials(id, hw, wall, S) {
 }
 /** Where the moss garden's own garden is, in floor units along its walls (see paintMossGarden): low against the walls and clear
  *  of the tunnels (DOOR_AT), so furniture still stands anywhere on the floor, in front of it; and where its shaft of light lands. */
-const MOSS_GARDEN = { bedL: [0.32, 0.62], bedR: [0.06, 0.3], basin: 0.17, light: [0.32, 0.38] };
+const MOSS_GARDEN = { bedL: [0.37, 0.62], bedR: [0.06, 0.3], spring: [0.125, 0.2, 0.11], light: [0.32, 0.38] };
+/** The spring's pool (MOSS_GARDEN.spring: its middle on the floor, u and v, and the water's radius): a ring of stones rim wide round
+ *  it, standing low enough to hop over, the water a pixel under their tops; and the mossy rock against the wall behind it, its lip
+ *  lip out from the wall, the trickle falling off it. Heights in art pixels, for a wall that many art pixels tall. */
+const SPRING = { rim: 0.026, lip: 0.045 };
+const springZ = wall => { const rim = Math.max(3, Math.round(wall * 0.045)), lip = rim + Math.round(wall * 0.16); return { rim, lip, rock: lip + Math.round(wall * 0.07) }; };
+/** The spring in screen pixels: the water's middle (x, y, on its surface), its half width and height (rx, ry; Rx, Ry with the rim),
+ *  the rim's height, the lip the trickle falls from (lx, ly) and where it lands (wy), and the rock's top. */
+function springPool() {
+  const [u, v, r] = MOSS_GARDEN.spring, z = springZ(N.isoWall / PX), [x, fy] = isoAt(u, v), R = r + SPRING.rim, [lx, lf] = isoAt(SPRING.lip, v);
+  return { x, y: fy - (z.rim - 1) * PX, fy, rx: r * Math.SQRT2 * N.isoW, ry: r * Math.SQRT1_2 * N.isoW, Rx: R * Math.SQRT2 * N.isoW, Ry: R * Math.SQRT1_2 * N.isoW, z: z.rim * PX,
+    lx, ly: lf - z.lip * PX, wy: lf - (z.rim - 1) * PX, rockX: isoAt(0, v)[0], top: isoAt(0, v)[1] - z.rock * PX };
+}
 /** Where the moods' own things stand along each wall (a share of its length from the back corner), clear of the tunnels
  *  (DOOR_AT): the gallery's posts, the crypt's columns, and the crypt's niche in the left wall between them. */
 const SHORE_AT = [0.07, 0.37, 0.64, 0.95], COLUMN_AT = [0.14, 0.62], NICHE_AT = 0.38;
@@ -4236,7 +4255,7 @@ function paintMossGarden({ put, d, w, h, at, cx, top, hw, hh, wall, S, seed, mos
   const halo = (x0, y0, R, col, k) => { for (let y = Math.floor(y0 - R); y <= y0 + R; y++) for (let x = Math.floor(x0 - R); x <= x0 + R; x++) { const dd = Math.hypot(x - x0, y - y0) / R + (bay(x, y) - 0.5) * 0.25; if (dd < 1) tint(x, y, col, dd < 0.5 ? k : k * 0.45); } };
   // a spot on a wall's plane: s along the wall from the back corner, o out from it across the floor, z up
   const pt = (side, s, o, z = 0) => { const [x, y] = side === "L" ? at(o, s) : at(s, o); return [x, y - z]; };
-  const step = 0.35 / hw;
+  const step = 0.35 / hw, pool = new Map();
 
   // ---- the pool of light from the crack in the vault, laid on the moss in three steps (the shaft brightens it again, over the rug too)
   const [lu, lv] = MOSS_GARDEN.light;
@@ -4315,33 +4334,67 @@ function paintMossGarden({ put, d, w, h, at, cx, top, hw, hh, wall, S, seed, mos
 
   // (the glowcap grotto in another room has the moss garden's light and glowcaps, but not its spring and its beds)
   if (whole) {
-  // ---- the spring: a wet crack in the left wall, a stone lip, the water falling in a thin bright thread into a round stone
-  //      basin against the wall (by the back corner, on the lit wall), the basin's stones shaded each on its own, moss round its rim
-  const ub = MOSS_GARDEN.basin, rb = 0.075, rim = 0.016, zs = zb + Math.round(wall * 0.22);
-  for (let z = zs; z < zs + wall * 0.2; z += 0.5) {
-    const o = Math.round(Math.sin(z * 0.4 + seed) * 1.2), [x, y] = pt("L", ub, 0, z);
-    put(x + o, y, stoneC[0]); tint(x + o + 1, y, aq[4], 0.4); tint(x + o - 1, y, stoneC[0], 0.5);
+  // ---- the spring: a round pool sunk in a low ring of stones by the back corner (low enough to hop over, mossy on the lit back and
+  //      left), clear water deep blue-green in the middle and pale over the stones at its edge, the trickle's bright reflection in
+  //      it; behind it a mossy rock against the wall, a flat lip of stone sticking out of it and the water falling off that in a
+  //      thin bright thread. Every pixel of the pool is kept (pool) to be laid again over a glowling sitting in it: see springFront.
+  const [pu, pv, pr] = MOSS_GARDEN.spring, R = pr + SPRING.rim, Z = springZ(wall), wallU = 0.004;
+  const pput = (x, y, col, k) => { x = Math.round(x); y = Math.round(y); put(x, y, col); if (x >= 0 && y >= 0 && x < w && y < h) pool.set(y * w + x, k); };
+  const lit = th => Math.sin(th) - Math.cos(th);   // (how much a bit of the rim faces left, toward the light)
+  // the rock: a lump against the wall, bulging out of it, shaded round like a boulder lit from the top left, moss on its top
+  const rw = 0.075;
+  for (let z = 0; z <= Z.rock; z += 0.5) for (let s = pv - rw; s <= pv + rw; s += step) {
+    const ns = (s - pv) / rw, hgt = Z.rock * Math.sqrt(Math.max(0, 1 - ns * ns)) * (0.85 + 0.25 * pxNoise(s * 60, seed + 7));
+    if (z > hgt) continue;
+    const nz = z / Math.max(1, hgt), o = 0.03 * Math.sqrt(Math.max(0, 1 - ns * ns * 0.8 - nz * nz * 0.6)), [x, y] = pt("L", s, o, z);
+    const lv = 0.42 + 0.3 * ns + 0.25 * nz + (pxNoise(x * 0.4, y * 0.4 + seed) - 0.5) * 0.3 + (bay(x, y) - 0.5) * 0.18;
+    const edge = Math.abs(ns) > 0.88 || z > hgt - 1;
+    put(x, y, nz > 0.84 - 0.22 * pxNoise(s * 90, seed) ? mossC[edge ? 3 : lv > 0.62 ? 5 : 4] : stoneC[edge ? 1 : clamp(Math.round(lv * 5), 1, 4)]);
   }
-  for (let k = -2; k <= 2; k++) { const [x, y] = pt("L", ub + k / hw, 0.01, zs); put(x, y, stoneC[4]); put(x, y + 1, stoneC[2]); put(x, y - 1, mossC[5]); }
-  const ws = 2 * Math.PI / 5;
-  for (let th = 0; th <= Math.PI; th += 0.35 / (rb * hw)) for (let z = 0; z < zb; z++) {
-    const ch = Math.ceil(zb / 2), row = Math.floor(z / ch), sh = row % 2 ? 0.5 : 0, si = Math.floor(th / ws + sh), fa = th / ws + sh - si;
-    const cs = Math.cos(th), fz = z % ch, [x, y] = pt("L", ub + rb * cs, rb * Math.sin(th), z);
-    let k = 3 + (Math.sin(th) > 0.75 ? 1 : 0) - (cs > 0.45 ? 1 : 0) + (pxHash(si, row) > 0.7 ? -1 : 0);   // (lit where it faces out of the wall, into the room)
-    if (fa < 0.05 || fz === 0) k = 0; else if (fz === ch - 1 || fa > 0.88) k += 1; else if (fz === 1 || fa < 0.12) k -= 1;
-    put(x, y, stoneC[clamp(k, 0, 5)]);
+  // the lip: a flat stone out of the rock, its top lit, its edge dark, wet underneath
+  for (let s = pv - 0.022; s <= pv + 0.022; s += step) for (let o = 0; o <= SPRING.lip; o += step) {
+    const [x, y] = pt("L", s, o, Z.lip); put(x, y, o > SPRING.lip - step * 2 ? stoneC[2] : stoneC[s > pv + 0.012 ? 5 : 4]); put(x, y + 1, stoneC[1]);
   }
-  for (let a = -rb; a <= rb; a += step) for (let b = 0; b <= rb; b += step) {
-    const r = Math.hypot(a, b);
-    if (r > rb) continue;
-    const [x, y] = pt("L", ub + a, b, r > rb - rim ? zb : zb - 1);
-    if (r > rb - rim) { put(x, y, b < rb * 0.4 && pxHash(Math.round(x), 2) > 0.5 ? mossC[5] : stoneC[a < 0 ? 5 : 4]); continue; }
-    const ripple = Math.abs(Math.hypot(a, b - 0.012) - rb * 0.45) < step * 1.5;
-    put(x, y, ripple ? aq[1] : aq[b < rb * 0.35 ? 4 : pxHash(Math.round(x), Math.round(y)) > 0.9 ? 2 : 3]);
+  // the rim's outer face, stone by stone round the pool (a course as tall as the rim), lit where it faces left, moss on some
+  const nSt = Math.max(10, Math.round(2 * Math.PI * R * hw / (5 * U)));
+  for (let th = 0; th < 2 * Math.PI; th += 0.3 / (R * hw)) for (let z = 0; z < Z.rim; z++) {
+    const u = pu + R * Math.cos(th), v = pv + R * Math.sin(th);
+    if (u < wallU) continue;
+    const si = Math.floor(th / (2 * Math.PI) * nSt), fa = th / (2 * Math.PI) * nSt - si, [x, y] = at(u, v), L = lit(th);
+    let k = 3 + (L > 0.5 ? 1 : L < -0.6 ? -1 : 0) + (pxHash(si, seed + 3) > 0.7 ? -1 : 0);
+    if (fa < 0.1) k = 0; else if (z === 0) k -= 1; else if (z === Z.rim - 1) k += 1;
+    pput(x, y - z, z === Z.rim - 1 && pxHash(si, seed + 5) > 0.72 ? mossC[4] : stoneC[clamp(k, 0, 5)], 1);
   }
-  for (let z = zs - 1; z >= zb - 1; z--) { const [x, y] = pt("L", ub, 0.012, z); put(x, y, aq[z % 3 ? 2 : 1]); if (z % 4 === 0) put(x + 1, y, aq[0]); }
-  { const [x, y] = pt("L", ub, 0.012, zb - 1); put(x - 1, y - 1, aq[0]); put(x + 1, y - 2, aq[0]); put(x + 2, y, aq[1]); }
-  { const [x, y] = pt("L", ub + rb + 0.03, 0.01); fernAt(x, y, wall * 0.16); }
+  // the rim's top and the water inside it
+  const [tx, ty] = at(SPRING.lip, pv), tyW = ty - (Z.rim - 1);
+  for (let a = -R; a <= R; a += step) for (let b = -R; b <= R; b += step) {
+    const d = Math.hypot(a, b);
+    if (d > R || pu + a < wallU) continue;
+    const th = Math.atan2(b, a);
+    if (d > pr) {
+      const si = Math.floor(((th + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI) * nSt), fa = ((th + 2 * Math.PI) % (2 * Math.PI)) / (2 * Math.PI) * nSt - si, [x0, y0] = at(pu + a, pv + b), y = y0 - Z.rim, L = lit(th);
+      const mossy = pxNoise(x0 * 0.25, y * 0.25 + seed) + (a < 0 ? 0.2 : 0) + (L > 0 ? 0.1 : -0.1) > 0.78;
+      let k = 4 + (pxHash(si, seed + 1) > 0.6 ? 1 : 0) - (L < -0.5 ? 1 : 0);
+      if (fa < 0.09) k = 1; else if (d < pr + step * 1.5) k = a + b < 0 ? 1 : 3; else if (d > R - step * 1.5) k -= 1;
+      pput(x0, y, mossy && fa >= 0.09 ? mossC[L > 0 ? 5 : 4] : stoneC[clamp(k, 0, 5)], 1);
+      continue;
+    }
+    const [x0, y0] = at(pu + a, pv + b), x = Math.round(x0), y = Math.round(y0 - (Z.rim - 1)), dn = d / pr + (bay(x, y) - 0.5) * 0.18;
+    // deep in the middle, pale over the stones at the edge, in shadow under the back of the rim, a pale line where it meets the front
+    let c = aq[dn < 0.5 ? 5 : dn < 0.82 ? 4 : 3];
+    if (dn > 0.9 && a + b < 0) c = aq[5]; else if (dn > 0.93) c = aq[2];
+    // the trickle's reflection: a bright streak below where it lands, broken up
+    else if (Math.abs(x - Math.round(tx)) <= (wall > 90 ? 1 : 0) && y > tyW + 1 && y < tyW + pr * hh * 1.1 && (y + Math.round(tx)) % 3) c = aq[(y - tyW) % 2 ? 2 : 3];
+    else if (pxHash(x, y + seed) > 0.95) c = aq[3];
+    pput(x, y, c, 2);
+  }
+  // the trickle: a thread off the lip's edge down to the water, shimmering in two blues, and a little splash where it lands
+  for (let y = Math.round(ty - Z.lip) + 1; y <= tyW; y++) { put(tx, y, aq[y % 3 ? 1 : 2]); if (wall > 90) put(tx + 1, y, aq[y % 3 ? 2 : 3]); }
+  for (const [dx, dy, k] of [[-2, 0, 1], [2, 0, 1], [-1, -1, 0], [1, -2, 0], [3, -1, 2], [-3, 1, 2]]) put(tx + dx, tyW + dy, aq[k]);
+  // a fern at its left and two small glowcaps on the rock, glowing over the water
+  { const [x, y] = pt("L", pv + R + 0.02, 0.008); fernAt(x, y, wall * 0.15); }
+  { const [x, y] = pt("L", pv + 0.04, 0.012, Z.rock * 0.8); capAt(Math.round(x), Math.round(y), Math.round(3 * U), 2.4 * U, capB); }
+  { const [x, y] = pt("L", pv - 0.065, 0.014, Z.rock * 0.3); capAt(Math.round(x), Math.round(y), Math.round(2 * U), 1.8 * U, capP); }
 
   // ---- the beds: raised against the wall in two courses of stone, soil, and what grows in them
   const D = 0.05, rimO = 0.015;
@@ -4403,6 +4456,20 @@ function paintMossGarden({ put, d, w, h, at, cx, top, hw, hh, wall, S, seed, mos
   clump(...at(0.95, 0), 2, false);
   // the moss's own sparkle: a few pale spores resting on it, in the light
   for (let k = 0; k < 18; k++) { const u = 0.15 + 0.6 * pxHash(k, seed + 41), v = 0.15 + 0.6 * pxHash(seed + 42, k), [x, y] = at(u, v); if (Math.hypot(u - lu, v - lv) < 0.3) put(x, y, pxHex("#fffbe6")); }
+  return pool.size ? springSprite(pool, d, w) : null;
+}
+/** The spring's pool cut out of the finished room, as it was painted (its rim, and its water), in art pixels from (x0, y0): laid
+ *  again over the lower half of a glowling sitting in it, the water in front of its body (see springFront). */
+function springSprite(pool, d, w) {
+  let x0 = Infinity, y0 = Infinity, x1 = -1, y1 = -1;
+  for (const i of pool.keys()) { const x = i % w, y = (i - x) / w; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+  const make = k => {
+    const c = document.createElement("canvas"); c.width = x1 - x0 + 1; c.height = y1 - y0 + 1;
+    const g = c.getContext("2d"), img = g.createImageData(c.width, c.height);
+    for (const [i, t] of pool) if (t === k) { const x = i % w, y = (i - x) / w, j = ((y - y0) * c.width + x - x0) * 4; img.data.set([d[i * 4], d[i * 4 + 1], d[i * 4 + 2], 255], j); }
+    g.putImageData(img, 0, 0); return c;
+  };
+  return { x0, y0, rim: make(1), water: make(2) };
 }
 /** The stained-glass lantern in the crypt's niche: an iron cage, rose, blue, amber and violet panes round a white flame. */
 const GLASS_LANTERN = [
@@ -5763,7 +5830,7 @@ function paintRoomIso(id) {
     if (shop) shop.after();
     if (glowing) glowing();
     if (fixed) fixed();
-    if (garden || mood === "grotto") paintMossGarden({ put, d, w, h, at, cx, top, hw, hh, wall, S, seed, mossC, dirt, crys, whole: garden });
+    if (garden || mood === "grotto") c.spring = paintMossGarden({ put, d, w, h, at, cx, top, hw, hh, wall, S, seed, mossC, dirt, crys, whole: garden });
     else if (kind === "cave" && mood !== "gallery" && !crypt) {
       // crystals growing at the foot of the walls, in the back corner and at both ends: facets lit on the left, a pale tip
       for (const [bx, by, n] of [[cx, top, 5], [cx - hw * 0.92, top + hh * 0.92, 3], [cx + hw * 0.92, top + hh * 0.92, 3]]) for (let k = 0; k < n; k++) {

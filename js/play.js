@@ -1244,7 +1244,7 @@ function actorLook(a, cr) {
   if (game.seek && game.seek.id === a.id && game.seek.phase === "count") return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood: "asleep", hop: 0, t: game.time + a.id * 997, glowK: mine ? 0.7 : 0.35 };
   // near the Gloom's shadows a glowling dims and looks worried; shining with your light, it brightens and cheers up (see updateGloom)
   const gk = asleep ? 0 : a.gloomK || 0, lit = a.gloomLit || 0;
-  const mood = asleep ? "asleep" : petted(a) ? "joy" : a.state === "dance" || a.state === "visit" || lit > 0.5 || (a.emote && (a.emote.text === "♥" || KAO_GLAD.includes(kaoNamed(a.emote.text)))) ? "happy" : gk > 0.35 ? "sad" : moodOf(cr);
+  const mood = asleep ? "asleep" : petted(a) ? "joy" : a.state === "dance" || a.state === "visit" || a.state === "bath" || lit > 0.5 || (a.emote && (a.emote.text === "♥" || KAO_GLAD.includes(kaoNamed(a.emote.text)))) ? "happy" : gk > 0.35 ? "sad" : moodOf(cr);
   // only a truly tired one (not just a bit low) looks sleepy-eyed; a little moment's face while it rests; older ones hop lower
   return { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, cap: a.state === "sleep", hop: a.hop, hopK: calmOf(cr.level).hop * 0.75, eating: a.state === "eat", t: game.time + a.id * 997, glowK: (mine ? 0.7 : 0.35) * (1 - gk * 0.7) + lit * 0.7,
     tired: cr.energy < 12, face: faceNow(a), dim: gk * 0.6 * (1 - lit) };
@@ -1256,14 +1256,17 @@ function drawActor(a) {
     const cr = save.creatures.find(c => c.id === a.id);
     if (!cr) return;
     const v = actorView(a), sp = specOf(cr), mine = act && a.id === act.id;
+    // (sat in the spring: no shadow under it, and the water's front over its lower half, after it)
+    const wet = a.state === "bath" && a.inPool;
     ctx.fillStyle = "rgba(5,0,20,.35)";
-    ctx.beginPath(); ctx.ellipse(a.x, a.y - (a.perch || 0), v.size * 0.38 * clamp(1 - a.alt / (N.base * 1.4), 0.4, 1), v.size * 0.09, 0, 0, TAU); ctx.fill();
-    if (mine) {
+    if (!wet) { ctx.beginPath(); ctx.ellipse(a.x, a.y - (a.perch || 0), v.size * 0.38 * clamp(1 - a.alt / (N.base * 1.4), 0.4, 1), v.size * 0.09, 0, 0, TAU); ctx.fill(); }
+    if (mine && !wet) {
       ctx.strokeStyle = `rgba(255,233,168,${0.5 + 0.3 * Math.sin(game.time * 0.004)})`; ctx.lineWidth = 2;
       ctx.beginPath(); ctx.ellipse(a.x, a.y, v.size * 0.5, v.size * 0.13, 0, 0, TAU); ctx.stroke();
     }
     const asleep = a.state === "sleep" || a.state === "nap";
     drawSprite(v.x, v.y, v.size, sp, actorLook(a, cr));
+    if (wet) springFront();
     if (asleep) {
       fx.font = `400 ${Math.round(Math.max(14, v.size * 0.2))}px ${PIXEL_FONT}`;
       fx.fillStyle = "#d2bfff";
@@ -2156,7 +2159,7 @@ function drawSeekPeek() {
 const CAP_EVERY = 3 * 3600e3, CAP_MAX = 3, BATH_JOY = 15;
 /** Where glowcaps come up on the moss garden's floor (u, v), in the order they come: in front of the beds, by the spring, out on the
  *  moss under the light; a spot with furniture standing on it is skipped (see capSpots). */
-const CAP_SPOTS = [[0.1, 0.45], [0.2, 0.1], [0.42, 0.11], [0.1, 0.28], [0.3, 0.42]];
+const CAP_SPOTS = [[0.1, 0.45], [0.27, 0.05], [0.42, 0.11], [0.1, 0.28], [0.3, 0.42]];
 /** What the rooms keep of their doings (save.roomdo), made whole: the glowcaps up (the spots they stand on) and since when the next
  *  one is coming, and who bathed on which day. A room that never had any starts with one glowcap already up, to be found. */
 function roomDoOf(o, now = Date.now()) {
@@ -2254,48 +2257,174 @@ function pickCap(c) {
 
 // ---- the moss garden's spring
 
-/** The spring's stone basin against the left wall (see paintMossGarden), in screen pixels: its middle, how wide and how tall. */
-function springBasin() {
-  const [x, y] = isoAt(0.035, MOSS_GARDEN.basin);
-  return { x, y: y - N.isoWall * 0.08, rx: N.isoW * 0.1 + 6, ry: N.isoH * 0.1 + N.isoWall * 0.1 + 6 };
-}
-/** Is a finger on the spring: its basin, or the thread of water falling into it. */
+/** A bath, in seconds: the hop in, the soak (a happy splash in the middle of it), the hop out, and the shake dry on the moss. */
+const BATH_T = [0.7, 3.2, 0.7, 1.1];
+/** Where a bather steps in from, where it hops out to, and where the next ones wait their turn (floor u, v; see springPool). */
+const SPRING_IN = [0.3, 0.22], SPRING_OUT = [0.25, 0.45], SPRING_WAIT = [[0.44, 0.3], [0.44, 0.44], [0.56, 0.36]];
+const springSpot = uv => standSpot(...isoAt(...uv));
+/** Is a finger on the spring: its pool and rim, or the rock behind it with the trickle. */
 function springAt(x, y) {
   if (roomKindHere() !== "garden") return false;
-  const b = springBasin();
-  return Math.hypot((x - b.x) / b.rx, (y - b.y) / b.ry) < 1 || (Math.abs(x - b.x) < b.rx * 0.4 && y < b.y && y > b.y - N.isoWall * 0.45);
+  const P = springPool();
+  return Math.hypot((x - P.x) / (P.Rx + 6), (y - P.fy + P.z * 0.5) / (P.Ry + P.z * 0.5 + 6)) < 1 || (Math.abs(x - P.rockX) < N.isoW * 0.08 + 8 && y > P.top - 8 && y < P.fy);
 }
-/** A splash at the spring: drops thrown up, rings on the water, and the sound of it. */
-function springSplash(big) {
-  const b = springBasin();
+/** Rings running out over the spring's water (see drawSpring): where, since when, from how wide. */
+let springRings = [];
+/** A splash in the spring (at x, y on its water, its middle if not said): drops thrown up, rings on the water, and the sound of it. */
+function springSplash(big, x, y) {
+  const P = springPool(), calm = opts().calm;
+  x = x ?? P.x; y = y ?? P.y;
   if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.grain(t, big ? 0.3 : 0.15, 1800, 0.9, big ? 0.16 : 0.08); sfx.tone(t, rand(1300, 1700), 0.07, 0.35, "sine", null, true); if (big) sfx.tone(t + 0.1, rand(1900, 2300), 0.05, 0.3, "sine", null, true); }
-  for (let i = 0; i < (big ? 3 : 2); i++) game.ripples.push({ x: b.x + rand(-6, 6), y: b.y, t: -i * 0.12, r: b.rx * 0.7, h: 0.5 });
-  for (let i = 0; i < (big ? 16 : 7); i++) game.sparks.push({ x: b.x + rand(-b.rx, b.rx) * 0.6, y: b.y - 4, vx: rand(-60, 60), vy: rand(-170, -80), t: 0, life: rand(0.5, 0.9), s: rand(2, 4), color: pick(["#9fe3e0", "#d4f3ff", "#fff"]) });
+  for (let i = 0; i < (big ? 2 : 1); i++) springRings.push({ x, y, t0: game.time + i * 160, r0: big ? N.base * 0.25 : 3 });
+  for (let i = 0; i < (big ? 16 : 7) * (calm ? 0.5 : 1); i++) game.sparks.push({ x: x + rand(-P.rx, P.rx) * 0.5, y: y - 3, vx: rand(-60, 60), vy: rand(-170, -80), t: 0, life: rand(0.5, 0.9), s: rand(2, 4), color: pick(["#9fe3e0", "#d4f3ff", "#fff"]) });
 }
-/** Tap the spring: it splashes, and the one you're looking after (or else someone awake who hasn't had one today) goes for a bath. */
+/** Drops flung off a wet glowling: up and out of the water as it splashes about, or sideways off its coat as it shakes itself dry. */
+function bathDrops(a, P, dry) {
+  const v = actorView(a), n = opts().calm ? 1 : 3;
+  for (let i = 0; i < n; i++) {
+    const side = Math.random() < 0.5 ? -1 : 1;
+    game.sparks.push(dry ? { x: v.x + side * v.size * 0.36, y: v.y + rand(-0.25, 0.2) * v.size, vx: side * rand(80, 170), vy: rand(-90, -30), t: 0, life: rand(0.35, 0.6), s: rand(2, 3.5), color: pick(["#9fe3e0", "#d4f3ff", "#fff"]) }
+      : { x: v.x + rand(-0.4, 0.4) * v.size, y: P.y - 2, vx: rand(-70, 70), vy: rand(-190, -100), t: 0, life: rand(0.45, 0.8), s: rand(2.5, 4), color: pick(["#9fe3e0", "#d4f3ff", "#fff"]) });
+  }
+}
+/** Is someone in the spring, or on the way to it, right now. */
+const bathBusy = () => [...actors.values()].some(a => a.state === "bath" || a.bath);
+/** Off to the spring for a bath. */
+function goBath(a) {
+  a.goal = a.friend = a.decor = a.plan = null; a.rain = a.garden = a.song = false; a.from = null; a.bathNext = 0;
+  a.state = "walk"; a.bath = true; emote(a, "💧", 1.2);
+  [a.tx, a.ty] = springSpot(SPRING_IN);
+}
+/** Tap the spring: it splashes, and the one you're looking after (or else someone awake who hasn't had one today) goes for a bath;
+ *  with someone in it already, it waits its turn a little way off (see roomDoTick). */
 function tapSpring() {
   springSplash(false);
   const r = roomDo(), day = dayKey();
-  const free = a => { const cr = crOf(a.id); return cr && !cr.sleeping && !cr.out && ["idle", "walk", "dance", "visit", "nap"].includes(a.state) && bathOk(r.bath, cr.id, day); };
+  const free = a => { const cr = crOf(a.id); return cr && !cr.sleeping && !cr.out && !a.bath && !a.bathNext && ["idle", "walk", "dance", "visit", "nap"].includes(a.state) && bathOk(r.bath, cr.id, day); };
   const act = activeActor(), a = act && free(act) ? act : [...actors.values()].find(free);
-  if (!a) { toast([...actors.values()].some(o => !crOf(o.id)?.sleeping) ? tr("Everyone here has had a bath today 💧 The spring will be waiting tomorrow.") : tr("Nobody here is awake for a bath")); return; }
+  if (!a) { if (!bathBusy()) toast([...actors.values()].some(o => !crOf(o.id)?.sleeping) ? tr("Everyone here has had a bath today 💧 The spring will be waiting tomorrow.") : tr("Nobody here is awake for a bath")); return; }
   markTip("bath"); setHint(nestHint());
+  if (!bathBusy()) { goBath(a); return; }
+  const n = [...actors.values()].filter(o => o.bathNext).length;
   a.goal = a.friend = a.decor = a.plan = null; a.rain = a.garden = a.song = false; a.from = null;
-  a.state = "walk"; a.bath = true; emote(a, "💧", 1.2);
-  [a.tx, a.ty] = standSpot(...isoAt(0.13, MOSS_GARDEN.basin + 0.02));
+  a.state = "walk"; a.bathNext = game.time; emote(a, "💧", 1.2);
+  [a.tx, a.ty] = springSpot(SPRING_WAIT[n % SPRING_WAIT.length]);
 }
-/** Arrived at the spring (see updateActors): in it goes, splashing, glad; its coat comes out clean (no mess left to turn to dust). */
+/** Arrived at the spring (see updateActors): in it goes; glad, and its coat comes out clean (no mess left to turn to dust). */
 function batheAt(a, cr) {
-  const r = roomDo(), day = dayKey(), b = springBasin();
-  if (roomKindHere() !== "garden" || !bathOk(r.bath, cr.id, day) || Math.hypot(a.x - b.x, a.y - b.y) > N.base * 2.2) return;
+  const r = roomDo(), day = dayKey(), [ex, ey] = springSpot(SPRING_IN);
+  if (roomKindHere() !== "garden" || !bathOk(r.bath, cr.id, day) || Math.hypot(a.x - ex, a.y - ey) > N.base * 1.6) return;
   r.bath = bathed(r.bath, cr.id, day);
   cr.joy = clamp(cr.joy + BATH_JOY, 0, 100); cr.messT = 0;
-  a.state = "dance"; a.t = 2.2; a.hop = 1; a.bathT = game.time + 2000; emote(a, "💧", 2.2);
-  springSplash(true); sfx.chirp(specOf(cr).voice * 1.2);
+  a.state = "bath"; a.bathing = { t0: game.time, from: [a.x, a.y], to: springSpot(SPRING_OUT) }; a.emote = null;
+  sfx.chirp(specOf(cr).voice * 1.2);
   floatText(tr("{0} splashes in the spring ♥", cr.name), a.x, a.y - N.base * 1.2, "#d4f3ff");
   trackOnce("roomdo", { what: "bath" }); fancyDone("tap:spring", [cr.id]);
   persist(); renderNest();
 }
+/**
+ * A bath, each frame (see updateActors): a hop over the rim into the water (a splash as it lands), sitting sunk to its middle in
+ * it, bobbing (bubbles and rings round it: drawSpring), a happy face, then a splashing wiggle; a hop out onto the moss, and a good
+ * shake there, the drops flying off. With less motion the hops are low, it doesn't bob or wiggle, and fewer drops fly.
+ */
+function bathTick(a, cr) {
+  const B = a.bathing, P = springPool();
+  if (!B || roomKindHere() !== "garden") { a.state = "idle"; a.t = 1; a.bathing = null; a.inPool = false; return; }
+  const e = (game.time - B.t0) / 1000, calm = opts().calm, size = N.base * depth(a.y), [ti, ts, to, td] = BATH_T, [fx, fy] = B.from, [ox, oy] = B.to;
+  // (sat in the water: its foot lifted from the floor up to the water, less how deep it sinks, a third of itself)
+  const sunk = P.fy - P.y - size * 0.32, sm = k => k * k * (3 - 2 * k), arc = k => Math.sin(k * Math.PI) * size * (calm ? 0.12 : 0.5), once = k => !B[k] && (B[k] = true);
+  if (e < ti) {
+    const k = e / ti;
+    a.x = lerp(fx, P.x, sm(k)); a.y = lerp(fy, P.fy, sm(k)); a.alt = sunk * k * k + arc(k);
+    if (k > 0.8 && once("in")) { springSplash(true); a.hop = 1; }
+  } else if (e < ti + ts) {
+    const s = e - ti;
+    a.x = P.x; a.y = P.fy; a.alt = sunk + (calm ? 0 : Math.sin(s * 3.2) * size * 0.035);
+    if (s > 0.35 && once("kao")) emote(a, kaoFor(cr, "fave"), 2.4);
+    // the happy splash: it wiggles, slaps the water, drops fly up
+    if (s > 1.4 && s < 2.3) {
+      if (once("play")) { if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.grain(t, 0.12, 2000, 0.9, 0.08); sfx.grain(t + 0.25, 0.12, 1700, 0.9, 0.07); sfx.grain(t + 0.5, 0.12, 2100, 0.9, 0.06); } sfx.giggle(specOf(cr).voice); }
+      if (!calm) { a.shake = Math.max(a.shake || 0, 0.7); a.hop = Math.max(a.hop, 0.35); }
+      if (s - (B.dropT || 0) > (calm ? 0.4 : 0.12)) { B.dropT = s; bathDrops(a, P, false); if (!calm && Math.random() < 0.4) springRings.push({ x: P.x + rand(-0.3, 0.3) * size, y: P.y, t0: game.time, r0: 3 }); }
+    }
+  } else if (e < ti + ts + to) {
+    const k = (e - ti - ts) / to;
+    if (once("out")) { springSplash(false); a.hop = 1; }
+    a.x = lerp(P.x, ox, sm(k)); a.y = lerp(P.fy, oy, sm(k)); a.alt = sunk * (1 - Math.sqrt(k)) + arc(k);
+  } else if (e < ti + ts + to + td) {
+    const s = e - ti - ts - to;
+    a.x = ox; a.y = oy; a.alt = 0;
+    // and a good shake on the moss: the drops fly off its coat
+    if (once("dry")) { a.shake = calm ? 0 : 1.3; a.hop = 0.6; if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.grain(t, 0.45, 2600, 1.4, 0.07); } }
+    if (s < 0.8 && s - (B.dropT || 0) > (calm ? 0.3 : 0.07)) { B.dropT = s; bathDrops(a, P, true); }
+  } else {
+    a.state = "idle"; a.t = rand(1, 2) * linger(cr); a.bathing = null; a.inPool = false; a.tx = a.x; a.ty = a.y;
+    emote(a, "✦", 1.2); sfx.chirp(specOf(cr).voice);
+    return;
+  }
+  // over the water (not over the rim on the way in or out): the water's front edge is laid over its lower half (drawActor)
+  a.inPool = Math.hypot((a.x - P.x) / P.rx, (a.y - P.fy) / P.ry) < 0.6;
+}
+/**
+ * The spring's water, alive, over the room's painting of it: a soft glow breathing in it, rings running out from where the trickle
+ * falls and from splashes, a ring round a bather and bubbles coming up round it, a few glints twinkling, the trickle shimmering
+ * down. Given clipY, only what's below that line is drawn, the painted pool first: the water's front, laid over the lower half of a
+ * glowling sitting in it (the water a little see-through, so its body shows under it). With less motion nothing runs or twinkles.
+ */
+function drawSpring(clipY) {
+  const P = springPool(), calm = opts().calm, tm = game.time / 1000, p = PX, front = clipY != null;
+  ctx.save();
+  if (front) {
+    ctx.beginPath(); ctx.rect(P.x - P.Rx - 8 * p, clipY, (P.Rx + 8 * p) * 2, P.Ry + P.z + 8 * p + P.fy - clipY); ctx.clip();
+    const c = roomCanvas.c, s = c && c.spring;
+    if (s) {
+      const kx = W / c.width, ky = H / c.height;
+      ctx.imageSmoothingEnabled = false;
+      ctx.drawImage(s.rim, s.x0 * kx, s.y0 * ky, s.rim.width * kx, s.rim.height * ky);
+      ctx.globalAlpha = 0.8; ctx.drawImage(s.water, s.x0 * kx, s.y0 * ky, s.water.width * kx, s.water.height * ky); ctx.globalAlpha = 1;
+    }
+  }
+  pxGlow(P.x, P.y, P.rx * 1.3, "#9fe4f4", calm ? 0.45 : 0.36 + 0.12 * Math.sin(tm * 1.3));
+  // a ring on the water's plane (as wide again as it is tall), in art pixels, kept inside the water
+  const ring = (x, y, r, col, al) => {
+    if (al <= 0) return;
+    ctx.globalAlpha = Math.min(1, al); ctx.fillStyle = col;
+    const n = Math.max(12, Math.round(r * 1.2));
+    for (let i = 0; i < n; i++) { const t = i / n * TAU, X = x + Math.cos(t) * r, Y = y + Math.sin(t) * r * 0.5; if (((X - P.x) / P.rx) ** 2 + ((Y - P.y) / P.ry) ** 2 < 0.9) ctx.fillRect(Math.round(X / p) * p, Math.round(Y / p) * p, p, p); }
+    ctx.globalAlpha = 1;
+  };
+  // where the trickle lands: a ring every so often (one standing still with less motion)
+  if (calm) ring(P.lx, P.wy, P.rx * 0.22, "#d4f6ff", 0.45);
+  else for (let j = 0; j < 2; j++) { const k = (tm / 1.6 + j / 2) % 1; ring(P.lx, P.wy, 3 + k * P.rx * 0.7, "#d4f6ff", (1 - k) * 0.7); }
+  springRings = springRings.filter(r => game.time - r.t0 < 900);
+  for (const r of springRings) { const k = (game.time - r.t0) / 900; if (k >= 0) ring(r.x, r.y, r.r0 + k * P.rx * (calm ? 0.4 : 0.9), "#ffffff", (1 - k) * 0.85); }
+  // round a bather: the line where it meets the water, rings running out from it, and bubbles coming up and popping beside it
+  for (const a of actors.values()) if (a.state === "bath" && a.inPool) {
+    const v = actorView(a), r0 = v.size * 0.34;
+    ring(v.x, P.y, r0, "#d4f6ff", 0.95); ring(v.x, P.y + p, r0 * 0.92, "#9fe4f4", 0.6);
+    if (!calm) for (let j = 0; j < 2; j++) { const k = (tm / 1.1 + j / 2) % 1; ring(v.x, P.y, r0 + k * P.rx * 0.6, "#ffffff", (1 - k) * 0.55); }
+    for (let j = 0; j < 4; j++) {
+      const ph = tm * 0.9 + j * 0.31, k = calm ? 0.4 : ph % 1, n = Math.floor(ph), an = pxHash(j, n + a.id) * TAU, rr = r0 * (1.1 + 0.6 * pxHash(n, j + 7));
+      const bx = Math.round((v.x + Math.cos(an) * rr) / p) * p, by = Math.round((P.y + Math.sin(an) * rr * 0.5) / p) * p;
+      if (((bx - P.x) / P.rx) ** 2 + ((by - P.y) / P.ry) ** 2 > 0.85) continue;
+      ctx.fillStyle = "#e8fbff";
+      if (k < 0.75) { const s = k < 0.35 ? 1 : 2; ctx.globalAlpha = 0.9; ctx.fillRect(bx, by - (s - 1) * p, s * p, s * p); if (s > 1) { ctx.fillStyle = "#ffffff"; ctx.fillRect(bx, by - p, p, p); } }
+      else if (k < 0.9) { ctx.globalAlpha = 0.8; for (const [dx, dy] of [[-1, 0], [2, 0], [0, -2], [1, 1]]) ctx.fillRect(bx + dx * p, by + dy * p, p, p); }
+      ctx.globalAlpha = 1;
+    }
+  }
+  // glints on the water
+  for (let j = 0; j < 3; j++) {
+    const an = pxHash(j, 11) * TAU, rr = 0.35 + 0.45 * pxHash(j, 12), k = calm ? 0.5 : Math.max(0, Math.sin(tm * 1.7 + j * 2.1));
+    const gx = Math.round((P.x + Math.cos(an) * rr * P.rx) / p) * p, gy = Math.round((P.y + Math.sin(an) * rr * P.ry) / p) * p;
+    if (k > 0.3) { ctx.globalAlpha = k; ctx.fillStyle = "#ffffff"; ctx.fillRect(gx, gy, p, p); ctx.globalAlpha = 1; }
+  }
+  // drops running down the trickle
+  if (!front && !calm) { ctx.fillStyle = "#ffffff"; for (let j = 0; j < 3; j++) { const y = P.ly + ((tm * 1.4 + j / 3) % 1) * (P.wy - P.ly); ctx.fillRect(Math.round(P.lx / p) * p, Math.round(y / p) * p, p, 2 * p); } }
+  ctx.restore();
+}
+/** The front of the spring's water over a glowling sitting in it (see drawActor): everything of the pool below the water's line. */
+const springFront = () => drawSpring(Math.round(springPool().y / PX) * PX);
 
 // ---- the crystal study's singing crystals
 
@@ -2356,7 +2485,7 @@ function singCrystals(id) {
 /** Seconds left of the crystals' song. */
 const songLeft = () => { const g = game.crystalSong; if (!g) return 0; const n = g.notes[g.notes.length - 1]; return Math.max(0, n.at + n.dur - (game.time - g.t0) / 1000); };
 
-/** Each frame in a room: a little note floats up off each crystal as it sings, the song ends, a bather keeps splashing. */
+/** Each frame in a room: a little note floats up off each crystal as it sings, the song ends, the next one waiting has its bath. */
 function roomDoTick() {
   const g = game.crystalSong;
   if (g && roomKindHere() !== "study") game.crystalSong = null;
@@ -2368,9 +2497,10 @@ function roomDoTick() {
     }
     if (songLeft() <= 0 && e > 0.6 + g.notes[g.notes.length - 1].at + g.notes[g.notes.length - 1].dur) game.crystalSong = null;
   }
-  for (const a of actors.values()) if (a.bathT > game.time && Math.random() < 0.25) {
-    const v = actorView(a);
-    game.sparks.push({ x: v.x + rand(-0.4, 0.4) * v.size, y: v.y - v.size * rand(0.2, 0.7), vx: rand(-40, 40), vy: rand(-110, -50), t: 0, life: rand(0.4, 0.7), s: rand(2, 3), color: pick(["#9fe3e0", "#d4f3ff", "#fff"]) });
+  // the spring free again: the next one waiting goes in (if it's still about and still up for it)
+  if (roomKindHere() === "garden" && !bathBusy()) {
+    const a = [...actors.values()].filter(o => o.bathNext).sort((p, q) => p.bathNext - q.bathNext)[0], cr = a && crOf(a.id);
+    if (a) { a.bathNext = 0; if (cr && !cr.sleeping && ["idle", "walk", "dance"].includes(a.state) && bathOk(roomDo().bath, cr.id, dayKey())) goBath(a); }
   }
 }
 /** The crystals lit by the song: each note's crystal flares in the song's colour as it sounds, with a white heart, and fades. */
@@ -2393,10 +2523,11 @@ function drawCrystalSong() {
     ctx.globalAlpha = 1;
   }
 }
-/** What the room's doings add to its back-to-front order (see drawNest): the glowcaps on the floor, the crystals' light on the walls. */
+/** What the room's doings add to its back-to-front order (see drawNest): the glowcaps on the floor, the spring's water, the crystals' light on the walls. */
 function roomDoItems() {
   const items = capsHere().map(c => { const [u, v] = isoFrom(c.x, c.y); return { y: c.y, draw: () => drawGlowcap(c), box: { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G } }; });
   if (game.crystalSong) items.push({ y: -0.5, draw: drawCrystalSong });
+  if (roomKindHere() === "garden") items.push({ y: -0.3, draw: () => drawSpring() });
   return items;
 }
 /** Is a finger on something the room has to do: a glowcap, the spring, the crystals. Does it, and says so. */
