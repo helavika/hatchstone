@@ -175,7 +175,7 @@ test('a heart geode always has a crystal, the same one for the same Book, and no
       const c = m.page.heartCrystal(k, i);
       assert.ok(c && g.CRYSTAL[c.id], 'a crystal of the game');
       assert.equal(m.page.heartCrystal(k, i).id, c.id);
-      const lacksHome = home(k).some(x => !have.includes(x.id)), lacksAny = g.CRYSTALS.some(x => !have.includes(x.id));
+      const lacksHome = home(k).some(x => !have.includes(x.id)), lacksAny = g.CRYSTALS.some(x => !have.includes(x.id) && x.cave !== 'frost');
       if (lacksHome) { assert.equal(c.cave, k); assert.ok(!have.includes(c.id), 'new to the Book while the cave has one that is'); }
       else if (lacksAny) assert.ok(!have.includes(c.id), 'new to the Book while anything is');
       else { assert.equal(c.cave, k); assert.notEqual(c.rarity, 'common'); }

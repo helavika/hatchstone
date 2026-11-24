@@ -30,7 +30,7 @@ function home({ cap = 2, rooms = 3, room = 0, trail = true, creatures = [], acti
     roomName: i => ROOMS[i],
     // what a homecoming needs around it: the shelf, the garden, and a settleHome that calls in whoever there's a bed for
     CRYSTALS: [{ id: 'c0', name: 'Stone', rarity: 'common' }, { id: 'c1', name: 'Gem', rarity: 'rare' }], giveBar: () => {}, barName: b => b, seedName: s => s, garden: () => ({ seeds: {} }),
-    addXP: () => {}, bringSpark: () => null, sparkNote: s => s, helperAt: () => false, persist: () => {}, updateTopbar: () => {},
+    addXP: () => {}, bringSpark: () => null, sparkNote: s => s, helperAt: () => false, wardDone: () => false, persist: () => {}, updateTopbar: () => {},
     settleHome: () => { for (const c of page.save.creatures.filter(x => x.out && !x.roam && !x.trip)) { const r = page.save.rooms.findIndex((_, i) => page.residents(i).length < cap); if (r < 0) break; c.out = false; c.room = r; } },
   };
   page.atHome = (i = page.save.room) => !!page.save.rooms[i];

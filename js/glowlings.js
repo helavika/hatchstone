@@ -9,10 +9,14 @@ const BODY = {
   bean: { rx: 0.42, ry: 0.5, top: -0.5, face: -0.08, feet: 0.46, gloss: [-0.17, -0.27] },
   wide: { rx: 0.56, ry: 0.38, top: -0.38, face: 0, feet: 0.34, gloss: [-0.27, -0.17] },
   drop: { rx: 0.47, ry: 0.47, top: -0.6, face: 0.1, feet: 0.53, gloss: [-0.17, -0.12] },
+  // a snowball half sunk in a drift: a wide round dome on a flattened bottom (see bodyPath), with no feet showing
+  snowball: { rx: 0.58, ry: 0.42, top: -0.42, face: 0.02, feet: 0.24, gloss: [-0.27, -0.21] },
+  // a seal's body, long and low, lying on its belly: longer than tall, with flippers for feet
+  seal: { rx: 0.64, ry: 0.3, top: -0.3, face: -0.03, feet: 0.25, gloss: [-0.3, -0.14] },
 };
 
 /** Eyes sit wide apart, the way baby faces do (in units of s from the middle). */
-const eyeX = sp => sp.body === "wide" ? 0.22 : sp.body === "bean" ? 0.18 : 0.2;
+const eyeX = sp => sp.body === "wide" || sp.body === "snowball" ? 0.22 : sp.body === "bean" ? 0.18 : 0.2;
 /** Mix two "#rrggbb" colours (k = 0 is a, 1 is b), as a "#rrggbb". */
 const tint = (a, b, k) => "#" + [1, 3, 5].map(i => Math.round(lerp(parseInt(a.slice(i, i + 2), 16), parseInt(b.slice(i, i + 2), 16), k)).toString(16).padStart(2, "0")).join("");
 
@@ -23,6 +27,11 @@ function bodyPath(c, s, type) {
     c.bezierCurveTo(0.28 * s, -0.38 * s, 0.47 * s, -0.12 * s, 0.47 * s, 0.1 * s);
     c.arc(0, 0.1 * s, 0.47 * s, 0, Math.PI);
     c.bezierCurveTo(-0.47 * s, -0.12 * s, -0.28 * s, -0.38 * s, 0, -0.6 * s);
+  } else if (type === "snowball") {
+    // the round dome over the top, and a flatter curve underneath where it sits in the snow
+    const b = BODY.snowball;
+    c.ellipse(0, 0, b.rx * s, b.ry * s, 0, Math.PI, TAU);
+    c.ellipse(0, 0, b.rx * s, 0.26 * s, 0, 0, Math.PI);
   } else {
     const b = BODY[type];
     c.ellipse(0, 0, b.rx * s, b.ry * s, 0, 0, TAU);
@@ -120,6 +129,15 @@ function drawBack(c, s, sp, t, pal, ink1 = 1) {
       c.closePath(); c.fill();
       break;
     }
+    case "flattail": {
+      // a seal's short flat tail at the back end: two rounded hind flippers fanned out, waggling, pale along their edges
+      const wag = Math.sin(t * 0.005) * 0.18;
+      c.save(); c.translate(s * 0.56, s * 0.08); c.rotate(-0.2 + wag);
+      for (const d of [-1, 1]) { c.fillStyle = d < 0 ? tint(main, deep, 0.35) : tint(main, deep, 0.15); c.beginPath(); c.ellipse(s * 0.15, d * s * 0.05, s * 0.14, s * 0.06, d * 0.4, 0, TAU); c.fill(); }
+      c.fillStyle = tint(light, main, 0.3); c.beginPath(); c.ellipse(s * 0.2, -s * 0.07, s * 0.06, s * 0.022, -0.4, 0, TAU); c.fill();
+      c.restore();
+      break;
+    }
     case "needles": {
       // stibnite: a spray of long steel needles fanned out behind, each with a bright metal edge
       const bristle = Math.sin(t * 0.003) * 0.04;
@@ -168,6 +186,19 @@ function drawBehindHead(c, s, sp, t, pal, top, ink1 = 1) {
       c.fillStyle = deep;
       for (const d of [-1, 1]) {
         c.beginPath(); c.moveTo(d * s * 0.26, top + s * 0.08); c.lineTo(d * s * 0.5, top + s * 0.16); c.lineTo(d * s * 0.5, top - s * 0.15); c.closePath(); c.fill();
+      }
+      break;
+    case "lops":
+      // long soft ear tufts that flop out over the snow: a wisp of the deep colour, paler inside, with a few hairs at the
+      // tip, each swinging slowly on its own
+      for (const d of [-1, 1]) {
+        c.save();
+        c.translate(d * s * 0.3, top + s * 0.14); c.rotate(d * (1.75 + Math.sin(t * 0.0025 + d * 1.3) * 0.14));
+        c.fillStyle = deep; c.beginPath(); c.ellipse(0, -s * 0.22, s * 0.085, s * 0.25, 0, 0, TAU); c.fill();
+        c.fillStyle = tint(light, deep, 0.35); c.beginPath(); c.ellipse(-d * s * 0.015, -s * 0.2, s * 0.04, s * 0.17, 0, 0, TAU); c.fill();
+        c.fillStyle = deep;
+        for (const k of [-1, 0, 1]) { c.beginPath(); c.moveTo(k * s * 0.05 - s * 0.03, -s * 0.42); c.lineTo(k * s * 0.07, -s * 0.56); c.lineTo(k * s * 0.05 + s * 0.03, -s * 0.42); c.closePath(); c.fill(); }
+        c.restore();
       }
       break;
     case "blades":
@@ -284,6 +315,32 @@ function drawPattern(c, s, sp, t, pal, R) {
       const g = c.createLinearGradient(-gx, -gy, gx, gy);
       g.addColorStop(0, pal[0]); g.addColorStop(0.35, pal[1]); g.addColorStop(0.7, pal[2]); g.addColorStop(1, "#ffd6f0");
       c.globalAlpha = 0.4; c.fillStyle = g; c.fillRect(-s, -s, s * 2, s * 2); c.globalAlpha = 1;
+      break;
+    }
+    case "drift": {
+      // half buried: a drift of snow across the lower body, its top in soft scallops with a blue shadow under the lip, a glint or two
+      const y0 = s * 0.06, wv = x => y0 + Math.sin(x / s * 9 + 0.6) * s * 0.035;
+      c.fillStyle = tint(light, deep, 0.25);
+      c.beginPath(); c.moveTo(-s, s); for (let x = -s; x <= s; x += s * 0.05) c.lineTo(x, wv(x)); c.lineTo(s, s); c.closePath(); c.fill();
+      c.fillStyle = "#ffffff";
+      c.beginPath(); c.moveTo(-s, s); for (let x = -s; x <= s; x += s * 0.05) c.lineTo(x, wv(x) + s * 0.04); c.lineTo(s, s); c.closePath(); c.fill();
+      c.fillStyle = tint(light, deep, 0.5);
+      for (const [x, y] of [[-0.3, 0.22], [0.26, 0.18]]) { sparklePath(c, x * s, y * s, s * 0.035); c.fill(); }
+      break;
+    }
+    case "snowflakes": {
+      // snowflake obsidian: white six-armed flakes over the dark glass, round the sides and top, never on the face, and a few specks of snow between
+      const m = c.getTransform(), lw = Math.max(s * 0.045, 2.4 / (Math.hypot(m.a, m.b) || 1)), fy = BODY[sp.body].face * s, off = (x, y) => Math.abs(x) < s * 0.34 && Math.abs(y - fy - s * 0.05) < s * 0.2;
+      // (a pale blotch round the eyes first, like the white blooms in the glass, so the face reads on the dark)
+      c.fillStyle = tint(main, light, 0.75); c.beginPath(); c.ellipse(0, fy + s * 0.04, s * 0.32, s * 0.15, 0, 0, TAU); c.fill();
+      c.strokeStyle = c.fillStyle = "#ffffff"; c.lineWidth = lw; c.lineCap = "round";
+      for (let i = 0, n = 0; i < 24 && n < 5; i++) {
+        const x = (R() - 0.5) * s * BODY[sp.body].rx * 1.7, y = (R() - 0.4) * s * Math.min(0.8, BODY[sp.body].ry * 1.9), r = s * (0.075 + R() * 0.035), a0 = R();
+        if (off(x, y)) continue;
+        for (let k = 0; k < 3; k++) { const a = a0 + k * Math.PI / 3, dx = Math.cos(a) * r, dy = Math.sin(a) * r; c.beginPath(); c.moveTo(x - dx, y - dy); c.lineTo(x + dx, y + dy); c.stroke(); }
+        n++;
+      }
+      for (let i = 0; i < 7; i++) { const x = (R() - 0.5) * s, y = (R() - 0.5) * s * 0.9; if (!off(x, y)) c.fillRect(x - lw / 2, y - lw / 2, lw, lw); }
       break;
     }
     case "moss": {
@@ -415,6 +472,37 @@ function drawHeadTop(c, s, sp, t, pal, top, level) {
       c.fillStyle = "#ffffff"; sparklePath(c, -w * 0.4, y - h * 0.45, s * 0.045); c.fill();
       break;
     }
+    case "snowcap": {
+      // a lump of snow fallen on its head, a little to one side: two soft heaps, white on top, blue in the shade under them
+      const y = top - s * 0.02;
+      for (const [x, w, h] of [[-0.06, 0.24, 0.13], [0.15, 0.15, 0.1]]) {
+        c.fillStyle = tint(light, deep, 0.35); c.beginPath(); c.ellipse(x * s, y + s * 0.02, w * s, h * s, 0, 0, TAU); c.fill();
+        c.fillStyle = "#ffffff"; c.beginPath(); c.ellipse(x * s - s * 0.01, y - s * 0.005, w * s * 0.92, h * s * 0.85, 0, 0, TAU); c.fill();
+      }
+      c.fillStyle = tint(light, deep, 0.5); sparklePath(c, -s * 0.12, y - s * 0.03, s * 0.03); c.fill();
+      break;
+    }
+    case "icicles": {
+      // cryolite: a crown of icicles standing round the top of the head, the middle one tallest, each lit on its left face and
+      // shaded on its right with a white glint up it; a frosty band holds them, and little drips hang from it. They sway a touch
+      // (and tinkle when it dances: see sfx.tinkle)
+      const m = c.getTransform(), ink = 2.4 * 1.6 / (Math.hypot(m.a, m.b) || 1), sway = Math.sin(t * 0.005) * 0.12, base = x => top + s * (0.08 + x * x * 1.6);
+      for (const [x, h, w] of [[-0.26, 0.17, 0.045], [0.26, 0.17, 0.045], [-0.13, 0.26, 0.055], [0.13, 0.26, 0.055], [0, 0.36, 0.065]]) {
+        const bx = x * s, by = base(x), tx = bx + (x * 0.5 + sway * h) * s, ty = by - h * s;
+        c.beginPath(); c.moveTo(bx - w * s, by); c.lineTo(tx, ty); c.lineTo(bx + w * s, by); c.closePath();
+        if (faceStamp) { c.save(); c.globalCompositeOperation = "source-atop"; c.strokeStyle = "#22143a"; c.lineWidth = ink; c.stroke(); c.restore(); }
+        c.fillStyle = tint(main, deep, 0.25); c.fill();
+        c.fillStyle = tint(light, "#ffffff", 0.35); c.beginPath(); c.moveTo(bx - w * s, by); c.lineTo(tx, ty); c.lineTo(bx, by); c.closePath(); c.fill();
+        c.strokeStyle = "#ffffff"; c.lineWidth = Math.max(s * 0.018, ink * 0.5); c.lineCap = "round";
+        c.beginPath(); c.moveTo(bx - w * s * 0.45, by - s * 0.02); c.lineTo(lerp(bx, tx, 0.55) - w * s * 0.2, lerp(by, ty, 0.55)); c.stroke();
+      }
+      const lw = Math.max(s * 0.06, ink * 1.2);
+      c.strokeStyle = tint(light, deep, 0.2); c.lineWidth = lw; c.lineCap = "round";
+      c.beginPath(); c.moveTo(-s * 0.32, base(-0.32)); c.quadraticCurveTo(0, top + s * 0.02, s * 0.32, base(0.32)); c.stroke();
+      c.fillStyle = tint(light, "#ffffff", 0.5);
+      for (const [x, l] of [[-0.19, 0.06], [0.05, 0.08], [0.21, 0.05]]) { const y = base(x) + lw * 0.3; c.beginPath(); c.moveTo(x * s - s * 0.022, y); c.lineTo(x * s, y + l * s); c.lineTo(x * s + s * 0.022, y); c.closePath(); c.fill(); }
+      break;
+    }
     case "fern": {
       // moss agate: a little fern frond, leaning over, with a curl at its tip
       const m = c.getTransform(), lw = Math.max(s * 0.035, 2.4 / (Math.hypot(m.a, m.b) || 1)), sway = Math.sin(t * 0.003) * 0.06;
@@ -474,7 +562,7 @@ function drawFace(c, s, sp, t, mood, eating) {
       for (const d of [-1, 1]) { c.beginPath(); c.moveTo(d * ex - d * s * 0.06, fy - s * 0.09); c.lineTo(d * ex + d * s * 0.03, fy - s * 0.12); c.stroke(); }
     }
   }
-  c.fillStyle = "rgba(255,140,180,.45)";
+  c.fillStyle = sp.cheeks === "frost" ? "rgba(170,215,245,.6)" : "rgba(255,140,180,.45)";
   for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * s * 0.28, fy + s * 0.09, s * 0.07, s * 0.04, 0, 0, TAU); c.fill(); }
   c.strokeStyle = ink; c.fillStyle = ink;
   const my = fy + s * 0.09;
@@ -707,7 +795,11 @@ function drawCreature(c, x, y, s, sp, o = {}) {
   drawBack(c, s, sp, t, pal, ink1);
   drawBehindHead(c, s, sp, t, pal, top, ink1);
   // little stubby feet, tucked under the body
-  if (sp.back !== "wisp") {
+  // (a snowball sits sunk in its drift with no feet showing; a seal has small flippers splayed out front and back)
+  if (sp.body === "seal") {
+    c.fillStyle = tint(pal[0], pal[2], 0.35);
+    for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * s * 0.3, (B.feet + 0.03) * s, s * 0.13, s * 0.045, d * 0.35, 0, TAU); c.fill(); }
+  } else if (sp.back !== "wisp" && sp.body !== "snowball") {
     c.fillStyle = tint(pal[0], pal[2], 0.35);
     for (const d of [-1, 1]) { c.beginPath(); c.ellipse(d * s * 0.19, (B.feet + 0.045) * s, s * 0.1, s * 0.07, 0, 0, TAU); c.fill(); }
   }
@@ -746,7 +838,7 @@ function drawCreature(c, x, y, s, sp, o = {}) {
     // inside a sprite cut, remember where the face goes; it's stamped pixel by pixel afterwards so the eyes stay crisp
     const m = c.getTransform(), at = (lx, ly) => [(m.a * lx + m.c * ly + m.e) / 2, (m.b * lx + m.d * ly + m.f) / 2];
     const fy = BODY[sp.body].face * s, ex = eyeX(sp) * s, bx = ex + s * 0.1;
-    faceStamp.push({ eyes: [at(-ex, fy), at(ex, fy)], mouth: at(0, fy + s * 0.09), blush: [at(-bx, fy + s * 0.11), at(bx, fy + s * 0.11)], cat: sp.ears === "cat" || sp.ears === "fox",
+    faceStamp.push({ eyes: [at(-ex, fy), at(ex, fy)], mouth: at(0, fy + s * 0.09), blush: [at(-bx, fy + s * 0.11), at(bx, fy + s * 0.11)], cat: sp.ears === "cat" || sp.ears === "fox", frost: sp.cheeks === "frost",
       r: Math.hypot(m.a, m.b) / 2 * s * 0.5, mood, kind: mood === "sleepy" && o.tired !== false ? "tired" : sp.eyes, eating: !!o.eating, blink: blinkAt(t), face: o.face || "", t });
   } else drawFace(c, s, sp, t, mood, o.eating);
   // growing up: orbiting sparkles, then a halo
@@ -937,11 +1029,11 @@ function cachedSprite(owner, slot, key, make) {
 /** Draw something as a crisp sprite onto a canvas whose transform maps to its pixels: see drawSprite. */
 /** Faces waiting to be stamped while a sprite is being cut (drawCreature fills it in). */
 let faceStamp = null;
-const FACE = { ink: pxHex("#22143a"), deep: pxHex("#3d2866"), hi: pxHex("#ffffff"), blush: pxHex("#e88bb1"), blushHi: pxHex("#ffc4da"), mouthIn: pxHex("#8f3460") };
+const FACE = { ink: pxHex("#22143a"), deep: pxHex("#3d2866"), hi: pxHex("#ffffff"), blush: pxHex("#e88bb1"), blushHi: pxHex("#ffc4da"), frost: pxHex("#8fc6ec"), frostHi: pxHex("#e6f6ff"), mouthIn: pxHex("#8f3460") };
 /**
  * A glowling's face in whole pixels, sized to the sprite (the way small pixel faces are drawn):
  * big round dark eyes set wide, with a white glint (two in bigger ones), a little smile (a "w" for cats and foxes),
- * and a pink "+" of blush under each eye; tiny sprites get one-pixel eyes and a dot of a mouth.
+ * and a pink "+" of blush under each eye (white-blue frost on a snow glowling's: see sp.cheeks); tiny sprites get one-pixel eyes and a dot of a mouth.
  */
 function stampFace(d, w, h, solid, f, ox, oy) {
   const put = (x, y, col) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= w || y >= h || !solid[y * w + x]) return; const i = (y * w + x) * 4; d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255; };
@@ -985,8 +1077,10 @@ function stampFace(d, w, h, solid, f, ox, oy) {
   // blush: a little pink "+" under each eye, a touch outside it (a single pixel on tiny sprites)
   if (R >= 7) for (const [bx, by] of f.blush) {
     const x = Math.round(bx - ox), y = Math.round(by - oy), arm = R >= 26 ? 2 : R >= 10 ? 1 : 0;
-    for (let k = 1; k <= arm; k++) for (const [dx, dy] of [[k, 0], [-k, 0], [0, k], [0, -k]]) put(x + dx, y + dy, FACE.blush);
-    put(x, y, arm ? FACE.blushHi : FACE.blush);
+    // (frosty cheeks, white-blue, on a glowling of the snow)
+    const [bl, hi] = f.frost ? [FACE.frost, FACE.frostHi] : [FACE.blush, FACE.blushHi];
+    for (let k = 1; k <= arm; k++) for (const [dx, dy] of [[k, 0], [-k, 0], [0, k], [0, -k]]) put(x + dx, y + dy, bl);
+    put(x, y, arm ? hi : bl);
   }
   // the mouth
   const mx = Math.round(f.mouth[0] - ox), my = Math.round(f.mouth[1] - oy), mw = R < 14 ? 1 : R < 30 ? 2 : 3;

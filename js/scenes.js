@@ -486,7 +486,7 @@ function moonToday() {
   if (evSp && !save.seen[evSp.id]) return evSp;
   const season = SPECIES.find(s => s.moon === seasonOf() && !s.event);
   if (!save.seen[season.id]) return season;
-  const pool = SPECIES.filter(s => !s.moon && CRYSTAL[s.crystal].rarity !== "common");
+  const pool = SPECIES.filter(s => !s.moon && CRYSTAL[s.crystal].rarity !== "common" && CRYSTAL[s.crystal].cave !== "frost");
   return pool[Math.floor(seeded(dayKey())() * pool.length)];
 }
 
@@ -654,9 +654,10 @@ function openLantern(needed) {
 
 /** At home a crystal turns up this many times as often as the others of its rarity. */
 const HOME_WEIGHT = 3;
-/** Which crystal of this rarity a geode holds. Wander and playing together draw from every cave alike, as they always have. */
+/** Which crystal of this rarity a geode holds. Wander and playing together draw from every cave alike, as they always have.
+ *  The snowfields' crystals are never rolled here: they grow only in frost geodes (see startFrost). */
 function rollCrystal(conf, rarity) {
-  const pool = CRYSTALS.filter(c => c.rarity === rarity);
+  const pool = CRYSTALS.filter(c => c.rarity === rarity && c.cave !== "frost");
   if (conf.wander) return pick(pool);
   const w = c => c.cave === conf.cave ? HOME_WEIGHT : 1;
   let r = Math.random() * pool.reduce((sum, c) => sum + w(c), 0);
@@ -868,7 +869,7 @@ function heartCrystal(k, i) {
   const home = CRYSTALS.filter(c => c.cave === k);
   const own = home.filter(lacks).sort(i ? rarest : (a, b) => rank(a) - rank(b));
   if (own.length) return own[0];
-  const far = CRYSTALS.filter(lacks).sort(rarest);
+  const far = CRYSTALS.filter(c => lacks(c) && c.cave !== "frost").sort(rarest);
   if (far.length) return far[0];
   const count = c => save.geodes[c.id].count || 0;
   return home.filter(c => c.rarity !== "common").sort((a, b) => (i ? rarest(a, b) : 0) || count(a) - count(b))[0] || home[0];
@@ -922,3 +923,50 @@ function heartFound(conf) {
   $("nextLvl").textContent = tr("Back to the grotto");
   $("foundMap").hidden = true;
 }
+
+// ---------- frost geodes: from the snowfields, cracked on the usual screen; only the frost glowlings sleep in them ----------
+// save.frostGeodes: how many are waiting to be cracked. They come from the snowfields (an expedition there now; the ice hole
+// and the settlers later), and a crack is taken off only once its glowling is out, so walking away from one loses nothing.
+
+/** The frost geode's shell: icy blue rock (in the palette's own blues, like the Celestite's) under a cap of snow, with frost glinting on it (see makeShell). */
+const FROST_STONE = Object.assign(["#69b7d6", "#3383a8", "#b8e6f5"], { snow: true });
+/** How often a frost geode holds the rare one (cryolite) rather than a common one. */
+const FROST_RARE = 0.2;
+const frostGeodes = () => save.frostGeodes || 0;
+/**
+ * Which crystal a frost geode holds: a frost one only, the rare one now and then; of that rarity, one the Book lacks if
+ * there is one. R: the dice (for the tests).
+ */
+function frostCrystal(R = Math.random) {
+  const rarity = R() < FROST_RARE ? "rare" : "common", pool = FROST_CRYSTALS.filter(c => c.rarity === rarity), fresh = pool.filter(c => !save.geodes[c.id]);
+  const from = fresh.length ? fresh : pool;
+  return from[Math.floor(R() * from.length)] || FROST_CRYSTALS[0];
+}
+/** A frost geode for the shelf (n of them), kept until it's cracked. Also the way to get one for trying things out. */
+function giveFrostGeode(n = 1) {
+  save.frostGeodes = Math.min(FROST_MAX, frostGeodes() + n);
+  persist();
+  return save.frostGeodes;
+}
+/** Crack the next frost geode: no oil and no stars, in stone as hard as the moon egg's, on the snowfields' own backdrop. */
+function startFrost() {
+  if (!frostGeodes()) return false;
+  if (coopSession) coopEnd("navigation", true);
+  sfx.tick();
+  game.chips = []; game.sparks = [];
+  setScene("crack");
+  const crystal = frostCrystal(), fresh = !save.geodes[crystal.id];
+  newEgg({ ...moonConf(), n: "frost", wander: true, frost: true, chosen: crystal }, true);
+  setHint(fresh ? tr("a frost geode: something from the snowfields sleeps inside ❄") : tr("a frost geode, cold to the touch ❄"));
+  return true;
+}
+/** Called when a frost geode opens: only now is it off the shelf. The card offers the next one, or the way back. */
+function frostFound() {
+  save.frostGeodes = Math.max(0, frostGeodes() - 1);
+  if (!save.frostGeodes) delete save.frostGeodes;
+  persist();
+  $("nextLvl").textContent = frostGeodes() ? tr("Next frost geode ({0})", frostGeodes()) : tr("Back to the nest");
+  $("foundMap").hidden = true;
+}
+/** Off the found card of a frost geode: the next one if there is one, else home (the snowfields, once they're a place). */
+const frostNext = () => frostGeodes() ? startFrost() : save.rooms.some(r => r.kind === "snow") ? toRoomKind("snow") : setScene("nest");
