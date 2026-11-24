@@ -286,6 +286,19 @@ function drawPattern(c, s, sp, t, pal, R) {
       c.globalAlpha = 0.4; c.fillStyle = g; c.fillRect(-s, -s, s * 2, s * 2); c.globalAlpha = 1;
       break;
     }
+    case "snowflakes": {
+      // snowflake obsidian: white six-armed flakes over the dark glass, round the sides and top, never on the face, and a few specks of snow between
+      const m = c.getTransform(), lw = Math.max(s * 0.045, 2.4 / (Math.hypot(m.a, m.b) || 1)), fy = BODY[sp.body].face * s, off = (x, y) => Math.abs(x) < s * 0.34 && Math.abs(y - fy - s * 0.05) < s * 0.2;
+      c.strokeStyle = c.fillStyle = "#ffffff"; c.lineWidth = lw; c.lineCap = "round";
+      for (let i = 0, n = 0; i < 24 && n < 5; i++) {
+        const x = (R() - 0.5) * s * 0.8, y = (R() - 0.4) * s * 0.8, r = s * (0.075 + R() * 0.035), a0 = R();
+        if (off(x, y)) continue;
+        for (let k = 0; k < 3; k++) { const a = a0 + k * Math.PI / 3, dx = Math.cos(a) * r, dy = Math.sin(a) * r; c.beginPath(); c.moveTo(x - dx, y - dy); c.lineTo(x + dx, y + dy); c.stroke(); }
+        n++;
+      }
+      for (let i = 0; i < 7; i++) { const x = (R() - 0.5) * s, y = (R() - 0.5) * s * 0.9; if (!off(x, y)) c.fillRect(x - lw / 2, y - lw / 2, lw, lw); }
+      break;
+    }
     case "moss": {
       // moss agate: green threads branching up from below like tiny ferns, and a soft cushion of moss along the bottom
       const low = (sp.body === "drop" ? 0.57 : BODY[sp.body].ry) * s, m = c.getTransform();
@@ -413,6 +426,27 @@ function drawHeadTop(c, s, sp, t, pal, top, level) {
       face(-w, y, 0, y + h, tint(light, "#ffffff", 0.2));
       face(w, y, 0, y + h, tint(light, deep, 0.6));
       c.fillStyle = "#ffffff"; sparklePath(c, -w * 0.4, y - h * 0.45, s * 0.045); c.fill();
+      break;
+    }
+    case "icicles": {
+      // cryolite: a crown of icicles standing round the top of the head, the middle one tallest, each lit on its left face and
+      // shaded on its right with a white glint up it; a frosty band holds them, and little drips hang from it. They sway a touch
+      // (and tinkle when it dances: see sfx.tinkle)
+      const m = c.getTransform(), ink = 2.4 * 1.6 / (Math.hypot(m.a, m.b) || 1), sway = Math.sin(t * 0.005) * 0.12, base = x => top + s * (0.08 + x * x * 1.6);
+      for (const [x, h, w] of [[-0.26, 0.17, 0.045], [0.26, 0.17, 0.045], [-0.13, 0.26, 0.055], [0.13, 0.26, 0.055], [0, 0.36, 0.065]]) {
+        const bx = x * s, by = base(x), tx = bx + (x * 0.5 + sway * h) * s, ty = by - h * s;
+        c.beginPath(); c.moveTo(bx - w * s, by); c.lineTo(tx, ty); c.lineTo(bx + w * s, by); c.closePath();
+        if (faceStamp) { c.save(); c.globalCompositeOperation = "source-atop"; c.strokeStyle = "#22143a"; c.lineWidth = ink; c.stroke(); c.restore(); }
+        c.fillStyle = tint(main, deep, 0.25); c.fill();
+        c.fillStyle = tint(light, "#ffffff", 0.35); c.beginPath(); c.moveTo(bx - w * s, by); c.lineTo(tx, ty); c.lineTo(bx, by); c.closePath(); c.fill();
+        c.strokeStyle = "#ffffff"; c.lineWidth = Math.max(s * 0.018, ink * 0.5); c.lineCap = "round";
+        c.beginPath(); c.moveTo(bx - w * s * 0.45, by - s * 0.02); c.lineTo(lerp(bx, tx, 0.55) - w * s * 0.2, lerp(by, ty, 0.55)); c.stroke();
+      }
+      const lw = Math.max(s * 0.06, ink * 1.2);
+      c.strokeStyle = tint(light, deep, 0.2); c.lineWidth = lw; c.lineCap = "round";
+      c.beginPath(); c.moveTo(-s * 0.32, base(-0.32)); c.quadraticCurveTo(0, top + s * 0.02, s * 0.32, base(0.32)); c.stroke();
+      c.fillStyle = tint(light, "#ffffff", 0.5);
+      for (const [x, l] of [[-0.19, 0.06], [0.05, 0.08], [0.21, 0.05]]) { const y = base(x) + lw * 0.3; c.beginPath(); c.moveTo(x * s - s * 0.022, y); c.lineTo(x * s, y + l * s); c.lineTo(x * s + s * 0.022, y); c.closePath(); c.fill(); }
       break;
     }
     case "fern": {

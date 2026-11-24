@@ -669,7 +669,7 @@ function pickPlot(i) {
   if (sd.gives.sun) { save.sunlit = (save.sunlit || 0) + sd.gives.sun; got.push(tr("a sunpetal for your next egg ☀️")); }
   if (sd.gives.bar) { giveBar(sd.gives.bar); got.push(barName(sd.gives.bar)); }
   if (q.seed === "crystalbloom" && Math.random() < 0.3) {
-    const k = pick(CRYSTALS.filter(c => c.rarity === "rare")), geo = save.geodes[k.id] || { count: 0, shine: -1 };
+    const k = pick(CRYSTALS.filter(c => c.rarity === "rare" && c.cave !== "frost")), geo = save.geodes[k.id] || { count: 0, shine: -1 };
     geo.count++; save.geodes[k.id] = geo; got.push(`💎 ${k.name}`);
   }
   // seeds come back now and then, so the garden keeps going
@@ -697,7 +697,7 @@ const WICK_WARES = {
   nut: { name: "Nut bar", note: "+3 lantern oil", cost: 40, icon: () => pxIcon("barNut"), give: () => giveBar("nut") },
   star: { name: "Star bar", note: "fills the lantern to the brim", cost: 110, icon: () => pxIcon("barStar"), give: () => giveBar("star") },
   geode: { name: "Mystery geode", note: "a rare or legendary one for your collection", cost: 70, icon: () => mysteryGeode(), give: () => {
-    const k = pick(CRYSTALS.filter(c => c.rarity !== "common")), g = save.geodes[k.id] || { count: 0, shine: -1 }, isNew = !g.count;
+    const k = pick(CRYSTALS.filter(c => c.rarity !== "common" && c.cave !== "frost")), g = save.geodes[k.id] || { count: 0, shine: -1 }, isNew = !g.count;
     g.count++; save.geodes[k.id] = g; toast(isNew ? tr("A new geode for the book: {0} 💎", k.name) : tr("{0} 💎", k.name));
   } },
 };
@@ -876,10 +876,14 @@ const TRIP_PLACES = [
   { id: "labradorite", theme: "labradorite", ok: () => unlocked(19), finds: ["geode3", "star", "shards"], suits: ["curious", "dance"],
     tales: ["{0} saw the Labradorite Vault flash blue and gold, and wouldn't stop talking about it.", "{0} felt the Gloom's cold somewhere deep, turned round and came straight home. Brave."],
     pair: "{0} and {1} walked the whole Labradorite Vault side by side. It's less dark with two." },
+  // past the valley: open once both wardstones stand in the snowfields; the only place besides the ice hole a frost geode turns up
+  { id: "snowfields", theme: "frost", name: "The snowfields", how: "ward the snowfields", ok: () => wardDone("frost"), finds: ["frost", "shards"], suits: ["hop", "nap"],
+    tales: ["{0} sledded on Runa's sled all the way to the pond.", "{0} napped in a drift and woke up warm."],
+    pair: "{0} and {1} built one snow figure from both sides." },
 ];
 const TRIP_HOURS = [1, 4, 8];
 const tripPlace = id => TRIP_PLACES.find(t => t.id === id);
-const placeName = pl => THEME[pl.theme].name;
+const placeName = pl => pl.name ? tr(pl.name) : THEME[pl.theme].name;
 /** Who's on an expedition right now. */
 const onTrip = () => save.creatures.filter(c => c.trip);
 /** How a glowling likes to spend its time (a mix from the incubator carries its own). */
@@ -896,9 +900,10 @@ function tripFind(f, k, got, part = 1) {
   if (f === "shards") { const n = Math.round((6 * k + rand(0, 6 * k)) * part); save.shards += n; got.push(`✦ ${n}`); }
   else if (part < 1 && Math.random() >= part) return;
   else if (f.startsWith("geode")) {
-    const cave = Number(f.slice(5)), pool = CRYSTALS.filter(x => x.rarity === (Math.random() < 0.15 * k / 4 + cave * 0.05 ? "rare" : "common"));
+    const cave = Number(f.slice(5)), pool = CRYSTALS.filter(x => x.rarity === (Math.random() < 0.15 * k / 4 + cave * 0.05 ? "rare" : "common") && x.cave !== "frost");
     if (Math.random() < 0.35 + k * 0.06) { const g = pick(pool), geo = save.geodes[g.id] || { count: 0, shine: -1 }; geo.count++; save.geodes[g.id] = geo; got.push(`💎 ${g.name}`); }
-  } else if (f === "seeds") { const sd = pick(["glowberry", "moonmint", "cookiecorn"]), n = 1 + Math.floor(k / 4); garden().seeds[sd] = (garden().seeds[sd] || 0) + n; got.push(`${seedName(sd)} ×${n}`); }
+  } else if (f === "frost") { if (Math.random() < 0.1 + k * 0.05) { giveFrostGeode(); got.push(`❄ ${tr("a frost geode")}`); } }
+  else if (f === "seeds") { const sd = pick(["glowberry", "moonmint", "cookiecorn"]), n = 1 + Math.floor(k / 4); garden().seeds[sd] = (garden().seeds[sd] || 0) + n; got.push(`${seedName(sd)} ×${n}`); }
   else if (Math.random() < 0.25 + k * 0.08) { giveBar(f); got.push(barName(f)); }
 }
 /** One thing more, for going where it suits you or going with a friend: a small find from the place's own, marked with a plus. */
@@ -957,7 +962,7 @@ function openTrips() {
   $("tripsSub").textContent = tr("Send a glowling off to explore. It's away for a while, needs nothing, and comes back by itself with finds and a story. The longer the trip, the more it finds.");
   $("tripsList").innerHTML = (away.length ? `<h3>${tr("Away now")}</h3>` + away.map(who => `<div class="trip-away">${who.map(face).join("")}<span><b>${tripNames(who)}</b><small>${placeName(tripPlace(who[0].trip.place))} · ${tr("back in {0}", fmtLeft(who[0].trip.until - now))}</small></span></div>`).join("") : "")
     + `<h3>${tr("Who goes")}</h3>` + (home.length ? `<div class="trip-who">${home.map(c => `<button class="res${g.who.includes(c.id) ? " on" : ""}" data-who="${c.id}" aria-pressed="${g.who.includes(c.id)}">${face(c)}<small>${c.name}</small>${marks(c)}</button>`).join("")}</div><p class="me-hint trip-adds">${adds}</p>` : `<p class="me-hint">${tr("Everyone's asleep or away. Wake someone up first.")}</p>`)
-    + `<h3>${tr("Where to")}</h3><div class="themes trip-where">${TRIP_PLACES.map(pl => `<button class="theme${pl.id === g.place ? " on" : ""}${pl.ok() ? "" : " locked"}" data-place="${pl.id}" ${pl.ok() ? "" : "disabled"}><img src="${themeThumb(pl.theme)}" alt=""><b>${placeName(pl)}</b><small>${pl.ok() ? pl.finds.map(f => tr(f.startsWith("geode") ? "geodes" : f === "seeds" ? "seeds" : f === "shards" ? "shards" : "bars")).join(", ") : ic("lock") + tr(THEME[pl.theme].how)}</small>${pl.ok() ? `<small>${tr("Suits: {0}", pl.suits.map(b => BEHAVIOR_NAMES[b]).join(", "))}</small>` : ""}</button>`).join("")}</div>`
+    + `<h3>${tr("Where to")}</h3><div class="themes trip-where">${TRIP_PLACES.map(pl => `<button class="theme${pl.id === g.place ? " on" : ""}${pl.ok() ? "" : " locked"}" data-place="${pl.id}" ${pl.ok() ? "" : "disabled"}><img src="${themeThumb(pl.theme)}" alt=""><b>${placeName(pl)}</b><small>${pl.ok() ? pl.finds.map(f => tr(f.startsWith("geode") ? "geodes" : f === "frost" ? "frost geodes" : f === "seeds" ? "seeds" : f === "shards" ? "shards" : "bars")).join(", ") : ic("lock") + tr(pl.how || THEME[pl.theme].how)}</small>${pl.ok() ? `<small>${tr("Suits: {0}", pl.suits.map(b => BEHAVIOR_NAMES[b]).join(", "))}</small>` : ""}</button>`).join("")}</div>`
     + `<h3>${tr("How long")}</h3><div class="seg trip-hrs">${TRIP_HOURS.map(h => `<button data-hrs="${h}" class="${h === g.hrs ? "on" : ""}">${tr("{0} h", h)}</button>`).join("")}</div>`
     + `<button class="cta" id="tripGo" ${going.length ? "" : "disabled"}>${tr("Send off")}</button>`;
   // a tap picks or unpicks; with two picked already, a third takes the place of whoever was picked first
@@ -2472,7 +2477,7 @@ function exploreFind(c) {
   const shards = Math.min(30, Math.round(2 + hrs * 4));
   let geode = null;
   if (hrs > 2 && Math.random() < Math.min(0.4, hrs * 0.04)) {
-    geode = pick(CRYSTALS.filter(k => k.rarity === (Math.random() < 0.2 ? "rare" : "common")));
+    geode = pick(CRYSTALS.filter(k => k.rarity === (Math.random() < 0.2 ? "rare" : "common") && k.cave !== "frost"));
     const g = save.geodes[geode.id] || { count: 0, shine: -1 };
     g.count++; save.geodes[geode.id] = g;
   }

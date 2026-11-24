@@ -448,6 +448,13 @@ const sfx = {
     this.grain(t + 0.44, 0.06, 900, 1.5, 0.04);
   },
 
+  /** A crown of icicles tinkling as its glowling dances: a few tiny glassy notes, high and quick, ringing into each other. */
+  tinkle() {
+    if (!this.ready()) return;
+    const t = this.ac.currentTime;
+    [3136, 3951, 3520, 4699].forEach((f, i) => { const at = t + i * 0.07 + rand(0, 0.02), q = f * rand(0.99, 1.01); this.tone(at, q, 0.012, 0.35, "sine", null, true); this.tone(at, q * 2.76, 0.004, 0.12, "sine"); });
+  },
+
   tick() {
     if (!this.ready()) return;
     this.tone(this.ac.currentTime, 1500, 0.03, 0.05, "sine");

@@ -32,6 +32,20 @@ function makeShell(stone) {
     o.fillStyle = bump;
     o.beginPath(); o.arc(x, y, r, 0, TAU); o.fill();
   }
+  if (stone.snow) {
+    // a frost geode: a cap of snow over the top, its lower edge in soft scallops, a drift caught low on one side, and frost glinting
+    const W = L.ew + PAD * 2, H = L.eh + PAD * 2, edge = x => PAD + L.eh * (0.3 + 0.05 * Math.sin(x / W * 13) + 0.03 * Math.sin(x / W * 31 + 1));
+    o.fillStyle = "#f4f8fd";
+    o.beginPath(); o.moveTo(0, 0); for (let x = 0; x <= W; x += 3) o.lineTo(x, edge(x)); o.lineTo(W, 0); o.closePath(); o.fill();
+    o.fillStyle = "#d3e1f0";
+    o.beginPath(); o.moveTo(0, edge(0)); for (let x = 0; x <= W; x += 3) o.lineTo(x, edge(x)); for (let x = W; x >= 0; x -= 3) o.lineTo(x, edge(x) - 3 * L.k); o.closePath(); o.fill();
+    o.fillStyle = "#eef4fb"; o.beginPath(); o.ellipse(PAD + L.ew * 0.22, PAD + L.eh * 0.86, L.ew * 0.2, L.eh * 0.07, -0.25, 0, TAU); o.fill();
+    for (let i = 0; i < 30; i++) {
+      o.fillStyle = Math.random() < 0.6 ? "#ffffff" : "#bfe0ff"; o.globalAlpha = rand(0.5, 1);
+      sparklePath(o, rand(0, W), rand(0, H), rand(1.2, 3.4) * L.k); o.fill();
+    }
+    o.globalAlpha = 1;
+  }
   if (stone.moon) {
     for (let i = 0; i < 46; i++) {
       o.fillStyle = Math.random() < 0.6 ? "#e8c25a" : "#ffffff";
@@ -125,11 +139,12 @@ function makeInterior(crystal, stone) {
   o.restore();
   const whole = ring(5 * k, 0, 0);
   if (crystal.style === "flecks") {
-    // lapis: gold pyrite specks scattered through the blue
+    // lapis: gold pyrite specks scattered through the blue; snowflake obsidian: fewer, bigger white blooms in the black glass
+    const [f1, f2] = crystal.fleck || ["#e8c25a", "#fff3b8"], big = !!crystal.fleck;
     o.save(); tracePoly(o, whole); o.clip();
-    for (let i = 0; i < 110; i++) {
-      o.fillStyle = Math.random() < 0.7 ? "#e8c25a" : "#fff3b8";
-      o.beginPath(); o.arc(cx + rand(-0.45, 0.45) * L.ew, cy + rand(-0.45, 0.45) * L.eh, rand(0.6, 2.2) * k, 0, TAU); o.fill();
+    for (let i = 0; i < (big ? 42 : 110); i++) {
+      o.fillStyle = Math.random() < 0.7 ? f1 : f2;
+      o.beginPath(); o.arc(cx + rand(-0.45, 0.45) * L.ew, cy + rand(-0.45, 0.45) * L.eh, (big ? rand(1.6, 4.4) : rand(0.6, 2.2)) * k, 0, TAU); o.fill();
     }
     o.restore();
   }
@@ -161,7 +176,7 @@ function newEgg(conf, animate = true) {
   const sun = !conf.coop && !conf.forced && animate && save.sunlit > 0;
   if (sun) { save.sunlit--; setTimeout(() => toast(tr("A sunpetal warms this egg ☀️ a far better chance it's shiny")), 600); }
   game.egg = {
-    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04) + (conf.coop ? 0 : skill("luck") * 0.006) + (sun ? 0.3 : 0), stone: conf.gloom ? GLOOM_STONE : conf.moon ? moonStone() : pick(STONES),
+    conf, crystal, species, shiny: Math.random() < (conf.moon ? 0.1 : 0.04) + (conf.coop ? 0 : skill("luck") * 0.006) + (sun ? 0.3 : 0), stone: conf.gloom ? GLOOM_STONE : conf.moon ? moonStone() : conf.frost ? FROST_STONE : pick(STONES),
     state: animate ? "entering" : "cracking", t: 0, wob: 0, wobT: 9, squash: 0, open: 0, hop: 0,
     hp: conf.hp, damage: 0, taps: 0, crits: 0, search: 0, gems: 0, combo: 0, chain: 0, owed: 0, hits: [], seed: coopId(),
     net: { segs: [], tips: [] }, painted: 0,
@@ -191,7 +206,7 @@ function newEgg(conf, animate = true) {
   game.pieces = [];
   updateDots();
   updateEye();
-  $("lvlPill").textContent = conf.moon ? "🌙" : conf.depth ? tr("Step {0}", conf.depth) + (conf.pocket ? " ✦" : "") : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
+  $("lvlPill").textContent = conf.moon ? "🌙" : conf.frost ? "❄" : conf.depth ? tr("Step {0}", conf.depth) + (conf.pocket ? " ✦" : "") : conf.wander ? tr("Wander") : tr("Lv {0}", conf.n);
   setHint(conf.step === 1 ? tr("tap the egg to crack it · aim for the glow ✦") : conf.step === 4 ? tr("the weak spot hides now: knocks sound deeper near it") : conf.step === 10 ? tr("hard stone: find the weak spot by ear") : conf.step === 7 && e.silent ? tr("silent stone: no glow here · watch which way the ripples lean") : conf.step === 13 && e.banded ? tr("banded stone: when a band breaks, the weak spot moves") : conf.step === 19 && e.sheen ? tr("this stone shows its weak spot only as you hit it · keep the chain") : "");
 }
 
@@ -670,12 +685,14 @@ const TASK_SHARDS = 10, TASK_BONUS = 15;
 /** What the day's three are called: little tasks in the first cave, a keeper's round of the grotto from chapter II on. */
 const tasksName = little => tr(unlocked(7) ? "Today's round" : little ? "Today's little tasks" : "Today's tasks");
 
-/** In Ukrainian, the crystals, lore, snacks, decor, caves, backdrops and tasks get their translated words (glowling names stay as they are). */
+/** In Ukrainian, the crystals, lore, snacks, decor, caves, backdrops and tasks get their translated words (glowling names stay as
+ *  they are, but for the snowfields' three). */
 (function localizeData() {
   if (LANG !== "uk") return;
   const D = UK_DATA;
   for (const c of CRYSTALS) Object.assign(c, D.crystals[c.id]);
-  for (const s of SPECIES) if (D.species[s.id]) s.lore = D.species[s.id].lore;
+  // (the snowfields' glowlings are the first whose names are translated too: the older ones keep theirs, as they always have)
+  for (const s of SPECIES) if (D.species[s.id]) { s.lore = D.species[s.id].lore; if (D.species[s.id].name) s.name = D.species[s.id].name; }
   for (const id in D.snacks) SNACKS[id].name = D.snacks[id];
   for (const d of DECOR) Object.assign(d, D.decor[d.id]);
   Object.assign(BEHAVIOR_NAMES, D.behaviors);
@@ -1495,6 +1512,7 @@ function showFound() {
   $("nextLvl").disabled = !!conf.coop && !coopIsHost();
   foundExtras(conf);
   if (conf.heart) heartFound(conf);
+  if (conf.frost) frostFound();
   updateTopbar();
   show("found", true);
   // (once the card has faded in: a hidden one can't take it)

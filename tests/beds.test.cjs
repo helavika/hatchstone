@@ -213,7 +213,7 @@ function home({ beds = [['cot']], room = 0, trail = false, creatures = [] } = {}
     CRYSTALS: [{ id: 'c0', name: 'Stone', rarity: 'common' }], giveBar: () => {}, barName: b => b, seedName: s => s, garden: () => ({ seeds: {} }),
     addXP: () => {}, bringSpark: () => null, sparkNote: s => s, helperAt: () => false, persist: () => {}, updateTopbar: () => {}, settleHome: () => [],
   };
-  page.atHome = () => true; page.nestRoom = () => 0;
+  page.atHome = () => true; page.nestRoom = () => 0; page.wardDone = () => false;
   page.roomOf = c => { const r = c.room || 0; return r < page.save.rooms.length ? r : 0; };
   page.residents = r => page.save.creatures.filter(c => !c.out && page.roomOf(c) === r);
   vm.createContext(page);

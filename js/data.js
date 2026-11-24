@@ -9,6 +9,8 @@
  * cavity = a hollow lined with crystal points, banded = tight rings, flecks = gold pyrite specks, flash = a colored sheen.
  * cave: its home, 0..3 down the grotto (see CAVES). At home it turns up three times as often as others of its rarity.
  * Homes follow each cave's colors, and no legendary lives in the first cave, where none can be found.
+ * cave "frost": not in the grotto at all. It grows only in frost geodes, from the snowfields, and the grotto never rolls it (see rollCrystal).
+ * fleck: the colours of a flecked stone's specks, where they aren't lapis gold.
  */
 const CRYSTALS = [
   { id: "amethyst", name: "Amethyst", rarity: "common", cave: 0, style: "cavity", c: ["#b48cf0", "#d9c2ff", "#7a52c7"], fact: "Purple quartz; the classic geode lining. Its color comes from traces of iron." },
@@ -43,6 +45,10 @@ const CRYSTALS = [
   { id: "vanadinite", name: "Vanadinite", rarity: "rare", cave: 0, style: "cavity", c: ["#e2533a", "#ffb08c", "#8c2618"], fact: "Bright red six-sided barrels, each a tiny crystal. The best come from old mines in the Atlas Mountains of Morocco." },
   { id: "kyanite", name: "Kyanite", rarity: "rare", cave: 1, style: "cavity", c: ["#4f86d6", "#c2e2ff", "#22407f"], fact: "Long blue blades with two hardnesses: a knife scratches it along the blade, but not across it." },
   { id: "bismuth", name: "Bismuth", rarity: "legendary", cave: 2, style: "flash", c: ["#e08ad8", "#ffe08a", "#4f86d8"], fact: "A heavy metal that cools into hollow stair-step \"hopper\" crystals. A skin of oxide thinner than a soap bubble paints them in rainbow colors." },
+  // the snowfields' own: only in frost geodes
+  { id: "selenite", name: "Selenite", rarity: "common", cave: "frost", style: "cavity", c: ["#ece6d6", "#ffffff", "#b3a98f"], fact: "Clear gypsum, soft enough to scratch with a fingernail. In Mexico's Cave of the Crystals, selenite beams grew longer than a bus." },
+  { id: "snowobsidian", name: "Snowflake Obsidian", rarity: "common", cave: "frost", style: "flecks", c: ["#3b3946", "#eef2f7", "#16141c"], fleck: ["#f4f6fa", "#c3cad6"], fact: "Black volcanic glass with white \"snowflakes\" in it: little blooms of cristobalite crystals that began to grow inside the glass as it aged." },
+  { id: "cryolite", name: "Cryolite", rarity: "rare", cave: "frost", style: "cavity", c: ["#d6e4ee", "#ffffff", "#8aa7bf"], fact: "The \"ice stone\" of Greenland, where the only big deposit ever found was mined out. It bends light almost exactly as water does, so a piece dropped in water nearly vanishes." },
 ];
 const CRYSTAL = Object.fromEntries(CRYSTALS.map(c => [c.id, c]));
 
@@ -154,10 +160,20 @@ const SPECIES = [
   { id: "kyabun", name: "Kyabun", crystal: "kyanite", body: "round", ears: "blades", pattern: "freckles", eyes: "round", snack: "berry", voice: 1.1, beh: "hop",
     lore: "Soft along the grain and hard across it, like its stone. Easy to cuddle, impossible to bend into being unkind." },
   { id: "zigglet", name: "Zigglet", crystal: "bismuth", body: "round", head: "hopper", pattern: "iridescent", eyes: "sparkle", snack: "berry", voice: 1.1, beh: "dance",
-    lore: "Builds its crown one rainbow step at a time and never skips one. When things go wrong, it starts again from the bottom step, humming." }
+    lore: "Builds its crown one rainbow step at a time and never skips one. When things go wrong, it starts again from the bottom step, humming." },
+  // only in frost geodes, from the snowfields: a sleeper in the drifts, a swimmer through the snow and a dancer crowned in icicles
+  { id: "driftlet", name: "Driftlet", crystal: "selenite", pal: ["#e8eef7", "#ffffff", "#7f9cc9"], body: "wide", ears: "tufts", back: "fluff", pattern: "belly", eyes: "sleepy", snack: "cookie", voice: 0.85, beh: "nap",
+    lore: "Burrows into a drift and sleeps with only its ear tufts sticking out. If you see two blue tufts in the snow, whisper." },
+  { id: "slipkin", name: "Slipkin", crystal: "snowobsidian", pal: ["#3f4459", "#6f7690", "#1c1e2c"], body: "drop", back: "fins", pattern: "snowflakes", eyes: "big", snack: "dew", voice: 1.1, beh: "swim",
+    lore: "Swims through snow as if it were water, belly first. Comes up somewhere you didn't expect, very pleased, covered in flakes." },
+  { id: "tinkicle", name: "Tinkicle", crystal: "cryolite", pal: ["#b5e4ee", "#f2fdff", "#4f9fbd"], body: "bean", head: "icicles", back: "wisp", pattern: "iridescent", eyes: "round", snack: "berry", voice: 1.3, beh: "dance",
+    lore: "Wears a crown of icicles that tinkle when it dances. It dances whenever it hears them, so it never quite stops." }
 ];
 const rarityOf = sp => sp.moon ? "moon" : CRYSTAL[sp.crystal].rarity;
 const SP = Object.fromEntries(SPECIES.map(s => [s.id, s]));
+/** The snowfields' crystals, and the glowlings that sleep only in frost geodes. */
+const FROST_CRYSTALS = CRYSTALS.filter(c => c.cave === "frost");
+const frostKind = sp => !sp.moon && CRYSTAL[sp.crystal]?.cave === "frost";
 
 const PARTS = ["body", "ears", "head", "back", "pattern", "eyes"];
 const palOf = sp => sp.pal || CRYSTAL[sp.crystal].c;

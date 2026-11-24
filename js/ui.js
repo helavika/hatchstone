@@ -468,6 +468,7 @@ $("nextLvl").addEventListener("click", () => {
   if (conf.coop && !coopSession) { game.egg = null; return setScene("map"); }
   if (conf.coop) { if (coopIsHost()) coopStartRound(); return; }
   if (conf.moon || conf.heart) return setScene("map");
+  if (conf.frost) return frostNext();
   startLevel(conf.wander || conf.n >= LEVELS ? 0 : conf.n + 1);
 });
 $("foundNest").addEventListener("click", () => { if (coopSession) coopEnd("navigation", true); setScene("nest"); });
@@ -904,8 +905,10 @@ function litLibTabs() {
     if (on) row.scrollTo({ left: row.scrollLeft + b.getBoundingClientRect().left - row.getBoundingClientRect().left - (row.clientWidth - b.offsetWidth) / 2, behavior: opts().calm ? "auto" : "smooth" });
   }
 }
+/** Where a crystal is at home: its cave, or for the snowfields' own, the frost geodes it grows in. */
+const homeOf = cry => cry.cave === "frost" ? tr("frost geodes") : CAVES[cry.cave];
 /** Under an empty place in the Book: the cave where that crystal is at home, so you know where to look. */
-const foundIn = cry => `<small class="home">${tr("found in: {0}", CAVES[cry.cave])}</small>`;
+const foundIn = cry => `<small class="home">${tr("found in: {0}", homeOf(cry))}</small>`;
 
 function renderLib() {
   litLibTabs();
@@ -1194,11 +1197,11 @@ function openSpecies(sp) {
   $("spName").textContent = seen ? sp.name : "???";
   $("spRarity").textContent = sp.moon ? moonKind(sp) : `${cry.name} · ${rar(cry.rarity)}`;
   $("spRarity").className = `rarity r-${rarityOf(sp)}`;
-  $("spLore").textContent = seen ? sp.lore : sp.event ? tr("Hatches only from moon eggs during {0} ({1}). Look for the 🌙 in the Grotto.", eventName(EVENT[sp.event]), eventDates(EVENT[sp.event])) : sp.moon ? tr("Hatches only from moon eggs in {0}. Look for the 🌙 in the Grotto.", seasonIn(sp.moon)) : tr("Sleeps inside {0} geodes. Crack one to meet it.", LANG === "uk" ? cry.name : cry.name.toLowerCase());
+  $("spLore").textContent = seen ? sp.lore : sp.event ? tr("Hatches only from moon eggs during {0} ({1}). Look for the 🌙 in the Grotto.", eventName(EVENT[sp.event]), eventDates(EVENT[sp.event])) : sp.moon ? tr("Hatches only from moon eggs in {0}. Look for the 🌙 in the Grotto.", seasonIn(sp.moon)) : frostKind(sp) ? tr("Sleeps only in frost geodes, from the snowfields past the valley.") : tr("Sleeps inside {0} geodes. Crack one to meet it.", LANG === "uk" ? cry.name : cry.name.toLowerCase());
   $("spFacts").innerHTML = seen
     ? tr("Favorite snack: {0}<br>Met {1} {2} · first on {3}", SNACKS[sp.snack].emoji + " " + SNACKS[sp.snack].name, seen.count, pl(seen.count, "time", "times"), new Date(seen.first).toLocaleDateString(LOCALE)) +
       (mine.length ? tr("<br>In your nest: {0}", mine.map(c => tr("{0} (level {1})", c.name, c.level)).join(", ")) : "")
-    : sp.event ? tr("Only in 🌙 moon eggs during {0}.", eventName(EVENT[sp.event])) : sp.moon ? tr("Only in 🌙 moon eggs, in {0}.", seasonIn(sp.moon)) : tr(cry.rarity === "common" ? "Found anywhere in the grotto." : cry.rarity === "rare" ? "Found deeper in the grotto." : "Found rarely, in the deepest parts of the grotto.") + " " + tr("Home cave: {0}.", CAVES[cry.cave]);
+    : sp.event ? tr("Only in 🌙 moon eggs during {0}.", eventName(EVENT[sp.event])) : sp.moon ? tr("Only in 🌙 moon eggs, in {0}.", seasonIn(sp.moon)) : frostKind(sp) ? tr("Only in ❄ frost geodes, from the snowfields: never in the grotto.") : tr(cry.rarity === "common" ? "Found anywhere in the grotto." : cry.rarity === "rare" ? "Found deeper in the grotto." : "Found rarely, in the deepest parts of the grotto.") + " " + tr("Home cave: {0}.", CAVES[cry.cave]);
   show("spCard", true);
   if (seen) sfx.chirp(sp.voice);
 }
@@ -1215,6 +1218,6 @@ function openCrystal(cry) {
   $("spLore").textContent = geo ? cry.fact : tr("A geode you haven't opened yet.");
   $("spFacts").innerHTML = geo
     ? tr("Opened {0} {1}<br>Glowlings that live inside: {2}", geo.count, pl(geo.count, "time", "times"), who.map(s => save.seen[s.id] ? s.name : "???").join(", "))
-    : tr("Glowlings sleeping inside: {0}.", who.length) + "<br>" + tr("Home cave: {0}.", CAVES[cry.cave]);
+    : tr("Glowlings sleeping inside: {0}.", who.length) + "<br>" + (cry.cave === "frost" ? tr("Only in ❄ frost geodes, from the snowfields: never in the grotto.") : tr("Home cave: {0}.", CAVES[cry.cave]));
   show("spCard", true);
 }

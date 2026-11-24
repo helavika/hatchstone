@@ -917,6 +917,8 @@ function updateActors(dt) {
     }
     else ease(0, 4);
     if (a.state === "dance") a.hop = lerp(a.hop, Math.abs(Math.sin(a.ph * 4 * (0.7 + 0.3 * calm.fidget))) * 0.45 * calm.hop, Math.min(1, dt * 8));
+    // a crown of icicles tinkles each time its glowling starts to dance
+    if ((a.state === "dance") !== !!a.tinkled) { a.tinkled = a.state === "dance"; if (a.tinkled && specOf(cr).head === "icicles") sfx.tinkle(); }
     if (a.state === "visit") {
       if (a.decor === "swing") {
         // sit on the moon seat and swing with it

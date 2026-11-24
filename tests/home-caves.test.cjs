@@ -62,7 +62,8 @@ const canRoll = (k, rarity) => rarity === 'common' || g.levelConf(k * 6 + 1)[rar
 
 test('every crystal that can be rolled has a home cave', () => {
   const rolled = new Set(g.SPECIES.filter(s => !s.moon).map(s => s.crystal));
-  for (const c of g.CRYSTALS) {
+  // (the snowfields' crystals live in no cave: they grow only in frost geodes, see tests/frost-geodes.test.cjs)
+  for (const c of g.CRYSTALS.filter(c => c.cave !== 'frost')) {
     assert.ok(rolled.has(c.id), c.id + ' holds a glowling that can be rolled');
     assert.ok(Number.isInteger(c.cave) && c.cave >= 0 && c.cave < g.CAVES.length, c.id + ' should have a home cave');
   }
@@ -88,7 +89,7 @@ test('at home a crystal turns up three times as often as the others of its rarit
   for (let k = 0; k < g.CAVES.length; k++) {
     for (const rarity of RARITIES.filter(r => canRoll(k, r))) {
       // one roll for every hundredth of every share, so the count is exact and not a matter of luck
-      const pool = g.CRYSTALS.filter(c => c.rarity === rarity), shares = pool.reduce((sum, c) => sum + (c.cave === k ? 3 : 1), 0);
+      const pool = g.CRYSTALS.filter(c => c.rarity === rarity && c.cave !== 'frost'), shares = pool.reduce((sum, c) => sum + (c.cave === k ? 3 : 1), 0);
       const seen = {}, n = shares * 100;
       let i = 0;
       const l = grotto({}, () => (i++ + 0.5) / n);
@@ -102,9 +103,9 @@ test('Wander and playing together roll as they always have: every crystal alike,
   const confs = [g.levelConf(0), ...[1, 4, 8].map(step => ({ ...g.levelConf(step), n: 0, wander: true, coop: true }))];
   for (const conf of confs) {
     for (const rarity of RARITIES) {
-      const a = grotto({}, stream(7)), b = stream(7), pool = g.CRYSTALS.filter(c => c.rarity === rarity);
+      const a = grotto({}, stream(7)), b = stream(7), pool = g.CRYSTALS.filter(c => c.rarity === rarity && c.cave !== 'frost');
       for (let i = 0; i < 300; i++) {
-        // the old line of newEgg: pick(CRYSTALS.filter(c => c.rarity === rarity))
+        // the old line of newEgg: pick(CRYSTALS.filter(c => c.rarity === rarity)), the snowfields' crystals left out
         const before = pool[Math.floor(b() * pool.length)];
         assert.equal(a.page.rollCrystal(conf, rarity).id, before.id);
       }

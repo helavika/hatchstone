@@ -47,6 +47,10 @@ function moonSaveOf(m, d) {
  *  A save from before the niches has cracked none, so whichever its stars already reach are simply open. */
 const cacheSaveOf = c => Object.fromEntries(Object.entries(c && typeof c === "object" && !Array.isArray(c) ? c : {}).filter(([k, v]) => /^\d$/.test(k) && Array.isArray(v)).map(([k, v]) => [k, [v[0] === true, v[1] === true]]));
 
+/** Frost geodes waiting on the shelf (see giveFrostGeode): a whole number, never more than FROST_MAX. */
+const FROST_MAX = 99;
+const frostSaveOf = n => Math.min(FROST_MAX, Math.max(0, Math.floor(Number(n)) || 0));
+
 /** How deep Wander has gone (see wanderDown): the step the next geode there is on, and the deepest step opened. A save from
  *  before the descent starts at the top, step 1, with nothing opened yet; the next step is never below one past the deepest. */
 function depthSaveOf(o) {
@@ -193,6 +197,9 @@ function migrate(d) {
   d.wards = wardSaveOf(d.wards);
   // star niches (see scenes.js): which heart geodes have been cracked
   d.caches = cacheSaveOf(d.caches);
+  // frost geodes not cracked yet (see frostSaveOf)
+  const frost = frostSaveOf(d.frostGeodes);
+  if (frost) d.frostGeodes = frost; else delete d.frostGeodes;
   // how deep Wander has gone (see depthSaveOf): a save from before starts at the top
   d.depth = depthSaveOf(d.depth);
   // a friend's charm on the wall, if one hangs there
@@ -801,10 +808,11 @@ const bgCache = new Map();
 /** The grotto behind everything: a dithered crystal cave drawn at art resolution, its middle left open. */
 function makeBackground() { bgCache.clear(); }
 
-/** Which backdrop shows now: the chapter's own cave while cracking (a heart geode's too), moonlight for moon eggs, your pick elsewhere. */
+/** Which backdrop shows now: the chapter's own cave while cracking (a heart geode's too), moonlight for moon eggs, the Frost Hollow
+ *  for a frost geode, your pick elsewhere. */
 function currentTheme() {
   const c = game.scene === "crack" && game.egg && game.egg.conf;
-  if (c) return c.moon ? "churchyard" : c.wander && !c.heart ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
+  if (c) return c.moon ? "churchyard" : c.frost ? "frost" : c.wander && !c.heart ? "labradorite" : CAVE_THEME[c.cave] || "amethyst";
   return roomTheme(save.room, save.theme);
 }
 /** The backdrop room i shows for the one picked for it: a pick that doesn't suit the room (a cave saved in the garden outside)

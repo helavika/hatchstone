@@ -29,10 +29,10 @@ function nest(creatures, roll = () => 0) {
   const rolls = [], toasts = [], bars = [], xp = [];
   const page = {
     roll, save: { creatures, shards: 0, geodes: {}, counts: {}, active: creatures[0]?.id, room: 0 }, game: { trip: { who: [], place: 'amethyst', hrs: 4 } },
-    THEME: { amethyst: { name: 'Amethyst Hollow' }, glowcap: { name: 'Glowcap Wood' }, celestite: { name: 'Celestite Grotto' }, malachite: { name: 'Malachite Deep' }, labradorite: { name: 'Labradorite Vault' } },
+    THEME: { amethyst: { name: 'Amethyst Hollow' }, glowcap: { name: 'Glowcap Wood' }, celestite: { name: 'Celestite Grotto' }, malachite: { name: 'Malachite Deep' }, labradorite: { name: 'Labradorite Vault' }, frost: { name: 'Frost Hollow' } },
     // a small shelf of crystals: two common and one rare from each cave
     CRYSTALS: [0, 1, 2, 3].flatMap(cave => ['common', 'common', 'rare'].map((rarity, i) => ({ id: `c${cave}${i}`, name: `Stone ${cave}${i}`, rarity, cave }))),
-    seeds: {}, seedName: s => s, barName: b => b + ' bar', giveBar: b => { bars.push(b); },
+    seeds: {}, seedName: s => s, barName: b => b + ' bar', giveBar: b => { bars.push(b); }, giveFrostGeode: () => { page.save.frostGeodes = (page.save.frostGeodes || 0) + 1; }, wardDone: () => true,
     spark: () => null, sparkNote: s => '✨ ' + s, addXP: (c, n) => { xp.push([c.id, n]); },
     tr: fill, unlocked: () => true, specOf: c => c.mix ? { beh: c.mix.beh, voice: 1 } : { voice: 1 },
     settleHome: () => {}, persist: () => {}, updateTopbar: () => {}, syncActors: () => {}, renderNest: () => {}, openTrips: () => {}, helperAt: () => false,
@@ -44,7 +44,7 @@ function nest(creatures, roll = () => 0) {
   page.bump = (k, n = 1) => { page.save.counts[k] = (page.save.counts[k] || 0) + n; };
   vm.createContext(page);
   vm.runInContext('Math.random = () => roll(); const rand = (a, b) => a + Math.random() * (b - a), pick = arr => arr[Math.floor(Math.random() * arr.length)];\n' + tripsSrc
-    + '\nObject.assign(this, { TRIP_PLACES, TRIP_HOURS, BEHAVIOR, tripPlace, kindOf, areFriends, tripSuits, tripMate, tripNames });', page);
+    + '\nObject.assign(this, { TRIP_PLACES, TRIP_HOURS, BEHAVIOR, placeName, tripPlace, kindOf, areFriends, tripSuits, tripMate, tripNames });', page);
   // every roll of a find is noted: which find, how long a trip, and whether it was a small one
   const real = page.tripFind;
   page.tripFind = (f, k, got, part) => { rolls.push({ f, k, small: part != null && part < 1 }); return real(f, k, got, part); };
@@ -253,7 +253,7 @@ test('friends come home with one tale for the two, and it goes into both diaries
     assert.ok(back[0].startsWith(fill(pl.pair, 'Lumi', 'Bobo')), `${pl.id}: ${back[0]}`);
     assert.match(pl.pair, /^\{0\} and \{1\} /);
     assert.ok(!pl.tales.includes(pl.pair));
-    const name = n.page.THEME[pl.theme].name;
+    const name = n.page.placeName(pl);
     assert.ok(diary(a)[0].startsWith(`Went to ${name} with Bobo ♥`), diary(a)[0]);
     assert.ok(diary(b)[0].startsWith(`Went to ${name} with Lumi ♥`), diary(b)[0]);
     assert.equal(a.mem.length, 1); assert.equal(b.mem.length, 1);
