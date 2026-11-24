@@ -126,7 +126,7 @@ function worldBase() {
   // ridges of dark rock along the valley's two edges
   for (let k = 0; k < 26; k++) for (const [x0, side] of [[100, -1], [304, 1]]) {
     const y = 96 + k * 9 + pxHash(k, side + 5) * 6, x = x0 + side * (pxHash(k, side + 9) * 10) + Math.sin(y / 23) * 6, size = 10 + pxHash(k, side + 13) * 10;
-    if (WORLD.some(w => Math.hypot(w.at[0] - x, w.at[1] - y) < 26) || elev[Math.round(y) * W + Math.round(x)] < 0.17) continue;
+    if (WORLD.some(w => !w.land && Math.hypot(w.at[0] - x, w.at[1] - y) < 26) || elev[Math.round(y) * W + Math.round(x)] < 0.17) continue;
     stand.push({ y, draw: () => wmPeak(g, x, y, size, size * 0.9) });
   }
   // standing stones: a ring of old rocks here and there, from before anyone remembers
@@ -166,7 +166,8 @@ function worldBase() {
   // the far-off secrets, half seen
   for (const w of WM_MYSTERY) stand.push({ y: w.id === "summit" ? 90 : w.at[1], draw: () => g.drawImage(wmMysteryArt(w.id), Math.round(w.at[0] - 20), Math.round(w.at[1] - 40)) });
   // the places themselves
-  for (const w of WORLD) stand.push({ y: w.at[1], draw: () => g.drawImage(wmPlaceArt(w.id), Math.round(w.at[0] - 20), Math.round(w.at[1] - 32)) });
+  // (a place past the valley is its land's own art, out under its veil: see wmMysteryArt)
+  for (const w of WORLD) if (!w.land) stand.push({ y: w.at[1], draw: () => g.drawImage(wmPlaceArt(w.id), Math.round(w.at[0] - 20), Math.round(w.at[1] - 32)) });
   stand.sort((p, q) => p.y - q.y).forEach(s => s.draw());
 
   // tiny flowers and stones scattered over the meadows
@@ -336,6 +337,11 @@ function wmMysteryArt(id) {
       T.poly([[cx - 12, cy], [cx - 8, cy - 18], [cx - 4, cy]], IC.b0); T.poly([[cx + 5, cy], [cx + 10, cy - 14], [cx + 13, cy]], IC.b1);
       T.poly([[cx - 2, cy], [cx - 2, cy - 5], [cx, cy - 7], [cx + 2, cy - 5], [cx + 2, cy]], IC.b3);
       T.glow(cx, cy - 20, 10, IC.b0, 0.3);
+      // and on the left, Runa's round hut: a log drum under a cap of snow, its round window lit amber, a chimney
+      T.ball(cx - 13, cy - 3, 5, IC.w1, IC.w2, IC.w3, 3.5);
+      T.poly([[cx - 19, cy - 4], [cx - 13, cy - 10], [cx - 7, cy - 4]], (x) => x < cx - 13 ? IC.white : IC.s0);
+      T.line(cx - 11, cy - 10, cx - 11, cy - 12, IC.s3);
+      T.px(cx - 14, cy - 3, IC.y1); T.px(cx - 13, cy - 3, IC.y0); T.glow(cx - 13, cy - 3, 4, IC.y1, 0.5);
     } else if (id === "isle") {
       // a lighthouse on a rock
       T.ball(cx, cy - 2, 11, IC.s1, IC.s2, IC.s3, 4);
@@ -391,8 +397,8 @@ function wmVeilDraw(g, id, alpha, now) {
 
 // ---------- the living map: water that sparkles, smoke from the chimneys, fireflies, clouds drifting over ----------
 
-const wm = { raf: 0, t0: 0, smoke: [], flies: [], cv: null, K: 3, fade: {}, rise: {}, lifting: null, press: null, hint: null, rustRoad: null, scrape: null };
-const WM_CHIMNEYS = { forge: [8, -26], nest: [9, -27], trail: [-2, -2] };
+const wm = { fresh: [], raf: 0, t0: 0, smoke: [], flies: [], cv: null, K: 3, fade: {}, rise: {}, lifting: null, press: null, hint: null, rustRoad: null, scrape: null };
+const WM_CHIMNEYS = { forge: [8, -26], nest: [9, -27], trail: [-2, -2], snow: [-11, -14] };
 function worldFrame(now) {
   const base = worldBase(), cv = wm.cv, g = cv.getContext("2d"), C = WM_COL, t = now / 1000;
   g.imageSmoothingEnabled = false;
@@ -432,7 +438,7 @@ function worldFrame(now) {
   if (save.ending === "watch" || (wardKeep("gloom") > 0 && !save.ending)) for (let k = 0; k < 3; k++) { const ph = t * 0.4 + k * 2.1; if (Math.sin(ph * 1.7) > 0.93) { const x = 14 + pxHash(k, Math.floor(ph / 3.7)) * 60, y = 100 + pxHash(Math.floor(ph / 3.7), k) * 200; put(x, y, [220, 90, 140]); put(x + 3, y, [220, 90, 140]); } }
   if (Math.sin(t * 2.2) > 0.2) { put(334, 296, WM_COL.n2); g.globalAlpha = 0.35; g.fillStyle = "#fff0b5"; g.fillRect(330, 293, 9, 7); g.globalAlpha = 1; }
   // mist over the places you haven't found yet
-  for (const w of WORLD) if (!placeOk(w.id)) {
+  for (const w of WORLD) if (!w.land && !placeOk(w.id)) {
     const [x, y] = w.at;
     for (let b = -24; b <= 10; b++) for (let a = -26; a <= 26; a++) {
       const f = (a / 26) ** 2 + ((b + 7) / 17) ** 2 + (pxFbm((x + a) / 7 + t * 0.15, (y + b) / 7) - 0.5) * 0.7;
@@ -473,7 +479,7 @@ const wardDone = id => wardFull(wards(), id);
 /** How much of a land's veil is left: 1 untouched, 0 lifted. */
 const wardKeep = id => wardLeft(wards(), id);
 /** What a land still waits for before its spots open. */
-const wardHow = id => tr(WARD_LAND[id].late && !wardLate() ? "reach chapter IV" : id === "gloom" ? "ward the other lands first" : "ward the snowfields and the isle first");
+const wardHow = id => tr(WARD_LAND[id].late && !wardLate() ? "reach chapter IV" : id === "gloom" ? "ward the other lands first" : id === "isle" ? "ward the snowfields first" : "ward the snowfields and the isle first");
 const wardCol = cid => (CRYSTAL[cid] || CRYSTAL.quartz).c.map(pxHex);
 /** A fresh stone from the workbench, made from a spare of this crystal. */
 function forgeWard(cid) { wards().have.push(CRYSTAL[cid] ? cid : "quartz"); }
@@ -568,11 +574,14 @@ function wardSights(id) {
   const all = landSights(id);
   return all.length ? [all.filter(x => save.sparks.got[x.id]).length, all.length] : null;
 }
-/** The banner under a land: a lock pin while it's hidden (a tap shows its hint: see wmHint), its name once it's found. */
+/** The place a land past the valley becomes once it's found (the snowfields: Runa's), or null while it has none yet. */
+const wardPlaceOf = id => WORLD.find(p => p.land === id && placeOk(p.id)) || null;
+/** The banner under a land: a lock pin while it's hidden (a tap shows its hint: see wmHint), its name once it's found, and
+ *  what's there once it's a place you can go to (a "new" tag until you've looked, like the valley's places). */
 function wardBanner(w) {
   if (wardFound(w.id)) {
-    const s = wardSights(w.id);
-    return `<b>${tr(w.name)}</b><small>${tr("the road is still being cleared")}</small>` + (s ? `<small class="wsights">${tr("✦ sights {0} of {1}", s[0], s[1])}</small>` : "");
+    const s = wardSights(w.id), p = wardPlaceOf(w.id), isNew = p && (wm.fresh || []).includes(p.id);
+    return `<b>${tr(w.name)}</b><small>${p ? (isNew ? tr("new! ✦") : p.note()) : tr("the road is still being cleared")}</small>` + (s ? `<small class="wsights">${tr("✦ sights {0} of {1}", s[0], s[1])}</small>` : "");
   }
   return ic("lock");
 }
@@ -603,8 +612,10 @@ function tapWard(key) {
     if (!worldOpen()) return;
     sfx.levelUp();
     toast(tr("The veil lifts: {0} ✦", tr(w.name)));
-    const b = document.querySelector(`#worldMap [data-mystery="${id}"]`);
+    const b = document.querySelector(`#worldMap [data-mystery="${id}"]`), p = wardPlaceOf(id);
     if (b) b.classList.add("fresh");
+    // (a land that is a place now says so on its banner straight away)
+    if (p) wm.fresh = [...(wm.fresh || []), p.id];
     // the next land's spots may have opened with this one
     wmWardButtons();
     setTimeout(() => talk("wardFound_" + id), 900);
@@ -623,8 +634,12 @@ function wmWardButtons() {
   });
   // (a land whose veil has lifted is found only once its stone has risen: the banner changes with the toast, not before)
   for (const b of $$("#worldMap [data-mystery]")) {
-    const w = wardLand(b.dataset.mystery), found = wardFound(w.id);
+    const w = wardLand(b.dataset.mystery), found = wardFound(w.id), p = found && wardPlaceOf(w.id);
     b.querySelector(".wbanner").innerHTML = wardBanner(w); b.classList.toggle("found", found); b.classList.toggle("pin", !found);
+    // a land that is a place now wears its keeper, and says so when you're standing in it
+    b.classList.toggle("place", !!p); b.classList.toggle("here", !!p && wherePlace() === p.id); if (p && (wm.fresh || []).includes(p.id)) b.classList.add("fresh");
+    const k = WM_KEEPERS[p && p.id], img = b.querySelector(".wkeeper");
+    if (k && !img) b.querySelector(".wplace-hit").insertAdjacentHTML("afterend", `<img class="wkeeper" src="${keeperMini(k)}" alt="">`); else if (!k && img) img.remove();
     if (found) b.removeAttribute("aria-label"); else b.setAttribute("aria-label", "??? · " + tr(w.hint));
   }
   // no pin's hint is open (or its land has just been found): the strip goes back to its quiet line
@@ -647,6 +662,9 @@ function wmPlaceWards() {
 function tapMystery(id) {
   const w = wardLand(id), s = wardSights(id);
   sfx.tick();
+  // found and a place now: off you go, as from any place on the map
+  const p = wardFound(id) && wardPlaceOf(id);
+  if (p) { if (coopSession) coopEnd("navigation", true); closeWorld(); p.go(); return; }
   if (wardFound(id)) { toast(tr("{0}: the road is still being cleared. Pip will lead the way when it's ready.", tr(w.name)) + (s ? " · " + tr("{0}: {1} of {2} sights home", tr(w.name), s[0], s[1]) : "")); return; }
   wmHint(id, tr(w.hint), !wardsOpen() ? "" : wardOk(id) ? tr("wardstones {0} of {1}", wardsSet(id), w.wards.length) + " · " + tr("Set a wardstone on each spot at the edge of the veil.") : wardHow(id));
 }
@@ -655,9 +673,9 @@ function tapMystery(id) {
 function wherePlace() {
   if (game.scene === "map") return "grotto";
   const k = save.rooms[save.room]?.kind;
-  return { yard: "garden", lab: "lab", shop: "shop", forge: "forge", camp: "trail", grotto: "grotto" }[k] || "nest";
+  return { yard: "garden", lab: "lab", shop: "shop", forge: "forge", camp: "trail", grotto: "grotto", snow: "snow" }[k] || "nest";
 }
-const WM_KEEPERS = { shop: "tansy", forge: "ember", trail: "pip", lab: "ollo", garden: "fennel" };
+const WM_KEEPERS = { shop: "tansy", forge: "ember", trail: "pip", lab: "ollo", garden: "fennel", snow: "runa" };
 
 // ---------- looking around: how big the map is drawn, where it may rest, and when a press is a drag ----------
 // (plain sums, so the tests can run them in Node: see tests/world-pan.test.cjs)
@@ -730,8 +748,8 @@ function layoutWorld(zoom, keep) {
 function openWorld() {
   sfx.tick();
   worldBase();
-  const map = $("worldMap"), fresh = save.mapFresh || [], here = wherePlace(), cr = activeCreature();
-  map.innerHTML = `<canvas id="worldCv" width="${WM_W}" height="${WM_H}"></canvas>` + WORLD.map(w => {
+  const map = $("worldMap"), fresh = wm.fresh = save.mapFresh || [], here = wherePlace(), cr = activeCreature();
+  map.innerHTML = `<canvas id="worldCv" width="${WM_W}" height="${WM_H}"></canvas>` + WORLD.filter(w => !w.land).map(w => {
     const ok = placeOk(w.id), isNew = fresh.includes(w.id), keeper = ok && WM_KEEPERS[w.id];
     // (a place not open yet is a lock pin: a tap shows how it opens, in the strip under the map)
     return `<button class="wplace${ok && w.call && w.call() ? " call" : ""}${isNew ? " fresh" : ""}${ok ? "" : " locked pin"}${w.id === here ? " here" : ""}" data-place="${w.id}"${ok ? "" : ` aria-label="??? · ${w.how()}"`}>`
@@ -832,7 +850,10 @@ Object.assign(TALKS, {
     [EMBER, "Set it where the fog is thickest. Where a wardstone stands, the dark steps back. Stays back.", null, "concern"]],
   wardSpots: () => [[PIP, "See the old sockets in the ground, at the edge of the fog? Wardstones stood there once. I've marked them.", () => wardSpotRect(), "thinking"],
     [PIP, "Ember can forge new ones at the workbench. What's past the fog scares me. A bit. I'd still like to see it.", null, "scared-but-steady"]],
-  wardFound_frost: () => [[PIP, "Snowfields, and that ice door! It's on my map now. The road's still being cleared, but we'll get there.", wardSpotOf("frost"), "excited"]],
+  wardFound_frost: () => [[PIP, "Snowfields, and that ice door! It's on my map now. The road's still being cleared, but we'll get there.", wardSpotOf("frost"), "excited"],
+    [MOSSA, "Snow. I'd forgotten snow. Someone kept a door out there, long ago. I never knew who.", null, "warm"]],
+  // the first steps into the snowfields: small tracks across the snow, up to a round hut, and its keeper out on the step
+  snowWelcome: () => [[RUNA, "Finally! That fog sat on my porch for a hundred winters. Come in, come in, mind the drift.", null, "glad"]],
   wardFound_isle: () => [[PIP, "Someone keeps that lighthouse lit every single night. Never misses. I'd like to meet them one day.", wardSpotOf("isle"), "thinking"]],
   wardFound_summit: () => [[PIP, "Up there the sky never quite goes dark. The path is steep and still being cleared. One day we'll stand under it.", wardSpotOf("summit"), "excited"]],
   wardFound_gloom: () => [[PIP, "The dark held for so long. But the stones are standing, and so are we.", wardSpotOf("gloom"), "shy-pride"],

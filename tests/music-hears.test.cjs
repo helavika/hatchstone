@@ -10,7 +10,7 @@ const read = f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8');
 // asked for: the crack scene's tune growing with the shell gone, the phrases for the big moments in the song's key, the
 // Gloom stilling the tune over a drone, and nothing new at all with the music off or the sound muted.
 
-function studio({ scene = 'crack', egg = null, veil = 0, coop = null } = {}) {
+function studio({ scene = 'crack', egg = null, veil = 0, coop = null, room = 'nest' } = {}) {
   const made = [];
   const param = v => { const p = { value: v, sets: [] }; for (const k of ['setValueAtTime', 'linearRampToValueAtTime', 'exponentialRampToValueAtTime', 'setTargetAtTime', 'cancelScheduledValues']) p[k] = (x, t) => { p.sets.push([k, x, t]); }; return p; };
   const node = kind => {
@@ -32,7 +32,7 @@ function studio({ scene = 'crack', egg = null, veil = 0, coop = null } = {}) {
     Math: Object.assign(Object.create(Math), { random: rnd }), setInterval: () => 0, setTimeout: () => 0,
     clamp: (v, a, b) => Math.max(a, Math.min(b, v)), rand: (a, b) => a + rnd() * (b - a), pick: arr => arr[Math.floor(rnd() * arr.length)],
     sfx: { ready: () => true, hush: false }, document: { hidden: false },
-    game: { scene, egg }, save: { rooms: [{ kind: 'nest' }], room: 0 }, coopSession: coop, gloomVeil: { k: veil },
+    game: { scene, egg }, save: { rooms: [{ kind: room }], room: 0 }, coopSession: coop, gloomVeil: { k: veil },
   };
   vm.runInNewContext(read('music.js') + '\nObject.assign(this, { music, makeMusic, crackLayers, crackShare, gloomMelody, CRACK_GATES, STINGS, SONGS, MODES });', page);
   page.music.start(ac, node('dest'), {});
@@ -193,4 +193,18 @@ test('the burst ducks the music under it, and leaves its own arpeggio out when t
   assert.equal(page.ducked, true);
   page.sfx.burst('legendary');
   assert.equal(tones.length, 6);
+});
+
+test('the snowfields play their own texture: slow, over a bed of wind, a harp now and then and far-off sleigh bells', () => {
+  const s = studio({ scene: 'nest', room: 'snow' });
+  s.music.song('frost');
+  s.play(240);
+  assert.equal(s.e.live.id, 'snow');
+  assert.equal(s.e.live.p.bpm, 46);
+  const t = s.tags();
+  assert.ok(t.has('pad') && t.has('tune'), [...t].join());
+  assert.ok(t.has('sleigh'), 'sleigh bells, rarely: ' + [...t].join());
+  assert.ok(s.e.log.filter(n => n[1] === 'sleigh').length < 30, 'and only now and then');
+  // the wind: noise through a band that drifts, never a pitched drone
+  assert.ok(s.e.live.beds.length >= 3 && s.e.live.beds.some(n => n.kind === 'noise' && n.loop));
 });

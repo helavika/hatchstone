@@ -1272,9 +1272,11 @@ const ISO_FIXED = { bed: { fw: 2, fd: 2, at: [4, 0] }, incubator: { fw: 1, fd: 1
   tent: { fw: 2, fd: 2, at: [3, 0] }, campfire: { fw: 1, fd: 1, at: [2, 3] }, logs: { fw: 2, fd: 1, at: [0, 4] }, packs: { fw: 1, fd: 1, at: [1, 1] }, camplamp: { fw: 1, fd: 1, at: [5, 3] }, maptable: { fw: 1, fd: 1, at: [1, 2] },
   greenhouse: { fw: 2, fd: 2, at: [0, 0] }, skep: { fw: 1, fd: 1, at: [0, 5] }, coldframe: { fw: 2, fd: 1, at: [3, 5] }, potting: { fw: 1, fd: 2, at: [0, 2] }, sunflowers: { fw: 1, fd: 1, at: [5, 3] }, barrow: { fw: 1, fd: 1, at: [3, 0] },
   tunnel: { fw: 2, fd: 1, at: [2, 0] }, wallmap: { fw: 1, fd: 2, at: [0, 1] }, altar: { fw: 1, fd: 1, at: [2, 3] }, shrine: { fw: 1, fd: 1, at: [4, 3] }, wickbench: { fw: 1, fd: 2, at: [0, 3] }, halllamp: { fw: 1, fd: 1, at: [5, 0] },
-  labdesk: { fw: 2, fd: 1, at: [2, 0] }, jars: { fw: 1, fd: 1, at: [0, 1] }, scope: { fw: 1, fd: 1, at: [4, 4] }, books: { fw: 1, fd: 1, at: [5, 0] } };
+  labdesk: { fw: 2, fd: 1, at: [2, 0] }, jars: { fw: 1, fd: 1, at: [0, 1] }, scope: { fw: 1, fd: 1, at: [4, 4] }, books: { fw: 1, fd: 1, at: [5, 0] },
+  // (the snowfields keep the right-hand front of the clearing free, for the snow huts to come)
+  runahut: { fw: 2, fd: 2, at: [2, 0] }, icedoor: { fw: 1, fd: 1, at: [0, 0] }, firs: { fw: 1, fd: 1, at: [0, 1] }, firs2: { fw: 1, fd: 1, at: [4, 0] }, pond: { fw: 2, fd: 2, at: [0, 3] }, hotspring: { fw: 2, fd: 1, at: [1, 5] } };
 /** What each kind of room comes with (anything not listed has just its bed). */
-const ROOM_FIXED = { grotto: ["tunnel", "wallmap", "altar", "shrine", "wickbench", "halllamp"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow", "skep", "coldframe"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "bellows", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp", "maptable"] };
+const ROOM_FIXED = { grotto: ["tunnel", "wallmap", "altar", "shrine", "wickbench", "halllamp"], yard: ["bed", "garden", "greenhouse", "potting", "sunflowers", "barrow", "skep", "coldframe"], lab: ["incubator", "labdesk", "jars", "scope", "books"], shop: ["shelves", "shelves2", "counter", "crates", "sacks", "barrel"], forge: ["furnace", "bellows", "anvil", "coalbin", "rack", "barrel2"], camp: ["tent", "campfire", "logs", "packs", "camplamp", "maptable"], snow: ["runahut", "icedoor", "firs", "firs2", "pond", "hotspring"] };
 /** The places' own furniture: not decorations to play with. */
 const PLACE_PROPS = new Set(Object.values(ROOM_FIXED).flat().filter(id => !["bed", "garden", "incubator"].includes(id)));
 
@@ -1553,6 +1555,20 @@ function halfGeode(T, cx, cy, r, ry, [c0, c1, c2], spark) {
   // a glint, and a sparkle when tapped
   T.px(fx - fr * 0.35, cy - fry * 0.4, IC.white); T.px(fx - fr * 0.35 + 1, cy - fry * 0.4, IC.white);
   if (spark) { T.px(cx, cy - r - 2, IC.white); T.px(cx - 1, cy - r - 1, IC.y0); T.px(cx + 1, cy - r - 1, IC.y0); T.px(cx, cy - r, IC.y0); }
+}
+/** Snow and ice for the snowfields' pieces: snow from its lit white to its deep blue shade, ice from frost-white to deep water. */
+const SNOW = ["#ffffff", "#efe6ff", "#cfc4d6", "#a596a8", "#7a6a7e"].map(pxHex), ICE = ["#e8f7ff", "#b8e6f5", "#69b7d6", "#3383a8"].map(pxHex);
+/** A fir under snow, standing at (x, y), `hgt` tall: a short trunk, then tiers of dark needles, each tier's top and lit left
+ *  edge heaped with snow, the tip a single white point. */
+function snowFir(T, x, y, hgt) {
+  const C = ["#10301f", "#1e5233", "#2f7d4a"].map(pxHex), tiers = 4, ww = hgt * 0.3;
+  T.line(x, y, x, y - hgt * 0.12, IC.w3); T.px(x + 1, y, IC.w3);
+  for (let k = 0; k < tiers; k++) {
+    const by = y - hgt * 0.1 - k * hgt * 0.2, th = hgt * 0.34, tw = ww * (1 - k * 0.2);
+    for (let j = 0; j <= th; j++) { const half = tw * j / th, yy = Math.round(by - th + j); for (let dx = -Math.round(half); dx <= Math.round(half); dx++) { const f = dx / (half + 0.5); T.px(x + dx, yy, j < 2 + (pxHash(dx, k) > 0.5 ? 1 : 0) || (f < -0.45 && j < th * 0.7) ? SNOW[f < 0 ? 0 : 1] : f > 0.4 ? C[0] : f < -0.2 ? C[2] : C[1]); } }
+    for (let dx = -Math.round(tw); dx <= Math.round(tw); dx++) if (pxHash(dx, k + 3) > 0.45) T.px(x + dx, Math.round(by) + 1, SNOW[dx < 0 ? 1 : 2]);
+  }
+  T.px(x, Math.round(y - hgt * 0.1 - (tiers - 1) * hgt * 0.2 - hgt * 0.34) - 1, SNOW[0]);
 }
 const ISO_ART = {
   lamp(t, T, ax, ay, o) {
@@ -2681,6 +2697,77 @@ const ISO_ART = {
       T.line(xx, yy - 1, xx, yy - ph, IC.m2); T.px(xx, yy - ph - 1, IC.m0);
       for (let k = 0; k < 4; k++) for (let j = 0; j <= 3 - k; j++) T.px(xx + 1 + k, yy - ph + j + Math.floor(k / 2), j === 0 ? IC.r1 : IC.r2); }
   },
+  // ---- the snowfields (Runa's clearing)
+  runahut(t, T, ax, ay) {
+    // Runa's round hut: a drum of logs laid in rings, lit on the left, under a fat cap of snow with icicles along its eave; a low
+    // arched door with a step, a round window glowing amber beside it with a cross of glazing bars, a stone chimney through the
+    // snow, and her sled leaning on the wall, its runners curled up at the front
+    const U = t / 2, K = isoKit(T, ax, ay), c = U, r = 0.78 * U, rx = r * 2.83, hgt = Math.round(t * 0.95), [x, y] = K.P(c, c, 0);
+    // (weathered logs, greyer than the furniture's oak, so the grain texture leaves them as plain rings)
+    const LOG = ["#a37b4b", "#8a6238", "#6e4a2a", "#3b2414"].map(pxHex);
+    T.grain(3, () => { for (let z = 0; z <= hgt; z++) { const seam = z % 3 === 0; T.disc(x, y - z, rx, xx => { const f = (xx + 0.5 - x) / rx; return seam ? (f < -0.4 ? LOG[2] : LOG[3]) : f < -0.55 ? LOG[0] : f < 0.05 ? LOG[1] : f < 0.55 ? LOG[2] : LOG[3]; }); } });
+    // the log ends where the rings meet the door frame, and the door: dark planks in an arch, a ring for a handle, a stone step
+    const dx = x - rx * 0.32, dw = Math.max(3, Math.round(rx * 0.28)), dh = Math.round(hgt * 0.72), dy = y + rx * 0.45;
+    T.poly([[dx - dw, dy], [dx + dw, dy], [dx + dw, dy - dh + dw], [dx, dy - dh], [dx - dw, dy - dh + dw]], IC.w3);
+    T.poly([[dx - dw + 1, dy], [dx + dw - 1, dy], [dx + dw - 1, dy - dh + dw + 1], [dx, dy - dh + 1], [dx - dw + 1, dy - dh + dw + 1]], pxHex("#3b2414"));
+    T.line(dx, dy - 1, dx, dy - dh + 2, IC.w3); T.px(dx + dw - 2, dy - dh * 0.45, IC.y1);
+    T.box(dx - dw - 1, dy, 1.2, 1.2, 2, IC.s1, IC.s2, IC.s3);
+    // the round window, amber, a cross of bars, its sill heaped with snow
+    const wx = x + rx * 0.34, wy = y - hgt * 0.5 + rx * 0.3, wr = Math.max(2.5, rx * 0.17);
+    T.glow(wx, wy, t * 0.9, IC.y1, 0.45);
+    T.disc(wx, wy, wr + 1, IC.w3, wr + 1); T.disc(wx, wy, wr, (xx, yy) => xx < wx && yy < wy ? IC.y0 : IC.y1, wr);
+    T.line(wx - wr, wy, wx + wr, wy, IC.w3); T.line(wx, wy - wr, wx, wy + wr, IC.w3); T.px(wx - 1, wy - 1, IC.white);
+    T.disc(wx, wy + wr + 1, wr + 1.5, SNOW[1], 1);
+    // the chimney: rough stones up through the cap, a cap of snow on it
+    const [cx2, cy2] = K.P(c + 0.35 * U, c - 0.3 * U, hgt + Math.round(t * 0.35));
+    T.box(cx2 - 2, cy2, 1.5, 1.5, Math.round(t * 0.45), IC.s1, IC.s2, IC.s3);
+    // the cap of snow: a fat dome overhanging the walls, blue in its shade, a lip along the eave with icicles hanging off it
+    T.ball(x, y - hgt - r * 0.2, rx * 1.12, SNOW[0], SNOW[1], SNOW[2], rx * 0.78);
+    T.disc(x, y - hgt + 1, rx * 1.1, (xx) => xx < x - rx * 0.2 ? SNOW[1] : SNOW[2], rx * 0.42);
+    for (let k = -4; k <= 4; k++) { const ix = x + k * rx * 0.22, iy = y - hgt + 1 + rx * 0.42 * Math.sqrt(Math.max(0, 1 - (k * 0.22 / 1.1) ** 2)), n = 1 + Math.floor(pxHash(k, 7) * 3); for (let j = 0; j < n; j++) T.px(ix, iy + j, j === n - 1 ? ICE[1] : ICE[0]); }
+    T.box(cx2 - 2, cy2 - Math.round(t * 0.45) + 1, 1.5, 1.5, 1, SNOW[0], SNOW[1], SNOW[2], false);
+    // the sled against the right of the wall: a slatted bed on two runners that curl up at the front
+    const [sx, sy] = K.P(1.86 * U, 0.6 * U, 0);
+    for (let k = 0; k < 4; k++) T.line(sx - 1 + k, sy - 2 - k * 3, sx + 3 + k, sy - k * 3, k % 2 ? IC.w1 : IC.w0);
+    for (const o of [0, 4]) { T.line(sx - 2 + o, sy, sx - 2 + o, sy - 13, IC.r2); T.px(sx - 3 + o, sy - 14, IC.r2); T.px(sx - 3 + o, sy - 15, IC.r1); }
+  },
+  pond(t, T, ax, ay) {
+    // the frozen pond: grey-blue ice lying in a rim of drifted snow, streaks of white where the wind scoured it, one round hole
+    // cut in it, black water ringed with broken ice; by the hole a little three-legged stool, and a short rod propped over it
+    // with its line down into the water
+    const U = t / 2, K = isoKit(T, ax, ay), c = U, [x, y] = K.P(c, c, 0), rx = 0.92 * U * 2.83;
+    T.disc(x, y, rx + 2, (xx) => xx < x ? SNOW[1] : SNOW[2], (rx + 2) / 2);
+    T.disc(x, y, rx, (xx, yy) => { const s = Math.abs(((xx - x) * 0.5 + (yy - y) * 1.2 + 40) % 9 - 4.5); return s < 0.6 ? SNOW[0] : pxHash(xx, yy) > 0.97 ? ICE[0] : (yy < y - rx * 0.15 ? ICE[1] : ICE[2]); }, rx / 2);
+    const [hx, hy] = K.P(c + 0.25 * U, c + 0.2 * U, 0), hr = Math.max(3, U * 0.5);
+    T.disc(hx, hy, hr + 1.5, ICE[0], (hr + 1.5) / 2); T.disc(hx, hy, hr, pxHex("#0e1832"), hr / 2); T.disc(hx - 1, hy - 0.4, hr * 0.5, pxHex("#1d2e56"), hr / 4);
+    // the stool, and the rod resting across its seat
+    const [sx, sy] = K.P(c - 0.45 * U, c + 0.35 * U, 0), sh = Math.round(t * 0.42);
+    for (const lx of [-2, 0, 2]) T.line(sx + lx, sy - (lx ? 0 : 1), sx + lx * 0.5, sy - sh, IC.w3);
+    T.disc(sx, sy - sh, 3.2, IC.w1, 1.6); T.px(sx - 2, sy - sh - 1, IC.w0);
+    T.line(sx - 2, sy - sh - 1, hx + 1, hy - t * 0.7, IC.w2); T.line(hx + 1, hy - t * 0.7, hx + 1, hy, IC.s1);
+    T.px(hx + 1, hy - 1, IC.r1);
+  },
+  hotspring(t, T, ax, ay) {
+    // the hot spring: dark wet stones in a ring round warm water (teal in the steam, paler at its middle), snow kept back from
+    // its edge by the heat, and frost lilies, white with a blush, growing between the stones
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(U, 0.5 * U, 0), rx = 0.9 * U * 2.83, ry = rx * 0.42;
+    T.disc(x, y, rx + 1, IC.s4, ry + 1.5);
+    T.disc(x, y, rx - 2, (xx, yy) => { const d = Math.hypot((xx - x) / rx, (yy - y) / ry); return d < 0.35 ? pxHex("#8fd8ef") : d < 0.7 ? IC.b1 : IC.b2; }, ry - 1);
+    for (let k = 0; k < 16; k++) { const an = k / 16 * TAU, sx = x + Math.cos(an) * rx, sy = y + Math.sin(an) * ry, sr = 1.8 + pxHash(k, 4) * 1.4; T.ball(sx, sy - sr * 0.4, sr, IC.s2, IC.s3, IC.s4, sr * 0.75); }
+    for (const [an, col] of [[2.4, IC.p0], [0.5, SNOW[0]], [3.6, SNOW[0]], [5.6, IC.p0]]) { const fx = x + Math.cos(an) * (rx + 1), fy = y + Math.sin(an) * (ry + 1); T.px(fx, fy - 2, col); T.px(fx - 1, fy - 1, col); T.px(fx + 1, fy - 1, col); T.px(fx, fy - 1, IC.y1); T.px(fx, fy, IC.g2); }
+  },
+  icedoor(t, T, ax, ay) {
+    // the door of ice at the back of the clearing, half sunk in a drift: a tall arch of clear blue ice in a frame of older,
+    // whiter ice, frost ferns across it, faintly lit blue from somewhere inside; the drift heaped up over its foot
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), w = Math.round(t * 0.34), h = Math.round(t * 1.55);
+    T.glow(x, y - h * 0.5, t * 1.3, IC.b0, 0.4);
+    T.poly([[x - w - 2, y], [x + w + 2, y], [x + w + 2, y - h + w], [x, y - h - 3], [x - w - 2, y - h + w]], (xx) => xx < x - w * 0.4 ? ICE[0] : ICE[1]);
+    T.poly([[x - w, y], [x + w, y], [x + w, y - h + w + 1], [x, y - h], [x - w, y - h + w + 1]], (xx, yy) => (Math.abs((xx - x) * 2 + (yy % 7)) % 9 < 1 ? ICE[0] : yy < y - h * 0.6 ? ICE[2] : pxHex("#8fd8ef")));
+    for (let k = 0; k < 5; k++) T.px(x - w + 2 + k * 2, y - h * 0.55 - (k % 2) * 2, IC.white);
+    T.ball(x - 1, y + 1, w * 2.4, SNOW[0], SNOW[1], SNOW[2], w * 1.2);
+  },
+  firs(t, T, ax, ay) { snowFir(T, ...isoKit(T, ax, ay).P(t * 0.28, t * 0.28, 0), t * 2.2); snowFir(T, ...isoKit(T, ax, ay).P(t * 0.38, t * 0.1, 0), t * 1.3); },
+  firs2(t, T, ax, ay) { snowFir(T, ...isoKit(T, ax, ay).P(t * 0.25, t * 0.25, 0), t * 1.8); },
   // ---- the lab
   labdesk(t, T, ax, ay) {
     // an alchemist's bench on square legs with a shelf of jars below: on its thick top a brick athanor with a fire showing
@@ -4067,7 +4154,7 @@ function roomMaterials(id, hw, wall, S) {
   // at home the cave's mood (HOME_ART): the crystal caves, the glowcap grotto, the lantern gallery, the starfall crypt, the moonwell
   // and the aurora's ice cave
   const mood = kind === "cave" && atHome() ? (HOME_ART[id] && HOME_ART[id].mood) || "crystal" : null;
-  const art = kind === "cave" ? caveArt(id, atHome()) : t.art !== undefined ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
+  const art = kind === "cave" ? caveArt(id, atHome()) : t.art !== undefined && !NIGHT[id] ? CHAPTER_ART[t.art] : null, night = NIGHT[id];
   const wallR = (art ? art.wall : night.ground).map(pxHex), crys = art ? art.crystal.map(pxHex) : null, ground = night ? night.ground.map(pxHex) : wallR;
   const seed = (art ? art.seed : night.seed) * 7, indoor = kind === "cave" || kind === "hall" || kind === "ruin" || kind === "timber";
   const hexes = a => a.map(pxHex);
@@ -4339,7 +4426,9 @@ function roomMaterials(id, hw, wall, S) {
   const pathD = (() => {
     // trodden paths outdoors: the camp's ring round the fire and its ways to the tent and out; the garden's walk between the beds
     const lines = roomKindNow === "camp" ? [[[0.42, 0.58], [0.66, 0.36]], [[0.42, 0.58], [0.72, 0.8], [1.02, 0.9]], [[0.42, 0.58], [0.22, 0.3]]]
-      : roomKindNow === "yard" ? [[[1.02, 0.44], [0.7, 0.46], [0.4, 0.43], [0.2, 0.38]], [[0.55, 0.45], [0.52, 0.66]], [[0.7, 0.46], [0.74, 0.32]]] : [];
+      : roomKindNow === "yard" ? [[[1.02, 0.44], [0.7, 0.46], [0.4, 0.43], [0.2, 0.38]], [[0.55, 0.45], [0.52, 0.66]], [[0.7, 0.46], [0.74, 0.32]]]
+      // the snowfields: one track trodden in from the edge to Runa's door, and a short one off it to the pond
+      : roomKindNow === "snow" ? [[[1.02, 0.78], [0.78, 0.62], [0.6, 0.5], [0.5, 0.38]], [[0.6, 0.5], [0.36, 0.56], [0.3, 0.62]]] : [];
     return (u, v) => {
       let best = 9;
       for (const ln of lines) for (let k = 0; k + 1 < ln.length; k++) {
@@ -4448,6 +4537,17 @@ function roomMaterials(id, hw, wall, S) {
     const lump = (xx, yy) => pxFbm(xx * 0.03 + seed, yy * 0.06);
     let val = 0.52 + 0.2 * lk + 2.6 * (lump(x - 2, y - 2) - lump(x + 2, y + 2)) + 0.16 * (pxFbm(x * 0.06 + seed, y * 0.12) - 0.5) - 0.2 * Math.max(0, Math.max(u, v) - 0.85) * 5;
     const pd = pathD(u, v) * hw / (S * 180), pr = roomKindNow === "camp" ? 0.07 : 0.05, ragged = 0.012 * (pxNoise(x * 0.3, y * 0.6) - 0.5) * 2;
+    // (snow lies smoother than grass: long soft swells the wind laid, a little sparkle, calm bands between them)
+    if (roomKindNow === "snow" && pd >= pr + ragged) return isoTone(ground, 0.62 + 0.18 * lk + 1.1 * (lump(x - 3, y - 3) - lump(x + 3, y + 3)) + 0.06 * (pxFbm(x * 0.05 + seed, y * 0.1) - 0.5) - 0.15 * Math.max(0, Math.max(u, v) - 0.85) * 5 - (pd < pr + 0.03 ? 0.1 : 0), x, y, 0.25);
+    if (pd < pr + ragged && roomKindNow === "snow") {
+      // packed snow, a step bluer than the drifts round it, a soft lip where it meets them; and small paw prints in pairs up the
+      // middle (Runa's: the tracks the sparks saw), a little to either side of the line
+      let sv = 0.42 + 0.18 * lk + 1.4 * (lump(x - 2, y - 2) - lump(x + 2, y + 2));
+      if (pd > pr + ragged - 0.014) sv += 0.16;
+      const step = Math.floor((x + y * 2) / 7), side = step % 2 ? 1 : -1, ox = (x + y * 2) % 7;
+      if (pd < pr * 0.55 && ox < 2 && Math.abs(pd * (S * 180) / hw - pr * 0.3 * (side > 0 ? 1 : 0.2)) < 0.02 && (y + side) % 3 === 0) sv = 0.1;
+      return isoTone(ground, sv, x, y, 0.4);
+    }
     if (pd < pr + ragged) {
       if (roomKindNow === "yard") {
         // stepping stones set in gravel
@@ -5232,6 +5332,8 @@ const BREATH = {
   lab: { fire: { id: "labdesk", at: [0.62, 0.8], z: 0.9, r: 2.6, col: "#ffb45e" }, steam: [{ id: "labdesk", at: [0.82, 0.42], z: 2.25, n: 4 }, { id: "labdesk", at: [1.85, 0.3], z: 1.95, n: 2 }],
     win: { v: 0.42, z: 0.5, to: [0.25, 0.5], wide: 0.08 } },
   shop: { win: { v: 0.5, z: 0.56, to: [0.17, 0.55], wide: 0.1 }, sign: { u: 3.75, z: 0.62 }, lamps: true },
+  // the snowfields: the hut's window throws its amber on the snow, the spring steams, and smoke curls up from the chimney
+  snow: { fire: { id: "runahut", at: [1.55, 1.75], z: 0.45, r: 1.6, col: "#ffb45e" }, steam: [{ id: "hotspring", at: [1, 0.5], z: 0.1, n: 4 }, { id: "runahut", at: [1.35, 0.7], z: 2.2, n: 3 }] },
 };
 /** At most this many of each in the air at once. */
 const BREATH_CAP = { spark: 8, steam: 6, dust: 8 };
@@ -5761,6 +5863,8 @@ function paintRoomIso(id) {
       if (hsh > 0.06 + 0.12 * lush) continue;
       const pr = roomKindNow === "camp" ? 0.07 : 0.05, pd = pathD(u, v) * hw / (S * 180);
       if (pd < pr - 0.012) continue;
+      // (in the snow: a glint of frost on a crust, or now and then a dry stalk poking through the drift)
+      if (roomKindNow === "snow") { if (pxHash(x, y + 9) > 0.985) { put(x, y, dirt[3]); put(x, y - 1, dirt[4]); put(x + (pxHash(y, x) > 0.5 ? 1 : -1), y - 2, dirt[5]); } else if (pxHash(x + 4, y) > 0.7) put(x, y, ground[4]); continue; }
       const tall = 2 + Math.round(pxHash(x, y + 1) * 2 + lush * 1.5), lean = pxHash(y, x) > 0.5 ? 1 : -1, lk = lightAt(u, v);
       for (let k = 0; k < tall; k++) {
         const col = k === tall - 1 ? ground[Math.min(ground.length - 1, lk > 0.45 ? 4 : 3)] : k === 0 ? ground[1] : ground[Math.min(ground.length - 1, 2 + (lk > 0.6 ? 1 : 0))];
@@ -5770,7 +5874,7 @@ function paintRoomIso(id) {
     }
     // the grass at the front edges grows on over them into the meadow (#277): blades rooted just outside, leaning over the edge,
     // lit on the left half; none where the path leaves (the backdrop takes the path on: nightSite)
-    for (let x = Math.floor(cx - hw) + 1; x < Math.ceil(cx + hw); x++) {
+    for (let x = Math.floor(cx - hw) + 1; x < Math.ceil(cx + hw) && roomKindNow !== "snow"; x++) {
       const ye = Math.round(top + hh + (hh - Math.abs(x - cx) * hh / hw)), left = x < cx;
       const [u, v] = [((x - cx) / hw + (ye - top) / hh) / 2, ((ye - top) / hh - (x - cx) / hw) / 2];
       if (pathD(Math.min(u, 1), Math.min(v, 1)) * hw / (S * 180) < (roomKindNow === "camp" ? 0.07 : 0.05) + 0.02) continue;
@@ -5782,7 +5886,7 @@ function paintRoomIso(id) {
     }
     // small flowers in the grass, in little clumps of one kind (two or three heads, the odd one a bud), clover leaves among
     // them, and pale specks of tiny daisies scattered between; none on the paths
-    const blooms = ["#fff0b5", "#ffc4da", "#d2bfff", "#ffffff"].map(pxHex), eye = pxHex("#eec26a"), clump = Math.round(28 * S * S);
+    const blooms = ["#fff0b5", "#ffc4da", "#d2bfff", "#ffffff"].map(pxHex), eye = pxHex("#eec26a"), clump = roomKindNow === "snow" ? 0 : Math.round(28 * S * S);
     for (let k = 0; k < clump; k++) {
       const u0 = 0.05 + 0.9 * pxHash(k, seed + 1), v0 = 0.05 + 0.9 * pxHash(seed + 2, k), col = blooms[k % 4];
       for (let j = 0; j < 1 + Math.floor(pxHash(k, 5) * 3); j++) {
@@ -6112,6 +6216,13 @@ function paintRoomIso(id) {
     // the two back edges: a low dry-stone wall, or a woven wattle fence on stakes
     for (const side of [-1, 1]) for (let x = Math.floor(side < 0 ? cx - hw : cx); x <= Math.ceil(side < 0 ? cx : cx + hw); x++) {
       const tt = Math.abs(x - cx) / hw, base = top + tt * hh, al = tt * hw, sl = -side;
+      if (roomKindNow === "snow") {
+        // the snowfields: a drift banked up along the back, rounded, lit on its top and in shade down its face, the wind's
+        // ripples in it; lower toward the front corners
+        const hgt = Math.round((7 + 4 * pxNoise(al * 0.06, seed) - 3 * tt) * S);
+        for (let z = 0; z < hgt; z++) { const f = z / hgt; put(x, base - z, isoTone(ground, (sl > 0 ? 0.5 : 0.36) + 0.5 * f * f + (Math.abs(pxNoise(al * 0.2, z * 0.4) - 0.5) < 0.04 ? -0.12 : 0), x, base - z, 0.3)); }
+        continue;
+      }
       if (kind === "yard") {
         const hgt = Math.round(8 * S);
         for (let z = 0; z < hgt; z++) {

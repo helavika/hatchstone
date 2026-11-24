@@ -826,8 +826,9 @@ function roomThemes(i = save.room) {
 }
 /** Is room i one of the caves at home (not the garden outside, nor a place in the valley)? */
 const atHome = (i = save.room) => !!(save.rooms && save.rooms[i]) && !isPlace(i);
-/** What sort of place a backdrop makes of room i: at home every one is a cave (of its own mood), elsewhere a hall, a ruin, a wood or a yard as it always was. */
-const lookOf = (id, i = save.room) => atHome(i) ? "cave" : ROOM_KIND[id] || "cave";
+/** What sort of place a backdrop makes of room i: at home every one is a cave (of its own mood), elsewhere a hall, a ruin, a wood
+ *  or a yard as it always was; and Frost Hollow in the snowfields is no hollow but Runa's clearing, out under the sky. */
+const lookOf = (id, i = save.room) => atHome(i) ? "cave" : id === "frost" && save.rooms?.[i]?.kind === "snow" ? "yard" : ROOM_KIND[id] || "cave";
 
 // ---------- gothic little things: candles by the egg, bats in the dark ----------
 

@@ -1957,7 +1957,28 @@ const UK = {
   "everyone here is too sleepy to play": "тут усі надто сонні, щоб гратися",
   "Everyone here is too sleepy to play. Try a nap 🌙": "Тут усі надто сонні, щоб гратися. Може, час подрімати 🌙",
   "Bubbles! Everyone pops as many as they can ✦": "Бульбашки! Кожне лопає, скільки встигне ✦",
-  "Bubble game: {0} played and popped {1} · everyone who joined is glad ✦": "Гра в бульбашки: гравців {0}, лопнутих бульбашок {1} · усі, хто грав, радіють ✦"
+  "Bubble game: {0} played and popped {1} · everyone who joined is glad ✦": "Гра в бульбашки: гравців {0}, лопнутих бульбашок {1} · усі, хто грав, радіють ✦",
+  // the snowfields (snow step 1): Runa's place past the valley, her lines, and who said what as the fog lifted
+  "ward the snowfields": "постав варту на Сніжних полях",
+  "ward the snowfields first": "спершу постав варту на Сніжних полях",
+  "Runa's hut, and a door of ice": "хатинка Руни й крижані двері",
+  "Runa": "Руна",
+  "keeps the snowfields": "доглядає Сніжні поля",
+  "Talk": "Поговорити",
+  "the snowfields": "Сніжні поля",
+  "{0}! In you come, out of the wind. The snow likes new paws.": "{0}! Заходь, ховайся від вітру. Сніг любить нові лапки.",
+  "Brr! Good morning. The snow's in a fine mood, it let me find the path.": "Брр! Доброго ранку. Сніг сьогодні в доброму гуморі, навіть стежку мені лишив.",
+  "I'm Runa. I keep the snowfields. Well, mostly the snowfields keep me.": "Я Руна. Я доглядаю Сніжні поля. Ну, здебільшого це вони доглядають мене.",
+  "See my sled? Best knots in the snow. I tied them myself, and not one has come undone.": "Бачиш мої санки? Найкращі вузли в цих снігах. Сама в'язала, і жоден ще не розв'язався.",
+  "Fish? No fish here. The hole gives glass. Cold, honest glass.": "Риба? Яка риба. Лунка дає скло. Холодне, чесне скло.",
+  "That door's warm. Every winter, warm. Never opened for a hammer. I've asked nicely.": "Ті двері теплі. Щозими теплі. Молотку не відчинялися. Я й по-доброму просила.",
+  "Rust hates frost, you know. That's why I like it here.": "Іржа не терпить морозу, знаєш. Тому мені тут і добре.",
+  "The spring stays warm all winter. Sit by it with me sometime. It hums.": "Джерело тепле цілу зиму. Посидь якось зі мною біля нього. Воно наспівує.",
+  "The wind tried to take my roof last night. I told it no. It listened.": "Учора вітер хотів забрати мій дах. Я сказала: ні. Послухав.",
+  "The snow's sulking today. Give it an hour, it'll come round.": "Сніг сьогодні дметься. Дай йому годинку, відтане.",
+  "Snow. I'd forgotten snow. Someone kept a door out there, long ago. I never knew who.": "Сніг. Я й забула, який він. Колись там хтось стеріг двері. Я так і не дізналася, хто.",
+  "Finally! That fog sat on my porch for a hundred winters. Come in, come in, mind the drift.": "Нарешті! Цей туман сто зим сидів у мене на ґанку. Заходь, заходь, обережно, замет.",
+  "An ermine in her white winter coat who keeps a round hut in the snowfields, fishes glass out of the ice and boasts about her knots. Waited a long time for guests. Is very glad of them.": "Горностаїха в білому зимовому хутрі, що живе в круглій хатинці на Сніжних полях, виловлює з льоду скло й хизується своїми вузлами. Довго чекала на гостей. Дуже їм рада.",
 };
 
 const UK_DATA = {

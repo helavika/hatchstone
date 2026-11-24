@@ -15,7 +15,7 @@ const all = () => true;
 test('the ring has every place on the map once, home among them', () => {
   const from = nest.indexOf('const WORLD = ['), block = nest.slice(from, nest.indexOf('\n];', from));
   const world = [...block.matchAll(/^  \{ id: "(\w+)"/gm)].map(m => m[1]);
-  assert.equal(world.length, 7);
+  assert.equal(world.length, 8);
   assert.deepEqual([...page.VALLEY_RING].sort(), world.sort());
 });
 
@@ -30,6 +30,7 @@ test('with everything open, the arrows go round in the ring\'s order, both ways,
 
 test('places not open yet are stepped over; home is always a stop on the way', () => {
   const early = open('nest', 'grotto', 'shop');
+  // (the snowfields, out past the lab, are on the ring too, once their fog has lifted: see snowfields.test.cjs)
   assert.deepEqual({ ...page.ringWays('shop', early) }, { prev: 'nest', next: 'grotto' });
   assert.deepEqual({ ...page.ringWays('grotto', early) }, { prev: 'shop', next: 'nest' });
 });

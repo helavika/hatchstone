@@ -28,6 +28,9 @@ const PLACES = {
   forge: { bpm: 48, pad: "triangle", cut: 480, padGain: 0.7, tune: "kalimba", notes: 0.18, wet: 0.35, bed: "drone", anvil: true },
   lab: { bpm: 56, pad: "sine", cut: 1800, glass: true, tune: "kalimba", notes: 0.14, bubbles: 0.45, chime: 0.03, wet: 0.4 },
   camp: { bpm: 50, pad: "sine", cut: 800, tune: "flute", notes: 0.24, wet: 0.22, bed: "fire" },
+  // the snowfields: the hush after a blizzard, a soft pad, a harp that hardly speaks, the wind over everything, and now and
+  // then far-off sleigh bells and a few soft steps in the snow
+  snow: { bpm: 46, pad: "sine", cut: 900, padGain: 0.85, tune: "harp", notes: 0.16, wet: 0.5, wide: true, bed: "wind", sleigh: 0.025, steps: 0.03 },
   grotto: { bpm: 42, pad: "triangle", cut: 420, tune: "kalimba", notes: 0.24, dark: true, chime: 0.04, wet: 0.7, deep: true, bed: "hum", drip: 0.05 },
   walk: { bpm: 60, pad: "sine", cut: 1500, tune: "harp", notes: 0.44, birds: 0.12, chime: 0.03, wet: 0.22 },
   map: { bpm: 44, pad: "sine", cut: 950, tune: "harp", notes: 0.2, bell: 0.15, wet: 0.5, wide: true },
@@ -65,7 +68,7 @@ function musicPlace() {
   if (game.scene === "map" || game.scene === "lib") return "map";
   if (game.scene === "walk") return "walk";
   const kind = save.rooms && save.rooms[save.room] && save.rooms[save.room].kind;
-  return { yard: "garden", garden: "garden", forge: "forge", lab: "lab", camp: "camp", grotto: "grotto" }[kind] || "nest";
+  return { yard: "garden", garden: "garden", forge: "forge", lab: "lab", camp: "camp", grotto: "grotto", snow: "snow" }[kind] || "nest";
 }
 
 /** A soft room tail: stereo noise that dies away and darkens as it goes. */
@@ -188,6 +191,10 @@ function makeMusic(ac, dest, noise) {
   const anvil = (L, t, g) => { voice(L, t, 1850, { gain: 0.009 * g, a: 0.001, len: 0.6, pan: -0.35 }); voice(L, t, 1850 * 2.71, { gain: 0.004 * g, a: 0.001, len: 0.25, pan: -0.35 }); grain(L, t, 0.015, 3200, 2, 0.012 * g, "bandpass", -0.35); };
   const bubble = (L, t, f) => voice(L, t, f, { gain: 0.011, a: 0.003, len: 0.16, glide: 1.5, pan: spread(L) * 2 });
   const drip = (L, t) => voice(L, t, rand(1100, 1900), { gain: 0.012, a: 0.003, len: 0.5, pan: spread(L) * 2 });
+  /** Sleigh bells far off: a little shake of high jingles, each a bright tone with an out-of-tune shimmer, all to one side. */
+  const sleigh = (L, t) => { const pan = pick([-0.6, 0.6]); for (let i = 0, n = Math.floor(rand(5, 9)); i < n; i++) { const tt = t + i * rand(0.06, 0.11), f = rand(2600, 3400); voice(L, tt, f, { gain: 0.004, a: 0.002, len: 0.35, pan, tag: i ? "" : "sleigh" }); voice(L, tt, f * 1.48, { gain: 0.002, a: 0.002, len: 0.2, pan }); } };
+  /** Steps in the snow: two or three soft crunches, a breath of low noise each. */
+  const steps = (L, t, spb) => { const pan = rand(-0.4, 0.4); for (let i = 0, n = pick([2, 3, 3]); i < n; i++) grain(L, t + i * spb * 0.45, 0.09, rand(900, 1400), 0.8, 0.018, "bandpass", pan); };
 
   // ---------- the beds: what each place sounds like underneath ----------
   function bed(L, t) {
@@ -215,6 +222,13 @@ function makeMusic(ac, dest, noise) {
     } else if (p.bed === "fire") {
       // the campfire: a low rumble and a little hiss (the crackles come with the beats)
       hiss("lowpass", 380, 0.5, 0.03); hiss("highpass", 3200, 0.5, 0.003);
+    } else if (p.bed === "wind") {
+      // the wind over the snowfields: air through a band that drifts slowly up and down, rising and falling like gusts
+      const s = ac.createBufferSource(), bp = ac.createBiquadFilter(), sg = ac.createGain(), lfo = ac.createOscillator(), lg = ac.createGain(), gust = ac.createOscillator(), gg = ac.createGain();
+      s.buffer = noise; s.loop = true; bp.type = "bandpass"; bp.frequency.value = 520; bp.Q.value = 1.4; sg.gain.value = 0.016;
+      lfo.frequency.value = 1 / 9; lg.gain.value = 260; lfo.connect(lg).connect(bp.frequency);
+      gust.frequency.value = 1 / 13; gg.gain.value = 0.01; gust.connect(gg).connect(sg.gain);
+      s.connect(bp).connect(sg).connect(g); srcs.push(s, lfo, gust);
     }
     g.gain.value = 1;
     srcs.forEach(s => s.start(t));
@@ -273,6 +287,8 @@ function makeMusic(ac, dest, noise) {
     if (k === 0 && melody && Math.random() < (p.bell || 0) + (s.bells && bar % 4 === 0 ? 0.3 : 0)) bell(L, t, nt(chord, 0));
     if (p.birds && Math.random() < p.birds) birds(L, t + rand(0, spb));
     if (p.drip && Math.random() < p.drip) drip(L, t + rand(0, spb));
+    if (p.sleigh && k === 0 && Math.random() < p.sleigh * 4) sleigh(L, t + rand(0, spb * 2));
+    if (p.steps && Math.random() < p.steps) steps(L, t + rand(0, spb), spb);
     // the forge: the smith strikes on one and three, rests a bar now and then
     if (p.anvil) {
       if (k === 0) L.strike = Math.random() < 0.7;
