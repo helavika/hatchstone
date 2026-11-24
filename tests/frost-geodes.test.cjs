@@ -172,7 +172,7 @@ test('in Ukrainian: the frost crystals, the three glowlings by their own names, 
   // the older glowlings keep their names in Ukrainian, as they always have
   assert.ok(Object.entries(page.UK_DATA.species).filter(([, v]) => v.name).every(([id]) => ['driftlet', 'slipkin', 'tinkicle'].includes(id)));
   assert.match(crack, /if \(D\.species\[s\.id\]\.name\) s\.name = D\.species\[s\.id\]\.name;/);
-  const frostSrc = cut(scenes, '// ---------- frost geodes', '\nconst frostNext', 'frost geodes') + cut(nestJs, '  // past the valley', '\n];', 'snowfields');
+  const frostSrc = cut(scenes, '// ---------- frost geodes', '\nconst frostNext', 'frost geodes') + cut(nestJs, '  // past the valley: open once both wardstones', '\n];', 'snowfields');
   const said = [...frostSrc.matchAll(/(?:tr\(|tales: \[|, |pair: |how: |name: )"((?:[^"\\\n]|\\.)+)"/g)].map(m => m[1].replace(/\\(.)/g, '$1')).filter(s => /[a-z]{3}/.test(s) && !/^[a-z]+$/.test(s));
   const ui = read('ui.js');
   said.push('frost geodes', 'a frost geode', 'Sleeps only in frost geodes, from the snowfields past the valley.', 'Only in ❄ frost geodes, from the snowfields: never in the grotto.');
