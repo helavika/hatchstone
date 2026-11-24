@@ -9,14 +9,15 @@ const vm = require('node:vm');
 const read = f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8');
 const cut = (src, a, b, what) => { const from = src.indexOf(a), to = src.indexOf(b, from); assert.ok(from >= 0 && to > from, what); return src.slice(from, to); };
 
-const CAST = ['mossa', 'wick', 'dorma', 'tansy', 'ember', 'pip', 'fennel', 'ollo'];
-const SPEAKERS = { MOSSA: 'mossa', WICK: 'wick', DORMA: 'dorma', TANSY: 'tansy', EMBER: 'ember', PIP: 'pip', FENNEL: 'fennel', OLLO: 'ollo', GLOOM: 'gloom' };
+const CAST = ['mossa', 'wick', 'dorma', 'tansy', 'ember', 'pip', 'fennel', 'ollo', 'runa'];
+const SPEAKERS = { MOSSA: 'mossa', WICK: 'wick', DORMA: 'dorma', TANSY: 'tansy', EMBER: 'ember', PIP: 'pip', FENNEL: 'fennel', OLLO: 'ollo', RUNA: 'runa', GLOOM: 'gloom' };
 /** The moods the cast bible gives each speaker: the lines are tagged with these. */
 const BIBLE = {
   mossa: ['calm', 'warm', 'concerned', 'grief', 'resolve'], ember: ['steady', 'satisfied', 'focused', 'concern', 'laugh'],
   tansy: ['businesslike', 'pleased', 'flustered', 'doubtful', 'dreamy'], pip: ['alert', 'excited', 'scared-but-steady', 'thinking', 'shy-pride'],
   ollo: ['attentive', 'curious', 'delighted', 'concerned', 'alarmed'], fennel: ['content', 'listening', 'shy', 'glad', 'worried'],
   dorma: ['drowsy', 'realizing', 'fond', 'puzzled', 'sorrowful'], wick: ['shy', 'glad', 'confiding', 'sincere', 'flustered'],
+  runa: ['cheery', 'proud', 'glad', 'wistful', 'brisk'],
   gloom: ['still', 'watching', 'questioning', 'withdrawing', 'seen'],
 };
 
@@ -123,14 +124,14 @@ const TALK_FILES = ['crack.js', 'inner.js', 'play.js', 'world.js', 'gifts.js', '
 const talkLines = [];
 for (const f of TALK_FILES) {
   const src = read(f);
-  for (const m of src.matchAll(/\[(MOSSA|WICK|DORMA|GLOOM|PIP|EMBER|TANSY|FENNEL|OLLO), /g)) {
+  for (const m of src.matchAll(/\[(MOSSA|WICK|DORMA|GLOOM|PIP|EMBER|TANSY|FENNEL|OLLO|RUNA), /g)) {
     const end = close(src, m.index), [, words, , mood] = parts(src, m.index + 1, end);
     talkLines.push([f, SPEAKERS[m[1]], strings(words), mood ? strings(mood) : [], words]);
   }
 }
 
 test('every talk line of the cast has its Ukrainian, and every mood on one is the speaker\'s', () => {
-  assert.equal(talkLines.length, 131, "every talk line of the cast is still said (a new one changes this count on purpose)");
+  assert.equal(talkLines.length, 133, "every talk line of the cast is still said (a new one changes this count on purpose)");
   let tagged = 0;
   for (const [f, who, words, moods, raw] of talkLines) {
     for (const w of words) assert.ok(UK.get(w), `${f}: no Ukrainian for ${JSON.stringify(w)}`);
@@ -159,7 +160,7 @@ test('a keeper\'s hello or line is words, or [mood, words] with one of the keepe
     }
     for (const a of h.asks || []) for (const w of [a.ask, a.story]) assert.ok(UK.get(w), w);
   }
-  assert.equal(n, 42, 'five keepers, three hellos each, and their everyday lines: none lost');
+  assert.equal(n, 51, 'six keepers, three hellos each, and their everyday lines: none lost');
   assert.ok(tagged >= 15);
 });
 
@@ -168,7 +169,7 @@ test('the talk box shows the face for the line\'s mood: nextLine passes it, the 
   assert.match(cut(crack, 'function nextLine(', '\n}\n', 'nextLine should sit in crack.js'), /const \[who, words, spot, mood(, ask)?\] = n\.lines\[n\.i\];[\s\S]*face = who\.face\(mood\)/);
   assert.match(cut(crack, 'function retell(', '\n}\n', 'retell should sit in crack.js'), /\[who, words, null, mood(, ask)?\]/);
   // every speaker of the cast speaks with its big portrait; the place bar keeps the keeper's small crop
-  for (const [name, file] of [['MOSSA', 'crack.js'], ['WICK', 'crack.js'], ['DORMA', 'crack.js'], ['TANSY', 'nest.js'], ['EMBER', 'nest.js'], ['PIP', 'nest.js'], ['FENNEL', 'nest.js'], ['OLLO', 'nest.js']])
+  for (const [name, file] of [['MOSSA', 'crack.js'], ['WICK', 'crack.js'], ['DORMA', 'crack.js'], ['TANSY', 'nest.js'], ['EMBER', 'nest.js'], ['PIP', 'nest.js'], ['FENNEL', 'nest.js'], ['OLLO', 'nest.js'], ['RUNA', 'nest.js']])
     assert.match(read(file), new RegExp(`const ${name} = \\{ name: "[^"]+", face: mood => pxPortrait\\("${name.toLowerCase()}", mood\\)`));
   assert.match(nestJs, /\$\("placeFace"\)\.src = h\.none \? pxIcon\(h\.icon\) : keeperFace\(h\.icon\);/);
   // and the portraits load before anyone speaks, and offline too

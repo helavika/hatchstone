@@ -895,6 +895,8 @@ const FOLK = [
   // (said: the lines of his own story that his wishes have opened, kept under his card: see the errands in nest.js)
   { name: "Fennel", face: () => keeperFace("fennel"), where: "the garden", met: () => !!save.heroTalk?.yard, hint: "visit the garden", said: () => bondStory("yard"),
     about: "A turtle-folk gardener in a straw hat who talks to the plants and waters them for you. Slow and steady, and quick to hide in his shell." },
+  { name: "Runa", face: () => keeperFace("runa"), where: "the snowfields", met: () => !!save.heroTalk?.snow || talkSeen("snowWelcome"), hint: "ward the snowfields",
+    about: "An ermine in her white winter coat who keeps a round hut in the snowfields, fishes glass out of the ice and boasts about her knots. Waited a long time for guests. Is very glad of them." },
 ];
 /** The Book's tabs stand in one row that scrolls sideways: light the open one and bring it to the middle of the row. */
 function litLibTabs() {

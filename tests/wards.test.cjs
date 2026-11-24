@@ -39,11 +39,12 @@ test('never more stones in hand than there are empty spots', () => {
   assert.equal(wardRoom(wardSaveOf({ have: ['aqua'], set: {} })), WARD_SPOTS - 1);
 });
 
-test('the order: snowfields and isle first, then the summit, then the Gloom\'s land in chapter IV', () => {
+test('the order: the snowfields first, then the isle, then the summit, then the Gloom\'s land in chapter IV', () => {
   const ws = wardSaveOf({});
-  assert.ok(wardOpenIn(ws, 'frost') && wardOpenIn(ws, 'isle'));
+  assert.ok(wardOpenIn(ws, 'frost') && !wardOpenIn(ws, 'isle'), 'the isle waits for the snowfields');
   assert.ok(!wardOpenIn(ws, 'summit', true) && !wardOpenIn(ws, 'gloom', true));
   ws.set = allSet('frost');
+  assert.ok(wardOpenIn(ws, 'isle'), 'the isle opens after the snowfields');
   assert.ok(!wardOpenIn(ws, 'summit'), 'the isle too');
   ws.set = allSet('frost', 'isle');
   assert.ok(wardOpenIn(ws, 'summit') && !wardOpenIn(ws, 'gloom', true));

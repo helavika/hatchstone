@@ -352,7 +352,7 @@ function openShop() {
   let body = "";
   if (st.tab === "look") {
     const now = currentTheme();
-    body = `<h3>${tr(atHome() ? "Cave mood" : "Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : isPlace() ? "This room can take any backdrop you've found." : "Every room at home is a cave: pick its mood.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
+    body = `<h3>${tr(atHome() ? "Cave mood" : "Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : save.rooms[save.room]?.kind === "snow" ? "The snowfields are always Frost Hollow, out under the sky." : isPlace() ? "This room can take any backdrop you've found." : "Every room at home is a cave: pick its mood.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
         const ok = t.ok() || t.id === ownTheme();
         const home = atHome() && t.home;
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id, home)}" alt=""><b>${home || t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;
@@ -435,13 +435,17 @@ const WORLD = [
   { id: "shop", name: "Shop", icon: "stall", at: [250, 256], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: () => arriveAt("shop") },
   { id: "garden", name: "Garden", icon: "sun", at: [172, 238], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : tr("grows what no shop sells"), call: () => ripePlots() > 0, go: () => arriveAt("yard") },
   { id: "trail", name: "Expeditions", icon: "compass", at: [276, 318], ok: () => unlocked(6) || onTrip().length > 0, how: () => tr("clear level {0}", 5), note: () => onTrip().length ? tr("{0} away exploring", onTrip().length) : tr("send a glowling exploring"), go: () => arriveAt("camp") },
+  // past the valley: the snowfields open once both their wardstones stand (and the last has risen: wardFound). On the map they
+  // are their land's own pin out in the east (land: see world.js), not a place drawn in the valley.
+  { id: "snow", name: "The snowfields", icon: "map", at: [360, 150], land: "frost", ok: () => wardFound("frost"), how: () => tr("ward the snowfields"), note: () => tr("Runa's hut, and a door of ice"), go: () => arriveAt("snow") },
 ];
 const placeOk = id => { const w = WORLD.find(x => x.id === id); return !w.ok || w.ok(); };
 /**
- * The valley's places in a ring, the way its roads go round the map clockwise: home, the lab, the shop, the camp, the garden,
- * the forge, the grotto, and home again. The arrows at a place's edges step along it (#314), over any place not open yet.
+ * The valley's places in a ring, the way its roads go round the map clockwise: home, the lab, the snowfields out east past it
+ * (their road leaves from the lab), the shop, the camp, the garden, the forge, the grotto, and home again. The arrows at a
+ * place's edges step along it (#314), over any place not open yet.
  */
-const VALLEY_RING = ["nest", "lab", "shop", "trail", "garden", "forge", "grotto"];
+const VALLEY_RING = ["nest", "lab", "snow", "shop", "trail", "garden", "forge", "grotto"];
 /** The next open place round the ring from `here`: dir 1 is clockwise (the right arrow), -1 the other way; null if there's none. */
 const ringNext = (here, dir, ok = placeOk) => { const n = VALLEY_RING.length, at = VALLEY_RING.indexOf(here); for (let k = 1; k < n; k++) { const id = VALLEY_RING[((at + dir * k) % n + n) % n]; if (ok(id)) return id; } return null; };
 /** The arrows' two neighbours from a place: none if it isn't on the ring, and only the right one when both would be the same place. */
@@ -1512,6 +1516,8 @@ const ROOM_KINDS = [
   { id: "forge", name: "The Forge", place: true, theme: "smithy" },
   { id: "camp", name: "Explorers' camp", place: true, theme: "glowcap" },
   { id: "grotto", name: "Grotto", place: true, theme: "amethyst" },
+  // Runa's clearing in the snowfields: Frost Hollow, but out under the sky (see lookOf)
+  { id: "snow", name: "The snowfields", place: true, theme: "frost" },
 ];
 /** What each room keeps for itself (the room you're in keeps them in the save as usual; the others are packed away in save.rooms). */
 const ROOM_KEYS = ["layout", "cloud", "theme", "jukebox"];
@@ -1545,6 +1551,7 @@ const TANSY = { name: "Tansy", face: mood => pxPortrait("tansy", mood), voice: {
 const EMBER = { name: "Ember", face: mood => pxPortrait("ember", mood), voice: { f: 150, wave: "square", spread: 0.18, glide: 0.9, gain: 0.03, len: 0.08 } };
 const PIP = { name: "Pip", face: mood => pxPortrait("pip", mood), voice: { f: 520, wave: "sine", spread: 0.35, glide: 1.15, gain: 0.07, len: 0.05 } };
 const FENNEL = { name: "Fennel", face: mood => pxPortrait("fennel", mood), voice: { f: 120, wave: "triangle", spread: 0.1, glide: 0.85, gain: 0.08, len: 0.11 } };
+const RUNA = { name: "Runa", face: mood => pxPortrait("runa", mood), voice: { f: 430, wave: "triangle", spread: 0.3, glide: 1.08, gain: 0.06, len: 0.055 } };
 const OLLO = { name: "Ollo", face: mood => pxPortrait("ollo", mood), voice: { f: 240, wave: "sine", spread: 0.12, glide: 0.95, gain: 0.08, len: 0.1 } };
 /** A keeper's hello or line is its words, or [mood, words]: the mood is the face it is said with (see `as` in portraits.js);
  *  the place bar shows the words beside the keeper's small crop, which has one face. */
@@ -1587,6 +1594,12 @@ const HEROES = {
     welcome: ["delighted", "Hoo! {0}, an assistant. Hold the notebook, please. Not the green jar."],
     hello: ["Hoo. A colleague, at last. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby takes after both. Every time.", "Stroke the egg to keep it warm. Warmth shortens the wait. Measurably."],
     lines: [["curious", "Each glowling glows at its own pitch. Fascinating."], ["delighted", "I am writing the great book of glowlings. Chapter one is just you."], ["curious", "No two mixed eggs are alike. Checked forty times. Forty-one, now."], ["delighted", "Happy glowlings glow brighter. Measured. That is not nothing."], ["alarmed", "Please don't touch the green jar. It doesn't bite. Probably."]] },
+  // Runa the ermine, out past the valley: her hut in the snowfields, the ice hole, the spring and the door of ice (her wishes come later)
+  snow: { who: RUNA, eyes: [[6, 5, 2, 2, "#1a1424"], [10, 5, 2, 2, "#1a1424"]], quirk: "brr", icon: "runa", at: [0.74, 0.58], role: "keeps the snowfields", act: [["folk", "Talk", () => tapHero()]],
+    welcome: ["glad", "{0}! In you come, out of the wind. The snow likes new paws."],
+    hello: [["glad", "Brr! Good morning. The snow's in a fine mood, it let me find the path."], "I'm Runa. I keep the snowfields. Well, mostly the snowfields keep me.", ["proud", "See my sled? Best knots in the snow. I tied them myself, and not one has come undone."]],
+    lines: ["Fish? No fish here. The hole gives glass. Cold, honest glass.", ["wistful", "That door's warm. Every winter, warm. Never opened for a hammer. I've asked nicely."], "Rust hates frost, you know. That's why I like it here.",
+      ["glad", "The spring stays warm all winter. Sit by it with me sometime. It hums."], ["proud", "The wind tried to take my roof last night. I told it no. It listened."], "The snow's sulking today. Give it an hour, it'll come round."] },
 };
 // ---------- errands: each keeper keeps one wish at a time, with no hurry and no list; bringing it fills a mark on their bond ----------
 
@@ -1876,6 +1889,8 @@ function drawPlaceLife() {
   drawCueIcons();
   // the forge, the lab and the shop breathe on their own (see placeBreath): sparks off the anvil, steam, dust in the window light
   drawPlaceBreath();
+  // the snowfields: slow flakes drifting down over the clearing, swaying as they fall (none with less motion)
+  if (kind === "snow" && !opts().calm && L.filter(p => p.kind === "flake").length < 46 && Math.random() < 0.5) add({ kind: "flake", x: rand(-20, W + 20), y: rand(-30, -4), vx: rand(-6, 4), vy: rand(9, 20), ph: rand(0, TAU), big: Math.random() < 0.3, life: (H + 40) / 9 });
   if (kind === "yard" && L.filter(p => p.kind === "butterfly").length < 3) add({ kind: "butterfly", x: rand(N.x0, N.x1), y: rand(N.y0 - N.base, N.y1), ph: rand(0, TAU), col: pick(["#ffc4da", "#fff0b5", "#b8e6f5"]), life: 1e9 });
   ctx.save();
   for (const p of L) {
@@ -1884,6 +1899,7 @@ function drawPlaceLife() {
     const k = p.t / p.life, a = clamp(Math.min(p.t * 4, 1 - k), 0, 1);
     if (p.kind === "spark") { ctx.fillStyle = k < 0.5 ? "#fff0b5" : "#e0634f"; ctx.globalAlpha = a; ctx.fillRect(Math.round(p.x), Math.round(p.y), P, P); }
     else if (p.kind === "ember") { ctx.fillStyle = k < 0.4 ? "#eec26a" : "#e0634f"; ctx.globalAlpha = a; ctx.fillRect(Math.round(p.x + Math.sin(p.t * 4) * 3), Math.round(p.y), P, P); }
+    else if (p.kind === "flake") { if (p.y > H + 4) { p.t = p.life; continue; } ctx.globalAlpha = 0.85; ctx.fillStyle = p.big ? "#ffffff" : "#d8e2f4"; ctx.fillRect(Math.round((p.x + Math.sin(now * 0.0011 + p.ph) * 6) / P) * P, Math.round(p.y / P) * P, P * (p.big ? 2 : 1), P * (p.big ? 2 : 1)); }
     else if (p.kind === "fly") { const x = p.x + Math.sin(now * 0.0007 + p.ph) * N.base * 0.8, y = p.y + Math.cos(now * 0.0005 + p.ph) * N.base * 0.4; ctx.fillStyle = "#fff0b5"; ctx.globalAlpha = 0.3 + 0.7 * Math.max(0, Math.sin(now * 0.004 + p.ph)); ctx.fillRect(Math.round(x), Math.round(y), P, P); }
     else if (p.kind === "butterfly") {
       const x = p.x + Math.sin(now * 0.0009 + p.ph) * N.base * 1.2, y = p.y + Math.sin(now * 0.0013 + p.ph * 2) * N.base * 0.5 - N.base * 0.3, open = Math.sin(now * 0.025 + p.ph) > 0;
@@ -1989,6 +2005,8 @@ function arriveAt(kind) {
       renderPlaceBar();
     }, 500);
   }
+  // the first time in the snowfields: the tracks lead to the hut, and Runa comes out to meet you (see TALKS.snowWelcome)
+  else if (kind === "snow" && !talkSeen("snowWelcome")) setTimeout(() => game.scene === "nest" && save.rooms[save.room]?.kind === "snow" && talk("snowWelcome"), 900);
   else if (h && (!(save.heroTalk || {})[kind] || (h.who === PIP && sparkNews()))) setTimeout(() => tapHero(true), 500);
   // (her first time with a glowling at home: Tansy shows where the beds are, see TALKS.firstBed)
   if (kind === "shop" && save.creatures.length && !talkSeen("firstBed")) setTimeout(() => talk("firstBed"), 1600);

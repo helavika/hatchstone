@@ -582,6 +582,11 @@ const sfx = {
       this.tone(t + 0.06, rand(210, 260), 0.02, 0.06, "triangle", 150);
       for (let i = 0; i < 6; i++) this.grain(t + rand(0, 0.36), rand(0.01, 0.03), rand(1500, 4500), rand(2, 5), rand(0.035, 0.07));
     },
+    // the snowfields: a breath of wind, and two steps crunching into the snow
+    snow(t) {
+      this.wash(t, 0.42, 700, 1500, 0.7, 0.03);
+      for (let i = 0; i < 2; i++) this.grain(t + 0.16 + i * 0.2, 0.08, rand(900, 1300), 0.8, 0.05, "bandpass");
+    },
     // the grotto: one drop into still water, and the cave saying it back
     grotto(t) {
       this.tone(t, 880, 0.018, 0.12, "sine", 1500);

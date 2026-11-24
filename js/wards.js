@@ -6,11 +6,12 @@
 
 // ---------- the lands and their spots ----------
 // Each land past the valley has a few ward spots along its road, at the veil's edge (map art pixels, where a stone stands).
-// The snowfields and the isle come first, the summit once both stand guarded, and the Gloom's land last, with the most
-// spots, once the other three are warded and the fourth cave is open (late: chapter IV, see wardOpenIn).
+// The snowfields come first, the isle once they stand guarded (Runa's hut is the first door past the valley), the summit once
+// both are, and the Gloom's land last, with the most spots, once the other three are warded and the fourth cave is open (late:
+// chapter IV, see wardOpenIn).
 const WARD_LANDS = [
   { id: "frost", spots: [[320, 152], [334, 149]] },
-  { id: "isle", spots: [[294, 301], [305, 297]] },
+  { id: "isle", spots: [[294, 301], [305, 297]], after: ["frost"] },
   { id: "summit", spots: [[270, 54], [284, 47]], after: ["frost", "isle"] },
   { id: "gloom", spots: [[102, 144], [87, 140], [73, 136]], after: ["frost", "isle", "summit"], late: true },
 ];

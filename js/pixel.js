@@ -539,6 +539,13 @@ const NIGHT = {
     ground: ["#1a1008", "#2b1a10", "#4a2e18", "#6b4a2a"], mist: "#3d4478", hill: 0.64,
     moon: [0.72, 0.12, 0.035], moonCol: ["#eec26a", "#fff0b5", "#ffffff"],
   },
+  // Frost Hollow out under the sky, in the snowfields (Runa's clearing: see lookOf): a clear night after a blizzard, the hills
+  // and the ground deep in snow, a small moon low over them
+  frost: {
+    seed: 83, sky: ["#0b0614", "#160c26", "#22143a", "#0f2f4a", "#1d5276"], far: ["#3d2866", "#6b4fa8", "#a596a8", "#cfc4d6"],
+    ground: ["#3d2866", "#7a6a7e", "#cfc4d6", "#efe6ff", "#ffffff"], mist: "#a596a8", hill: 0.8,
+    moon: [0.78, 0.13, 0.035], moonCol: ["#b8e6f5", "#efe6ff", "#ffffff"],
+  },
   abbey: {
     seed: 67, sky: ["#160c26", "#2e1d4f", "#5c1f3f", "#8f3460", "#c25586"], far: ["#0b0614", "#160c26", "#22143a"],
     ground: ["#0b0614", "#22143a", "#3a3440", "#5d5666"], mist: "#c25586", hill: 0.66,
@@ -655,6 +662,24 @@ const NIGHT_PROPS = {
           g.fillStyle = snow ? (slopeLeft ? cols[2] : cols[3]) : (slopeLeft ? cols[0] : cols[1]);
           g.fillRect(x, y, 1, 1);
         }
+      }
+    }
+  },
+  frost(g, W, H, fy, seed, hill) {
+    // a far ridge of white peaks behind the hills, lit from the moon's side
+    for (let x = 0; x < W; x++) {
+      const top = hill(x) - H * (0.03 + 0.04 * pxNoise(x * 0.018, seed + 5) + 0.02 * Math.abs(Math.sin(x * 0.045 + seed)));
+      const lit = pxNoise((x + 1) * 0.018, seed + 5) - pxNoise(x * 0.018, seed + 5) < 0;
+      for (let y = Math.max(0, Math.round(top)); y < hill(x) + 1; y++) { g.fillStyle = y - top < 3 ? "#efe6ff" : lit ? "#8a6cc9" : "#523a85"; g.fillRect(x, y, 1, 1); }
+    }
+    // snowy firs along the hills: dark tiers, each with snow lying along its top and its lit left edge
+    for (let k = 0; k < 22; k++) {
+      const x = Math.round(pxHash(k, seed) * W), y = Math.round(hill(x)) + 3, hh = Math.max(7, Math.round(H * (0.045 + pxHash(k, 3) * 0.05))), ww = Math.round(hh * 0.38), tiers = 3;
+      g.fillStyle = "#3b2414"; g.fillRect(x, y - 2, 1, 3);
+      for (let t2 = 0; t2 < tiers; t2++) {
+        const by = y - 1 - Math.round(t2 * hh / (tiers + 0.6)), th = Math.round(hh / (tiers - 0.4)), tw = Math.round(ww * (1 - t2 * 0.22));
+        for (let j = 0; j < th; j++) { const half = Math.round(tw * j / th); g.fillStyle = "#10301f"; g.fillRect(x - half, by - th + j, half * 2 + 1, 1); g.fillStyle = "#efe6ff"; g.fillRect(x - half, by - th + j, Math.max(1, Math.round(half * 0.55)), 1); }
+        g.fillStyle = "#cfc4d6"; g.fillRect(x - tw, by - 1, tw * 2 + 1, 1);
       }
     }
   },
@@ -1127,7 +1152,8 @@ function nightSite(d, W, H, T, floorY, site) {
  *  garden's or the camp's plot, for the ground round it (outdoors only: see bgFor). */
 function paintTheme(id, w, h, floor = 0.86, deep = false, home = false, site = null) {
   const t = THEME[id] || THEME.amethyst, own = home && HOME_ART[t.id];
-  if (t.art === undefined && !own) return pixelNight(t.id, w, h, floor, site);
+  // (a cave backdrop out under the sky, the snowfields' Frost Hollow, has its own night: see lookOf)
+  if ((t.art === undefined || (site && NIGHT[t.id])) && !own) return pixelNight(t.id, w, h, floor, site);
   const a = own || CHAPTER_ART[t.art];
   const th = { seed: own ? a.seed : 5 + t.art * 7, wall: a.wall.map(pxHex), crystal: a.crystal.map(pxHex), glow: pxHex(a.glow), pool: a.pool?.map(pxHex), flash: a.flash?.map(pxHex), bands: a.bands, caps: a.caps };
   const c = pixelCave(th, w, h, { floorY: Math.round(h * floor), lx: w / 2, ly: h * 0.55, crystals: Math.round(w / 12), reach: h / 150, girth: 1.6, spill: 0.04, keepClear: Math.round(w * 0.32), deep });

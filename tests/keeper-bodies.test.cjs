@@ -4,7 +4,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const vm = require('node:vm');
 
-// The five place keepers standing in their rooms (KEEPER_NATIVE in keepers.js, drawn by drawHero in nest.js) on their new
+// The six place keepers standing in their rooms (KEEPER_NATIVE in keepers.js, drawn by drawHero in nest.js) on their new
 // bodies: every pose the code reads is there, on the same canvas and ground line, the breath is a one-pixel rise, nothing
 // new floats loose, and the place bar's crop (keeperFace, moved by KEEPER_FACE_AT) holds the whole face.
 const read = f => fs.readFileSync(path.join(__dirname, '../js', f), 'utf8');
@@ -22,14 +22,14 @@ function canvas() {
   c.toDataURL = () => c;
   return c;
 }
-const page = { document: { createElement: () => canvas() }, KEEPER_ART: { tansy: 1, ember: 1, pip: 1, ollo: 1, fennel: 1 }, pxIcon: n => 'icon:' + n };
+const page = { document: { createElement: () => canvas() }, KEEPER_ART: { tansy: 1, ember: 1, pip: 1, ollo: 1, fennel: 1, runa: 1 }, pxIcon: n => 'icon:' + n };
 vm.createContext(page);
 const src = read('keepers.js');
 vm.runInContext(cut(src, 'const KEEPER_NATIVE = {', '\nfunction keeperPixCanvas', 'KEEPER_NATIVE and keeperNative should sit in keepers.js')
   + cut(src, 'const keeperCache = {};', '\n/** A keeper\'s full-length', 'keeperCache')
   + cut(src, 'const KEEPER_FACE_AT', '\n/** A tiny keeper for the map', 'keeperFace')
   + '\nthis.KN = KEEPER_NATIVE; this.keeperIdle = keeperIdle; this.keeperFace = keeperFace; this.FACE_AT = KEEPER_FACE_AT;', page);
-const KN = page.KN, KEEPERS = ['tansy', 'ember', 'pip', 'ollo', 'fennel'];
+const KN = page.KN, KEEPERS = ['tansy', 'ember', 'pip', 'ollo', 'fennel', 'runa'];
 const poses = k => Object.entries(k).filter(([key]) => !['w', 'h', 'pal', 'name'].includes(key)).flatMap(([key, v]) => (Array.isArray(v) ? v : [v]).map((px, i) => [`${key}:${i}`, px]));
 const solid = (k, px, x, y) => x >= 0 && y >= 0 && x < k.w && y < k.h && px[y * k.w + x] !== '.';
 const bottom = (k, px) => { for (let y = k.h - 1; y >= 0; y--) for (let x = 0; x < k.w; x++) if (solid(k, px, x, y)) return y; return -1; };
