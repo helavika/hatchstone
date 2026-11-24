@@ -352,7 +352,7 @@ function openShop() {
   let body = "";
   if (st.tab === "look") {
     const now = currentTheme();
-    body = `<h3>${tr(atHome() ? "Cave mood" : "Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : isPlace() ? "This room can take any backdrop you've found." : "Every room at home is a cave: pick its mood.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
+    body = `<h3>${tr(atHome() ? "Cave mood" : "Backdrop")}</h3><p class="sub">${tr(isOutside() ? "The garden is always under the open sky." : save.rooms[save.room]?.kind === "snow" ? "The snowfields are always Frost Hollow, out under the sky." : isPlace() ? "This room can take any backdrop you've found." : "Every room at home is a cave: pick its mood.")}</p><div class="themes">${THEMES.filter(t => roomThemes().includes(t.id)).map(t => {
         const ok = t.ok() || t.id === ownTheme();
         const home = atHome() && t.home;
         return `<button class="theme${t.id === now ? " on" : ""}${ok ? "" : " locked"}" data-theme="${t.id}" ${ok ? "" : "disabled"}><img src="${themeThumb(t.id, home)}" alt=""><b>${home || t.name}</b>${ok ? "" : `<small>${ic("lock")}${t.how}</small>`}</button>`;

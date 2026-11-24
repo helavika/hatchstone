@@ -818,11 +818,12 @@ function ownTheme(i = save.room) {
   const kind = save.rooms && save.rooms[i] && ROOM_KINDS.find(k => k.id === save.rooms[i].kind), fits = roomThemes(i);
   return kind && !kind.place && fits.includes(kind.theme) ? kind.theme : fits[0];
 }
-/** Which backdrops suit the room you're in: outside is always under the sky; every other room takes any, at home each
+/** Which backdrops suit the room you're in: outside is always under the sky, the snowfields are always Frost Hollow; every other room takes any, at home each
  *  one a mood of the cave (HOME_ART: a meadow or a hall is drawn as a grotto, a gallery, a crypt...), in the valley as it always was. */
 function roomThemes(i = save.room) {
   const kind = save.rooms && save.rooms[i] && save.rooms[i].kind, k = id => ROOM_KIND[id] || "cave", ids = THEMES.map(t => t.id);
-  return kind === "yard" ? ids.filter(id => k(id) === "wood" || k(id) === "yard") : ids;
+  // (the snowfields are Runa's clearing in Frost Hollow, and nothing else)
+  return kind === "yard" ? ids.filter(id => k(id) === "wood" || k(id) === "yard") : kind === "snow" ? ["frost"] : ids;
 }
 /** Is room i one of the caves at home (not the garden outside, nor a place in the valley)? */
 const atHome = (i = save.room) => !!(save.rooms && save.rooms[i]) && !isPlace(i);

@@ -850,7 +850,7 @@ Object.assign(TALKS, {
     [EMBER, "Set it where the fog is thickest. Where a wardstone stands, the dark steps back. Stays back.", null, "concern"]],
   wardSpots: () => [[PIP, "See the old sockets in the ground, at the edge of the fog? Wardstones stood there once. I've marked them.", () => wardSpotRect(), "thinking"],
     [PIP, "Ember can forge new ones at the workbench. What's past the fog scares me. A bit. I'd still like to see it.", null, "scared-but-steady"]],
-  wardFound_frost: () => [[PIP, "Snowfields, and that ice door! It's on my map now. The road's still being cleared, but we'll get there.", wardSpotOf("frost"), "excited"],
+  wardFound_frost: () => [[PIP, "The fog's gone. There's a hut out there, with smoke from its chimney. Go and say hello!", wardSpotOf("frost"), "excited"],
     [MOSSA, "Snow. I'd forgotten snow. Someone kept a door out there, long ago. I never knew who.", null, "warm"]],
   // the first steps into the snowfields: small tracks across the snow, up to a round hut, and its keeper out on the step
   snowWelcome: () => [[RUNA, "Finally! That fog sat on my porch for a hundred winters. Come in, come in, mind the drift.", null, "glad"]],

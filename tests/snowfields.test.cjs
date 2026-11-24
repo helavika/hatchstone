@@ -35,6 +35,8 @@ test('both frost wardstones up: the snowfields open as a place on the map, out o
   // a place, under the sky, with Runa in it
   assert.match(nest, /\{ id: "snow", name: "The snowfields", place: true, theme: "frost" \}/);
   assert.match(read('save.js'), /id === "frost" && save\.rooms\?\.\[i\]\?\.kind === "snow" \? "yard"/);
+  // and its only backdrop is Frost Hollow: the picker offers no other look there
+  assert.match(read('save.js'), /kind === "snow" \? \["frost"\]/);
   assert.match(read('iso.js'), /snow: \["runahut", "icedoor", "firs", "firs2", "pond", "hotspring"\]/);
 });
 
@@ -79,7 +81,9 @@ test('Runa speaks in both languages: her hellos, lines and welcome, the opening 
   assert.equal(JSON.stringify(h.act.map(a => a[1])), '["Talk"]'); both('Talk');
   // the opening: Pip's line, then Mossa's; on the first visit, Runa's welcome
   const found = cut(world, 'wardFound_frost:', '\n  wardFound_isle', 'wardFound_frost');
-  assert.match(found, /\[PIP, "Snowfields, and that ice door!/);
+  assert.match(found, /\[PIP, "The fog's gone\. There's a hut out there, with smoke from its chimney\. Go and say hello!", wardSpotOf\("frost"\), "excited"\]/);
+  assert.doesNotMatch(found, /still being cleared/);
+  assert.equal(UK.get("The fog's gone. There's a hut out there, with smoke from its chimney. Go and say hello!"), 'Туман зник. Там хатинка, і з комина йде дим. Іди привітайся!');
   assert.match(found, /\[MOSSA, "Snow\. I'd forgotten snow\. Someone kept a door out there, long ago\. I never knew who\.", null, "warm"\]/);
   both("Snow. I'd forgotten snow. Someone kept a door out there, long ago. I never knew who.");
   assert.equal(UK.get("Snow. I'd forgotten snow. Someone kept a door out there, long ago. I never knew who."), 'Сніг. Я й забула, який він. Колись там хтось стеріг двері. Я так і не дізналася, хто.');
