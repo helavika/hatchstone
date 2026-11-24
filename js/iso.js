@@ -465,6 +465,8 @@ function careStart(a, f, kind) {
   a.care = f.id; a.careTry = 0; a.friend = a.goal = a.plan = null;
   a.cm = { kind, ph: "go", t: 0 };
   game.nest.careAt = game.time;
+  // the first time, Mossa points at the two of them as it sets off, so the moment plays out while she says what it is
+  if (!talkSeen("bigCare")) { const cr = save.creatures.find(x => x.id === a.id); if (cr) setTimeout(() => careHint(cr, a.id, f.id), 400); }
   if (kind !== "feed") { careAim(a, f); return; }
   // a snack first: from the bowl here if there's food in it, else a berry by the wall
   a.cm.ph = "fetch"; a.cm.bowl = !!(hasDecor("bowl") && isoLayout().placed.bowl && bowlOf().length);
@@ -508,12 +510,11 @@ function careGive(a, cr, f, c) {
   for (let i = 0; i < 3; i++) setTimeout(() => heart(mx + rand(-12, 12), my + rand(-6, 6)), i * 160);
   floatText(tr(CARE_SAYS[m.from === "bowl" ? "bowl" : kind], cr.name, c.name), mx, my - N.base * 0.6, "#ffc4da");
   if (cr.careNoted && Date.now() - cr.careNoted < 1000) setTimeout(() => floatText(tr("✎ in the diary"), mx, my - N.base * 0.25, "#d2bfff"), 900);
-  if (!talkSeen("bigCare")) setTimeout(() => careHint(cr, a.id, f.id), 2600);
   persist();
   if (a.id === save.active || f.id === save.active) renderNest();
   return true;
 }
-/** The first moment you see: Mossa says what the big ones do (pointing at the pair), when nothing else is going on; else next time. */
+/** The first moment you see, as it begins: Mossa says what the big ones do (pointing at the pair), when nothing else is going on; else next time. */
 function careHint(cr, ...ids) {
   if (game.scene !== "nest" || talkNow || sheetTitle() || bannerUp() || calmNow()) return;
   game.nest.carePair = ids;
