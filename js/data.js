@@ -52,7 +52,8 @@ const CRYSTALS = [
 ];
 const CRYSTAL = Object.fromEntries(CRYSTALS.map(c => [c.id, c]));
 
-/** Every glowling is assembled from parts: body, ears, things on its head and its back, a pattern and eyes. */
+/** Every glowling is assembled from parts: body, ears, things on its head and its back, a pattern and eyes (and, for the
+ *  snow's own, frosty cheeks instead of pink ones: cheeks "frost"). */
 const SPECIES = [
   { id: "mothlet", name: "Mothlet", crystal: "amethyst", body: "round", head: "antennae", back: "mothwings", pattern: "freckles", eyes: "sparkle", snack: "berry", voice: 1.0,
     lore: "Flutters toward any light, even your phone screen. Leaves a trail of lilac dust on everything it loves." },
@@ -162,9 +163,9 @@ const SPECIES = [
   { id: "zigglet", name: "Zigglet", crystal: "bismuth", body: "round", head: "hopper", pattern: "iridescent", eyes: "sparkle", snack: "berry", voice: 1.1, beh: "dance",
     lore: "Builds its crown one rainbow step at a time and never skips one. When things go wrong, it starts again from the bottom step, humming." },
   // only in frost geodes, from the snowfields: a sleeper in the drifts, a swimmer through the snow and a dancer crowned in icicles
-  { id: "driftlet", name: "Driftlet", crystal: "selenite", pal: ["#e8eef7", "#ffffff", "#7f9cc9"], body: "wide", ears: "tufts", back: "fluff", pattern: "belly", eyes: "sleepy", snack: "cookie", voice: 0.85, beh: "nap",
+  { id: "driftlet", name: "Driftlet", crystal: "selenite", pal: ["#a9c4e2", "#dbe8f5", "#6f8fc2"], body: "snowball", ears: "lops", head: "snowcap", pattern: "drift", eyes: "sleepy", cheeks: "frost", snack: "cookie", voice: 0.85, beh: "nap",
     lore: "Burrows into a drift and sleeps with only its ear tufts sticking out. If you see two blue tufts in the snow, whisper." },
-  { id: "slipkin", name: "Slipkin", crystal: "snowobsidian", pal: ["#3f4459", "#6f7690", "#1c1e2c"], body: "drop", back: "fins", pattern: "snowflakes", eyes: "big", snack: "dew", voice: 1.1, beh: "swim",
+  { id: "slipkin", name: "Slipkin", crystal: "snowobsidian", pal: ["#3f4459", "#6f7690", "#1c1e2c"], body: "seal", back: "flattail", pattern: "snowflakes", eyes: "big", cheeks: "frost", snack: "dew", voice: 1.1, beh: "swim",
     lore: "Swims through snow as if it were water, belly first. Comes up somewhere you didn't expect, very pleased, covered in flakes." },
   { id: "tinkicle", name: "Tinkicle", crystal: "cryolite", pal: ["#b5e4ee", "#f2fdff", "#4f9fbd"], body: "bean", head: "icicles", back: "wisp", pattern: "iridescent", eyes: "round", snack: "berry", voice: 1.3, beh: "dance",
     lore: "Wears a crown of icicles that tinkle when it dances. It dances whenever it hears them, so it never quite stops." }

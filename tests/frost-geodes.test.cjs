@@ -117,18 +117,28 @@ test('the frost geodes on the shelf: given one at a time, kept whole in the save
 test('the three are drawn from parts that exist, and look like none of the winter moon glowlings', () => {
   const { page: g } = world();
   const parts = name => new Set([...cut(glow, `function ${name}(`, '\n}\n', name).matchAll(/case "(\w+)"/g)].map(m => m[1]));
-  const have = { body: new Set(Object.keys({ round: 1, bean: 1, wide: 1, drop: 1 })), back: parts('drawBack'), ears: parts('drawBehindHead'), pattern: parts('drawPattern'),
+  const bodies = new Set([...cut(glow, 'const BODY = {', '\n};', 'BODY').matchAll(/^  (\w+): \{/gm)].map(m => m[1]));
+  const have = { body: bodies, back: parts('drawBack'), ears: parts('drawBehindHead'), pattern: parts('drawPattern'),
     head: new Set([...parts('drawHeadTop'), 'petals', 'rays']), eyes: new Set(['sparkle', 'sleepy', 'big', 'round']) };
-  assert.ok(have.pattern.has('snowflakes') && have.head.has('icicles'), 'the new pattern and head part are drawn');
+  for (const [k, id] of [['pattern', 'snowflakes'], ['pattern', 'drift'], ['head', 'icicles'], ['head', 'snowcap'], ['ears', 'lops'], ['back', 'flattail'], ['body', 'snowball'], ['body', 'seal']]) assert.ok(have[k].has(id), `the new ${k} ${id} is drawn`);
   const frost = g.SPECIES.filter(g.frostKind);
   for (const s of frost) {
     for (const k of ['body', 'ears', 'head', 'back', 'pattern', 'eyes']) if (s[k]) assert.ok(have[k].has(s[k]), `${s.id}: ${k} ${s[k]}`);
     assert.ok(Array.isArray(s.pal) && s.pal.length === 3 && s.pal.every(c => /^#[0-9a-f]{6}$/.test(c)), s.id);
     assert.ok(g.SNACKS[s.snack] && s.voice > 0 && s.lore.length > 40, s.id);
   }
-  assert.deepEqual(plain(frost.map(s => [s.body, s.ears || s.head || '', s.back, s.pattern, s.eyes])), [['wide', 'tufts', 'fluff', 'belly', 'sleepy'], ['drop', '', 'fins', 'snowflakes', 'big'], ['bean', 'icicles', 'wisp', 'iridescent', 'round']]);
+  assert.deepEqual(plain(frost.map(s => [s.body, s.ears || '', s.head || '', s.back || '', s.pattern, s.eyes])), [['snowball', 'lops', 'snowcap', '', 'drift', 'sleepy'], ['seal', '', '', 'flattail', 'snowflakes', 'big'], ['bean', '', 'icicles', 'wisp', 'iridescent', 'round']]);
   const look = s => ['body', 'ears', 'head', 'back', 'pattern', 'eyes'].map(k => s[k] || '').join('|');
   for (const w of ['frostpuff', 'rimeling']) for (const s of frost) assert.notEqual(look(s), look(g.SP[w]), `${s.id} vs ${w}`);
+  // and not a recolour of anyone: no other glowling shares a frost one's outline (its body with what sticks out of it:
+  // ears, head and back), so Driftlet is no white Hearthling and Slipkin no dark Ripplet
+  const outline = s => ['body', 'ears', 'head', 'back'].map(k => s[k] || '').join('|');
+  for (const s of frost) for (const o of g.SPECIES.filter(o => o !== s)) assert.notEqual(outline(s), outline(o), `${s.id} has the outline of ${o.id}`);
+  for (const [a, b] of [['driftlet', 'hearthling'], ['slipkin', 'ripplet']]) {
+    assert.notEqual(g.SP[a].body, g.SP[b].body, `${a} and ${b} have bodies of their own`);
+    for (const k of ['ears', 'head', 'back']) if (g.SP[b][k]) assert.notEqual(g.SP[a][k], g.SP[b][k], `${a} doesn't wear ${b}'s ${k}`);
+  }
+  assert.deepEqual(plain(frost.filter(s => s.cheeks === 'frost').map(s => s.id)), ['driftlet', 'slipkin']);
   // only Tinkicle wears the crown, and it tinkles as it starts a dance
   assert.deepEqual(plain(g.SPECIES.filter(s => s.head === 'icicles').map(s => s.id)), ['tinkicle']);
   assert.match(read('iso.js'), /if \(a\.tinkled && specOf\(cr\)\.head === "icicles"\) sfx\.tinkle\(\);/);
