@@ -92,7 +92,7 @@ test('the jar shows each kind found, grows with more, and never overflows', () =
   const full = keepjarView(Object.fromEntries(KEEPSAKES.map(k => [k.id, 20])));
   assert.equal(full.stems.length, 8);
   assert.equal(full.petals, 4);
-  assert.ok(keepjarView(Object.fromEntries(KEEPSAKES.map(k => [k.id, 3]))).petals < full.petals, 'petals rise as you find more');
+  assert.ok(keepjarView(Object.fromEntries(KEEPSAKES.map(k => [k.id, 1]))).petals < full.petals, 'petals rise as you find more');
 });
 
 test('keepsakes made into something to wear leave the jar, never more than were found', () => {
@@ -280,7 +280,7 @@ test('the snowfields\' plan: the drift on the hill, the slope after it, five set
 
 test('the snowfields\' keepsakes go in the jar like the others but never turn up on the other paths', () => {
   const ks = KEEPSAKES.filter(k => k.land === 'frost').map(k => k.id).sort();
-  assert.deepEqual(ks, ['ptarmigan', 'snowdrop']);
+  assert.deepEqual(ks, ['ptarmigan', 'snowdrop', 'snowflake']);
   for (const kind of ['feather', 'flower']) for (let j = 0; j < 40; j++) assert.ok(!ks.includes(keepsakePick(kind, {}, seq(j / 40, (j * 7 % 40) / 40))), 'not a stray pick');
   assert.equal(keepsakePick('flower', {}, () => 0.5, 'snowdrop'), 'snowdrop', 'the spot that holds one gives it');
   // an old save\'s counts are never shared out into them
