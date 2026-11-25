@@ -1313,6 +1313,14 @@ body.compact #placeBar { bottom: calc(var(--bottom) + var(--tabbar) + var(--s4))
 #placeWho[hidden] { display: none; }
 #placeWho .marks { display: inline-flex; gap: 2px; margin-left: 6px; vertical-align: -3px; }
 #placeWho .marks .ic { width: 14px; height: 14px; }
+/* the snowfields: your frostglass on the plaque; on the rod's button, a pulse while the float twitches (pull now!) */
+#placeWho .glass { display: inline-flex; align-items: center; gap: 2px; margin-left: 8px; color: #d4f3ff; vertical-align: -2px; }
+#placeWho .glass .ic { width: 14px; height: 14px; margin: 0; }
+#placeActs .act.bite { background: var(--px-gold) !important; color: var(--px-ink); box-shadow: var(--px-frame), inset 3px 3px 0 0 #fff0b5, inset -3px -3px 0 0 #c98f3a, 0 6px 0 0 rgba(11, 6, 20, .6) !important; animation: pxBob .3s steps(2) infinite; }
+/* Runa's bench: each piece's picture, square and crisp; the price in glass and shards */
+#snowList .snack img.em { width: 40px; height: 40px; object-fit: contain; image-rendering: pixelated; }
+#snowList .snack .cost .ic { width: 14px; height: 14px; margin: 0; }
+#snowSub .ic { width: 14px; height: 14px; margin: 0 2px 0 0; vertical-align: -2px; }
 #placeWho .wish { display: block; max-width: calc(100vw - 2 * var(--gutter) - 28px); margin-top: 2px; white-space: normal; color: var(--ink, #efe6ff); }
 /* the arrows to the next places round the valley: at the screen's edges, at the height of the room's side corners (top is set in placeFit),
    clear of the floor's front. Quiet signposts, not buttons: a gold pixel chevron and the place's name on a small dark see-through chip with a faint glow,

@@ -869,7 +869,7 @@ function updateActors(dt) {
         a.decor = a.goal; a.goal = null;
         toyJoy(cr, d.id);
         a.state = d.id === "cushion" ? "nap" : d.id === "rug" ? "dance" : "visit";
-        if (d.id === "swing" || d.id === "mushrooms") { a.from = [a.x, a.y, a.alt]; a.blend = 0; }
+        if (d.id === "swing" || d.id === "mushrooms" || d.id === "iceslide") { a.from = [a.x, a.y, a.alt]; a.blend = 0; }
         a.t = (d.id === "cushion" ? rand(6, 10) : rand(3, 6)) * calm.rest;
         emote(a, d.emote === "!" && Math.random() < 0.5 ? kaoFor(cr, "surprise") : d.emote, 2);
         if (a.id === save.active) floatText(`${specOf(cr).name} ${d.verb}`, a.x, a.y - N.base * 1.2, "#e6e0ff");
@@ -938,6 +938,16 @@ function updateActors(dt) {
         } else a.hop = Math.abs(Math.sin(a.ph * 5)) * 0.8;
       }
       else if (a.decor === "spring") a.alt = Math.sin(a.ph * 2.5) * N.base * 0.04;
+      else if (a.decor === "iceslide" && isoLayout().placed.iceslide) {
+        // up the steps at the back to the landing, a wiggle at the top, then whoosh down the chute (faster and faster) and a
+        // hop off its curl at the foot, round and round; with less motion, it just sits up on the landing
+        const p = isoLayout().placed.iceslide, along = (k, side) => p.flip ? isoAt((p.i + side) / ISO_G, (p.j + k) / ISO_G) : isoAt((p.i + k) / ISO_G, (p.j + side) / ISO_G);
+        const Hs = N.isoW / ISO_G * 0.95, ph = opts().calm ? 0.42 : ((game.time / 1000 + a.id * 0.41) / 2.6) % 1, [bx, by] = along(0.3, 0.5), [tx, ty] = along(0.62, 0.5), [ex, ey] = along(2.15, 0.5);
+        if (ph < 0.32) { const k = ph / 0.32; a.x = lerp(bx, tx, k); a.y = lerp(by, ty, k); a.alt = Hs * (Math.floor(k * 3) + Math.min(1, (k * 3 % 1) * 2)) / 3; a.slid = false; }
+        else if (ph < 0.5) { a.x = tx; a.y = ty; a.alt = Hs; a.hop = Math.abs(Math.sin(ph * 60)) * 0.2; }
+        else if (ph < 0.78) { const k = (ph - 0.5) / 0.28, e = k * k; a.x = lerp(tx, ex, e); a.y = lerp(ty, ey, e); a.alt = Hs * (1 - e); if (!a.slid) { a.slid = true; if (sfx.ready()) sfx.wash(sfx.ac.currentTime, 0.4, 2200, 3800, 0.6, 0.03); if (Math.random() < 0.5) emote(a, kaoFor(cr, "won"), 1.2); } }
+        else { a.x = ex; a.y = ey; a.alt = 0; a.hop = ph < 0.84 ? 1 : 0; }
+      }
       // getting on: from where it stood up to the seat (or the first cap) in a short eased climb, not a jump
       if (a.from) {
         a.blend = Math.min(1, a.blend + dt * 2.5);
@@ -1208,6 +1218,10 @@ const ISO_PLACES = {
   telescope: { fw: 1, fd: 1, at: [[0, 1], [1, 0], [5, 1]] },
   keepjar: { fw: 1, fd: 1, at: [[2, 5], [5, 3], [0, 4]] },
   bowl: { fw: 1, fd: 1, at: [[1, 5], [5, 1], [3, 5]] },
+  // carved at Runa's bench in the snowfields (the frost window hangs on a wall: WALL_ITEMS)
+  icelantern: { fw: 1, fd: 1, at: [[5, 0], [0, 5], [5, 5]] },
+  snowfigure: { fw: 1, fd: 1, at: [[4, 4], [2, 4], [4, 2]] },
+  iceslide: { fw: 2, fd: 1, at: [[3, 0], [2, 0], [1, 5]] },
 };
 /** The arches between home rooms (see roomDoors): where along its wall each stands (0 at the back corner, 1 at the front) and its half width.
  *  (in from the front corner far enough to stay whole on a phone held upright, where the room is seen closer and its corners are cut off) */
@@ -1244,7 +1258,7 @@ function clearDoorways() {
   if (moved) { isoLayoutCache = null; persist(); }
 }
 /** Pieces on the walls: which wall (L is the left one, along j; R the right one, along i) and the slot along it, in tiles. */
-const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.64 } };
+const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.64 }, frostwin: { wall: "R", s: 2.7 } };
 /** What a room's own fixtures (paintFixtures) take, kept clear of furniture as a doorway is: the floor tiles they stand on, the
  *  wall slots below each wall's number (the back of the wall), and where its wall pieces hang instead. The playroom's slide runs
  *  down the back of the left wall onto a mat, its climbing wall stands at the back of the right one over another: the back
@@ -1884,6 +1898,11 @@ const ISO_ART = {
         T.px(bx - 1, by + 1, c[2]); T.px(bx, by + 1, c[1]); T.px(bx + 1, by + 1, c[1]);
         T.px(bx - 1, by + 2, c[2]); T.px(bx, by + 2, c[2]); T.px(bx + 1, by + 2, c[0]); T.px(bx, by, c[3]);
         T.px(bx - 1, by + 3, c[3]); T.px(bx + 1, by + 3, c[3]);
+      } else if (st.id === "snowflake") {
+        // the snowflake from the ice hole, still in its chip of ice: a pale round of ice with the white flake in it
+        const r = Math.max(2, t * 0.13);
+        T.ball(hx, hy, r, c[2], c[1], c[0], r * 0.9);
+        for (const [ox, oy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1], [-1, -1], [1, 1], [1, -1], [-1, 1]]) if (!ox || !oy || r > 2.5) T.px(hx + ox, hy + oy, c[3]);
       } else {
         const r = Math.max(1.6, t * (st.id === "rose" ? 0.12 : 0.11));
         if (st.id === "daisy") { for (const [ox, oy] of [[-1, 0], [1, 0], [0, -1], [0, 1], [-2, 0], [2, 0]]) T.px(hx + ox * r * 0.8, hy + oy * r * 0.6, ox < 0 || oy < 0 ? c[2] : c[1]); T.px(hx, hy, c[3]); }
@@ -2734,10 +2753,10 @@ const ISO_ART = {
     for (let k = 0; k < 4; k++) T.line(sx - 1 + k, sy - 2 - k * 3, sx + 3 + k, sy - k * 3, k % 2 ? IC.w1 : IC.w0);
     for (const o of [0, 4]) { T.line(sx - 2 + o, sy, sx - 2 + o, sy - 13, IC.r2); T.px(sx - 3 + o, sy - 14, IC.r2); T.px(sx - 3 + o, sy - 15, IC.r1); }
   },
-  pond(t, T, ax, ay) {
+  pond(t, T, ax, ay, o = {}) {
     // the frozen pond: grey-blue ice lying in a rim of drifted snow, streaks of white where the wind scoured it, one round hole
     // cut in it, black water ringed with broken ice; by the hole a little three-legged stool, and a short rod propped over it
-    // with its line down into the water
+    // with its line down into the water (not while a glowling is fishing: it has the rod then, see drawIceHole)
     const U = t / 2, K = isoKit(T, ax, ay), c = U, [x, y] = K.P(c, c, 0), rx = 0.92 * U * 2.83;
     T.disc(x, y, rx + 2, (xx) => xx < x ? SNOW[1] : SNOW[2], (rx + 2) / 2);
     T.disc(x, y, rx, (xx, yy) => { const s = Math.abs(((xx - x) * 0.5 + (yy - y) * 1.2 + 40) % 9 - 4.5); return s < 0.6 ? SNOW[0] : pxHash(xx, yy) > 0.97 ? ICE[0] : (yy < y - rx * 0.15 ? ICE[1] : ICE[2]); }, rx / 2);
@@ -2747,8 +2766,7 @@ const ISO_ART = {
     const [sx, sy] = K.P(c - 0.45 * U, c + 0.35 * U, 0), sh = Math.round(t * 0.42);
     for (const lx of [-2, 0, 2]) T.line(sx + lx, sy - (lx ? 0 : 1), sx + lx * 0.5, sy - sh, IC.w3);
     T.disc(sx, sy - sh, 3.2, IC.w1, 1.6); T.px(sx - 2, sy - sh - 1, IC.w0);
-    T.line(sx - 2, sy - sh - 1, hx + 1, hy - t * 0.7, IC.w2); T.line(hx + 1, hy - t * 0.7, hx + 1, hy, IC.s1);
-    T.px(hx + 1, hy - 1, IC.r1);
+    if (!o.fishing) { T.line(sx - 2, sy - sh - 1, hx + 1, hy - t * 0.7, IC.w2); T.line(hx + 1, hy - t * 0.7, hx + 1, hy, IC.s1); T.px(hx + 1, hy - 1, IC.r1); }
   },
   hotspring(t, T, ax, ay) {
     // the hot spring: dark wet stones in a ring round warm water (teal in the steam, paler at its middle), snow kept back from
@@ -2771,6 +2789,78 @@ const ISO_ART = {
   },
   firs(t, T, ax, ay) { snowFir(T, ...isoKit(T, ax, ay).P(t * 0.28, t * 0.28, 0), t * 2.2); snowFir(T, ...isoKit(T, ax, ay).P(t * 0.38, t * 0.1, 0), t * 1.3); },
   firs2(t, T, ax, ay) { snowFir(T, ...isoKit(T, ax, ay).P(t * 0.25, t * 0.25, 0), t * 1.8); },
+  // ---- carved at Runa's bench, out of frostglass (see CARVINGS in snow.js)
+  icelantern(t, T, ax, ay) {
+    // a lantern cut from one block of frostglass, set on a heap of packed snow: clear blue ice, frosted white along its edges, a
+    // stub of candle burning in its hollow (the flame shows warm through the ice and throws a glow round it), a peaked lid of
+    // ice with a bead on top, and glints where the light catches the faces
+    const U = t / 2, K = isoKit(T, ax, ay), c = 0.5 * U, [x, y] = K.P(c, c, 0), z0 = Math.round(t * 0.16), hb = Math.round(t * 0.72), a0 = c - 0.22 * U, a1 = c + 0.22 * U;
+    T.glow(x, y - z0 - hb * 0.45, t * 1.25, IC.y0, 0.34);
+    T.ball(x, y - z0 * 0.3, t * 0.4, SNOW[0], SNOW[1], SNOW[2], t * 0.2);
+    K.box(a0, a0, z0, a1 - a0, a1 - a0, hb, ICE[0], ICE[1], ICE[2], false);
+    // the candle and its flame inside, seen through the front faces
+    const [fx, fy] = K.P(c, c, z0 + Math.round(hb * 0.18));
+    for (let z = 0; z < Math.round(hb * 0.3); z++) { T.px(fx - 1, fy - z, SNOW[1]); T.px(fx, fy - z, SNOW[2]); }
+    T.disc(fx, fy - hb * 0.42, 2.4, IC.y1, 3.2); T.px(fx, fy - hb * 0.42 - 2, IC.y0); T.px(fx, fy - hb * 0.42 - 3, IC.white); T.px(fx, fy - hb * 0.42, IC.white);
+    // frost along the edges, a glint on each face
+    for (const [u, v, col] of [[a0, a1, ICE[0]], [a1, a1, SNOW[0]], [a1, a0, ICE[2]]]) K.seg([u, v, z0], [u, v, z0 + hb], col);
+    K.dot(a0 + 0.08 * U, a1, z0 + hb - 3, IC.white); K.dot(a1, a0 + 0.12 * U, z0 + hb - 5, IC.white);
+    // the lid: four faces up to a point, lit on the left, and a bead of glass on its tip
+    const [px0, py0] = K.P(c, c, z0 + hb + Math.round(t * 0.3)), top = [[a0, a1], [a1, a1], [a1, a0]].map(([u, v]) => K.P(u, v, z0 + hb));
+    T.poly([top[0], top[1], [px0, py0]], ICE[1]); T.poly([top[1], top[2], [px0, py0]], ICE[2]);
+    T.line(top[0][0], top[0][1], px0, py0, ICE[0]); T.px(px0, py0 - 1, IC.white); T.px(px0 - 1, py0 - 1, ICE[0]);
+  },
+  snowfigure(t, T, ax, ay) {
+    // a glowling sculpted in snow, about a glowling's size: a round snowy body on a packed base, two nubs of ears, eyes and a
+    // smile pressed in with beads of frostglass, a rosy blush rubbed on with a berry, and a crown of three small icicles; the
+    // snow lit from the top left, blue in its shade
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), r = t * 0.46;
+    T.disc(x, y, r * 1.05, SNOW[2], r * 0.5);
+    T.ball(x, y - r * 0.9, r, SNOW[0], SNOW[1], SNOW[2], r * 0.92);
+    for (const s of [-1, 1]) T.ball(x + s * r * 0.55, y - r * 1.72, r * 0.26, SNOW[0], SNOW[1], SNOW[2]);
+    // the face: two bead eyes with a glint, a smile of three small beads, blush either side
+    for (const s of [-1, 1]) { const ex = x + s * r * 0.34, ey = y - r * 1.02; T.px(ex, ey, IC.white); T.px(ex, ey + 1, ICE[3]); T.px(ex, ey + 2, ICE[3]); T.px(ex + s * 3, ey + 3, IC.p0); T.px(ex + s * 3 + s, ey + 3, IC.p1); }
+    for (const k of [-1, 0, 1]) T.px(x + k * 2, y - r * 0.74 + (k ? 0 : 1), ICE[2]);
+    // the crown of icicles
+    for (const k of [-1, 0, 1]) { const ix = x + k * r * 0.3, iy = y - r * 1.82 + Math.abs(k) * 2, n = k ? 3 : 5; for (let j = 0; j < n; j++) T.px(ix, iy - j, j === n - 1 ? IC.white : j > n / 2 ? ICE[0] : ICE[1]); }
+    // a few sparkles of frost on the body
+    for (let k = 0; k < 5; k++) T.px(x - r * 0.6 + pxHash(k, 3) * r * 1.1, y - r * 0.4 - pxHash(k, 9) * r * 1.2, IC.white);
+  },
+  iceslide(t, T, ax, ay) {
+    // a slide carved into a heap of packed snow, two tiles long: three steps cut up its back end to a little landing, and a
+    // chute of clear frostglass running from it down to the floor with a raised lip each side, polished streaks along it and
+    // a curl at its foot where you shoot off; the snow lit on its left face, blue on its right
+    const U = t / 2, K = isoKit(T, ax, ay), Hh = Math.round(t * 0.95), u0 = 0.08 * U, u1 = 0.55 * U, u2 = 1.95 * U, v0 = 0.18 * U, v1 = 0.82 * U;
+    // the heap: a box at the back for the landing, and the long wedge under the chute
+    K.box(u0, v0 - 0.06 * U, 0, u1 - u0, v1 - v0 + 0.12 * U, Hh, SNOW[0], SNOW[1], SNOW[2], false);
+    K.quad([[u1, v1 + 0.06 * U, 0], [u2, v1 + 0.06 * U, 0], [u1, v1 + 0.06 * U, Hh]], SNOW[1]);
+    // the steps, cut into its left face: each a lit tread over a shaded riser
+    for (let k = 0; k < 3; k++) { const z = Math.round(Hh * (k + 1) / 4), u = u0 + (u1 - u0) * k / 3; K.seg([u, v1 + 0.06 * U, z], [u + (u1 - u0) / 3, v1 + 0.06 * U, z], SNOW[0]); K.seg([u, v1 + 0.06 * U, z - 1], [u + (u1 - u0) / 3, v1 + 0.06 * U, z - 1], SNOW[3]); }
+    // the chute: the ice face sloping down, streaked; its lips; the curl at the foot
+    K.quad([[u1, v0, Hh], [u2, v0, 1], [u2, v1, 1], [u1, v1, Hh]], (xx, yy) => (xx + yy * 2) % 7 === 0 ? ICE[0] : (xx - yy) % 11 === 0 ? IC.white : ICE[1]);
+    for (const [v, col] of [[v0, ICE[0]], [v1, ICE[2]]]) { K.seg([u1, v, Hh + 2], [u2, v, 3], col); K.seg([u1, v, Hh + 1], [u2, v, 2], ICE[3]); }
+    K.quad([[u2, v0, 1], [u2 + 0.1 * U, v0, 3], [u2 + 0.1 * U, v1, 3], [u2, v1, 1]], ICE[0]);
+    // the landing's lip of snow, and a glint on the ice
+    K.seg([u0, v1 + 0.06 * U, Hh], [u1, v1 + 0.06 * U, Hh], SNOW[0]); K.dot(u1 + 0.3 * U, v0 + 0.2 * U, Hh - Math.round(Hh * 0.22), IC.white); K.dot(u1 + 0.35 * U, v0 + 0.2 * U, Hh - Math.round(Hh * 0.25), IC.white);
+  },
+  frostwin(t, T, ax, ay) {
+    // a window of frostglass hung on the wall (drawn along the right wall; the left one sees it turned): an arched frame of
+    // white ice, four panes of deep night blue with frost ferns grown across them and a star in one, bars of ice between
+    // them, a sill heaped with snow and two short icicles hanging from it; a cold blue light round it
+    const len = t * 0.5, hh = t * 0.92, at = (du, up) => [ax + 2 * du, ay + du - up], NIGHT2 = ["#1b2e56", "#26406e", "#3a5a8e"].map(pxHex);
+    const arch = du => { const f = (du / len) * 2 - 1; return hh - (1 - Math.sqrt(Math.max(0, 1 - f * f))) * len * 0.5; };
+    { const [gx, gy] = at(len / 2, hh / 2); T.glow(gx, gy, t * 0.9, IC.b0, 0.3); }
+    for (let du = 0; du <= len; du += 0.5) for (let up = 0; up <= arch(du); up++) {
+      const [x, y] = at(du, up), edge = du < 1.2 || du > len - 1.2 || up < 1.5 || up > arch(du) - 1.5, bar = Math.abs(du - len / 2) < 0.6 || Math.abs(up - hh * 0.45) < 0.8;
+      // (ferns: feathery strokes of frost creeping in from the corners)
+      const fx = Math.min(du, len - du), fern = !edge && !bar && (Math.abs(((fx * 2 + up) % 6) - 3) < 0.5 && fx < len * 0.3 || pxHash(Math.round(du * 2), up) > 0.93);
+      T.px(x, y, edge ? (du < len / 2 ? SNOW[0] : ICE[0]) : bar ? ICE[1] : fern ? ICE[0] : NIGHT2[up > hh * 0.55 ? 0 : up > hh * 0.3 ? 1 : 2]);
+    }
+    { const [sx, sy] = at(len * 0.72, hh * 0.7); T.px(sx, sy, IC.white); T.px(sx - 1, sy, IC.b0); T.px(sx + 1, sy, IC.b0); T.px(sx, sy - 1, IC.b0); T.px(sx, sy + 1, IC.b0); }
+    // the sill: a ledge of snow sticking out from the wall, and icicles off it
+    for (let du = -1; du <= len + 1; du += 0.5) for (let k = 0; k < 3; k++) { const [x, y] = at(du, -k * 0.5); T.px(x - k, y + k, k === 0 ? SNOW[0] : k === 1 ? SNOW[1] : SNOW[2]); }
+    for (const [du, n] of [[len * 0.25, 3], [len * 0.7, 2]]) { const [x, y] = at(du, -1); for (let j = 1; j <= n; j++) T.px(x - 2, y + 1 + j, j === n ? IC.white : ICE[1]); }
+  },
   // ---- the lab
   labdesk(t, T, ax, ay) {
     // an alchemist's bench on square legs with a shelf of jars below: on its thick top a brick athanor with a fire showing
@@ -3528,6 +3618,22 @@ function drawShelfIso() {
   });
   pieceHits.shelf = { c: f.c, x: f.x, y: f.y };
   drawBaked(f);
+}
+
+/** The frost window on its wall, carved at Runa's bench: drawn along the right wall, and turned for the left one, as the shelf is. */
+function drawFrostWin() {
+  const m = wallSlot("frostwin"), tw = N.isoW / ISO_G / PX, c = (m.s + 0.5) / ISO_G, half = 0.5 / ISO_G;
+  const pad = Math.ceil(tw * 0.5) + 4, w = Math.ceil(tw * 1.1 + pad * 2), h = Math.ceil(tw * 1.6 + pad);
+  // (its middle on the slot's middle, its sill a little over halfway up the wall)
+  const [bx, by] = m.wall === "R" ? isoAt(c - half / 2, 0) : isoAt(0, c - half / 2), lift = N.isoWall * 0.42;
+  const f = cachedSprite(isoPieces, "frostwin", `${m.wall}|${m.s}|${tw.toFixed(2)}|${Math.round(bx)},${Math.round(by)}`, () => {
+    const ax = pad, ay = Math.round(tw * 1.3);
+    let cv = isoArt(w, h, T => ISO_ART.frostwin(tw, T, ax, ay)), x0 = ax;
+    if (m.wall === "L") { const mm = document.createElement("canvas"); mm.width = cv.width; mm.height = cv.height; const g = mm.getContext("2d"); g.translate(cv.width, 0); g.scale(-1, 1); g.drawImage(cv, 0, 0); cv = mm; x0 = cv.width - ax; }
+    return { c: cv, x: Math.round(bx / PX - x0) * PX, y: Math.round((by - lift) / PX - ay) * PX };
+  });
+  pieceHits.frostwin = { c: f.c, x: f.x, y: f.y };
+  drawBaked(f, 0, decorFx.frostwin !== undefined && fxAge("frostwin") < 0.5 ? -Math.round(Math.sin(fxAge("frostwin") / 0.5 * Math.PI) * 2) * PX : 0);
 }
 
 /** The swing in the room: its frame, then the ropes and the moon seat swinging under the bar. */
@@ -6281,7 +6387,8 @@ function paintRoomIso(id) {
 
 /** How wide each piece's contact shadow is, in tiles across (pieces that stand on legs or roots, or sit squat on the floor). */
 const CONTACT = { bed: 1.5, lamp: 0.42, table: 0.62, chest: 0.82, musicbox: 0.74, swing: 0.9, mushrooms: 0.78, armchair: 0.8, bookcase: 0.72,
-  plant: 0.44, keepjar: 0.4, bowl: 0.6, drum: 0.55, blocks: 0.7, telescope: 0.6, bench: 0.8, lamppost: 0.4, birdbath: 0.5 };
+  plant: 0.44, keepjar: 0.4, bowl: 0.6, drum: 0.55, blocks: 0.7, telescope: 0.6, bench: 0.8, lamppost: 0.4, birdbath: 0.5,
+  icelantern: 0.4, snowfigure: 0.62, iceslide: 0.9 };
 /** The isometric room's furniture, back to front: the pixel pieces on the floor, then the swing and the lights on the walls. */
 function drawRoomIso() {
   if (!isPlace()) drawBaked(isoRug(hasDecor("rug")));
@@ -6323,6 +6430,7 @@ function drawRoomIso() {
     items.push({ y: fy, box, draw: () => { const f = isoPiece(p, extra); pieceHits[p.id] = { c: f.c, x: f.x + Math.round(bob / PX) * PX, y: f.y }; if (game.seek?.spot === p.id) drawSeekPeek(); drawBaked(f, seekWiggle(p.id), bob); if (PROP_CUES[p.id]) propCue(p.id, f, bob); } });
   }
   if (hasDecor("shelf")) items.push({ y: -2, draw: drawShelfIso });
+  if (hasDecor("frostwin")) items.push({ y: -2, draw: drawFrostWin });
   if (save.rooms[save.room]?.kind === "shop") items.push({ y: -3, draw: drawShopSign });
   if (hasDecor("lights")) items.push({ y: -1, draw: lightsIso });
   if (weather.drops.length) items.push({ y: 1e6, top: true, draw: drawWeatherAir });

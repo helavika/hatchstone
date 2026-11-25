@@ -50,6 +50,12 @@ const cacheSaveOf = c => Object.fromEntries(Object.entries(c && typeof c === "ob
 /** Frost geodes waiting on the shelf (see giveFrostGeode): a whole number, never more than FROST_MAX. */
 const FROST_MAX = 99;
 const frostSaveOf = n => Math.min(FROST_MAX, Math.max(0, Math.floor(Number(n)) || 0));
+/** Frostglass from the snowfields (see giveGlass in snow.js): a whole number, counted like shards, never more than GLASS_MAX. */
+const GLASS_MAX = 99999;
+const glassSaveOf = n => Math.min(GLASS_MAX, Math.max(0, Math.floor(Number(n)) || 0));
+/** The ice hole (see snow.js): how many times you've cast into it, and whether it has given you a frost geode yet (the first
+ *  comes on the third cast); null for a save that has never fished. */
+const iceSaveOf = o => { if (!o || typeof o !== "object" || Array.isArray(o)) return null; const casts = Math.min(1e6, Math.max(0, Math.floor(Number(o.casts)) || 0)); return casts || o.geode === true ? { casts, geode: o.geode === true } : null; };
 
 /** How deep Wander has gone (see wanderDown): the step the next geode there is on, and the deepest step opened. A save from
  *  before the descent starts at the top, step 1, with nothing opened yet; the next step is never below one past the deepest. */
@@ -200,6 +206,10 @@ function migrate(d) {
   // frost geodes not cracked yet (see frostSaveOf)
   const frost = frostSaveOf(d.frostGeodes);
   if (frost) d.frostGeodes = frost; else delete d.frostGeodes;
+  // frostglass, and the ice hole's casts (see glassSaveOf, iceSaveOf)
+  const glass = glassSaveOf(d.frostglass), ice = iceSaveOf(d.icehole);
+  if (glass) d.frostglass = glass; else delete d.frostglass;
+  if (ice) d.icehole = ice; else delete d.icehole;
   // how deep Wander has gone (see depthSaveOf): a save from before starts at the top
   d.depth = depthSaveOf(d.depth);
   // a friend's charm on the wall, if one hangs there

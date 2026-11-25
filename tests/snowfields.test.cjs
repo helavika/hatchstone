@@ -69,7 +69,7 @@ test('the arrows\' ring takes in the snowfields, between the lab (whose road lea
 });
 
 test('Runa speaks in both languages: her hellos, lines and welcome, the opening scene\'s lines', () => {
-  const heroes = { pxPortrait: () => '', PX_ICON_MAPS: {} };
+  const heroes = { pxPortrait: () => '', PX_ICON_MAPS: {}, snowActs: () => [['rod', 'Fish'], ['chisel', 'Carving'], ['steam', 'Hot spring']] };
   vm.runInNewContext(cut(nest, 'const TANSY = ', '// ---------- errands', 'the keepers should sit in nest.js') + '\nthis.HEROES = HEROES; this.heroWords = heroWords; this.RUNA = RUNA;', heroes);
   const h = heroes.HEROES.snow;
   assert.equal(h.who, heroes.RUNA);
@@ -78,7 +78,9 @@ test('Runa speaks in both languages: her hellos, lines and welcome, the opening 
   assert.ok(h.hello.length >= 3 && h.lines.length >= 4);
   for (const l of [...h.hello, ...h.lines]) both(heroes.heroWords(l));
   both(heroes.heroWords(h.welcome)); assert.match(heroes.heroWords(h.welcome), /\{0\}/);
-  assert.equal(JSON.stringify(h.act.map(a => a[1])), '["Talk"]'); both('Talk');
+  // (what there is to do at hers changes as you go, so her buttons are asked for each time: see snowActs in snow.js and its tests)
+  assert.equal(JSON.stringify(h.act.map(a => a[1])), '["Fish","Carving","Hot spring"]');
+  assert.match(nest, /get act\(\) \{ return snowActs\(\); \}/);
   // the opening: Pip's line, then Mossa's; on the first visit, Runa's welcome
   const found = cut(world, 'wardFound_frost:', '\n  wardFound_isle', 'wardFound_frost');
   assert.match(found, /\[PIP, "The fog's gone\. There's a hut out there, with smoke from its chimney\. Go and say hello!", wardSpotOf\("frost"\), "excited"\]/);

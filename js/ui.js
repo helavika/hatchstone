@@ -15,6 +15,7 @@ function handlePointerDown(x, y, now = performance.now(), remote = false) {
   if (game.scene === "catch" && game.catch) game.catch.tx = x;
   if (game.scene === "echo") { echoTap(x, y); return; }
   if (game.scene === "walk") { pointer = null; walkTap(x, y); return; }
+  if (game.scene === "nest" && !remote && snowTap(x, y)) { pointer = null; return; }
   if (game.scene === "nest" && !remote && seekTap(x, y)) { pointer = null; return; }
   if (game.scene === "nest" && !remote) { const ps = passageAt(x, y); if (ps) { pointer = null; goPassage(ps); return; } }
   if (game.scene === "nest" && !remote && fancyAt(x, y)) { pointer = null; sfx.tick(); fancyTell(); return; }
@@ -636,6 +637,7 @@ $("crystalClose").addEventListener("click", () => show("crystalSongs", false));
 $("gardenClose").addEventListener("click", () => show("gardenSheet", false));
 $("wickClose").addEventListener("click", () => show("wickSheet", false));
 $("helpClose").addEventListener("click", () => show("helpSheet", false));
+$("snowClose").addEventListener("click", () => show("snowSheet", false));
 $("tripsClose").addEventListener("click", () => { show("tripsSheet", false); if (game.scene === "map") renderMap(); });
 $("startMore").addEventListener("click", ev => { ev.stopPropagation(); const c = $("startCorner"); c.classList.toggle("open"); $("startMore").setAttribute("aria-expanded", String(c.classList.contains("open"))); sfx.tick(); });
 document.addEventListener("click", ev => { if (!ev.target.closest("#startCorner")) $("startCorner").classList.remove("open"); });

@@ -7,7 +7,7 @@
 /** Where each piece was drawn last, for tapping it (see spriteHit). */
 const pieceHits = {};
 /** What a piece's picture depends on right now (the lamp being off, the pond's ripple frame...). */
-const pieceExtra = p => p.id === "altar" ? { done: !!moonDone() } : p.id === "shrine" ? { event: eventNow()?.id || "", colors: eventNow()?.egg || [] } : p.id === "campfire" ? { frame: Math.floor(game.time / 160) % 4 } : p.id === "furnace" ? { frame: Math.floor(game.time / 220) % 3 } : p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : p.id === "keepjar" ? keepjarView(jarOf(save.walks)) : p.id === "bowl" ? { food: bowlOf().join(",") } : {};
+const pieceExtra = p => p.id === "pond" ? { fishing: !!game.ice } : p.id === "altar" ? { done: !!moonDone() } : p.id === "shrine" ? { event: eventNow()?.id || "", colors: eventNow()?.egg || [] } : p.id === "campfire" ? { frame: Math.floor(game.time / 160) % 4 } : p.id === "furnace" ? { frame: Math.floor(game.time / 220) % 3 } : p.id === "bed" ? { style: bedStyle() } : p.id === "garden" ? { p: gardenView() } : p.id === "lamp" ? { off: !!save.decor.lamp?.off } : p.id === "spring" ? { frame: Math.floor(game.time / 450) % 6 } : p.id === "mushrooms" ? { frame: Math.floor(game.time / 600) % 12 } : p.id === "swing" ? { room: true } : p.id === "musicbox" ? { frame: Math.floor(game.time / 260) % 8 } : p.id === "keepjar" ? keepjarView(jarOf(save.walks)) : p.id === "bowl" ? { food: bowlOf().join(",") } : {};
 
 const decorFx = {};
 let swingPush = 0;
@@ -40,6 +40,7 @@ function decorAt(x, y) {
   if (best) return { id: best.id };
   if (hasDecor("shelf") && pieceHits.shelf && spriteHit(pieceHits.shelf.c, pieceHits.shelf.x, pieceHits.shelf.y, x, y)) return { id: "shelf" };
   if (wallItemAt(x, y) === "painting") return { id: "painting" };
+  if (hasDecor("frostwin") && pieceHits.frostwin && spriteHit(pieceHits.frostwin.c, pieceHits.frostwin.x, pieceHits.frostwin.y, x, y)) return { id: "frostwin" };
   // the fairy lights last, so they don't steal taps meant for the shelf
   if (hasDecor("lights")) for (let i = 1; i < 14; i++) { const [bx, by] = bulbPos(i); if (Math.hypot(x - bx, y - by) < 13) return { id: "lights", bulb: i }; }
   return null;
@@ -119,6 +120,12 @@ function playDecor(hit) {
     }
     case "shelf":
       [0, 1, 2].forEach(i => setTimeout(() => sfx.star(i), i * 220));
+      break;
+    // the carved ice: a glassy ring, high and clear, and frost glittering off it (the window's off its pane, the slide's
+    // down its chute, the lantern's flame flickering up)
+    case "icelantern": case "snowfigure": case "frostwin": case "iceslide":
+      sfx.tinkle();
+      for (let i = 0; i < 9; i++) game.sparks.push({ x: x + rand(-10, 10), y: y - b * rand(0.3, hit.id === "frostwin" ? 1.6 : 1), vx: rand(-30, 30), vy: rand(-70, -25), t: 0, life: rand(0.6, 1.1), s: rand(2, 3), color: pick(hit.id === "icelantern" ? ["#fff0b5", "#e8f7ff", "#fff"] : ["#e8f7ff", "#b8e6f5", "#fff"]) });
       break;
     case "keepjar": {
       // a soft glassy chime, and a few petals and bits of down drift up in the colours of what's inside
@@ -1128,7 +1135,7 @@ function drawNest() {
   drawPassages();
   drawDust();
   drawGloomUnder();
-  items.push(...roomDoItems());
+  items.push(...roomDoItems(), ...snowItems());
   for (const a of actors.values()) {
     // (hiding behind a piece in hide and seek: only the peek past its edge is drawn, by the piece: see drawSeekPeek)
     if (seekHidden(a)) continue;

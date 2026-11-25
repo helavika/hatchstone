@@ -145,14 +145,14 @@ test('the three are drawn from parts that exist, and look like none of the winte
   assert.match(read('core.js'), /^  tinkle\(\) \{$/m);
 });
 
-test('the expedition to the snowfields: frost geodes and shards, for hoppers and nappers, only once the land is warded', () => {
+test('the expedition to the snowfields: frostglass, frost geodes and shards, for hoppers and nappers, only once the land is warded', () => {
   const trips = cut(nestJs, 'const TRIP_PLACES = [', '\nconst TRIP_HOURS', 'TRIP_PLACES');
   const page = { warded: false, THEME: { frost: { name: 'Frost Hollow' } }, tr: s => s, unlocked: () => true };
   page.wardDone = id => id === 'frost' && page.warded;
   vm.runInNewContext(trips + '\nthis.TRIP_PLACES = TRIP_PLACES;', page);
   const pl = page.TRIP_PLACES.find(p => p.id === 'snowfields');
   assert.ok(pl);
-  assert.deepEqual(plain([pl.theme, pl.finds, pl.suits, pl.ok()]), ['frost', ['frost', 'shards'], ['hop', 'nap'], false]);
+  assert.deepEqual(plain([pl.theme, pl.finds, pl.suits, pl.ok()]), ['frost', ['glass', 'frost', 'shards'], ['hop', 'nap'], false]);
   page.warded = true;
   assert.equal(pl.ok(), true);
   assert.equal(pl.tales.length, 2);

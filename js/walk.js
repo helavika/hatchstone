@@ -49,9 +49,11 @@ const KEEPSAKES = [
   { id: "daisy", kind: "flower", name: "A moon daisy", w: 3, c: ["#b9b3c0", "#efe6ff", "#ffffff", "#eec26a"] },
   { id: "harebell", kind: "flower", name: "A harebell", w: 3, c: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5"] },
   { id: "rose", kind: "flower", name: "A wild rose", w: 1, c: ["#8f3460", "#e88bb1", "#ffc4da", "#fff0b5"] },
-  // found only in the snowfields (land): never a stray pick on the other paths
-  { id: "ptarmigan", kind: "feather", name: "A ptarmigan feather", w: 2, c: ["#8a8494", "#e4dfe8", "#efe6ff", "#ffffff"], land: "frost" },
+  // found only in the snowfields (land): never a stray pick on the other paths; the ptarmigan and the snowflake also come up
+  // out of the ice hole (snow: see ICE_CATCH in snow.js)
+  { id: "ptarmigan", kind: "feather", name: "A ptarmigan feather", w: 2, c: ["#8a8494", "#e4dfe8", "#efe6ff", "#ffffff"], land: "frost", snow: true },
   { id: "snowdrop", kind: "flower", name: "A snowdrop", w: 2, c: ["#1e5233", "#57ad6a", "#efe6ff", "#ffffff"], land: "frost" },
+  { id: "snowflake", kind: "ice", name: "A snowflake in ice", w: 2, c: ["#3383a8", "#69b7d6", "#b8e6f5", "#ffffff"], land: "frost", snow: true },
 ];
 const KS = Object.fromEntries(KEEPSAKES.map(k => [k.id, k]));
 

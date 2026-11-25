@@ -261,6 +261,12 @@ DECOR.push(
   { id: "keepjar", name: "Keepsake jar", emoji: "🏺", cost: 0, lovers: ["curious", "flutter"], verb: "looks at the feathers and flowers", emote: "♥", iso: true, found: true, how: "bring a feather or a flower home from a walk" },
   // not a plaything: you fill it from the pantry, and the hungry ones in its room go and eat from it by themselves (see BOWL_CAP)
   { id: "bowl", name: "Feeding bowl", emoji: "🥣", cost: 60, lovers: [], verb: "eats from the bowl", emote: "♥", iso: true },
+  // carved out of frostglass at Runa's bench in the snowfields, never sold at the shop (glass: the frostglass it takes, as well
+  // as its shards: see CARVINGS in snow.js)
+  { id: "icelantern", name: "Ice lantern", emoji: "🏮", cost: 20, glass: 12, lovers: ["flutter"], verb: "circles the ice lantern", emote: "✦", iso: true, carved: true },
+  { id: "snowfigure", name: "Snow glowling", emoji: "⛄", cost: 30, glass: 20, lovers: ["curious", "dance"], verb: "dances round the snow glowling", emote: "♪", iso: true, carved: true },
+  { id: "frostwin", name: "Frost window", emoji: "❄️", cost: 25, glass: 15, lovers: ["curious", "nap"], verb: "watches the frost window", emote: "✦", iso: true, carved: true, wall: true },
+  { id: "iceslide", name: "Ice slide", emoji: "🛝", cost: 40, glass: 25, lovers: ["hop"], verb: "whizzes down the ice slide", emote: "!", iso: true, carved: true, rooms: ["play", "nest"] },
 );
 if (LANG === "uk") for (const d of DECOR) if (d.iso) { d.name = tr(d.name); d.verb = tr(d.verb); if (d.how) d.how = tr(d.how); }
 /** The music box is legendary: it's for those who have met a legendary glowling. */
