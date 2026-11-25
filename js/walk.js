@@ -13,7 +13,13 @@ const WALKS = [
   { id: "stream", name: "By the stream", len: 3.2, finds: 4, note: "a waterfall, and a stream to cross on stepping stones" },
   { id: "hollow", name: "The dark hollow", len: 3.8, finds: 4, note: "a hollow under old trees, so dark you'll need the lantern" },
   { id: "ledge", name: "The high ledge", len: 4.4, finds: 5, note: "a climb up the rocks to a ledge with a view" },
+  // not one after the others: it opens when both the snowfields' wardstones stand (ward), always in its own land and in winter
+  { id: "snow", name: "The snowfields", len: 4.0, finds: 5, note: "a drift to melt with your light, and a long slope to sled down", ward: "frost", land: "frost", season: "winter" },
 ];
+/** How many paths open one after another (the rest open with a land: see walkOpenAt). */
+const WALK_STEPS = WALKS.filter(p => !p.ward).length;
+/** Is path i open: the first ones in turn (open: how many of them), a land's own path once its wardstones all stand (warded: { frost: true }). */
+const walkOpenAt = (i, open, warded = {}) => !!WALKS[i] && (WALKS[i].ward ? !!warded[WALKS[i].ward] : i < open);
 /** What can be found: where it goes, and how it looks in the bag (a 12×12 pixel icon, see PX_ICON_MAPS below). */
 const WALK_FINDS = {
   berry: { name: "Wild berries", gives: "a moonberry for the pantry" },
@@ -22,7 +28,12 @@ const WALK_FINDS = {
   feather: { name: "A soft feather", gives: "a keepsake" },
   flower: { name: "A little flower", gives: "a keepsake, pressed" },
   spark: { name: "A hidden spark", gives: "a spark of inspiration" },
+  // the snowfields' own (icon: its picture in the bag, when it isn't the kind's own name)
+  frostglass: { name: "A bit of frostglass", gives: "frostglass", icon: "wglass" },
+  icepebble: { name: "An ice pebble", gives: "shards", icon: "wice" },
 };
+/** A find's picture in the bag. */
+const walkFindIcon = kind => kind === "spark" ? "wspark" : (WALK_FINDS[kind] && WALK_FINDS[kind].icon) || kind;
 const WALK_KEEP = ["feather", "flower"];
 /**
  * The keepsakes themselves: each feather or flower turns out to be one of a few you can tell apart, and goes into the
@@ -38,6 +49,9 @@ const KEEPSAKES = [
   { id: "daisy", kind: "flower", name: "A moon daisy", w: 3, c: ["#b9b3c0", "#efe6ff", "#ffffff", "#eec26a"] },
   { id: "harebell", kind: "flower", name: "A harebell", w: 3, c: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5"] },
   { id: "rose", kind: "flower", name: "A wild rose", w: 1, c: ["#8f3460", "#e88bb1", "#ffc4da", "#fff0b5"] },
+  // found only in the snowfields (land): never a stray pick on the other paths
+  { id: "ptarmigan", kind: "feather", name: "A ptarmigan feather", w: 2, c: ["#8a8494", "#e4dfe8", "#efe6ff", "#ffffff"], land: "frost" },
+  { id: "snowdrop", kind: "flower", name: "A snowdrop", w: 2, c: ["#1e5233", "#57ad6a", "#efe6ff", "#ffffff"], land: "frost" },
 ];
 const KS = Object.fromEntries(KEEPSAKES.map(k => [k.id, k]));
 
@@ -52,13 +66,13 @@ function walkSaveOf(w) {
   // older saves only counted feathers and flowers: what they found is shared out among the kinds (the common ones first),
   // so their jar fills too; and the count of each is never less than the keepsakes of that kind
   for (const kind of WALK_KEEP) {
-    const all = KEEPSAKES.filter(k => k.kind === kind).sort((a, b) => b.w - a.w), have = all.reduce((n, k) => n + (found[k.id] || 0), 0);
+    const all = KEEPSAKES.filter(k => k.kind === kind && !k.land).sort((a, b) => b.w - a.w), have = all.reduce((n, k) => n + (found[k.id] || 0), 0);
     for (let i = 0; i < (keep[kind] || 0) - have; i++) found[all[i % all.length].id] = (found[all[i % all.length].id] || 0) + 1;
     if (have > (keep[kind] || 0)) keep[kind] = have;
   }
   // the ones taken out of the jar again, to make something to wear (never more than were found)
   for (const k of KEEPSAKES) if (w.used && w.used[k.id] > 0 && found[k.id]) used[k.id] = int(w.used[k.id], 0, found[k.id]);
-  return { open: int(w.open, 1, WALKS.length), n: int(w.n, 0, 1e6), best, keep, found, used, last: Number.isFinite(w.last) ? w.last : 0 };
+  return { open: int(w.open, 1, WALK_STEPS), n: int(w.n, 0, 1e6), best, keep, found, used, last: Number.isFinite(w.last) ? w.last : 0 };
 }
 /** What's in the jar now: every keepsake found, less the ones made into something to wear. */
 function jarOf(w) {
@@ -101,7 +115,7 @@ function keepWearPlan(id, jar = {}) {
  */
 function keepsakePick(kind, found = {}, rnd = Math.random, wish = null) {
   if (wish && KS[wish] && KS[wish].kind === kind) return wish;
-  const all = KEEPSAKES.filter(k => k.kind === kind), fresh = all.filter(k => !found[k.id] && k.w > 1);
+  const all = KEEPSAKES.filter(k => k.kind === kind && !k.land), fresh = all.filter(k => !found[k.id] && k.w > 1);
   const pool = fresh.length && rnd() < 0.5 ? fresh : all;
   let r = rnd() * pool.reduce((n, k) => n + k.w, 0);
   for (const k of pool) if ((r -= k.w) < 0) return k.id;
@@ -113,7 +127,8 @@ function keepsakePick(kind, found = {}, rnd = Math.random, wish = null) {
  */
 function keepjarView(found = {}, max = 8) {
   const have = KEEPSAKES.filter(k => found[k.id] > 0), left = Object.fromEntries(have.map(k => [k.id, found[k.id] - 1]));
-  const stems = have.map(k => k.id);
+  // (more kinds than the jar holds: the ones found most stand in it)
+  const stems = have.slice().sort((a, b) => found[b.id] - found[a.id]).slice(0, max).map(k => k.id);
   while (stems.length < max) {
     const more = have.filter(k => left[k.id] > 0).sort((a, b) => left[b.id] - left[a.id])[0];
     if (!more) break;
@@ -152,6 +167,10 @@ const WALK_SPOTS = [
   [{ u: 0.15, at: "bush" }, { u: 0.335, at: "stone", kind: "pebble", must: true }, { u: 0.5, at: "path" }, { u: 0.82, at: "bush" }, { u: 0.9, at: "path" }],
   [{ u: 0.14, at: "bush" }, { u: 0.27, at: "path" }, { u: 0.42, at: "dark" }, { u: 0.645, at: "dark", kind: "spark", must: true }, { u: 0.8, at: "bush" }, { u: 0.88, at: "path" }],
   [{ u: 0.11, at: "bush" }, { u: 0.215, at: "stone", kind: "pebble", must: true }, { u: 0.33, at: "path" }, { u: 0.58, at: "bush" }, { u: 0.74, at: "path" }, { u: 0.85, at: "path" }],
+  // the snowfields: frostglass on the path, a spark the drift has buried (drift: it shows when the drift melts), a snowdrop
+  // up through the snow, an ice pebble at the slope's foot, a ptarmigan in a bush (ks: which keepsake it always is)
+  [{ u: 0.1, at: "path", kind: "frostglass", must: true }, { u: 0.24, at: "drift", kind: "spark", must: true }, { u: 0.34, at: "path", kind: "flower", ks: "snowdrop", must: true },
+    { u: 0.77, at: "path", kind: "icepebble", must: true }, { u: 0.9, at: "bush", kind: "feather", ks: "ptarmigan", must: true }],
 ];
 /** The shape of each path, as shares of its length: the hill with the hollow way (and its thorn), the stream, the dark, the climb. */
 const WALK_SHAPE = [
@@ -159,6 +178,8 @@ const WALK_SHAPE = [
   { stream: [0.3, 0.37], hill: [0.6, 0.73] },
   { dark: [0.36, 0.72], hill: [0.5, 0.6] },
   { stream: [0.19, 0.24], hill: [0.42, 0.53], ledge: [0.64, 0.86] },
+  // a drift in the hollow way (the thorn's place), then a climb, and the long slope down: [foot of the climb, top, foot of the slope]
+  { hill: [0.2, 0.28], slope: [0.4, 0.48, 0.68] },
 ];
 
 /**
@@ -175,6 +196,7 @@ const WALK_DO = {
   sleeper: {},
   wish: {},
   leaves: { again: true, only: ["autumn", "winter"] },
+  angel: { only: ["winter"] },
 };
 const WALK_DO_LAND = {
   summit: ["bell", "wish", "puddle", "sleeper", "puff"],
@@ -182,6 +204,8 @@ const WALK_DO_LAND = {
   churchyard: ["wish", "bell", "sleeper", "flies", "log"],
   abbey: ["wish", "bell", "puff", "sleeper", "flies"],
   smithy: ["log", "puddle", "sleeper", "puff", "flies"],
+  // the snowfields: ice bells, a mossback asleep under its snow, a wish-stone, a log, and fresh snow for an angel
+  frost: ["bell", "angel", "sleeper", "wish", "log"],
 };
 /**
  * Where the little things go on a walk, and which: three on the first two paths, four on the longer ones, each in a gap
@@ -191,13 +215,14 @@ const WALK_DO_LAND = {
  */
 function walkDoPlan(path, land, season, rnd = Math.random) {
   const len = WALKS[path].len, sh = WALK_SHAPE[path], scr = u => u * len;
-  const kinds = (WALK_DO_LAND[land] || WALK_DO_LAND.glowcap).filter(id => !(WALK_DO[id].not || []).includes(season));
+  const kinds = (WALK_DO_LAND[land] || WALK_DO_LAND.glowcap).filter(id => !(WALK_DO[id].not || []).includes(season) && (!WALK_DO[id].only || WALK_DO[id].only.includes(season)));
   for (let i = kinds.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [kinds[i], kinds[j]] = [kinds[j], kinds[i]]; }
   if (WALK_DO.leaves.only.includes(season)) kinds.unshift("leaves");
   const keep = [[-1, 0.42], [scr(sh.ledge ? sh.ledge[0] : 0.95) - 0.3, 99]], gap = (a, b, m) => keep.push([scr(a) - m, scr(b) + m]);
   if (sh.hill) gap(...sh.hill, 0.08);
   if (sh.stream) gap(...sh.stream, 0.15);
   if (sh.dark) gap(...sh.dark, 0.1);
+  if (sh.slope) gap(sh.slope[0], sh.slope[2], 0.08);
   for (const s of WALK_SPOTS[path]) gap(s.u, s.u, 0.14);
   let free = [];
   for (let x = 0; x < len; x += 0.02) if (!keep.some(([a, b]) => x > a && x < b)) free.push(x);
@@ -216,7 +241,7 @@ function walkDoAt(dos, x, reach, t = 0) {
   return can.sort((a, b) => (a.n ? 1 : 0) - (b.n ? 1 : 0) || Math.abs(a.x - x) - Math.abs(b.x - x))[0] || null;
 }
 
-if (typeof module === "object" && module.exports) module.exports = { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, WALK_DO, WALK_DO_LAND, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan, walkDoPlan, walkDoAt };
+if (typeof module === "object" && module.exports) module.exports = { WALKS, WALK_STEPS, walkOpenAt, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, WALK_DO, WALK_DO_LAND, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan, walkDoPlan, walkDoAt };
 
 // ---------- the words and the little pictures (the browser only: the tests load the rules above on their own) ----------
 
@@ -241,6 +266,12 @@ if (typeof window === "object") {
     ks_daisy: ["............", "...W.WW.W...", "...WWWWWW...", ".WWWWggWWWW.", "..WWgGGgWW..", ".WWWWggWWWW.", "...WWWWWW...", "...W.mm.W...", "......m.....", "...Mm.m.....", "....mmm.....", "......m....."],
     ks_harebell: ["............", "...mmmm.....", "..m....m....", "..m.....m...", "..m....tTt..", "..m...tTTTt.", "..m...ttTTt.", "..m..ttTTTtt", "..m...W..W..", "..m.........", ".Mm.........", "..m........."],
     ks_rose: ["............", "...rrrr.....", "..rrRRrr....", ".rrRggRrr...", ".rRgGGgRr...", ".rrRggRrr...", "..rrRRrr.M..", "...rrrr.MM..", "....m..m....", ".....mm.....", ".....m......", ".....m......"],
+    // the snowfields' own: a ptarmigan's winter feather, white with a grey quill-end; a snowdrop nodding on its stem
+    ks_ptarmigan: recolor(quill, (ch, y) => ch === "L" ? (y > 7 ? "S" : "s") : ch === "w" ? "W" : "w"),
+    ks_snowdrop: ["............", "....mmm.....", "...m...m....", "...m....m...", "...m...sWs..", "...m..sWWWs.", "...m..WwWwW.", "...m..W.m.W.", "...m.....M..", "..Mm........", ".MmmM.......", "...m........"],
+    // frostglass: a faceted bead, white-lit on top, deep blue under; an ice pebble: the pebble in ice
+    wglass: ["............", ".....WW.....", "....WWwt....", "...WWwwtT...", "..WWwwttTT..", "..wwwttTTT..", "..ttttTTTT..", "...ttTTTT...", "....tTTT....", ".....TT.....", "............", "............"],
+    wice: PX_ICON_MAPS.pebble.map(r => r.replace(/[swWGS]/g, ch => ({ s: "t", S: "T", w: "W", W: "W", G: "W" })[ch])),
   });
   Object.assign(UK, {
     "A walk": "Прогулянка",
@@ -326,10 +357,14 @@ const walkFit = cr => { applyTime(cr); return !cr.sleeping && cr.energy >= 20; }
 /** The land the walk goes through: the garden's backdrop (a cave theme from indoors means the garden's own one). */
 function walkTheme() {
   const id = game.walkThemeTry || currentTheme();
-  if (WALK_LAND[id]) return id;
+  // (a land with a path of its own, the snowfields, is only ever walked on that path)
+  const ok = t => WALK_LAND[t] && !WALK_LAND[t].own;
+  if (ok(id)) return id;
   const yard = save.rooms.find(r => r.kind === "yard");
-  return yard && WALK_LAND[yard.theme] ? yard.theme : "glowcap";
+  return yard && ok(yard.theme) ? yard.theme : "glowcap";
 }
+/** Which lands' paths are open: the snowfields' once both their wardstones stand (see wardDone, world.js). */
+const walkWarded = () => ({ frost: typeof wardDone === "function" && wardDone("frost") });
 const walkSeason = () => game.walkSeasonTry || seasonOf();
 
 function openWalk() {
@@ -359,9 +394,12 @@ function renderWalkSheet() {
     renderWalkSheet();
   }));
   $("walkPathsH").textContent = tr("Paths");
+  const warded = walkWarded();
+  // (a land's own path isn't shown at all until its land is warded: no spoiling what's in the fog)
   $("walkPaths").innerHTML = WALKS.map((p, i) => {
-    const open = i < w.open, best = w.best[p.id];
-    return `<button class="snack${open ? "" : " locked"}" data-path="${i}" ${open && walkPick.length ? "" : "disabled"}><span class="em">${ic(open ? ["walk", "berry", "feather", "flower"][i] : "lock")}</span><span><b>${tr(p.name)}</b><small>${open ? tr(p.note) : tr("after: {0}", tr(WALKS[i - 1].name))}</small></span>${open ? `<span class="cost">${best ? `${best}/${p.finds}` : tr("new")}</span>` : ""}</button>`;
+    if (p.ward && !warded[p.ward]) return "";
+    const open = walkOpenAt(i, w.open, warded), best = w.best[p.id];
+    return `<button class="snack${open ? "" : " locked"}" data-path="${i}" ${open && walkPick.length ? "" : "disabled"}><span class="em">${ic(open ? ["walk", "berry", "feather", "flower", "wglass"][i] : "lock")}</span><span><b>${tr(p.name)}</b><small>${open ? tr(p.note) : tr("after: {0}", tr(WALKS[i - 1].name))}</small></span>${open ? `<span class="cost">${best ? `${best}/${p.finds}` : tr("new")}</span>` : ""}</button>`;
   }).join("");
   $$("#walkPaths [data-path]").forEach(b => b.addEventListener("click", () => startWalk(Number(b.dataset.path))));
   const jar = jarOf(w), keep = KEEPSAKES.filter(k => w.found[k.id]).map(k => `<span title="${tr(k.name)}">${ic("ks_" + k.id)}×${jar[k.id] || 0}</span>`).join(" ");
@@ -372,13 +410,13 @@ function renderWalkSheet() {
 
 function startWalk(path) {
   const who = walkPick.map(id => save.creatures.find(c => c.id === id)).filter(c => c && walkFit(c));
-  if (!who.length || path >= save.walks.open) return;
+  if (!who.length || !walkOpenAt(path, save.walks.open, walkWarded())) return;
   show("walkSheet", false);
   sfx.tick();
   track("walk", { path: WALKS[path].id, glowlings: who.length });
-  const theme = walkTheme();
+  const theme = WALKS[path].land || walkTheme();
   game.walk = {
-    path, theme, season: walkSeason(), who: who.map(c => c.id), plan: walkPlan(path), t: 0, cam: 0, key: "",
+    path, theme, season: WALKS[path].season || walkSeason(), who: who.map(c => c.id), plan: walkPlan(path), t: 0, cam: 0, key: "",
     thorn: 0, freed: false, reached: false, ended: false, endT: 0, got: [], fx: [], motes: [], hinted: {},
   };
   // the backdrop's key and chords, with the walk's own light texture (see PLACES.walk in music.js)
@@ -419,6 +457,10 @@ const WALK_LAND = {
   churchyard: { trees: ["yew", "round", "bare", "yew"], far: ["#22143a", "#160c26", "#3d2866", "#2e1d4f"], mid: "yew", grass: ["#0b0614", "#10301f", "#1e5233", "#2f7d4a", "#57ad6a"], flowers: ["#d2bfff", "#efe6ff", "#ad91e6"], ruins: true, rocks: 2 },
   abbey: { trees: ["yew", "round", "yew"], far: ["#2e1d4f", "#160c26", "#523a85", "#3d2866"], mid: "yew", grass: ["#10301f", "#1e5233", "#2f7d4a", "#57ad6a", "#a3dd9b"], flowers: ["#ffc4da", "#eec26a", "#efe6ff"], ruins: true, rocks: 2 },
   smithy: { trees: ["pine", "round", "pine"], far: ["#1e3a28", "#10301f", "#2f7d4a", "#1e5233"], mid: "pine", grass: ["#10301f", "#1e5233", "#2f7d4a", "#57ad6a", "#a3dd9b"], flowers: ["#eec26a", "#fff0b5", "#e0634f"], rocks: 2 },
+  // the snowfields (own: walked only on their own path, always in winter): snowy firs and the odd bare birch, a far row of firs
+  // lilac in the night air with snow along their edges, white peaks behind under the Frost Hollow's night (night: pixelNight's),
+  // no old stonework
+  frost: { trees: ["pine", "pine", "bare", "pine", "pine"], far: ["#6b4fa8", "#22143a", "#ad91e6", "#efe6ff"], mid: "pine", grass: ["#10301f", "#1e5233", "#2f7d4a", "#57ad6a", "#a3dd9b"], flowers: ["#ffffff", "#b8e6f5"], rocks: 2, own: true, night: "frost", peaks: true, relics: false },
 };
 /** Leaves by season: [deep, mid, lit, highlight]. Pines keep theirs all year. */
 const WALK_LEAVES = {
@@ -444,6 +486,8 @@ function walkGeo(g) {
   if (sh.hill) { const [a, b] = sh.hill.map(at); geo.hill = { x0: a, x1: b, h: Math.round(Math.min(AH * 0.13, s * 1.6)), ax: Math.round((a + b) / 2), aw: Math.round((b - a) * 0.26), ah: Math.round(s * 1.25) }; }
   if (sh.stream) { const [a, b] = sh.stream.map(at); geo.stream = { x0: a, x1: b, stones: [0.2, 0.5, 0.8].map(k => Math.round(lerp(a, b, k))), top: Math.round(y0 - AH * 0.27) }; }
   if (sh.dark) { const [a, b] = sh.dark.map(at); geo.dark = { x0: a, x1: b }; }
+  // the long slope: a short climb to its top, then down and down to its foot (rise: how high the top is, in art pixels)
+  if (sh.slope) { const [a, b, c] = sh.slope.map(at); geo.slope = { x0: a, top: b, x1: c, rise: Math.round(AH * 0.13) }; }
   if (sh.ledge) {
     // the lookout: the path ends at a rail on the edge, and past it the camera stops with the view filling most of the screen
     const [a, b] = sh.ledge.map(at);
@@ -456,6 +500,8 @@ function walkGround(geo, x, over = false) {
   let y = geo.y0 + Math.round(1.4 * Math.sin(x * 0.012 + geo.seed) + 0.8 * Math.sin(x * 0.031));
   const L = geo.ledge;
   if (L && x > L.x0) { const k = clamp((x - L.x0) / (L.x1 - L.x0), 0, 1); y -= Math.round(L.rise * k * k * (3 - 2 * k)); }
+  const S = geo.slope;
+  if (S && x > S.x0 && x < S.x1) { const k = x < S.top ? (x - S.x0) / (S.top - S.x0) : 1 - (x - S.top) / (S.x1 - S.top); y -= Math.round(S.rise * k * k * (3 - 2 * k)); }
   if (over && geo.hill && x > geo.hill.x0 && x < geo.hill.x1) y = Math.min(y, walkHillTop(geo, x));
   return y;
 }
@@ -684,6 +730,57 @@ function walkThornArt(stage, sway, w, h, seed) {
     T.glow(w / 2, h * 0.55, w * 0.6, pxHex("#523a85"), 0.55 * keep / 11);
   });
 }
+/**
+ * The snowfields' drift, in the thorn's place: a mound of snow heaped into the hollow way, lit lilac-white from the top left,
+ * its crust glinting (sway: which frame, the glints move); as your light melts it, it sags lower, wet blue slush at its foot
+ * and drips down its face.
+ */
+function walkDriftArt(stage, sway, w, h, seed) {
+  return isoArt(w, h, T => {
+    const snow = walkHexes(["#6b4fa8", "#ad91e6", "#d2bfff", "#efe6ff", "#ffffff"]), wet = walkHexes(["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5"]);
+    const tall = h * [0.98, 0.64, 0.34][stage], base = h - 1;
+    for (let x = 0; x < w; x++) {
+      // (a crest curled over by the wind toward one side; lumpier as it sags)
+      const f = x / (w - 1), shape = Math.pow(Math.sin(Math.PI * clamp(f * 1.04 - 0.02, 0, 1)), 0.55) * (0.9 + 0.1 * Math.sin(f * 7 + seed)) * (1 + (stage ? (pxNoise(x * 0.2, stage) - 0.5) * 0.35 : 0));
+      const top = Math.ceil(base - tall * shape);
+      for (let y = top; y <= base; y++) {
+        const dy = (y - top) / Math.max(1, base - top);
+        let col = pxPick(snow, 0.98 - f * 0.45 - dy * 0.45 + (pxFbm(x * 0.2, y * 0.2) - 0.5) * 0.25, x, y);
+        if (stage && base - y < stage * 2 + 1 + pxHash(x, 3) * 2) col = wet[pxHash(x, y) > 0.5 ? 1 : 2];
+        T.px(x, y, col);
+      }
+      if (stage === 1 && pxHash(x, seed) > 0.86) for (let k = 0; k < 3 + pxHash(x, 9) * 4; k++) T.px(x, top + 1 + k, wet[3]);
+    }
+    for (let k = 0; k < 5; k++) { const x = Math.round(pxHash(k, Math.round(sway * 10) + seed) * (w - 4)) + 2; let y = 0; while (y < h && !T.has(x, y)) y++; if (y < h - 2) T.px(x, y + 1, pxHex("#ffffff")); }
+  }, { texture: false });
+}
+/**
+ * White peaks behind the snowfields: a range of mountains against the night (c: the Frost Hollow's night, from pixelNight),
+ * snow lit along their left faces, lilac in the shade, dark rock showing lower down between the snow gullies, mist at their
+ * feet. Painted only over the sky, so the near hills and the moon stay in front; from a stream of their own.
+ */
+function walkPeaks(c, id, seed, floor) {
+  const T = NIGHT[id], w = c.width, h = c.height, o = c.getContext("2d"), img = o.getImageData(0, 0, w, h), d = img.data;
+  const sky = new Set([...T.sky, "#ffffff"].map(v => pxHex(v).join(",")));
+  const R = seeded(`peaks|${id}|${seed}`), base = Math.round(h * (T.hill - 0.86 + floor)) + 2, peaks = [];
+  for (let x = -20; x < w + 40; x += 26 + Math.floor(R() * 30)) { const ph = h * (0.09 + R() * 0.14); peaks.push([x, ph, ph * (1.1 + R() * 0.7)]); }
+  const lit = ["#cfc4d6", "#efe6ff", "#ffffff"].map(pxHex), shade = ["#3d2866", "#6b4fa8", "#8a6cc9"].map(pxHex), mist = pxHex(T.mist);
+  for (let x = 0; x < w; x++) {
+    let best = null, top = 0;
+    for (const p of peaks) { const v = p[1] * (1 - Math.abs(x - p[0]) / p[2]) + (pxNoise(x * 0.3, p[0]) - 0.5) * 2; if (v > top) { top = v; best = p; } }
+    if (!best) continue;
+    for (let y = Math.max(0, Math.round(base - top)); y < Math.min(h, base + 6); y++) {
+      const i = (y * w + x) * 4;
+      if (!sky.has(`${d[i]},${d[i + 1]},${d[i + 2]}`)) continue;
+      const down = (y - (base - top)) / Math.max(1, best[1]), left = x < best[0], gully = pxNoise(x * 0.09, y * 0.035 + best[0]) > 0.6;
+      let col = down < 0.3 + 0.2 * pxNoise(x * 0.1, best[0]) || (gully && down < 0.85) ? (left ? lit[down < 0.12 ? 2 : 1] : shade[2]) : left ? lit[0] : shade[down > 0.75 ? 0 : 1];
+      if (base - y < 9 && PX_BAYER[(y & 3) * 4 + (x & 3)] < (9 - (base - y)) / 11) col = mist;
+      d[i] = col[0]; d[i + 1] = col[1]; d[i + 2] = col[2]; d[i + 3] = 255;
+    }
+  }
+  o.putImageData(img, 0, 0);
+  return c;
+}
 
 /** Rock in rough blocks of different sizes, each lit at its top left, dark cracks between some, moss on a few ledges.
  *  dy: how far below the rock's top; k: across it, 0 lit side to 1 shaded side; tall: how tall the face is. */
@@ -716,7 +813,7 @@ function walkBake(g) {
   const dark = geo.dark, darkK = x => !dark ? 0 : clamp(Math.min(x - dark.x0, dark.x1 - x) / 40 + 0.5, 0, 1);
 
   // the far land: the backdrop itself (the same picture as the garden's), a little wider so it drifts slowly behind
-  const far = paintTheme(g.theme, widthAt(K.far), AH, (y0 - 16) / AH);
+  const far = land.night ? walkPeaks(pixelNight(land.night, widthAt(K.far), AH, (y0 - 16) / AH), land.night, g.path, (y0 - 16) / AH) : paintTheme(g.theme, widthAt(K.far), AH, (y0 - 16) / AH);
 
   // the far trees: a row of dark shapes against the sky, a lighter rim where the moon catches them
   const M = walkCanvas(widthAt(K.mid), AH), mw = M.c.width, mask = new Uint8Array(mw * AH);
@@ -776,7 +873,7 @@ function walkBake(g) {
     const k = RL(), big = k < (land.ruins ? 0.3 : 0.2), kind = big ? "arch" : ["column", "stairs", "owl", "arch"][Math.floor(RL() * 4)];
     const tall = geo.s * (big ? 2.4 + RL() * 0.5 : 1 + RL() * 1.2), seed = Math.floor(RL() * 999);
     const sr = tall / pxRuinSize(kind, 1)[1], half = pxRuinSize(kind, sr)[0] * 0.75;
-    if ([x - half, x, x + half].some(busy) || darkK(x) > 0.2 || (!land.ruins && RL() < 0.35)) continue;
+    if ([x - half, x, x + half].some(busy) || darkK(x) > 0.2 || (!land.ruins && RL() < 0.35) || land.relics === false) continue;
     put(walkRelic(kind, seed, sr, season, big ? 2 : 1), x, ground(x) - 1);
   }
   // the end of the path
@@ -835,9 +932,13 @@ function walkBake(g) {
       }
       // the path: packed earth lit along its far edge, the odd pebble, a darker lip at the front
       if (d === 0) col = winter ? pxHex("#ffffff") : dt[4];
+      // (in the snowfields the path is trodden snow, two soft tracks along it, the odd bit of earth showing)
+      else if (land.own && d < WALK_PATH - 1) col = pxHash(x * 3, y) > 0.985 ? dt[2] : pxPick(grass.slice(1, 5), 0.92 - d * 0.03 - (d === 4 || d === 5 || d === 10 || d === 11 ? 0.28 : 0) + (pxNoise(x * 0.15, y * 0.4) - 0.5) * 0.3, x, y);
       else if (d < WALK_PATH - 1) col = winter && pxHash(x, y) > 0.3 + d * 0.06 ? (d < 3 ? grass[3] : grass[2]) : pxHash(x * 3, y) > 0.95 ? stone[d < 4 ? 5 : 4] : pxPick(dt.slice(1, 4), 0.85 - d * 0.075 + (pxNoise(x * 0.18, y * 0.5) - 0.5) * 0.45, x, y);
-      else if (d === WALK_PATH - 1) col = dt[1];
+      else if (d === WALK_PATH - 1) col = land.own ? grass[1] : dt[1];
       // (up at the lookout the rock goes all the way down: the land is far below, under the cloud)
+      // (under the slope it's snow all the way down: packed, a little bluer the deeper it goes, the odd glint)
+      else if (geo.slope && y < low + WALK_PATH) col = pxPick(grass.slice(1, 5), 0.9 - (y - top - WALK_PATH) / (geo.slope.rise + 8) * 0.35 + (pxFbm(x * 0.04, y * 0.08) - 0.5) * 0.3 + (pxHash(x, y) > 0.993 ? 0.5 : 0), x, y);
       else if (y < low + WALK_PATH || (geo.ledge && x > geo.ledge.x1 - (y - low) * 0.6)) col = walkRockAt(stone, x, y - top - WALK_PATH, 0.5 + (x - geo.ledge.x0) / (geo.edge - geo.ledge.x0) * 0.1, (low - top) * 1.4, grass, winter);
       else {
         // the near bank: rows of grass blades, each row's blades standing up in front of the row behind, lit at their tips
@@ -955,7 +1056,7 @@ function walkBake(g) {
   }
   g.L = { far, mid: M.c, main, front: F.c, K };
   g.glows = dark ? Array.from({ length: Math.round((dark.x1 - dark.x0) / 9) }, () => { const x = Math.round(dark.x0 + 20 + R() * (dark.x1 - dark.x0 - 40)); return { x, y: Math.round(ground(x) - 2 - (R() < 0.4 ? R() * AH * 0.35 : -R() * AH * 0.2)), c: pick(["#69b7d6", "#b8e6f5", "#d2bfff", "#a3dd9b"]), ph: R() * TAU }; }) : [];
-  g.thornArt = [0, 1, 2].map(s => [0, 1].map(f => walkThornArt(s, f * 1.7, Math.round(hl ? hl.aw * 2.1 : 30), Math.round(hl ? hl.ah * 1.02 : 30), g.path)));
+  g.thornArt = [0, 1, 2].map(s => [0, 1].map(f => (land.own ? walkDriftArt : walkThornArt)(s, f * 1.7, Math.round(hl ? hl.aw * 2.1 : 30), Math.round(hl ? hl.ah * 1.02 : 30), g.path)));
   g.bushArt = g.plan.filter(f => f.at === "bush").map((f, i) => walkBush(500 + i, 32, season, true));
 }
 
@@ -967,7 +1068,7 @@ function walkLayout() {
   if (!g || g.key === key) return;
   const old = g.geo, geo = g.geo = walkGeo(g), k = old ? geo.base / old.base : 1;
   g.key = key;
-  if (old) { g.cam *= k; for (const p of g.pals) { p.x *= k; p.tx *= k; } if (g.lamp) g.lamp.x *= k; }
+  if (old) { g.cam *= k; for (const p of g.pals) { p.x *= k; p.tx *= k; } if (g.lamp) g.lamp.x *= k; if (g.sled) { g.sled.from *= k; g.sled.to *= k; if (g.sled.park) g.sled.park = g.sled.park.map(x => x * k); } }
   else {
     g.pals = g.who.map((id, i) => ({ id, x: -geo.s * (1 + i * 0.9), tx: geo.start - i * geo.s * 0.85, v: 0, alt: 0, hop: 0, over: null, gait: 0, seg: -1, stepT: 0, happy: 1.5, emote: null }));
     g.dir = 1;
@@ -975,8 +1076,10 @@ function walkLayout() {
   for (const f of g.plan) {
     f.x = Math.round(f.u * geo.base);
     if (f.at === "stone" && geo.stream) f.x = geo.stream.stones[1];
-    if (!f.state) f.state = f.at === "bush" || f.at === "dark" ? "hidden" : "shown";
+    if (!f.state) f.state = f.at === "bush" || f.at === "dark" || f.at === "drift" ? "hidden" : "shown";
   }
+  // sparkles along the slope to catch on the way down (k: how far down it, got: when caught)
+  if (geo.slope && !g.sparkles) g.sparkles = [0.12, 0.3, 0.48, 0.66, 0.84].map(k => ({ k, got: -1 }));
   for (const d of g.dos || []) d.x = Math.round(d.u * geo.base);
   const t0 = performance.now();
   walkBake(g);
@@ -1010,8 +1113,30 @@ function updateWalk(dt) {
   const geo = g.geo, lead = g.pals[0], calm = opts().calm, st = geo.stream, hl = geo.hill;
   // an arrow held down (on screen or on the keyboard): the one you lead keeps walking that way
   if (g.hold && !g.reached) { lead.tx = walkAhead(geo, lead.x, g.hold); g.dir = g.hold; }
+  // the long slope: at its top they sit down on little sleds and off they go by themselves, the camera with them
+  const S = geo.slope;
+  if (S && !g.sled && lead.x >= S.top - 1 && !g.reached) walkSledGo(g);
+  const sled = g.sled && !g.sled.done ? g.sled : null;
+  if (sled) {
+    sled.t += dt;
+    if (!calm && (sled.puff = (sled.puff || 0) - dt) < 0 && sled.t < sled.dur * 0.9) {
+      // snow sprays up behind the lead sled
+      sled.puff = 0.06; const k = walkDoK(geo), bx = lead.x - geo.s * 0.4;
+      g.bits.push({ t: 0, ph: rand(0, TAU), kind: "snow", x: bx, y: walkGround(geo, bx) - 1, vx: rand(-26, -6) * k, vy: rand(-34, -12) * k, fall: 110 * k, life: rand(0.4, 0.7), c: pick(["#ffffff", "#e4dfe8"]) });
+    }
+  }
   g.pals.forEach((p, i) => {
     const cr = walkCr(p.id), sp = cr && specOf(cr);
+    if (sled) {
+      // on the sleds: each one a little behind the one in front, down the slope and a little way out at its foot
+      const q = clamp(sled.t / sled.dur, 0, 1), x = lerp(sled.from, sled.to, q * q * (3 - 2 * q)) - i * geo.s * 0.95;
+      if (!i || x >= S.top) {
+        p.v = dt > 0 ? Math.max(0, x - p.x) / dt : 0; p.x = Math.max(p.x, x); p.tx = p.x; p.over = null; p.seg = -1;
+        p.alt = lerp(p.alt, 0, Math.min(1, dt * 12)); p.hop = Math.max(0, p.hop - dt * 2.5); p.happy = Math.max(1, p.happy - dt);
+        if (p.emote && (p.emote.t += dt) > p.emote.life) p.emote = null;
+        return;
+      }
+    }
     if (i) p.tx = walkSnap(geo, clamp(g.pals[i - 1].x - g.dir * geo.s * 0.85, -geo.s * 2, geo.end));
     const d = p.tx - p.x, e = clamp(Math.abs(d) / (geo.s * 0.6), 0, 1);
     // uphill is slower, a little; a hop across water a touch quicker
@@ -1046,7 +1171,8 @@ function updateWalk(dt) {
   });
   // the camera keeps the one you lead a little left of the middle, so you see where you're going
   const want = geo.ledge && lead.x > geo.ledge.x1 ? geo.len - geo.AW : clamp(lead.x - geo.AW * (g.dir > 0 ? 0.38 : 0.62), 0, Math.max(0, geo.len - geo.AW));
-  g.cam = lerp(g.cam, want, Math.min(1, dt * (calm ? 2.1 : 2.9)));
+  g.cam = lerp(g.cam, want, Math.min(1, dt * (sled ? 6 : calm ? 2.1 : 2.9)));
+  if (sled && sled.t >= sled.dur) walkSledDone(g);
   // finds: picked up by whoever walks over them
   for (const f of g.plan) {
     if (f.state === "pop" && (f.t += dt) > 0.45) f.state = "shown";
@@ -1059,10 +1185,14 @@ function updateWalk(dt) {
   }
   // a word at the new things, once each
   const near = (a, b) => lead.x > a - geo.AW * 0.45 && lead.x < b;
-  if (hl && g.thorn < 3 && near(hl.x0, hl.x1)) walkSay(tr("Gloom-thorn has tangled the hollow way. Tap it with your light, or ✦"), "thorn");
+  const own = WALK_LAND[g.theme].own;
+  if (hl && g.thorn < 3 && near(hl.x0, hl.x1)) walkSay(own ? tr("A snowdrift has buried the hollow way. Tap it with your light, or ✦") : tr("Gloom-thorn has tangled the hollow way. Tap it with your light, or ✦"), "thorn");
+  else if (S && !g.sled && near(S.x0, S.top)) walkSay(tr("A long slope ahead, and sleds waiting at the top"), "slopeNear");
   else if (geo.dark && walkIn(lead.x, geo.dark.x0 - 10, geo.dark.x1)) walkSay(tr("It's dark under the trees. Tap or ✦ to lift your lantern"), "dark");
   else if (st && near(st.x0, st.x1)) walkSay(tr("Hop, hop, hop: over the stepping stones"), "stream");
   if (g.lamp) g.lamp.t += dt;
+  // the melted drift still steams a little, a while
+  if (own && g.freed && !calm && g.t - g.thornT < 5 && Math.random() < dt * 6) walkSteam(1);
   // the end of the path: a chime at the cairn (or the view from the ledge), a moment to enjoy it, then home
   if (!g.reached && lead.x >= geo.end - 2) {
     g.reached = true; g.endT = 0; setHint("");
@@ -1090,18 +1220,19 @@ function walkLit(x, y) {
   return k;
 }
 function walkCollect(f, p) {
-  const g = game.walk, cr = walkCr(p.id), [label, em, ks] = walkGive(f.kind, cr);
+  const g = game.walk, cr = walkCr(p.id), [label, em, ks] = walkGive(f.kind, cr, f.ks);
   f.state = "got"; f.t = 0;
   g.got.push({ kind: f.kind, label, ks });
   p.hop = 1; p.happy = 2; p.emote = { text: "♥", t: 0, life: 1.2 };
   const X = (f.x - g.cam) * PX, Y = (walkGround(g.geo, f.x) - 14) * PX;
   floatText(em ? `${em} ${label}` : label, X, Y, f.kind === "spark" ? "#fff0b5" : "#e6e0ff");
-  burst(X, Y + 6 * PX, 8, ["#fff", "#fff0b5", f.kind === "berry" ? "#69b7d6" : f.kind === "flower" ? "#e88bb1" : "#d2bfff"], 0.6);
+  burst(X, Y + 6 * PX, 8, ["#fff", "#fff0b5", f.kind === "berry" || f.kind === "frostglass" || f.kind === "icepebble" ? "#69b7d6" : f.kind === "flower" && !f.ks ? "#e88bb1" : "#d2bfff"], 0.6);
   sfx.ding(2 + g.got.length * 2); setTimeout(() => sfx.shimmer(), 120);
   walkBag();
 }
-/** What a find gives, given right away (so nothing found is ever lost); returns its few words, and an emoji for the float. */
-function walkGive(kind, cr) {
+/** What a find gives, given right away (so nothing found is ever lost); returns its few words, and an emoji for the float.
+ *  want: the keepsake this spot always holds (the snowfields' snowdrop and ptarmigan feather). */
+function walkGive(kind, cr, want = null) {
   let label = tr(WALK_FINDS[kind].name), em = "";
   if (kind === "berry") { save.pantry = { ...save.pantry, berry: ((save.pantry || {}).berry || 0) + 1 }; label = tr(SNACKS.berry.name); em = SNACKS.berry.emoji; }
   if (kind === "seed") { const id = pick(["glowberry", "glowberry", "moonmint", "moonmint", "cookiecorn"]), gd = garden(); gd.seeds[id] = (gd.seeds[id] || 0) + 1; label = tr("{0} seed", seedName(id)); em = "🌱"; }
@@ -1109,12 +1240,15 @@ function walkGive(kind, cr) {
   const kept = kind === "pebble" && wishSeeks("find", f => f === kind);
   if (kept) { save.pocket = { ...save.pocket, [kind]: ((save.pocket || {})[kind] || 0) + 1 }; label = tr(kept[1].found); }
   else if (kind === "pebble") { const n = 4 + Math.floor(Math.random() * 3); save.shards += n; label = `✦ +${n}`; updateTopbar(); }
+  // the snowfields' own: frostglass (the material Runa's ice hole gives: save.frostglass), and an ice pebble, worth a few more shards
+  if (kind === "frostglass") { const n = 2 + (Math.random() < 0.4 ? 1 : 0); save.frostglass = (Number(save.frostglass) || 0) + n; label = tr("Frostglass ×{0}", n); updateTopbar(); }
+  if (kind === "icepebble") { const n = 6 + Math.floor(Math.random() * 3); save.shards += n; label = `✦ +${n}`; updateTopbar(); }
   let ks = null;
   if (WALK_KEEP.includes(kind)) {
     // which feather, which flower: it goes into the keepsake jar (the first one brings the jar itself, waiting in the chest);
     // one a keeper is wishing for turns up first
     const w = save.walks, wished = wishSeeks("ks", id => KS[id] && KS[id].kind === kind);
-    ks = keepsakePick(kind, w.found, Math.random, wished && wished[1].ks);
+    ks = keepsakePick(kind, w.found, Math.random, want || (wished && wished[1].ks));
     w.keep[kind] = (w.keep[kind] || 0) + 1; w.found[ks] = (w.found[ks] || 0) + 1;
     label = tr(KS[ks].name);
     if (!save.decor.keepjar) { save.decor.keepjar = { on: false, at: Date.now() }; if (game.walk) game.walk.jar = true; }
@@ -1137,6 +1271,7 @@ function walkGive(kind, cr) {
 function walkTap(x, y) {
   const g = game.walk;
   if (!g || !g.geo || g.ended || g.reached) return;
+  if (g.sled && !g.sled.done) { walkSledCatch(); return; }
   const geo = g.geo, ax = x / PX + g.cam, ay = y / PX, lead = g.pals[0], hl = geo.hill;
   if (hl && g.thorn < 3) {
     const tw = g.thornArt[0][0].width, th = g.thornArt[0][0].height, gy = walkGround(geo, hl.ax);
@@ -1161,13 +1296,15 @@ function walkShake(f, k) {
   walkRustle(); lead.tx = clamp(f.x, 8, g.geo.end); g.dir = Math.sign(lead.tx - lead.x) || g.dir;
 }
 /**
- * The action key (space, ↑ or W; the ✦ between the arrows on a phone): whatever is right by the one you lead. The thorn if
+ * The action key (space, ↑ or W; the ✦ between the arrows on a phone): whatever is right by the one you lead. On the sleds,
+ * a sparkle caught on the way down; else the thorn (the snowfields' drift) if
  * it's close, else a bush that rustles, else one of the little things along the way, else in the dark the lantern lifted
  * just ahead; with nothing there, a happy hop.
  */
 function walkAct() {
   const g = game.walk;
   if (!g || !g.geo || g.ended || g.reached) return;
+  if (g.sled && !g.sled.done) { walkSledCatch(); return; }
   const geo = g.geo, lead = g.pals[0], hl = geo.hill, near = (x, d) => Math.abs(x - lead.x) < geo.s * d;
   if (hl && g.thorn < 3 && near(hl.ax, 1.6)) { walkThorn(); return; }
   const bushes = g.plan.filter(q => q.at === "bush");
@@ -1192,17 +1329,87 @@ function walkThorn() {
   burst(X, Y, 10, ["#fff0b5", "#eec26a", "#d2bfff", "#8a6cc9"], 0.7);
   if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.tone(t, [523.25, 659.25, 783.99][g.thorn - 1], 0.07, 0.9, "sine", null, true); sfx.grain(t, 0.12, 1800, 1, 0.06); }
   buzz(12);
+  const own = WALK_LAND[g.theme].own;
+  // the drift: it sags in the light, and steam rises off it
+  if (own) { walkSteam(8 + g.thorn * 6); if (sfx.ready()) sfx.wash(sfx.ac.currentTime, 0.6, 3200, 1600, 0.6, 0.05, "highpass"); }
   for (const p of g.pals) if (Math.abs(p.x - hl.ax) < geo.AW * 0.6) p.emote = { text: g.thorn < 3 ? "!" : "♥", t: 0, life: 1 };
   if (g.thorn < 3) return;
+  // what the drift had buried shows now
+  for (const f of g.plan) if (f.at === "drift" && f.state === "hidden") { f.state = "pop"; f.t = 0; }
   g.freed = true; g.thornT = g.t;
   walkRing(hl.ax, gy - th / 2, "#d2bfff", 1.4);
   setTimeout(() => sfx.gleam(), 200);
-  setHint(""); toast(tr("The thorns loosen in the light. The short way is open ✦"));
+  setHint(""); toast(own ? tr("The drift melts in the light, into steam. The short way is open ✦") : tr("The thorns loosen in the light. The short way is open ✦"));
   // the light it had caught drifts to the glowling you lead: a little joy
   g.fx.push({ kind: "free", x: hl.ax, y: gy - th / 2, t: 0, life: 1.6 });
   habitXP("thorns");
 }
 const walkRing = (x, y, col, life) => game.walk.fx.push({ kind: "ring", x, y, col, t: 0, life });
+/** Steam off the melting drift: soft grey puffs drifting up and away (fewer with less motion). */
+function walkSteam(n) {
+  const g = game.walk, geo = g.geo, hl = geo.hill, k = walkDoK(geo), gy = walkGround(geo, hl.ax), w = g.thornArt[0][0].width, h = g.thornArt[Math.min(2, g.thorn)][0].height;
+  for (let i = 0; i < Math.round(n * (opts().calm ? 0.5 : 1)); i++) g.bits.push({ t: 0, ph: rand(0, TAU), kind: "steam", x: hl.ax + rand(-0.4, 0.4) * w, y: gy - rand(0.2, 0.8) * h, vx: rand(-4, 4) * k, vy: rand(-22, -10) * k, fall: 4 * k, sway: 4 * k, life: rand(1.4, 2.6), c: pick(["#efe6ff", "#e4dfe8", "#b9b3c0"]) });
+}
+
+// ---------- the snowfields' slope: down on the sleds, catching sparkles ----------
+
+/** Where a sparkle hangs over the slope: its x, a little above a glowling's head (a hop reaches it). */
+const walkSparkleAt = (geo, q) => { const S = geo.slope, x = Math.round(lerp(S.top, S.x1, q.k)); return [x, Math.round(walkGround(geo, x) - geo.s * 1.25)]; };
+function walkSledGo(g) {
+  const geo = g.geo, S = geo.slope;
+  g.sled = { t: 0, from: S.top, to: S.x1 + geo.s * 1.6, dur: opts().calm ? 6 : 4.4, got: 0, done: false };
+  g.dir = 1;
+  for (const d of g.dos) d.go = false;
+  for (const p of g.pals) { p.emote = { text: "!", t: 0, life: 1 }; p.happy = 3; }
+  walkSay(tr("Down the long slope on the sleds! Tap, or ✦, to catch the sparkles"), "slope");
+  if (sfx.ready()) {
+    const t = sfx.ac.currentTime;
+    sfx.wash(t, g.sled.dur * 0.9, 700, 2600, 0.6, 0.06, "lowpass");
+    // a sleigh bell or two as they set off
+    [0, 0.12, 0.3].forEach((d, i) => sfx.tone(t + d, [2093, 2349.32, 2637][i], 0.025, 0.5, "sine", null, true));
+  }
+}
+/** A tap (or ✦) on the way down: a hop, and the nearest sparkle in reach caught (a shard each, right away). */
+function walkSledCatch() {
+  const g = game.walk, geo = g.geo, lead = g.pals[0];
+  lead.hop = 1;
+  const q = g.sparkles.filter(q => q.got < 0).map(q => [q, Math.abs(walkSparkleAt(geo, q)[0] - lead.x)]).filter(([, d]) => d < geo.s * 1.2).sort((a, b) => a[1] - b[1])[0];
+  if (!q) { const cr = walkCr(lead.id); if (cr) sfx.chirp(specOf(cr).voice); return; }
+  const sp = q[0], [x, y] = walkSparkleAt(geo, sp);
+  sp.got = g.t; g.sled.got++;
+  save.shards += 1; updateTopbar();
+  floatText("✦ +1", (x - g.cam) * PX, y * PX, "#fff0b5");
+  burst((x - g.cam) * PX, y * PX, 6, ["#ffffff", "#fff0b5", "#b8e6f5"], 0.5);
+  sfx.ding(3 + g.sled.got * 2);
+  lead.emote = { text: "♥", t: 0, life: 0.9 };
+}
+/** At the foot of the slope: everyone gets off (the sleds stay parked there), and a word about the sparkles. */
+function walkSledDone(g) {
+  const sled = g.sled, n = g.sparkles.length, got = sled.got;
+  sled.done = true; sled.park = g.pals.map(p => p.x);
+  for (const p of g.pals) { p.tx = p.x; p.v = 0; p.hop = 1; p.happy = 3; }
+  if (got === n) { g.doJoy += 1; toast(tr("Every sparkle caught on the way down! ✦ +{0}", got)); sfx.gleam(); }
+  else if (got) toast(tr("Caught {0} of {1} sparkles on the way down ✦ +{2}", got, n, got));
+  else toast(tr("Whoosh! No sparkles this time, just the wind"));
+  persist();
+}
+/** How high a glowling sits on a sled (it sinks into it a little). */
+const walkSeat = geo => { const k = walkDoK(geo); return Math.max(1, Math.round(2 * k)) + 1; };
+/** A little sled at x, drawn over the one riding it: a runner along the snow that curls up at the front, two struts, and a
+ *  side board of warm wood, lit along its top; it follows the slope column by column, so it tilts in clean pixel steps. */
+function walkSledDraw(geo, x, dot) {
+  const k = walkDoK(geo), K = v => Math.max(1, Math.round(v * k)), half = Math.round(geo.s * 0.42), board = K(3);
+  for (let i = -half; i <= half; i++) {
+    const gx = Math.round(x + i), gy = walkGround(geo, gx);
+    dot(gx, gy - 1, 1, 1, "#b9b3c0"); dot(gx, gy, 1, 1, "#5d5666");
+    if ((i + half) % K(6) === K(2)) dot(gx, gy - K(1.5) - 1, 1, K(1.5), "#5e3a1c");
+    if (i < half - K(1)) { const y = gy - K(1.5) - board - 1; dot(gx, y, 1, board, i < -half * 0.3 ? "#c98f3a" : "#946027"); dot(gx, y, 1, 1, "#eec26a"); if ((i + half) % K(7) === 0) dot(gx, y + 1, 1, board - 1, "#5e3a1c"); }
+  }
+  // the runner curling up at the front, and a red cord to steer by
+  const fx = Math.round(x + half), fy = walkGround(geo, fx);
+  for (let j = 0; j < K(4); j++) dot(fx + Math.round(Math.sin(j / K(4) * 2) * K(1.5)), fy - 1 - j, 1, 1, j < K(3) ? "#b9b3c0" : "#e4dfe8");
+  dot(fx - K(1), fy - K(1.5) - board - 2, 1, 1, "#e0634f"); dot(fx - K(2), fy - K(1.5) - board - 3, K(1), 1, "#b8323b");
+}
 
 function finishWalk() {
   const g = game.walk;
@@ -1221,14 +1428,15 @@ function finishWalk() {
   w.n++; w.last = Date.now();
   if (n > (w.best[p.id] || 0)) w.best[p.id] = n;
   let opened = null;
-  if (g.reached && g.path === w.open - 1 && w.open < WALKS.length) { w.open++; opened = WALKS[g.path + 1]; }
+  if (g.reached && g.path === w.open - 1 && w.open < WALK_STEPS) { w.open++; opened = WALKS[g.path + 1]; }
   bump("walked"); keeperXP(4); habitXP("ritual");
   persist(); updateTopbar();
   $("walkTitle").textContent = tr(g.reached ? "A lovely walk" : "A short walk");
   $("walkPics").innerHTML = crs.map(c => `<img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc, mood: "happy" })}" alt="">`).join("");
   $("walkSub").textContent = tr("{0}, along {1}.", crs.map(c => c.name).join(" & "), tr(p.name)) + " " + tr(g.reached ? "A little tired, a lot happier." : "Home a little early, and that's fine.");
-  $("walkGot").innerHTML = (g.got.length ? g.got.map(f => `<span class="walk-find">${ic(f.ks ? "ks_" + f.ks : f.kind === "spark" ? "wspark" : f.kind)}<span>${f.label}</span></span>`).join("") : `<p class="sub">${tr("Nothing found this time: just fresh air.")}</p>`)
-    + (g.freed ? `<p class="me-hint">${ic("sparkle")} ${tr("Freed a little light from the Gloom-thorn")}</p>` : "")
+  $("walkGot").innerHTML = (g.got.length ? g.got.map(f => `<span class="walk-find">${ic(f.ks ? "ks_" + f.ks : walkFindIcon(f.kind))}<span>${f.label}</span></span>`).join("") : `<p class="sub">${tr("Nothing found this time: just fresh air.")}</p>`)
+    + (g.freed ? `<p class="me-hint">${ic("sparkle")} ${WALK_LAND[g.theme].own ? tr("Melted a snowdrift with your light") : tr("Freed a little light from the Gloom-thorn")}</p>` : "")
+    + (g.sled && g.sled.done ? `<p class="me-hint">${ic("wglass")} ${tr("Down the long slope on the sleds: {0} of {1} sparkles caught", g.sled.got, g.sparkles.length)}</p>` : "")
     + (g.jar ? `<p class="me-hint">${ic("ks_daisy")} ${tr("A keepsake jar for what you find: it's waiting in your Chest ✦")}</p>` : "");
   $("wdJoy").textContent = "+" + mood.joy; $("wdJoyL").textContent = tr("joy");
   $("wdFinds").textContent = `${n}/${g.plan.length}`; $("wdFindsL").textContent = tr("finds");
@@ -1283,14 +1491,15 @@ function walkWater(on) {
 // ---------- the little lives in the air: fireflies, falling leaves, snow, petals, spores ----------
 
 function walkMotes(dt) {
-  const g = game.walk, geo = g.geo, calm = opts().calm, n = calm ? 6 : 18;
+  // (the snowfields: a slow, steady snowfall, and none at all with less motion)
+  const g = game.walk, geo = g.geo, calm = opts().calm, own = WALK_LAND[g.theme].own, n = own ? (calm ? 0 : 26) : calm ? 6 : 18;
   const kind = g.season === "winter" ? "snow" : g.season === "autumn" ? "leaf" : g.season === "spring" ? "petal" : WALK_LAND[g.theme].caps ? "spore" : "fly";
   while (g.motes.length < n) g.motes.push({ x: g.cam + rand(0, geo.AW), y: rand(0, geo.AH * 0.85), ph: rand(0, TAU), v: rand(0.6, 1.2), kind });
   if (g.motes.length > n) g.motes.length = n;
   const sp = calm ? 0.45 : 1;
   for (const m of g.motes) {
     m.ph += dt * m.v;
-    if (m.kind === "snow") { m.y += 9 * m.v * sp * dt; m.x += Math.sin(m.ph) * 4 * sp * dt; }
+    if (m.kind === "snow") { m.y += (own ? 6 : 9) * m.v * sp * dt; m.x += Math.sin(m.ph) * 4 * sp * dt; }
     else if (m.kind === "leaf" || m.kind === "petal") { m.y += 11 * m.v * sp * dt; m.x += (Math.sin(m.ph * 1.3) * 10 - 4) * sp * dt; }
     else if (m.kind === "spore") { m.y -= 4 * m.v * sp * dt; m.x += Math.sin(m.ph) * 3 * sp * dt; }
     else { m.x += Math.cos(m.ph * 0.7) * 6 * sp * dt; m.y += Math.sin(m.ph) * 4 * sp * dt; }
@@ -1308,7 +1517,7 @@ function walkDoStart(g) {
   g.bits = []; g.doJoy = 0; g.perch = null; g.doArt = {};
 }
 /** How big each is to tap (half its width and its height, in art pixels), and how close the one you lead goes first (in its sizes): right into the puddle and the leaves. */
-const WALK_DO_BOX = { puddle: [14, 8, 0.3], flies: [12, 26, 1.3], puff: [8, 22, 1.2], bell: [9, 22, 1.2], log: [16, 13, 1.3], sleeper: [13, 15, 1.3], wish: [8, 22, 1.2], leaves: [15, 12, 0.3] };
+const WALK_DO_BOX = { puddle: [14, 8, 0.3], flies: [12, 26, 1.3], puff: [8, 22, 1.2], bell: [9, 22, 1.2], log: [16, 13, 1.3], sleeper: [13, 15, 1.3], wish: [8, 22, 1.2], leaves: [15, 12, 0.3], angel: [14, 8, 0.3] };
 const walkDoHint = (id, g) => ({
   puddle: tr("A puddle! Tap it, or ✦, to splash"),
   flies: WALK_LAND[g.theme].caps ? tr("Glowmoths are dancing here. Tap them, or ✦, to chase them") : tr("Fireflies are dancing here. Tap them, or ✦, to chase them"),
@@ -1318,9 +1527,10 @@ const walkDoHint = (id, g) => ({
   sleeper: tr("A mossback is napping by the path. Tap it, or ✦, to say hello gently"),
   wish: tr("A wish-stone. Tap it, or ✦, to leave a shard on it"),
   leaves: g.season === "winter" ? tr("A soft heap of snow! Tap it, or ✦, to jump in") : tr("A heap of leaves! Tap it, or ✦, to jump in"),
+  angel: tr("Fresh, smooth snow. Tap it, or ✦, to make a snow angel"),
 })[id];
 /** The bellflowers' colours by land, dark to light: harebell blue on the mountain, pink in the glowcap wood, lilac by the ruins. */
-const WALK_BELL = { summit: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5"], glowcap: ["#5c1f3f", "#c25586", "#e88bb1", "#ffc4da"], churchyard: ["#3d2866", "#6b4fa8", "#ad91e6", "#d2bfff"], abbey: ["#8f3460", "#e88bb1", "#ffc4da", "#fff0b5"], smithy: ["#5e3a1c", "#c98f3a", "#eec26a", "#fff0b5"] };
+const WALK_BELL = { summit: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5"], glowcap: ["#5c1f3f", "#c25586", "#e88bb1", "#ffc4da"], churchyard: ["#3d2866", "#6b4fa8", "#ad91e6", "#d2bfff"], abbey: ["#8f3460", "#e88bb1", "#ffc4da", "#fff0b5"], smithy: ["#5e3a1c", "#c98f3a", "#eec26a", "#fff0b5"], frost: ["#1d5276", "#69b7d6", "#b8e6f5", "#ffffff"] };
 const WALK_NOTES = [783.99, 880, 987.77, 1174.66, 1318.51, 1567.98];
 
 function walkDoUpdate(dt) {
@@ -1420,6 +1630,12 @@ function walkDoNow(d) {
     bits(20, () => ({ kind: snow ? "snow" : "leaf", x: d.x + rand(-11, 11) * k, y: gy - rand(2, 6) * k, vx: rand(-42, 42) * k, vy: rand(-74, -36) * k, fall: (snow ? 110 : 80) * k, max: (snow ? 30 : 16) * k, drag: 1.4, sway: (snow ? 3 : 12) * k, life: rand(1.3, 2.2), c: snow ? pick(["#ffffff", "#e4dfe8", "#d2bfff"]) : pick(["#b8323b", "#e0634f", "#eec26a", "#c98f3a"]) }));
     walkRustle(); if (sfx.ready()) sfx.grain(sfx.ac.currentTime, 0.12, snow ? 900 : 420, 0.7, 0.16, "lowpass");
     setTimeout(() => sfx.giggle(voice), 250);
+  } else if (d.id === "angel") {
+    // down on its back in the fresh snow, wings swept up and down: an angel pressed into the path, a little snow flung up
+    lead.hop = 1; lead.happy = 3; lead.emote = { text: "♥", t: 0, life: 1.6 };
+    bits(12, () => ({ kind: "snow", x: d.x + rand(-10, 10) * k, y: gy + rand(2, 6) * k, vx: rand(-30, 30) * k, vy: rand(-50, -20) * k, fall: 110 * k, max: 30 * k, drag: 1.4, sway: 3 * k, life: rand(1, 1.6), c: pick(["#ffffff", "#e4dfe8", "#d2bfff"]) }));
+    if (sfx.ready()) { const t0 = sfx.ac.currentTime; for (let i = 0; i < 3; i++) sfx.grain(t0 + i * 0.22, 0.14, 1400, 0.8, 0.08, "lowpass"); }
+    setTimeout(() => { if (!game.walk || g.ended) return; floatText(tr("A snow angel ✦"), ...at(d.x, gy - 16 * k), "#e6e0ff"); sfx.giggle(voice); }, 900);
   }
 }
 function walkSplash() {
@@ -1617,6 +1833,21 @@ function walkDoDraw(X, Y, dot) {
       const a = walkDoArt("leaves"), q = (t - (d.squash ?? -9)) / 0.6, h = q >= 0 && q < 1 ? Math.round(a.height * (1 - 0.4 * Math.sin(q * Math.PI))) : a.height;
       put(a, d.x - a.width / 2, gy - a.height + K(4), h);
       top = gy - K(9);
+    } else if (d.id === "angel") {
+      // fresh snow, a glint or two on it; once made, the angel pressed into the path (seen from above, squashed into the
+      // distance): a round head, wings swept wide (sweeping while it's being made), a skirt; its far rim in shadow
+      top = gy - K(2);
+      if (!d.n) for (let j = 0; j < 3; j++) if (Math.sin(t * 1.7 + j * 2.1) > 0.6) dot(d.x + K(j * 5 - 5), gy + K(4 + (j % 2) * 2), 1, 1, "#ffffff");
+      if (d.n) {
+        const q = t - d.t, sweep = q < 1.3 && !calm ? Math.abs(Math.cos(q * 7)) : 1, sq = 0.32, cy = gy + K(7);
+        const inside = (a, b) => a * a + (b + 6.5) ** 2 < 6.2 || (b > -4 && b < 8 && Math.abs(a) < 2.2 + (b + 4) * 0.42)
+          || (b < 3 && Math.abs(a) > 1 && ((Math.abs(a) - 1) / (8.5 * (0.5 + 0.5 * sweep))) ** 2 + ((b + 1.5 + Math.abs(a) * 0.3) / 2.8) ** 2 < 1);
+        for (let r = -K(10 * sq); r <= K(9 * sq); r++) for (let u = -K(10); u <= K(10); u++) {
+          const a = u / k, b = r / (sq * k);
+          if (!inside(a, b)) continue;
+          dot(d.x + u, cy + r, 1, 1, !inside(a, b - 1 / (sq * k)) ? "#8a6cc9" : b < -4 ? "#ad91e6" : "#d2bfff");
+        }
+      }
     }
     // a glint on one not done yet, now and then
     if (!d.n && (t + d.u * 11) % 2.8 < 0.3) { const gx = d.x + K(5), gy2 = top - 2; dot(gx, gy2, 1, 1, "#ffffff"); dot(gx - 1, gy2, 3, 1, "#fff0b5"); dot(gx, gy2 - 1, 1, 3, "#fff0b5"); dot(gx, gy2, 1, 1, "#ffffff"); }
@@ -1666,6 +1897,7 @@ function walkDoAir(X, Y, dot) {
     const x = Math.round(b.x), y = Math.round(b.y);
     if (b.t > b.life * 0.8 && Math.floor(b.t * 20) % 2) continue;
     if (b.kind === "seed") { dot(x, y, big, big, "#ffffff"); dot(x, y + big, 1, K(1.5), "#ad91e6"); }
+    else if (b.kind === "steam") { const r = Math.max(1, Math.round((1.5 + b.t / b.life * 2) * big)); dot(x, y, r, r, b.c); dot(x + r, y + 1, Math.max(1, r - 1), Math.max(1, r - 1), b.c); }
     else if (b.kind === "leaf") Math.sin(b.t * 9 + b.ph) > 0 ? dot(x, y, K(2.5), big, b.c) : dot(x, y, big, K(2.5), b.c);
     else dot(x, y, big, big, b.c);
   }
@@ -1743,7 +1975,7 @@ function drawWalk() {
     if (f.state === "hidden" && (t + i * 1.3) % 2.6 < 0.35) { const gx = bx + b.width * 0.22, gy = walkGround(geo, bx) - b.height * 0.55; dot(gx, gy, 1, 1, "#ffffff"); dot(gx - 1, gy, 3, 1, "#fff0b5"); dot(gx, gy - 1, 1, 3, "#fff0b5"); dot(gx, gy, 1, 1, "#ffffff"); }
   });
   for (const f of g.plan) {
-    const ic2 = walkIcon(f.kind === "spark" ? "wspark" : f.kind), gy = f.at === "stone" ? walkGround(geo, f.x) - 1 : walkGround(geo, f.x) + 1;
+    const ic2 = walkIcon(f.ks ? "ks_" + f.ks : walkFindIcon(f.kind)), gy = f.at === "stone" ? walkGround(geo, f.x) - 1 : walkGround(geo, f.x) + 1;
     let x = f.x - ic2.width / 2, y = gy - ic2.height + 1, a = 1;
     if (f.state === "hidden" && f.at === "dark") { if (f.kind === "spark") { a = 0.3 + 0.25 * Math.sin(t * 2.4); } else continue; }
     else if (f.state === "hidden") continue;
@@ -1762,13 +1994,29 @@ function drawWalk() {
   if (hl) {
     const gy = walkGround(geo, hl.ax);
     if (g.thorn < 3) { const a = g.thornArt[g.thorn][calm ? 0 : Math.floor(t / 0.8) % 2]; ctx.drawImage(a, X(hl.ax - a.width / 2), Y(gy - a.height + 2), a.width * PX, a.height * PX); }
-    else for (let k = 0; k < 5; k++) {
-      const grow = clamp((t - g.thornT - k * 0.15) / 0.5, 0, 1), fx2 = hl.ax + (k - 2) * 7 + (k % 2) * 2, fy = gy + 4 + (k % 2) * 2;
-      if (!grow) continue;
-      dot(fx2, fy - Math.round(2 * grow), 1, Math.round(2 * grow) + 1, "#2f7d4a");
-      if (grow > 0.6) { const c = ["#d2bfff", "#ffc4da", "#fff0b5"][k % 3]; dot(fx2 - 1, fy - 3, 3, 1, c); dot(fx2, fy - 4, 1, 3, c); dot(fx2, fy - 3, 1, 1, "#eec26a"); }
+    else {
+      // (the drift leaves a patch of wet path, and snowdrops come up through it instead)
+      const own = WALK_LAND[g.theme].own;
+      if (own) { const w2 = Math.round(g.thornArt[0][0].width * 0.7); dot(hl.ax - w2 / 2, gy + 1, w2, 2, "#3383a8"); dot(hl.ax - w2 / 2 + 2, gy + 1, w2 - 6, 1, "#69b7d6"); }
+      for (let k = 0; k < 5; k++) {
+        const grow = clamp((t - g.thornT - k * 0.15) / 0.5, 0, 1), fx2 = hl.ax + (k - 2) * 7 + (k % 2) * 2, fy = gy + 4 + (k % 2) * 2;
+        if (!grow) continue;
+        dot(fx2, fy - Math.round(2 * grow), 1, Math.round(2 * grow) + 1, "#2f7d4a");
+        if (grow > 0.6 && own) { dot(fx2 + 1, fy - 3, 1, 1, "#2f7d4a"); dot(fx2 + 1, fy - 2, 2, 2, "#ffffff"); dot(fx2 + 2, fy - 1, 1, 1, "#57ad6a"); }
+        else if (grow > 0.6) { const c = ["#d2bfff", "#ffc4da", "#fff0b5"][k % 3]; dot(fx2 - 1, fy - 3, 3, 1, c); dot(fx2, fy - 4, 1, 3, c); dot(fx2, fy - 3, 1, 1, "#eec26a"); }
+      }
     }
   }
+  // the sparkles over the slope: twinkling until the sleds have gone by; a caught one flies up and fades
+  if (geo.slope && g.sparkles) for (const q of g.sparkles) {
+    const [x, y] = walkSparkleAt(geo, q), ago = q.got < 0 ? -1 : t - q.got;
+    if (x < cam - 8 || x > cam + AW + 8 || (ago < 0 && g.sled && g.sled.done) || ago > 0.6) continue;
+    const yy = ago >= 0 ? y - Math.round(ago * 30) : y + (calm ? 0 : Math.round(Math.sin(t * 2.2 + q.k * 9))), big = Math.sin(t * 5 + q.k * 20) > 0.2 || ago >= 0;
+    dot(x, yy, 1, 1, "#ffffff"); dot(x - 1, yy, 1, 1, "#fff0b5"); dot(x + 1, yy, 1, 1, "#fff0b5"); dot(x, yy - 1, 1, 1, "#fff0b5"); dot(x, yy + 1, 1, 1, "#fff0b5");
+    if (big) { dot(x - 2, yy, 1, 1, "#eec26a"); dot(x + 2, yy, 1, 1, "#eec26a"); dot(x, yy - 2, 1, 1, "#eec26a"); dot(x, yy + 2, 1, 1, "#eec26a"); }
+  }
+  // the sleds parked at the slope's foot, once they're off
+  if (g.sled && g.sled.done) for (const x of g.sled.park) if (walkIn(x, cam - 40, cam + AW + 40)) walkSledDraw(geo, x + geo.s * 0.55, dot);
   // taps, light rings, the freed light
   for (const r of g.fx) {
     const k = r.t / r.life;
@@ -1783,11 +2031,15 @@ function drawWalk() {
   for (let i = g.pals.length - 1; i >= 0; i--) {
     const p = g.pals[i], cr = walkCr(p.id);
     if (!cr) continue;
-    const sp = specOf(cr), foot = walkGround(geo, p.x, p.over), sz = s * PX, x = X(p.x), fy = Y(foot);
+    // (on the slope's sleds: the sled under it, and it sits up on the seat)
+    const sledded = g.sled && !g.sled.done && geo.slope && p.x >= geo.slope.top - 2, seat = sledded ? walkSeat(geo) : 0;
+    const sp = specOf(cr), foot = walkGround(geo, p.x, p.over) - seat, sz = s * PX, x = X(p.x), fy = Y(foot);
     ctx.fillStyle = "rgba(5,0,20,.35)";
     ctx.beginPath(); ctx.ellipse(x, fy, sz * 0.32 * clamp(1 - p.alt / (s * 1.2), 0.4, 1), sz * 0.07, 0, 0, TAU); ctx.fill();
     const mood = p.happy > 0 || g.reached ? "happy" : cr.energy < 25 ? "sleepy" : "ok";
     drawSprite(x, fy - sz * 0.45 - p.alt * PX, sz, sp, { acc: cr.acc, level: cr.level, shiny: cr.shiny, mood, hop: p.hop, hopK: calmOf(cr.level).hop * 0.75, t: game.time + p.id * 997, glowK: i ? 0.4 : 0.7 });
+    // (the sled in front, so it sits down in it)
+    if (sledded) walkSledDraw(geo, p.x, dot);
     const head = fy - sz * 1.05 - p.alt * PX;
     if (p.emote) {
       fx.save(); fx.font = `400 ${Math.round(clamp(sz * 0.32, 16, 22))}px ${PIXEL_FONT}`; fx.textAlign = "center";

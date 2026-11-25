@@ -1,13 +1,14 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { WALKS, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, WALK_DO, WALK_DO_LAND, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan, walkDoPlan, walkDoAt } = require('../js/walk.js');
+const { WALKS, WALK_STEPS, walkOpenAt, WALK_FINDS, WALK_SPOTS, WALK_SHAPE, KEEPSAKES, KEEP_WEAR, WALK_DO, WALK_DO_LAND, walkSaveOf, walkMood, walkPlan, keepsakePick, keepjarView, jarOf, keepWearPlan, walkDoPlan, walkDoAt } = require('../js/walk.js');
 
 // a fixed run of "random" numbers
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
 
-test('four paths, each a little longer, each with its own shape and spots', () => {
-  assert.equal(WALKS.length, 4);
-  for (let i = 1; i < WALKS.length; i++) assert.ok(WALKS[i].len > WALKS[i - 1].len, WALKS[i].id);
+test('four paths one after another, each a little longer, and the snowfields\' own; each with its own shape and spots', () => {
+  assert.equal(WALKS.length, 5);
+  assert.equal(WALK_STEPS, 4);
+  for (let i = 1; i < WALK_STEPS; i++) assert.ok(WALKS[i].len > WALKS[i - 1].len, WALKS[i].id);
   assert.equal(WALK_SPOTS.length, WALKS.length);
   assert.equal(WALK_SHAPE.length, WALKS.length);
   // every path has the hill with the thorn on it; the new thing comes in order: the stream, the dark, the climb
@@ -34,7 +35,7 @@ test('an old save gets walks; a broken one is mended, never thrown away', () => 
   assert.deepEqual(walkSaveOf(undefined), { open: 1, n: 0, best: {}, keep: {}, found: {}, used: {}, last: 0 });
   assert.deepEqual(walkSaveOf('nonsense'), { open: 1, n: 0, best: {}, keep: {}, found: {}, used: {}, last: 0 });
   const w = walkSaveOf({ open: 9, n: 3.7, best: { meadow: 3, stream: -1, nowhere: 4 }, keep: { feather: 2, flower: 'x', rock: 5 }, last: 123 });
-  assert.equal(w.open, WALKS.length);
+  assert.equal(w.open, WALK_STEPS, 'the snowfields\' path never counts as one opened in turn');
   assert.equal(w.n, 3);
   assert.deepEqual(w.best, { meadow: 3 });
   assert.deepEqual(w.keep, { feather: 2 });
@@ -148,8 +149,8 @@ test('holding an arrow leads a little ahead, and over the stream from stone to s
 test('the action key does what is right by the one you lead: thorn, bush, a little thing, lantern, else a hop', () => {
   const src = require('node:fs').readFileSync(require.resolve('../js/walk.js'), 'utf8');
   const act = src.slice(src.indexOf('function walkAct()'), src.indexOf('\n}\n', src.indexOf('function walkAct()')));
-  const order = ['walkThorn()', 'walkShake(f', 'walkDo(d)', 'g.lamp = {', 'lead.hop = 1'].map(s => act.indexOf(s));
-  assert.ok(order.every(i => i > 0) && order.every((v, i) => !i || v > order[i - 1]), 'thorn, then bush, then a little thing along the way, then lantern, then a hop');
+  const order = ['walkSledCatch()', 'walkThorn()', 'walkShake(f', 'walkDo(d)', 'g.lamp = {', 'lead.hop = 1'].map(s => act.indexOf(s));
+  assert.ok(order.every(i => i > 0) && order.every((v, i) => !i || v > order[i - 1]), 'on the sleds a sparkle; else thorn, then bush, then a little thing along the way, then lantern, then a hop');
   assert.match(src, /ACT = \[" ", "ArrowUp", "w", "W"\]/);
   assert.match(src, /\$\("walkAct"\)\.addEventListener\("pointerdown"/);
 });
@@ -173,6 +174,7 @@ test('little things to do along the way: a few on every walk, each land its own,
       const sh = WALK_SHAPE[p];
       for (const k of ['hill', 'stream', 'dark']) if (sh[k]) assert.ok(d.u < sh[k][0] || d.u > sh[k][1], `${at}: ${d.id} clear of the ${k}`);
       if (sh.ledge) assert.ok(d.u < sh.ledge[0], `${at}: before the climb`);
+      if (sh.slope) assert.ok(d.u < sh.slope[0] || d.u > sh.slope[2], `${at}: ${d.id} clear of the slope`);
       for (const s of WALK_SPOTS[p]) assert.ok(Math.abs(s.u - d.u) * WALKS[p].len > 0.1, `${at}: ${d.id} clear of a find`);
     }
     // in order along the path, and not crowded
@@ -216,4 +218,79 @@ test('the little things done along the way add a little joy to the walk, never o
   const src = require('node:fs').readFileSync(require.resolve('../js/walk.js'), 'utf8');
   assert.match(src, /trackOnce\("walkdo", \{ what: d\.id \}\)/, 'each counted once a walk');
   assert.match(src, /walkMood\(g\.path, n, g\.freed, g\.doJoy\)/);
+});
+
+test('the snowfields\' path opens only once both its wardstones stand, never in turn after the ledge', () => {
+  const i = WALKS.findIndex(p => p.id === 'snow'), p = WALKS[i];
+  assert.equal(i, 4, 'the fifth path');
+  assert.equal(p.ward, 'frost');
+  assert.equal(p.len, 4.0);
+  assert.equal(p.finds, 5);
+  assert.equal(p.season, 'winter', 'always in the snow');
+  assert.equal(walkOpenAt(i, 99, {}), false, 'all four paths walked is not enough');
+  assert.equal(walkOpenAt(i, 1, { frost: true }), true, 'warded, it opens however far the other paths are');
+  assert.equal(walkOpenAt(i, 4, { isle: true }), false);
+  for (let k = 0; k < WALK_STEPS; k++) { assert.equal(walkOpenAt(k, k + 1), true); assert.equal(walkOpenAt(k, k), false); assert.equal(walkOpenAt(k, k, { frost: true }), false); }
+  assert.equal(walkOpenAt(9, 9, { frost: true }), false);
+  // the game: the sheet hides it until warded, starting it checks the same, and finishing the ledge opens nothing more
+  const src = require('node:fs').readFileSync(require.resolve('../js/walk.js'), 'utf8');
+  assert.match(src, /frost: typeof wardDone === "function" && wardDone\("frost"\)/);
+  assert.match(src, /if \(!who\.length \|\| !walkOpenAt\(path, save\.walks\.open, walkWarded\(\)\)\) return;/);
+  assert.match(src, /w\.open < WALK_STEPS\) \{ w\.open\+\+/);
+});
+
+test('the snowfields\' plan: the drift on the hill, the slope after it, five set finds, nothing on top of anything', () => {
+  const i = WALKS.findIndex(p => p.id === 'snow'), sh = WALK_SHAPE[i], len = WALKS[i].len;
+  assert.ok(sh.hill && sh.slope && !sh.stream && !sh.dark && !sh.ledge);
+  const [a, top, b] = sh.slope;
+  assert.ok(a < top && top < b, 'a climb, then the long way down');
+  assert.ok(sh.hill[1] < a, 'the drift comes first');
+  assert.ok((b - top) * len >= 0.75, 'a long slope: most of a screen');
+  assert.ok((top - a) * len >= 0.3, 'a climb you can walk up');
+  for (const r of [0, 0.3, 0.6, 0.99]) {
+    const plan = walkPlan(i, seq(r, 0.5, 0.1));
+    assert.equal(plan.length, 5);
+    assert.deepEqual(plan.map(f => f.kind).sort(), ['feather', 'flower', 'frostglass', 'icepebble', 'spark']);
+    assert.equal(plan.find(f => f.kind === 'flower').ks, 'snowdrop');
+    assert.equal(plan.find(f => f.kind === 'feather').ks, 'ptarmigan');
+    // the spark is buried in the drift, under the hill; the rest clear of the hill and of the slope (and its run-out at the foot)
+    const sp = plan.find(f => f.kind === 'spark');
+    assert.equal(sp.at, 'drift');
+    assert.ok(Math.abs(sp.u - (sh.hill[0] + sh.hill[1]) / 2) < 0.005, 'right where the drift stands');
+    for (const f of plan.filter(f => f !== sp)) {
+      assert.ok(f.u < sh.hill[0] - 0.02 || f.u > sh.hill[1] + 0.02, `${f.kind} clear of the drift`);
+      assert.ok(f.u < a - 0.02 || f.u > b + 0.06, `${f.kind} clear of the slope`);
+    }
+    for (let k = 1; k < plan.length; k++) assert.ok((plan[k].u - plan[k - 1].u) * len >= 0.3, 'room between finds');
+    assert.ok(plan.every(f => f.u < 0.95), 'before the cairn');
+  }
+  // its little things: a land of their own, no puddles or fireflies in the snow, and a snow angel only in winter
+  assert.ok(WALK_DO_LAND.frost.every(id => !['puddle', 'flies', 'puff'].includes(id)));
+  assert.ok(WALK_DO_LAND.frost.includes('angel'));
+  for (const r of [0, 0.2, 0.5, 0.8, 0.99]) {
+    const plan = walkDoPlan(i, 'frost', 'winter', seq(r, 0.37, 0.71, 0.13));
+    assert.equal(plan.length, 4, 'four on a long path');
+    for (const d of plan) {
+      assert.ok(d.u < sh.hill[0] || d.u > sh.hill[1], `${d.id} clear of the drift`);
+      assert.ok(d.u < a || d.u > b, `${d.id} clear of the slope`);
+    }
+  }
+  assert.ok(walkDoPlan(0, 'frost', 'spring', seq(0.4)).every(d => d.id !== 'angel'), 'no snow angel without snow');
+});
+
+test('the snowfields\' keepsakes go in the jar like the others but never turn up on the other paths', () => {
+  const ks = KEEPSAKES.filter(k => k.land === 'frost').map(k => k.id).sort();
+  assert.deepEqual(ks, ['ptarmigan', 'snowdrop']);
+  for (const kind of ['feather', 'flower']) for (let j = 0; j < 40; j++) assert.ok(!ks.includes(keepsakePick(kind, {}, seq(j / 40, (j * 7 % 40) / 40))), 'not a stray pick');
+  assert.equal(keepsakePick('flower', {}, () => 0.5, 'snowdrop'), 'snowdrop', 'the spot that holds one gives it');
+  // an old save\'s counts are never shared out into them
+  const w = walkSaveOf({ keep: { feather: 9, flower: 9 } });
+  assert.ok(!w.found.snowdrop && !w.found.ptarmigan);
+  // the jar holds eight stems however many kinds there are: the ones found most
+  const v = keepjarView({ snowdrop: 5, ptarmigan: 4, jay: 1, down: 1, robin: 1, raven: 1, heather: 1, daisy: 1, harebell: 1, rose: 1 });
+  assert.equal(v.stems.length, 8);
+  assert.ok(v.stems.includes('snowdrop') && v.stems.includes('ptarmigan'));
+  assert.ok(WALK_FINDS.frostglass && WALK_FINDS.icepebble);
+  const src = require('node:fs').readFileSync(require.resolve('../js/walk.js'), 'utf8');
+  assert.match(src, /save\.frostglass = \(Number\(save\.frostglass\) \|\| 0\) \+ n/, 'frostglass counts into save.frostglass');
 });
