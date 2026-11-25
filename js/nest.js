@@ -340,7 +340,8 @@ const MARKET_TABS = [["food", "cookie", "Food"], ["decor", "candle", "Furniture"
 const CHEST_SHOP = { look: ["reno", "New rooms and renovation"] };
 const DECOR_CATS = [["comfort", "Comfort"], ["light", "Light"], ["play", "Toys"], ["pretty", "Pretty things"]];
 const DECOR_CAT = { cushion: "comfort", armchair: "comfort", table: "comfort", lamp: "light", lights: "light", mushrooms: "play", swing: "play", spring: "play", chest: "play", musicbox: "play",
-  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty", keepjar: "pretty", bowl: "comfort" };
+  rug: "pretty", shelf: "pretty", bookcase: "pretty", plant: "pretty", painting: "pretty", bench: "comfort", lamppost: "light", birdbath: "play", drum: "play", blocks: "play", telescope: "pretty",
+  icelantern: "light", snowfigure: "pretty", frostwin: "pretty", iceslide: "play", keepjar: "pretty", bowl: "comfort" };
 const shopOf = () => (game.shop = game.shop || { mode: "chest", tab: "decor", pick: null });
 function openShop() {
   sfx.tick();
@@ -372,7 +373,7 @@ function openShop() {
   } else {
     const used = isoSpaceUsed();
     // (a feeding bowl is sold again for a room that has none: see bowlMore)
-    const items = DECOR.filter(d => market ? (!save.decor[d.id] || d.id === "bowl" && bowlMore()) && !d.found : !!save.decor[d.id]);
+    const items = DECOR.filter(d => market ? (!save.decor[d.id] || d.id === "bowl" && bowlMore()) && !d.found && !d.carved : !!save.decor[d.id]);
     const tile = d => {
       const more = market && d.id === "bowl" && !!save.decor.bowl, owned = !more && save.decor[d.id], locked = d.legend && !owned && !legendOk();
       const tag = owned ? (owned.on ? tr("placed ✓") : d.id === "bowl" && bowlSpare() <= 0 ? bowlWhere() : d.id !== "bowl" && decorRoom(d.id) >= 0 ? tr("in {0}", roomName(decorRoom(d.id))) : tr("stored")) : locked ? ic("lock") : "✦ " + d.cost + (more ? ` · 🥣×${bowlRooms().length}` : "");
@@ -417,7 +418,7 @@ function renderShopPick() {
   if (!d) return;
   const more = d.id === "bowl" && bowlMore(), owned = !more && save.decor[d.id], locked = d.legend && !owned && !legendOk();
   const who = d.lovers.map(b => BEHAVIOR_NAMES[b]).join(tr(" and "));
-  const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.id === "keepjar" ? tr("Every feather and flower from your walks goes into it, and a few of them make something to wear.") : d.id === "bowl" ? tr("One for each room: the hungry ones there eat from it by themselves") + (hasDecor("bowl") ? ` · ${bowlOf().length}/${BOWL_CAP}` : "") + (save.decor.bowl ? ` · ${tr("rooms with a bowl: {0} of {1}", bowlRooms().length, save.rooms.filter((_, i) => !isPlace(i)).length)}` : "") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
+  const note = locked ? `${ic("lock")}${d.how}` : d.id === "painting" && owned ? tr("Tap it in the room to change the picture") : d.id === "keepjar" ? tr("Every feather and flower from your walks goes into it, and a few of them make something to wear.") : d.carved ? tr("Carved from frostglass at Runa's bench") + " · " + tr("{0} love it", who[0].toUpperCase() + who.slice(1)) : d.id === "bowl" ? tr("One for each room: the hungry ones there eat from it by themselves") + (hasDecor("bowl") ? ` · ${bowlOf().length}/${BOWL_CAP}` : "") + (save.decor.bowl ? ` · ${tr("rooms with a bowl: {0} of {1}", bowlRooms().length, save.rooms.filter((_, i) => !isPlace(i)).length)}` : "") : d.legend ? tr("Legendary · plays the songs you've unlocked") : tr("{0} love it", who[0].toUpperCase() + who.slice(1));
   const where = owned && !owned.on && d.id !== "bowl" && decorRoom(d.id) >= 0 ? ` · ${tr("in {0}", roomName(decorRoom(d.id)))}` : "";
   const inPlace = isPlace(), label = owned ? (inPlace ? tr("In your chest ✓") : owned.on ? tr("Put away") : tr("Place here")) : `${tr("Buy")} ✦ ${d.cost}`;
   box.innerHTML = `${decorThumb(d)}<span><b>${d.name}</b><small>${note}${where}</small></span><button class="act${owned ? "" : " buy"}" id="shopPickGo" ${locked || (!owned && save.shards < d.cost) || (owned && inPlace) ? "disabled" : ""}>${label}</button>`;
@@ -524,7 +525,7 @@ function chestPantry() {
   const seeds = Object.entries(garden().seeds).filter(([id, n]) => n > 0 && SEEDS[id]);
   const bars = Object.entries(save.bars || {}).filter(([id, n]) => n > 0 && BARS[id]);
   const chip = (img, name, n, gift) => gift ? `<button class="tile owned" data-gift="${gift}" title="${tr("Send as a gift")}">${img}<b>${name}</b><small>×${n}</small></button>` : `<div class="tile owned">${img}<b>${name}</b><small>×${n}</small></div>`;
-  const treasures = bars.length || save.sunlit || (save.charms || []).length;
+  const treasures = bars.length || save.sunlit || (save.charms || []).length || glassNow();
   const empty = (t, way) => `<p class="me-hint shelf-empty"><span>${t}</span>${way ? chestWay(way) : ""}</p>`;
   // the last place on the food and seed shelves: the way to the shop, for more (as for furniture)
   const more = tab => placeOk("shop") ? `<button class="tile shop-more" data-way="shop:${tab}"><img class="em px-thumb" src="${pxIcon("stall")}" alt=""><b>${tr("Buy more")}</b><small>${tr("at the shop")}</small></button>` : "";
@@ -535,7 +536,7 @@ function chestPantry() {
     + `<h3 class="forge-h">${tr("Food")}</h3>` + (pantry.length ? `<div class="tiles">${pantry.map(([id, n]) => chip(`<span class="em">${SNACKS[id].emoji}</span>`, SNACKS[id].name, n, "snack:" + id)).join("")}${more("food")}</div>${empty(tr("Feed it from the snack button in the nest."))}` : empty(tr("The basket is empty. Buy food at the shop, or grow it in the garden."), "shop:food"))
     + `<h3 class="forge-h">${tr("Seeds")}</h3>` + (seeds.length ? `<div class="tiles">${seeds.map(([id, n]) => chip(`<img class="em" src="${plantImage(id, 3)}" alt="">`, seedName(id), n, "seed:" + id)).join("")}${more("seeds")}</div>` : empty(tr("No seeds. The shop has them, and expeditions bring some back."), "shop:seeds"))
     + chestKeepsakes()
-    + `<h3 class="forge-h">${tr("Treasures")}</h3>` + (treasures ? `<div class="tiles">${bars.map(([id, n]) => chip(`<img class="em px-thumb" src="${pxIcon(BARS[id].icon || "bar" + id[0].toUpperCase() + id.slice(1))}" alt="">`, barName(id), n)).join("")}${save.sunlit ? chip(`<span class="em">☀️</span>`, tr("Sunpetal"), save.sunlit) : ""}${giftCharmTiles()}</div>` : empty(tr("Nothing yet: bars for the lantern come from daily tasks and moon eggs, sunpetals from the garden."), "tasks"));
+    + `<h3 class="forge-h">${tr("Treasures")}</h3>` + (treasures ? `<div class="tiles">${bars.map(([id, n]) => chip(`<img class="em px-thumb" src="${pxIcon(BARS[id].icon || "bar" + id[0].toUpperCase() + id.slice(1))}" alt="">`, barName(id), n)).join("")}${save.sunlit ? chip(`<span class="em">☀️</span>`, tr("Sunpetal"), save.sunlit) : ""}${glassNow() ? chip(`<img class="em px-thumb" src="${pxIcon("glass")}" alt="">`, tr("Frostglass"), glassNow()) : ""}${giftCharmTiles()}</div>` : empty(tr("Nothing yet: bars for the lantern come from daily tasks and moon eggs, sunpetals from the garden."), "tasks"));
 }
 /** The chest's keepsakes: every kind of feather and flower found on walks, how many, and how many kinds there are to find. */
 function chestKeepsakes() {
@@ -881,7 +882,7 @@ const TRIP_PLACES = [
     tales: ["{0} saw the Labradorite Vault flash blue and gold, and wouldn't stop talking about it.", "{0} felt the Gloom's cold somewhere deep, turned round and came straight home. Brave."],
     pair: "{0} and {1} walked the whole Labradorite Vault side by side. It's less dark with two." },
   // past the valley: open once both wardstones stand in the snowfields; the only place besides the ice hole a frost geode turns up
-  { id: "snowfields", theme: "frost", name: "The snowfields", how: "ward the snowfields", ok: () => wardDone("frost"), finds: ["frost", "shards"], suits: ["hop", "nap"],
+  { id: "snowfields", theme: "frost", name: "The snowfields", how: "ward the snowfields", ok: () => wardDone("frost"), finds: ["glass", "frost", "shards"], suits: ["hop", "nap"],
     tales: ["{0} sledded on Runa's sled all the way to the pond.", "{0} napped in a drift and woke up warm."],
     pair: "{0} and {1} built one snow figure from both sides." },
 ];
@@ -906,7 +907,8 @@ function tripFind(f, k, got, part = 1) {
   else if (f.startsWith("geode")) {
     const cave = Number(f.slice(5)), pool = CRYSTALS.filter(x => x.rarity === (Math.random() < 0.15 * k / 4 + cave * 0.05 ? "rare" : "common") && x.cave !== "frost");
     if (Math.random() < 0.35 + k * 0.06) { const g = pick(pool), geo = save.geodes[g.id] || { count: 0, shine: -1 }; geo.count++; save.geodes[g.id] = geo; got.push(`💎 ${g.name}`); }
-  } else if (f === "frost") { if (Math.random() < 0.1 + k * 0.05) { giveFrostGeode(); got.push(`❄ ${tr("a frost geode")}`); } }
+  } else if (f === "glass") { const n = Math.max(1, Math.round((k + rand(0, k)) * part)); giveGlass(n); got.push(`❄ ${tr("frostglass ×{0}", n)}`); }
+  else if (f === "frost") { if (Math.random() < 0.1 + k * 0.05) { giveFrostGeode(); got.push(`❄ ${tr("a frost geode")}`); } }
   else if (f === "seeds") { const sd = pick(["glowberry", "moonmint", "cookiecorn"]), n = 1 + Math.floor(k / 4); garden().seeds[sd] = (garden().seeds[sd] || 0) + n; got.push(`${seedName(sd)} ×${n}`); }
   else if (Math.random() < 0.25 + k * 0.08) { giveBar(f); got.push(barName(f)); }
 }
@@ -966,7 +968,7 @@ function openTrips() {
   $("tripsSub").textContent = tr("Send a glowling off to explore. It's away for a while, needs nothing, and comes back by itself with finds and a story. The longer the trip, the more it finds.");
   $("tripsList").innerHTML = (away.length ? `<h3>${tr("Away now")}</h3>` + away.map(who => `<div class="trip-away">${who.map(face).join("")}<span><b>${tripNames(who)}</b><small>${placeName(tripPlace(who[0].trip.place))} · ${tr("back in {0}", fmtLeft(who[0].trip.until - now))}</small></span></div>`).join("") : "")
     + `<h3>${tr("Who goes")}</h3>` + (home.length ? `<div class="trip-who">${home.map(c => `<button class="res${g.who.includes(c.id) ? " on" : ""}" data-who="${c.id}" aria-pressed="${g.who.includes(c.id)}">${face(c)}<small>${c.name}</small>${marks(c)}</button>`).join("")}</div><p class="me-hint trip-adds">${adds}</p>` : `<p class="me-hint">${tr("Everyone's asleep or away. Wake someone up first.")}</p>`)
-    + `<h3>${tr("Where to")}</h3><div class="themes trip-where">${TRIP_PLACES.map(pl => `<button class="theme${pl.id === g.place ? " on" : ""}${pl.ok() ? "" : " locked"}" data-place="${pl.id}" ${pl.ok() ? "" : "disabled"}><img src="${themeThumb(pl.theme)}" alt=""><b>${placeName(pl)}</b><small>${pl.ok() ? pl.finds.map(f => tr(f.startsWith("geode") ? "geodes" : f === "frost" ? "frost geodes" : f === "seeds" ? "seeds" : f === "shards" ? "shards" : "bars")).join(", ") : ic("lock") + tr(pl.how || THEME[pl.theme].how)}</small>${pl.ok() ? `<small>${tr("Suits: {0}", pl.suits.map(b => BEHAVIOR_NAMES[b]).join(", "))}</small>` : ""}</button>`).join("")}</div>`
+    + `<h3>${tr("Where to")}</h3><div class="themes trip-where">${TRIP_PLACES.map(pl => `<button class="theme${pl.id === g.place ? " on" : ""}${pl.ok() ? "" : " locked"}" data-place="${pl.id}" ${pl.ok() ? "" : "disabled"}><img src="${themeThumb(pl.theme)}" alt=""><b>${placeName(pl)}</b><small>${pl.ok() ? pl.finds.map(f => tr(f.startsWith("geode") ? "geodes" : f === "frost" ? "frost geodes" : f === "glass" ? "frostglass" : f === "seeds" ? "seeds" : f === "shards" ? "shards" : "bars")).join(", ") : ic("lock") + tr(pl.how || THEME[pl.theme].how)}</small>${pl.ok() ? `<small>${tr("Suits: {0}", pl.suits.map(b => BEHAVIOR_NAMES[b]).join(", "))}</small>` : ""}</button>`).join("")}</div>`
     + `<h3>${tr("How long")}</h3><div class="seg trip-hrs">${TRIP_HOURS.map(h => `<button data-hrs="${h}" class="${h === g.hrs ? "on" : ""}">${tr("{0} h", h)}</button>`).join("")}</div>`
     + `<button class="cta" id="tripGo" ${going.length ? "" : "disabled"}>${tr("Send off")}</button>`;
   // a tap picks or unpicks; with two picked already, a third takes the place of whoever was picked first
@@ -1595,7 +1597,8 @@ const HEROES = {
     hello: ["Hoo. A colleague, at last. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby takes after both. Every time.", "Stroke the egg to keep it warm. Warmth shortens the wait. Measurably."],
     lines: [["curious", "Each glowling glows at its own pitch. Fascinating."], ["delighted", "I am writing the great book of glowlings. Chapter one is just you."], ["curious", "No two mixed eggs are alike. Checked forty times. Forty-one, now."], ["delighted", "Happy glowlings glow brighter. Measured. That is not nothing."], ["alarmed", "Please don't touch the green jar. It doesn't bite. Probably."]] },
   // Runa the ermine, out past the valley: her hut in the snowfields, the ice hole, the spring and the door of ice (her wishes come later)
-  snow: { who: RUNA, eyes: [[6, 5, 2, 2, "#1a1424"], [10, 5, 2, 2, "#1a1424"]], quirk: "brr", icon: "runa", at: [0.74, 0.58], role: "keeps the snowfields", act: [["folk", "Talk", () => tapHero()]],
+  // (what there is to do changes as you go: fishing at the hole, a frost geode to crack, see snowActs in snow.js)
+  snow: { who: RUNA, eyes: [[6, 5, 2, 2, "#1a1424"], [10, 5, 2, 2, "#1a1424"]], quirk: "brr", icon: "runa", at: [0.74, 0.58], role: "keeps the snowfields", get act() { return snowActs(); },
     welcome: ["glad", "{0}! In you come, out of the wind. The snow likes new paws."],
     hello: [["glad", "Brr! Good morning. The snow's in a fine mood, it let me find the path."], "I'm Runa. I keep the snowfields. Well, mostly the snowfields keep me.", ["proud", "See my sled? Best knots in the snow. I tied them myself, and not one has come undone."]],
     lines: ["Fish? No fish here. The hole gives glass. Cold, honest glass.", ["wistful", "That door's warm. Every winter, warm. Never opened for a hammer. I've asked nicely."], "Rust hates frost, you know. That's why I like it here.",
@@ -1955,12 +1958,14 @@ function renderPlaceBar() {
   const kind = save.rooms[save.room].kind, n = (h.asks || []).length, lit = Math.min(bondOf(kind), n), a = wishTold(kind) ? wishOf(kind) : null;
   $("placeWho").innerHTML = (h.none ? tr(h.role) : `${tr(h.who.name)} · ${tr(h.role)}`)
     + (n ? `<span class="marks" role="img" aria-label="${lit}/${n}">${h.asks.map((_, k) => ic(h.mark || "sparkle", k < lit ? "" : "off")).join("")}</span>` : "")
-    + (a && !a.have() ? `<span class="wish">${tr(a.wish)}</span>` : "");
+    + (a && !a.have() ? `<span class="wish">${tr(a.wish)}</span>` : "")
+    // (in the snowfields: the frostglass you have, for the carving and whatever else it's for)
+    + (kind === "snow" ? snowWho() : "");
   // a helper just tapped: the way to bring it home takes that place a while (one clear button, as for a wish)
   const ht = game.helpTap && game.helpTap.room === save.room && save.creatures.find(c => c.id === game.helpTap.id && c.job);
   const give = ht ? `<button class="act give" id="placeHelperHome">${ic("nest")}<span>${tr("Bring {0} home", ht.name)}</span></button>`
     : a && a.have() ? `<button class="act buy give" id="placeGive">${ic(h.mark || "sparkle")}<span>${tr(a.btn)}</span></button>` : "";
-  $("placeActs").innerHTML = give + h.act.map(([icon, name], k) => `<button class="act buy" data-act="${k}" aria-label="${tr(name)}" title="${tr(name)}">${ic(icon)}<span>${tr(name)}</span></button>`).join("");
+  $("placeActs").innerHTML = give + h.act.map(([icon, name, , cls], k) => `<button class="act buy${cls ? " " + cls : ""}" data-act="${k}" aria-label="${tr(name)}" title="${tr(name)}">${ic(icon)}<span>${tr(name)}</span></button>`).join("");
   $$("#placeActs [data-act]").forEach(b => b.addEventListener("click", () => { sfx.tick(); h.act[Number(b.dataset.act)][2](); }));
   $("placeHelperHome")?.addEventListener("click", () => { if (helperHome(ht.id)) renderPlaceBar(); });
   $("placeGive")?.addEventListener("click", bringWish);
@@ -1968,6 +1973,8 @@ function renderPlaceBar() {
   const ways = ringWays(wherePlace());
   $("placeWays").innerHTML = [["prev", "left"], ["next", "right"]].map(([k, icon]) => ways[k] ? `<button class="place-way ${k}" data-way-to="${ways[k]}" aria-label="${tr(k === "prev" ? "Previous place: {0}" : "Next place: {0}", tr(WORLD.find(w => w.id === ways[k]).name))}">${ic(icon)}<small>${tr(WORLD.find(w => w.id === ways[k]).name)}</small></button>` : "<span></span>").join("");
   $$("#placeWays [data-way-to]").forEach(b => b.addEventListener("click", () => goWay(b.dataset.wayTo)));
+  // (fishing or bathing in the snowfields, the arrows step aside: on a phone the left one stands over the ice hole and the spring)
+  $("placeWays").hidden = bar.hidden || (kind === "snow" && !!(game.ice || game.springTrip));
   placeFit();
 }
 /**

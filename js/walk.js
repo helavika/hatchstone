@@ -38,6 +38,9 @@ const KEEPSAKES = [
   { id: "daisy", kind: "flower", name: "A moon daisy", w: 3, c: ["#b9b3c0", "#efe6ff", "#ffffff", "#eec26a"] },
   { id: "harebell", kind: "flower", name: "A harebell", w: 3, c: ["#1d5276", "#3383a8", "#69b7d6", "#b8e6f5"] },
   { id: "rose", kind: "flower", name: "A wild rose", w: 1, c: ["#8f3460", "#e88bb1", "#ffc4da", "#fff0b5"] },
+  // the snowfields' own (snow: not found on the valley's paths, see keepsakePick): from the ice hole (see ICE_CATCH in snow.js)
+  { id: "ptarmigan", kind: "feather", name: "A ptarmigan feather", w: 2, c: ["#16121c", "#b9b3c0", "#efe6ff", "#ffffff"], snow: true },
+  { id: "snowflake", kind: "ice", name: "A snowflake in ice", w: 2, c: ["#3383a8", "#69b7d6", "#b8e6f5", "#ffffff"], snow: true },
 ];
 const KS = Object.fromEntries(KEEPSAKES.map(k => [k.id, k]));
 
@@ -52,7 +55,7 @@ function walkSaveOf(w) {
   // older saves only counted feathers and flowers: what they found is shared out among the kinds (the common ones first),
   // so their jar fills too; and the count of each is never less than the keepsakes of that kind
   for (const kind of WALK_KEEP) {
-    const all = KEEPSAKES.filter(k => k.kind === kind).sort((a, b) => b.w - a.w), have = all.reduce((n, k) => n + (found[k.id] || 0), 0);
+    const all = KEEPSAKES.filter(k => k.kind === kind && !k.snow).sort((a, b) => b.w - a.w), have = all.reduce((n, k) => n + (found[k.id] || 0), 0);
     for (let i = 0; i < (keep[kind] || 0) - have; i++) found[all[i % all.length].id] = (found[all[i % all.length].id] || 0) + 1;
     if (have > (keep[kind] || 0)) keep[kind] = have;
   }
@@ -101,7 +104,7 @@ function keepWearPlan(id, jar = {}) {
  */
 function keepsakePick(kind, found = {}, rnd = Math.random, wish = null) {
   if (wish && KS[wish] && KS[wish].kind === kind) return wish;
-  const all = KEEPSAKES.filter(k => k.kind === kind), fresh = all.filter(k => !found[k.id] && k.w > 1);
+  const all = KEEPSAKES.filter(k => k.kind === kind && !k.snow), fresh = all.filter(k => !found[k.id] && k.w > 1);
   const pool = fresh.length && rnd() < 0.5 ? fresh : all;
   let r = rnd() * pool.reduce((n, k) => n + k.w, 0);
   for (const k of pool) if ((r -= k.w) < 0) return k.id;
@@ -113,7 +116,7 @@ function keepsakePick(kind, found = {}, rnd = Math.random, wish = null) {
  */
 function keepjarView(found = {}, max = 8) {
   const have = KEEPSAKES.filter(k => found[k.id] > 0), left = Object.fromEntries(have.map(k => [k.id, found[k.id] - 1]));
-  const stems = have.map(k => k.id);
+  const stems = have.map(k => k.id).slice(0, max);
   while (stems.length < max) {
     const more = have.filter(k => left[k.id] > 0).sort((a, b) => left[b.id] - left[a.id])[0];
     if (!more) break;

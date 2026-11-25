@@ -32,7 +32,7 @@ function nest(creatures, roll = () => 0) {
     THEME: { amethyst: { name: 'Amethyst Hollow' }, glowcap: { name: 'Glowcap Wood' }, celestite: { name: 'Celestite Grotto' }, malachite: { name: 'Malachite Deep' }, labradorite: { name: 'Labradorite Vault' }, frost: { name: 'Frost Hollow' } },
     // a small shelf of crystals: two common and one rare from each cave
     CRYSTALS: [0, 1, 2, 3].flatMap(cave => ['common', 'common', 'rare'].map((rarity, i) => ({ id: `c${cave}${i}`, name: `Stone ${cave}${i}`, rarity, cave }))),
-    seeds: {}, seedName: s => s, barName: b => b + ' bar', giveBar: b => { bars.push(b); }, giveFrostGeode: () => { page.save.frostGeodes = (page.save.frostGeodes || 0) + 1; }, wardDone: () => true,
+    seeds: {}, seedName: s => s, barName: b => b + ' bar', giveBar: b => { bars.push(b); }, giveFrostGeode: () => { page.save.frostGeodes = (page.save.frostGeodes || 0) + 1; }, giveGlass: n => { page.save.frostglass = (page.save.frostglass || 0) + n; }, wardDone: () => true,
     spark: () => null, sparkNote: s => '✨ ' + s, addXP: (c, n) => { xp.push([c.id, n]); },
     tr: fill, unlocked: () => true, specOf: c => c.mix ? { beh: c.mix.beh, voice: 1 } : { voice: 1 },
     settleHome: () => {}, persist: () => {}, updateTopbar: () => {}, syncActors: () => {}, renderNest: () => {}, openTrips: () => {}, helperAt: () => false,
