@@ -264,6 +264,8 @@ body.scene-nest #nestName { pointer-events: auto; }
 #roomLabel b { display: block; font-size: 18px; font-weight: 400; line-height: 1.15; letter-spacing: .5px; color: var(--gold, #ffe9a8); }
 body.scene-nest #roomLabel { opacity: 1; }
 body.scene-nest.speaking #roomLabel { opacity: 0; }
+/* in a place, a banner (a toast, an award) takes the top: the plaque steps aside while it's up, so the two never overlap */
+body.scene-nest.at-place.banner #roomLabel { opacity: 0; }
 body.arranging #roomLabel, #roomLabel[hidden] { display: none; }
 .rooms { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 4px; }
 .rooms button { flex: 1 1 30%; }
@@ -1307,6 +1309,10 @@ body.bigtext .card, body.bigtext #talk .talk-box, body.bigtext #hint, body.bigte
 #placeActs .act.give { flex: 2 1 0; min-width: 132px; white-space: normal; line-height: 1.05; text-align: left; }
 #placeActs.tight .act:not(.give) { flex: none; min-width: var(--tap); width: var(--tap); padding: 0 !important; }
 #placeActs.tight .act:not(.give) span { display: none; }
+/* (narrow, a button with a short word keeps it, tiny, under its icon, as the Book's tabs do; the row shares its width out) */
+#placeActs .act .short { display: none; }
+#placeActs.tight .act.has-short:not(.give) { flex: 1 1 0; width: auto; min-width: var(--tap); min-height: var(--tap); flex-direction: column; gap: 1px; padding: 3px 2px 2px !important; }
+#placeActs.tight .act.has-short .short { display: block; font-size: 11px; line-height: 1; white-space: nowrap; overflow: hidden; max-width: 100%; letter-spacing: 0; }
 body.compact #placeBar { bottom: calc(var(--bottom) + var(--tabbar) + var(--s4)); }
 /* the keeper on the plaque, under the place's name: who, what they do, the marks of their wishes, and the wish itself once they've said it */
 #placeWho { display: block; font-size: 14px; line-height: 1.1; color: var(--soft); text-align: center; }
@@ -1647,3 +1653,6 @@ body.compact #found .plate #foundImg { height: 78px; padding: var(--s1) var(--s3
   #lib .seg button { font-size: 13px; }
   #lib .seg button .ic { width: 24px; height: 24px; }
 }
+/* the Winter hall's mural, behind the ice door in the snowfields (see muralArt in snow.js) */
+.hall-mural { display: block; width: 100%; height: auto; image-rendering: pixelated; border: 3px solid #160c26; border-radius: 4px; margin: 4px 0 8px; }
+#snowList q.folk-said { display: block; margin: 6px 0 2px; }

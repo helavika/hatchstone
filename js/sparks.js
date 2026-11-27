@@ -20,6 +20,9 @@ const SPARKS = [
     notes: [[0, 2], [7, 2], [12, 3]] },
   { id: "brave", kind: "song", name: "Song for the dark", line: "A brave little tune to hum when the tunnel goes dark. It helps. It really does.", root: 440, beat: 0.24, tint: "#d2bfff",
     notes: [[0, 1], [0, 1], [4, 1], [7, 2], [4, 1], [5, 1], [7, 1], [12, 2]] },
+  // heard, not brought home: through the ice door in the snowfields, once six glowlings live there (see hearLullaby in snow.js)
+  { id: "icelull", kind: "song", name: "Lullaby under the ice", line: "A slow lullaby from behind the ice door. Mossa knows it. Someone sang it on the Heartlight's last night.", root: 294, beat: 0.5, tint: "#b8e6f5", heard: true,
+    notes: [[7, 2], [5, 1], [4, 1], [2, 2], [4, 1], [0, 3], [-1, 1], [0, 3]] },
   { id: "moss", kind: "colour", name: "Dawn moss", line: "The green of moss the moment the first light touches it.", hex: "#57ad6a" },
   { id: "coal", kind: "colour", name: "Coal that stays lit", line: "The orange deep inside a coal that refuses to go out.", hex: "#c98f3a" },
   { id: "wave", kind: "colour", name: "Wave blue", line: "The blue a wave shows just before it breaks into foam.", hex: "#3383a8" },
@@ -50,7 +53,7 @@ const SCARF_RED = "#e0634f";
  * A wander in the grotto (being out while home was full, or sent off on purpose): now and then, after an hour or more.
  */
 function sparkRoll(hrs, got = {}, { trip = false, rnd = Math.random } = {}) {
-  const pool = SPARKS.filter(s => !got[s.id] && (s.kind !== "sight" || (trip && hrs >= 4)));
+  const pool = SPARKS.filter(s => !got[s.id] && !s.heard && (s.kind !== "sight" || (trip && hrs >= 4)));
   if (!pool.length || !(hrs > 0)) return null;
   const chance = trip ? (Object.keys(got).length ? Math.min(0.85, 0.18 + hrs * 0.08) : 1) : hrs < 1 ? 0 : Math.min(0.3, hrs * 0.05);
   if (rnd() >= chance) return null;
@@ -252,10 +255,10 @@ function openSpark(id, fresh = false) {
   $("spName").textContent = got ? tr(s.name) : "???";
   $("spRarity").textContent = tr("Spark of inspiration · {0}", kindName(s));
   $("spRarity").className = "rarity r-spark";
-  $("spLore").textContent = got ? tr(s.line) : s.kind === "sight" ? tr("Still out there, past the valley. Sights only come home from long expeditions, 4 hours or more.") : tr("Still out there. Glowlings bring sparks home from exploring and from expeditions.");
+  $("spLore").textContent = got ? tr(s.line) : s.heard ? tr("Not a song anyone brings home. Listen at the ice door in the snowfields, once enough glowlings live there.") : s.kind === "sight" ? tr("Still out there, past the valley. Sights only come home from long expeditions, 4 hours or more.") : tr("Still out there. Glowlings bring sparks home from exploring and from expeditions.");
   let facts = "";
   if (got) {
-    facts = tr("From {0}'s travels · {1}", got.by || "?", new Date(got.t).toLocaleDateString(LOCALE));
+    facts = s.heard ? tr("Heard through the ice door · {0}", new Date(got.t).toLocaleDateString(LOCALE)) : tr("From {0}'s travels · {1}", got.by || "?", new Date(got.t).toLocaleDateString(LOCALE));
     if (s.kind === "song") facts += `<div class="spark-acts"><button class="act buy" data-spark-play>${ic("sound")}${tr("Hum it again")}</button></div>`;
     if (s.kind === "colour") {
       const on = save.sparks.dye === id;

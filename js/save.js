@@ -94,6 +94,30 @@ function helpersSaveOf(creatures) {
 }
 
 /**
+ * The snowfields' settlement (see snow.js): save.settle = { huts, day } (the snow huts Runa built, 0 to 3, and the day her
+ * sled last came), and on each settler cr.settle = { since, day, geo } (when it came, its first day there, the frost geodes it
+ * has sent). A settler is out (cr.out, cr.roam) and needs no bed. More settlers than the huts have room for, or one who is a
+ * helper as well, comes home; a save from before has neither, and keeps neither.
+ */
+const SETTLE_HUTS = 3;
+function settleSaveOf(d) {
+  const int = (v, lo, hi, or) => Number.isFinite(v) ? Math.min(hi, Math.max(lo, Math.floor(v))) : or;
+  const s = d.settle && typeof d.settle === "object" && !Array.isArray(d.settle) ? d.settle : null;
+  if (s) d.settle = { huts: int(s.huts, 0, SETTLE_HUTS, 0), day: int(s.day, 0, 1e7, 0) }; else delete d.settle;
+  let room = d.settle ? 3 + 3 * d.settle.huts : 0;
+  for (const cr of d.creatures || []) {
+    if (!cr || typeof cr !== "object" || cr.settle == null) { if (cr && typeof cr === "object") delete cr.settle; continue; }
+    const v = cr.settle;
+    if (v && typeof v === "object" && !cr.job && room > 0) {
+      room--;
+      cr.settle = { since: Number.isFinite(v.since) ? v.since : Date.now(), day: int(v.day, 0, 1e7, d.settle.day), geo: int(v.geo, 0, 1e4, 0) };
+      cr.out = true; cr.roam = true; cr.trip = null; cr.sleeping = false;
+    } else { delete cr.settle; if (!cr.job) { cr.out = false; cr.roam = false; } }
+  }
+  return d.settle || null;
+}
+
+/**
  * Beds (#310): each home room has a few bed spots, and its beds' places are how many live there (the shop builds and
  * upgrades them, see BED_TIERS in nest.js). A room keeps its beds in save.rooms[i].beds, one tier per spot. A room from
  * before beds gets, once, just enough to sleep everyone who lives there now, in whole beds (big ones first, the last spot
@@ -218,7 +242,9 @@ function migrate(d) {
   if (hung) d.hung = hung; else delete d.hung;
   // grown glowlings out helping in the valley's places (see helpersSaveOf)
   helpersSaveOf(d.creatures);
-  // beds: who fits at home (see bedsSaveOf), after the helpers, who are out and need none
+  // grown glowlings living in the snowfields, and Runa's huts and sled (see settleSaveOf)
+  settleSaveOf(d);
+  // beds: who fits at home (see bedsSaveOf), after the helpers and the settlers, who are out and need none
   bedsSaveOf(d);
   // a feeding bowl in every room, each with its own food (see bowlSaveOf)
   bowlSaveOf(d);
@@ -325,9 +351,9 @@ function applyTime(cr, now = Date.now()) {
   const min = clamp((now - (cr.last || now)) / 60000, 0, AWAY_MIN);
   cr.last = now;
   if (min <= 0) return;
-  // out exploring: having a lovely time, needing nothing; helping in the valley, it grows a little all the while
+  // out exploring: having a lovely time, needing nothing; helping in the valley (or living in the snowfields), it grows a little all the while
   if (cr.out) {
-    if (cr.job) { cr.jobT = (cr.jobT || 0) + min; const n = Math.floor(cr.jobT / HELP_GROW_MIN); if (n) { cr.jobT -= n * HELP_GROW_MIN; addXP(cr, n); } }
+    if (cr.job || cr.settle) { cr.jobT = (cr.jobT || 0) + min; const n = Math.floor(cr.jobT / HELP_GROW_MIN); if (n) { cr.jobT -= n * HELP_GROW_MIN; addXP(cr, n); } }
     return;
   }
   const trait = roomTrait(cr), pace = looked(cr) ? 1 : IDLE_PACE, kept = pace * (tended(cr) ? CARE_SLOW : 1);

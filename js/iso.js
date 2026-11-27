@@ -2774,14 +2774,38 @@ const ISO_ART = {
     for (let k = 0; k < 16; k++) { const an = k / 16 * TAU, sx = x + Math.cos(an) * rx, sy = y + Math.sin(an) * ry, sr = 1.8 + pxHash(k, 4) * 1.4; T.ball(sx, sy - sr * 0.4, sr, IC.s2, IC.s3, IC.s4, sr * 0.75); }
     for (const [an, col] of [[2.4, IC.p0], [0.5, SNOW[0]], [3.6, SNOW[0]], [5.6, IC.p0]]) { const fx = x + Math.cos(an) * (rx + 1), fy = y + Math.sin(an) * (ry + 1); T.px(fx, fy - 2, col); T.px(fx - 1, fy - 1, col); T.px(fx + 1, fy - 1, col); T.px(fx, fy - 1, IC.y1); T.px(fx, fy, IC.g2); }
   },
-  icedoor(t, T, ax, ay) {
+  icedoor(t, T, ax, ay, o = {}) {
     // the door of ice at the back of the clearing, half sunk in a drift: a tall arch of clear blue ice in a frame of older,
-    // whiter ice, frost ferns across it, faintly lit blue from somewhere inside; the drift heaped up over its foot
-    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), w = Math.round(t * 0.34), h = Math.round(t * 1.55);
-    T.glow(x, y - h * 0.5, t * 1.3, IC.b0, 0.4);
+    // whiter ice, frost ferns across it, faintly lit blue from somewhere inside; the drift heaped up over its foot. A crust of
+    // hoarfrost covers most of it at first, and thins as the settlement grows (o.frost: 0 to 3), its light a little stronger
+    // each time. Open (o.open): the slab of ice stands swung back against the drift, the hall behind it lit warm and gold, and
+    // on the iron hinges old rust-red scratches climb the frame and stop dead where the frost begins
+    const U = t / 2, K = isoKit(T, ax, ay), [x, y] = K.P(0.5 * U, 0.5 * U, 0), w = Math.round(t * 0.34), h = Math.round(t * 1.55), fr = o.frost || 0;
+    T.glow(x, y - h * 0.5, t * (o.open ? 1.6 : 1.3), o.open ? IC.y0 : IC.b0, o.open ? 0.55 : 0.3 + fr * 0.08);
     T.poly([[x - w - 2, y], [x + w + 2, y], [x + w + 2, y - h + w], [x, y - h - 3], [x - w - 2, y - h + w]], (xx) => xx < x - w * 0.4 ? ICE[0] : ICE[1]);
-    T.poly([[x - w, y], [x + w, y], [x + w, y - h + w + 1], [x, y - h], [x - w, y - h + w + 1]], (xx, yy) => (Math.abs((xx - x) * 2 + (yy % 7)) % 9 < 1 ? ICE[0] : yy < y - h * 0.6 ? ICE[2] : pxHex("#8fd8ef")));
-    for (let k = 0; k < 5; k++) T.px(x - w + 2 + k * 2, y - h * 0.55 - (k % 2) * 2, IC.white);
+    const arch = [[x - w, y], [x + w, y], [x + w, y - h + w + 1], [x, y - h], [x - w, y - h + w + 1]];
+    if (o.open) {
+      // the way in: deep blue at the edges, warming to gold where the hall's light comes up the steps
+      T.poly(arch, (xx, yy) => { const d = Math.abs(xx - x) / w + (y - yy) / h * 0.6; return d < 0.45 ? IC.y0 : d < 0.75 ? IC.y1 : d < 1 ? pxHex("#3d2866") : pxHex("#160c26"); });
+      for (let k = 0; k < 3; k++) T.line(x - w + 2 + k, y - 1 - k * 2, x + w - 2 - k, y - 1 - k * 2, k ? IC.w1 : IC.w2);
+      // the slab, swung back to the left against the drift
+      T.poly([[x - w - 2, y + 1], [x - w * 2 - 3, y + 2], [x - w * 2 - 3, y - h + w + 3], [x - w - 2, y - h + w]], (xx, yy) => (yy % 5 === 0 ? ICE[0] : ICE[1]));
+      // the hinges: two straps of dark iron on the left of the frame; the rust-red scratches below the frost line, and the frost over them
+      const frost = y - Math.round(h * 0.5);
+      for (const hy of [y - Math.round(h * 0.25), y - Math.round(h * 0.68)]) { T.line(x - w - 3, hy, x - w + 1, hy, IC.m3); T.line(x - w - 3, hy + 1, x - w + 1, hy + 1, IC.m4); T.px(x - w - 1, hy, IC.m1); }
+      for (let k = 0; k < 4; k++) { const sx = x - w - 3 + (k % 2), top = frost + 1 + Math.round(pxHash(k, 31) * 3); T.line(sx, y - 2 - k * 2, sx + 1, top, k % 2 ? IC.r2 : IC.r3); }
+      for (let xx = x - w - 4; xx <= x - w + 1; xx++) { T.px(xx, frost, IC.white); T.px(xx, frost - 1, ICE[0]); if (pxHash(xx, 9) > 0.5) T.px(xx, frost + 1, ICE[0]); }
+    } else {
+      T.poly(arch, (xx, yy) => (Math.abs((xx - x) * 2 + (yy % 7)) % 9 < 1 ? ICE[0] : yy < y - h * 0.6 ? ICE[2] : pxHex("#8fd8ef")));
+      for (let k = 0; k < 5; k++) T.px(x - w + 2 + k * 2, y - h * 0.55 - (k % 2) * 2, IC.white);
+      // the hoarfrost: thick at first, then patchy, then only in the corners and along the edges
+      const keep = [0.3, 0.58, 0.8, 0.94][Math.min(3, fr)];
+      for (let yy = Math.round(y - h + 1); yy < y; yy++) for (let xx = x - w + 1; xx < x + w; xx++) {
+        const edge = Math.min(xx - (x - w), x + w - xx);
+        if (yy < y - h + Math.abs(xx - x) + 1) continue;
+        if (pxHash(xx * 3, yy * 5) > keep - (edge < 2 ? 0.25 : 0)) T.px(xx, yy, pxHash(xx, yy) > 0.6 ? SNOW[0] : ICE[0]);
+      }
+    }
     T.ball(x - 1, y + 1, w * 2.4, SNOW[0], SNOW[1], SNOW[2], w * 1.2);
   },
   firs(t, T, ax, ay) { snowFir(T, ...isoKit(T, ax, ay).P(t * 0.28, t * 0.28, 0), t * 2.2); snowFir(T, ...isoKit(T, ax, ay).P(t * 0.38, t * 0.1, 0), t * 1.3); },
