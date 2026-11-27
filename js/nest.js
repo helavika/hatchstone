@@ -42,7 +42,7 @@ function renderNest(full) {
   $("sleepBtn").classList.toggle("want", wants === "sleepy");
   renderResidentsBtn(cr);
   if (full) {
-    $("switcher").innerHTML = save.creatures.filter(c => !c.job).map(c =>
+    $("switcher").innerHTML = save.creatures.filter(c => !c.job && !c.settle).map(c =>
       `<button data-id="${c.id}" class="${c.id === cr.id ? "on" : ""}${c.out ? " out" : ""}" title="${c.out ? tr("{0} is out exploring: tap to call it home", c.name) : c.name}"><img class="px2" style="width:40px;height:40px" src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="${c.name}"></button>`).join("");
     $$("#switcher button").forEach(b => b.addEventListener("click", () => selectCreature(Number(b.dataset.id))));
     requestAnimationFrame(switchArrows);
@@ -431,7 +431,7 @@ const ripePlots = () => (save.garden?.slots || []).filter(q => q && SEEDS[q.seed
 const WORLD = [
   { id: "grotto", name: "Grotto", icon: "grotto", at: [142, 66], note: () => !moonDone() ? tr("today's moon egg 🌙") : wickHere() ? tr("Wick is visiting today") : tr("{0} of {1} stars", totalStars(), LEVELS * 3), call: () => !moonDone() || wickHere(), go: () => arriveAt("grotto") },
   { id: "forge", name: "The Forge", icon: "hammer", at: [138, 160], ok: () => unlocked(4) || Object.keys(save.forge || {}).length > 0, how: () => tr("clear level {0}", 3), note: () => canForge() ? tr("upgrade ready") : tr("hammers and the workbench"), call: canForge, go: () => arriveAt("forge") },
-  { id: "nest", name: "Nest", icon: "nest", at: [246, 64], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip && !c.job).length), go: () => toRoomKind("nest") },
+  { id: "nest", name: "Nest", icon: "nest", at: [246, 64], note: () => tr("{0} glowlings at home", save.creatures.filter(c => !c.trip && !c.job && !c.settle).length), go: () => toRoomKind("nest") },
   { id: "lab", name: "Laboratory", icon: "flask", at: [266, 172], ok: () => labOk(), how: () => tr("grow two glowlings to level {0}", PAIR_LEVEL), note: () => !save.incubator ? tr("the incubator: a mixed egg") : Date.now() >= save.incubator.due ? tr("the egg is ready! ✦") : tr("hatches in {0}", fmtLeft(save.incubator.due - Date.now())), call: () => !!save.incubator && Date.now() >= save.incubator.due, go: () => arriveAt("lab") },
   { id: "shop", name: "Shop", icon: "stall", at: [250, 256], ok: () => unlocked(2), how: () => tr("clear level {0}", 1), note: () => tr("food, furniture, seeds"), go: () => arriveAt("shop") },
   { id: "garden", name: "Garden", icon: "sun", at: [172, 238], ok: () => unlocked(3) || !!save.garden, how: () => tr("clear level {0}", 2), note: () => ripePlots() ? tr("ripe: {0} 🌱", ripePlots()) : tr("grows what no shop sells"), call: () => ripePlots() > 0, go: () => arriveAt("yard") },
@@ -1364,12 +1364,18 @@ function openGlowling(cr) {
   $("glowInfo").textContent = `${sp.name} · ${tr("Level {0}", cr.level)} · ${STAGES[stageOf(cr.level)]} · ${tr(mood)}`;
   const LOC = LANG === "uk" ? "uk-UA" : "en-US", day = t => new Date(t).toLocaleDateString(LOC, { day: "numeric", month: "short" });
   // out helping: where, and the way home; grown and at home, the way out (on one of its days, with its wish to go, gently)
-  const job = cr.job && HELP_PLACES[cr.job.place], free = job && save.rooms.some((_, i) => !isPlace(i) && residents(i).length < homeCap(i));
-  const out = job ? `<p class="me-hint">${tr("{0} is out helping in the valley: {1}.", cr.name, tr(job.job).charAt(0).toLowerCase() + tr(job.job).slice(1))}</p>`
+  const job = cr.job && HELP_PLACES[cr.job.place], free = (job || cr.settle) && save.rooms.some((_, i) => !isPlace(i) && residents(i).length < homeCap(i));
+  // living in the snowfields: the way home; grown and content at home, the way out there too (once the snowfields are open)
+  const snowWhy = !cr.settle && placeOk("snow") && stageOf(cr.level || 1) >= HELP_STAGE && !cr.out && settleWhyNot(cr);
+  const snowy = cr.settle ? `<p class="me-hint">${tr("{0} lives in the snowfields now, near Runa. It sends frostglass home on her sled every day.", cr.name)}</p>`
+      + `<button class="act" id="glowSnowHome" ${free ? "" : "disabled"}>${ic("nest")}${tr("Bring it home")}</button>${free ? "" : `<p class="me-hint">${tr("No bed free at home just now.")}</p>`}`
+    : placeOk("snow") && (canSettle(cr) || snowWhy === "full") ? `<button class="act" id="glowSnow" ${snowWhy ? "disabled" : ""}>${ic("glass")}${tr("Move to the snowfields")}</button>`
+      + (snowWhy === "full" ? `<p class="me-hint">${tr("The snowfields are full: Runa can build another snow hut.")}</p>` : `<p class="me-hint">${tr("It would live near Runa, needing nothing, and its bed here would be free.")}</p>`) : "";
+  const out = cr.settle ? "" : job ? `<p class="me-hint">${tr("{0} is out helping in the valley: {1}.", cr.name, tr(job.job).charAt(0).toLowerCase() + tr(job.job).slice(1))}</p>`
       + `<button class="act" id="glowHome" ${free ? "" : "disabled"}>${ic("nest")}${tr("Bring it home")}</button>${free ? "" : `<p class="me-hint">${tr("No bed free at home just now.")}</p>`}`
     : wishing(cr) ? `<p class="me-hint">${tr("{0} keeps looking toward the valley. It would like to see the world outside the nest, and to be of use.", cr.name)}</p><button class="act" id="glowOut">${ic("compass")}${tr("Let it go out into the valley")}</button>`
     : canHelp(cr) && helpOpen().length ? `<button class="act" id="glowOut">${ic("compass")}${tr("Let it go out into the valley")}</button>` : "";
-  $("glowMore").innerHTML = `<p class="habit">${habitLine(cr)}</p>${out}<h3>${tr("Best friend")}</h3>`
+  $("glowMore").innerHTML = `<p class="habit">${habitLine(cr)}</p>${out}${snowy}<h3>${tr("Best friend")}</h3>`
     + (bf ? `<div class="trip-away"><img src="${creatureImage(specOf(bf.c), { art: 20, level: bf.c.level, shiny: bf.c.shiny, acc: bf.c.acc })}" alt=""><span><b>${bf.c.name}</b><small>${tr("met {0} times: hugs, tag, duets and naps", bf.n)}</small></span></div>`
       : `<p class="me-hint">${tr("No best friend yet. Glowlings who live in the same room meet and make friends by themselves.")}</p>`)
     + `<h3>${tr("Diary")}</h3>`
@@ -1377,6 +1383,8 @@ function openGlowling(cr) {
     + `<ul class="diary">${diaryFold(cr.mem || []).reverse().map(m => `<li><b>${day(m.t)}</b><span>${diaryLine(m)}</span></li>`).join("")}${(cr.mem || []).some(m => /^Hatched/.test(m.k)) ? "" : `<li><b>${day(cr.born)}</b><span>${tr("Hatched and moved in ✦")}</span></li>`}</ul>`;
   $("glowOut")?.addEventListener("click", () => openHelp(cr.id));
   $("glowHome")?.addEventListener("click", () => { if (helperHome(cr.id)) { renderPlaceBar(); if (game.scene === "nest" && !isPlace()) renderNest(true); openGlowling(cr); } });
+  $("glowSnow")?.addEventListener("click", () => moveToSnow(cr));
+  $("glowSnowHome")?.addEventListener("click", () => { if (snowHome(cr.id)) openGlowling(cr); });
   show("glowCard", true);
 }
 
@@ -1596,13 +1604,33 @@ const HEROES = {
     welcome: ["delighted", "Hoo! {0}, an assistant. Hold the notebook, please. Not the green jar."],
     hello: ["Hoo. A colleague, at last. I study glowlings: how they glow, and why.", "Two happy glowlings can share an egg in my incubator. The baby takes after both. Every time.", "Stroke the egg to keep it warm. Warmth shortens the wait. Measurably."],
     lines: [["curious", "Each glowling glows at its own pitch. Fascinating."], ["delighted", "I am writing the great book of glowlings. Chapter one is just you."], ["curious", "No two mixed eggs are alike. Checked forty times. Forty-one, now."], ["delighted", "Happy glowlings glow brighter. Measured. That is not nothing."], ["alarmed", "Please don't touch the green jar. It doesn't bite. Probably."]] },
-  // Runa the ermine, out past the valley: her hut in the snowfields, the ice hole, the spring and the door of ice (her wishes come later)
+  // Runa the ermine, out past the valley: her hut in the snowfields, the ice hole, the spring and the door of ice
   // (what there is to do changes as you go: fishing at the hole, a frost geode to crack, see snowActs in snow.js)
   snow: { who: RUNA, eyes: [[6, 5, 2, 2, "#1a1424"], [10, 5, 2, 2, "#1a1424"]], quirk: "brr", icon: "runa", at: [0.74, 0.58], role: "keeps the snowfields", get act() { return snowActs(); },
     welcome: ["glad", "{0}! In you come, out of the wind. The snow likes new paws."],
     hello: [["glad", "Brr! Good morning. The snow's in a fine mood, it let me find the path."], "I'm Runa. I keep the snowfields. Well, mostly the snowfields keep me.", ["proud", "See my sled? Best knots in the snow. I tied them myself, and not one has come undone."]],
     lines: ["Fish? No fish here. The hole gives glass. Cold, honest glass.", ["wistful", "That door's warm. Every winter, warm. Never opened for a hammer. I've asked nicely."], "Rust hates frost, you know. That's why I like it here.",
-      ["glad", "The spring stays warm all winter. Sit by it with me sometime. It hums."], ["proud", "The wind tried to take my roof last night. I told it no. It listened."], "The snow's sulking today. Give it an hour, it'll come round."] },
+      ["glad", "The spring stays warm all winter. Sit by it with me sometime. It hums."], ["proud", "The wind tried to take my roof last night. I told it no. It listened."], "The snow's sulking today. Give it an hour, it'll come round."],
+    // her wishes, one at a time and in this order; the thanks for the last is the ice door opening (see openIceDoor in snow.js)
+    // and a snow hut, built free (a gift whose second part returns words names what it really gave, see giveWish)
+    mark: "glass", thanks: "From Runa: {0}", calm: "Tea, a rose, a bit of summer. I'm the richest ermine in the snow.",
+    asks: [
+      { ask: "Moon mint tea, from your bed? The cold gets in my whiskers.", wish: "Runa would like a cup of moon mint tea.", btn: "Give Runa a cup of tea",
+        have: () => ((save.pantry || {}).tea || 0) > 0, give: () => { save.pantry = { ...save.pantry, tea: save.pantry.tea - 1 }; },
+        story: "Ahh. Warm right to the tail tip. I used to melt snow and call it tea. The snow was very polite about it.",
+        gift: ["Frostglass ×10", () => { giveGlass(10); }] },
+      { ask: "A wild rose from a walk. Nothing pink grows here. Not once.", wish: "Runa would like a wild rose from a walk.", btn: "Give Runa the wild rose", ks: "rose",
+        have: () => jarOf(save.walks).rose > 0, give: () => { save.walks.used.rose = (save.walks.used.rose || 0) + 1; },
+        story: "Pink! In my paw! It goes on the window sill. The snow may look at it, but it mustn't touch.",
+        // (an ice lantern from her bench; one you carved already gets its frostglass back instead)
+        gift: ["An ice lantern, carved free", () => { if (!save.decor.icelantern) { save.decor.icelantern = { on: false, at: Date.now() }; return null; } giveGlass(DECO.icelantern.glass); return tr("frostglass ×{0}", DECO.icelantern.glass); }] },
+      { ask: "A sunstone. A spare one. I'd like to hold summer once.", wish: "Runa would like a spare sunstone.", btn: "Give Runa the sunstone",
+        have: () => ((save.geodes.sunstone || {}).count || 0) > 1, give: () => { save.geodes.sunstone.count--; },
+        story: "Oh. It's warm. So this is summer. Hold still… do you hear the door? It's humming.",
+        // (the next snow hut, built free; with all three standing, what the last one cost, in frostglass)
+        gift: ["The ice door, open, and a snow hut built free", () => { if (buildHut(true)) return null; giveGlass(HUT_GLASS[HUT_GLASS.length - 1]); return tr("The ice door, open, and frostglass ×{0}", HUT_GLASS[HUT_GLASS.length - 1]); }],
+        then: () => openIceDoor() },
+    ] },
 };
 // ---------- errands: each keeper keeps one wish at a time, with no hurry and no list; bringing it fills a mark on their bond ----------
 
@@ -1631,8 +1659,8 @@ function giveWish(kind) {
   if (!a || !a.have()) return null;
   a.give();
   save.bonds = { ...save.bonds, [kind]: bondOf(kind) + 1 };
-  if (a.gift) a.gift[1]();
-  return a;
+  const said = a.gift && a.gift[1]();
+  return typeof said === "string" ? { ...a, gift: [said, a.gift[1]] } : a;
 }
 /** The button in the keeper's bar: they thank you with the next line of their story (it stays up a good while, and in the Book for good); what they give is named once the line has been read, so the two never cover each other. */
 function bringWish() {
@@ -1642,6 +1670,8 @@ function bringWish() {
   sfx.shimmer(); buzz([12, 30, 12]);
   game.hero = { t: game.time, line: tr(a.story), room: save.room, hold: STORY_HOLD };
   if (a.gift) setTimeout(() => toast(tr(h.thanks, tr(a.gift[0]))), STORY_HOLD);
+  // (a wish that sets something going: Runa's last opens the ice door, while she's still holding summer)
+  if (a.then) setTimeout(a.then, STORY_HOLD / 2);
   persist(); renderPlaceBar();
 }
 const heroHere = () => HEROES[save.rooms[save.room]?.kind] || null;
@@ -2014,6 +2044,9 @@ function arriveAt(kind) {
   }
   // the first time in the snowfields: the tracks lead to the hut, and Runa comes out to meet you (see TALKS.snowWelcome)
   else if (kind === "snow" && !talkSeen("snowWelcome")) setTimeout(() => game.scene === "nest" && save.rooms[save.room]?.kind === "snow" && talk("snowWelcome"), 900);
+  // back in the snowfields: six living there, and a lullaby through the ice; or, the door still shut, Ember tries her hammer on it, once
+  else if (kind === "snow" && settlers().length >= LULLABY_AT && !save.sparks.got.icelull) setTimeout(() => inSnow() && hearLullaby(), 1200);
+  else if (kind === "snow" && !doorOpen() && !talkSeen("emberDoor")) setTimeout(() => inSnow() && talk("emberDoor"), 900);
   else if (h && (!(save.heroTalk || {})[kind] || (h.who === PIP && sparkNews()))) setTimeout(() => tapHero(true), 500);
   // (her first time with a glowling at home: Tansy shows where the beds are, see TALKS.firstBed)
   if (kind === "shop" && save.creatures.length && !talkSeen("firstBed")) setTimeout(() => talk("firstBed"), 1600);
@@ -2385,7 +2418,7 @@ function settleHome() {
     }
   }
   // explorers come back to their own room if it has space, or to any room that has (not the ones you sent out on purpose)
-  const away = save.creatures.filter(c => c.out && !c.roam && !c.trip && !c.job).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
+  const away = save.creatures.filter(c => c.out && !c.roam && !c.trip && !c.job && !c.settle).sort((p, q) => (p.outAt || 0) - (q.outAt || 0));
   for (const c of away) {
     const r = [roomOf(c), ...homes].find(i => !isPlace(i) && residents(i).length < homeCap(i));
     if (r === undefined) break;
@@ -2471,9 +2504,10 @@ function moveGlowling(id, r) {
   const c = save.creatures.find(c => c.id === id);
   if (!c || (!c.out && roomOf(c) === r)) return false;
   if (residents(r).length >= homeCap(r)) { toast(tr("No bed free in the {0}: move someone out, or build a bed at the shop", roomName(r).toLowerCase())); sfx.tick(); return false; }
-  const found = c.out && !c.trip && !c.job ? exploreFind(c) : null;
+  const found = c.out && !c.trip && !c.job && !c.settle ? exploreFind(c) : null;
   c.trip = null;
   if (c.job) { delete c.job; remember(c, "Came home from helping in the valley"); }
+  if (c.settle) { delete c.settle; remember(c, "Came home from the snowfields"); }
   c.out = false; c.roam = false; c.room = r; c.homeAt = c.last = Date.now();
   if (r !== save.room && save.active === id) save.active = residents(save.room)[0]?.id ?? id;
   sfx.chirp(specOf(c).voice);
@@ -2542,9 +2576,9 @@ const HOME_SORTS = ["came", "high", "low"], HOME_SORT_NAMES = { came: "Level", h
 /** Everyone, room by room: drag a glowling onto another room to move it (or onto Exploring to send it off), tap to look after it. */
 function openHome() {
   sfx.tick();
-  const away = save.creatures.filter(c => c.out && !c.job), helping = save.creatures.filter(c => c.job);
+  const away = save.creatures.filter(c => c.out && !c.job && !c.settle), helping = save.creatures.filter(c => c.job), snowy = save.creatures.filter(c => c.settle);
   $("homeSub").textContent = tr("A room fits as many as its beds sleep. Drag one onto another room to move it in, or tap it to look after it.");
-  const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><i class="res-lv">${tr("Lv {0}", c.level || 1)}</i><small>${c.name}</small>${c.trip ? `<small class="away">🧭 ${fmtLeft(Math.max(0, c.trip.until - Date.now()))}</small>` : c.job ? `<small class="away">${tr(roomName(save.rooms.findIndex(r => r.kind === c.job.place)))}</small>` : c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
+  const card = c => `<button class="res${c.out ? " out" : ""}${c.id === save.active ? " on" : ""}" data-id="${c.id}"><img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="" draggable="false"><i class="res-lv">${tr("Lv {0}", c.level || 1)}</i><small>${c.name}</small>${c.trip ? `<small class="away">🧭 ${fmtLeft(Math.max(0, c.trip.until - Date.now()))}</small>` : c.job ? `<small class="away">${tr(roomName(save.rooms.findIndex(r => r.kind === c.job.place)))}</small>` : c.settle ? `<small class="away">❄ ${tr("The snowfields")}</small>` : c.out ? `<small class="away">${awayFor(c)}</small>` : moodIcon(c)}</button>`;
   // each room's glowlings as they came, or by level, highest or lowest first (kept between visits)
   const sort = HOME_SORTS.includes(opts().homeSort) ? opts().homeSort : "came", order = list => sort === "came" ? list : [...list].sort((a, b) => ((a.level || 1) - (b.level || 1)) * (sort === "high" ? -1 : 1) || a.id - b.id);
   const zone = (r, title, list, empty) => `<section class="res-zone${r === save.room ? " here" : ""}" data-room="${r}"><h3>${title}</h3><div class="home-grid">${order(list).map(card).join("") || `<p class="sub">${empty}</p>`}</div></section>`;
@@ -2560,6 +2594,8 @@ function openHome() {
     + save.rooms.map((_, r) => isPlace(r) ? "" : zone(r, `${roomName(r)} <span>${residents(r).length}/${homeCap(r)}</span>`, residents(r), tr("empty: drag someone here"))).join("")
     + zone("out", `${tr("Exploring")} <span>${away.length}</span>`, away, tr("drag someone here to send them exploring"))
     + (helping.length ? zone("help", `${tr("Helping in the valley")} <span>${helping.length}</span>`, helping, "") : "")
+    // (the snowfields' settlers: a tap opens the card, which can bring one home)
+    + (snowy.length ? zone("snow", `${tr("The snowfields")} <span>${snowy.length}/${settleCap()}</span>`, snowy, "") : "")
     + `<p class="me-hint">${tr("More beds, more space at home: the shop builds them, in Renovation.")}</p>`;
   $$("#homeList .res").forEach(b => b.addEventListener("pointerdown", dragResident));
   $$("#homeList [data-sort]").forEach(b => b.addEventListener("click", () => { setOpt("homeSort", b.dataset.sort); openHome(); }));
@@ -2583,7 +2619,7 @@ function dragResident(ev) {
     if (!ghost) { tapResident(id); return; }
     ghost.remove(); b.classList.remove("lifted"); over?.classList.remove("drop");
     const r = over && over.dataset.room;
-    if (r === "out") sendExploring(id); else if (r != null && r !== "help" && r !== "all") moveGlowling(id, Number(r));
+    if (r === "out") sendExploring(id); else if (r != null && r !== "help" && r !== "snow" && r !== "all") moveGlowling(id, Number(r));
     openHome();
   };
   b.addEventListener("pointermove", move); b.addEventListener("pointerup", up); b.addEventListener("pointercancel", up);
@@ -2593,7 +2629,7 @@ function tapResident(id) {
   const c = save.creatures.find(c => c.id === id);
   if (!c) return;
   // a helper: its card, which can bring it home
-  if (c.job) { show("homeSheet", false); openGlowling(c); return; }
+  if (c.job || c.settle) { show("homeSheet", false); openGlowling(c); return; }
   if (c.out) { if (moveGlowling(id, save.room)) openHome(); return; }
   show("homeSheet", false);
   if (roomOf(c) !== save.room) goRoom(roomOf(c));

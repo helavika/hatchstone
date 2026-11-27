@@ -180,12 +180,12 @@ test('the hot spring: three at most, awake and from home; rest +15, fun +10, +5 
 });
 
 test('in the snowfields: Runa\'s buttons as you go, the expedition\'s frostglass, and every new word in Ukrainian', () => {
-  // her bar: fish, carve, the spring, and a frost geode to crack when there is one; while fishing, the rod's own buttons
-  const page = { fishing: null, geodes: 0, tr: s => s.replace('{0}', '·'), frostGeodes: () => page.geodes, iceNow: () => page.fishing, startFishing() {}, openCarving() {}, openSpring() {}, iceStop() {}, startFrost() {}, iceCast() {}, icePull() {} };
+  // her bar: fish, carve, the spring, the settlement, and a frost geode to crack when there is one; while fishing, the rod's own buttons
+  const page = { fishing: null, geodes: 0, tr: s => s.replace('{0}', '·'), frostGeodes: () => page.geodes, iceNow: () => page.fishing, startFishing() {}, openCarving() {}, openSpring() {}, openSettle() {}, iceStop() {}, startFrost() {}, iceCast() {}, icePull() {} };
   vm.runInNewContext(cut(snow, 'function snowActs() {', '\n}\n', 'snowActs') + '\n}\nthis.snowActs = snowActs;', page);
   const names = () => plain(page.snowActs().map(a => a[1]));
-  assert.deepEqual(names(), ['Fish', 'Carving', 'Hot spring']);
-  page.geodes = 2; assert.deepEqual(names(), ['Fish', 'Carving', 'Hot spring', 'Crack a frost geode (·)']);
+  assert.deepEqual(names(), ['Fish', 'Carving', 'Hot spring', 'Settlement']);
+  page.geodes = 2; assert.deepEqual(names(), ['Fish', 'Carving', 'Hot spring', 'Settlement', 'Crack a frost geode (·)']);
   page.fishing = { phase: 'sit' }; assert.deepEqual(names(), ['Cast', 'Stop']);
   page.fishing = { phase: 'bite' }; assert.deepEqual(names(), ['Pull!', 'Stop']); assert.equal(page.snowActs()[0][3], 'bite');
   page.fishing = { phase: 'tired', id: 1 }; assert.deepEqual(names(), ['Home', 'Hot spring']);

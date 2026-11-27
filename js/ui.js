@@ -897,7 +897,7 @@ const FOLK = [
   // (said: the lines of his own story that his wishes have opened, kept under his card: see the errands in nest.js)
   { name: "Fennel", face: () => keeperFace("fennel"), where: "the garden", met: () => !!save.heroTalk?.yard, hint: "visit the garden", said: () => bondStory("yard"),
     about: "A turtle-folk gardener in a straw hat who talks to the plants and waters them for you. Slow and steady, and quick to hide in his shell." },
-  { name: "Runa", face: () => keeperFace("runa"), where: "the snowfields", met: () => !!save.heroTalk?.snow || talkSeen("snowWelcome"), hint: "ward the snowfields",
+  { name: "Runa", face: () => keeperFace("runa"), where: "the snowfields", met: () => !!save.heroTalk?.snow || talkSeen("snowWelcome"), hint: "ward the snowfields", said: () => bondStory("snow"),
     about: "An ermine in her white winter coat who keeps a round hut in the snowfields, fishes glass out of the ice and boasts about her knots. Waited a long time for guests. Is very glad of them." },
 ];
 /** The Book's tabs stand in one row that scrolls sideways: light the open one and bring it to the middle of the row. */
@@ -942,8 +942,8 @@ function renderLib() {
     renderSparkLib();
   } else if (game.libTab === "st") {
     $("libGrid").innerHTML = STORY.map((p, i) => {
-      const open = unlocked(p.at) && talkSeen(p.id);
-      return `<button data-st="${i}" class="${open ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("Part {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${p.who.face ? p.who.face() : pxIcon(p.who.icon || p.who.name.toLowerCase())}" alt=""${open ? "" : ' style="filter:brightness(0) opacity(.5)"'}></span><b>${open ? tr(p.title) : "???"}</b><small>${open ? tr(p.id === "s8" && save.ending ? ENDINGS[save.ending].title : p.who.name) : p.at > LEVELS ? tr("Open every geode") : tr("Reach level {0}", p.at)}</small></button>`;
+      const open = storyOpen(p);
+      return `<button data-st="${i}" class="${open ? "" : "unk"}" style="animation-delay:${i * 20}ms"><i class="no">${tr("Part {0}", i + 1)}</i><span class="pg"><img class="lib-px" src="${p.who.face ? p.who.face() : pxIcon(p.who.icon || p.who.name.toLowerCase())}" alt=""${open ? "" : ' style="filter:brightness(0) opacity(.5)"'}></span><b>${open ? tr(p.title) : "???"}</b><small>${open ? tr(p.id === "s8" && save.ending ? ENDINGS[save.ending].title : p.who.name) : p.how ? tr(p.how) : p.at > LEVELS ? tr("Open every geode") : tr("Reach level {0}", p.at)}</small></button>`;
     }).join("");
   } else if (game.libTab === "hy") {
     const hy = save.creatures.filter(c => c.mix);
@@ -965,7 +965,7 @@ function renderLib() {
   $$("#libGrid [data-cr]").forEach(b => b.addEventListener("click", () => openCrystal(CRYSTAL[b.dataset.cr])));
   $$("#libGrid [data-st]").forEach(b => b.addEventListener("click", () => {
     const p = STORY[b.dataset.st];
-    if (unlocked(p.at) && talkSeen(p.id)) retell(p); else sfx.tick();
+    if (storyOpen(p)) retell(p); else sfx.tick();
   }));
   $$("#libGrid [data-hy]").forEach(b => b.addEventListener("click", () => openHybrid(save.creatures.find(c => c.id === Number(b.dataset.hy)))));
   $("toLab")?.addEventListener("click", () => { sfx.tick(); arriveAt("lab"); });

@@ -95,6 +95,90 @@ function carve(id) {
   return true;
 }
 
+/**
+ * The settlement: grown glowlings may move out to the snowfields and live near Runa (cr.settle = { since, day, geo }: when,
+ * the day it came, and the frost geodes it has brought). They're out (cr.out, cr.roam), so they need no bed and nothing else,
+ * and grow as helpers do. Room for SETTLE_BASE in a corner of Runa's hut, SETTLE_HUT more in each snow hut she builds
+ * (HUT_GLASS: what each costs, in turn), so SETTLE_MAX at most. save.settle = { huts, day }: the huts built and the last day
+ * her sled came.
+ */
+const SETTLE_BASE = 3, SETTLE_HUT = 3, HUT_GLASS = [20, 35, 50], SETTLE_MAX = SETTLE_BASE + SETTLE_HUT * HUT_GLASS.length;
+/** Each settler sends SLED_GLASS frostglass a day; Runa's basket holds SLED_DAYS days of it; a frost geode every GEODE_DAYS of its days there. */
+const SLED_GLASS = 2, SLED_DAYS = 3, GEODE_DAYS = 10;
+/** The frost on the ice door thins as the settlement grows (only to look at: the door opens on Runa's third wish). */
+const DOOR_STAGES = [3, 6, 9], LULLABY_AT = 6, DOOR_WISH = 3;
+const settleSave = () => save.settle || (save.settle = { huts: 0, day: dayNo() });
+const settlers = () => save.creatures.filter(c => c.settle);
+const hutsNow = () => (save.settle && save.settle.huts) || 0;
+const settleCap = (huts = hutsNow()) => Math.min(SETTLE_MAX, SETTLE_BASE + SETTLE_HUT * huts);
+/** The next snow hut's price in frostglass, or null once all three stand. */
+const hutPrice = (huts = hutsNow()) => huts < HUT_GLASS.length ? HUT_GLASS[huts] : null;
+/** How far the frost on the door has thinned (0 to 3), and is it open (Runa's third wish brought). */
+const doorFrost = (n = settlers().length) => DOOR_STAGES.filter(k => n >= k).length;
+const doorOpen = () => bondOf("snow") >= DOOR_WISH;
+/** Grown (as a helper is), happy or fine, at home and not off anywhere, and never the last one at home. */
+const canSettle = cr => !!cr && stageOf(cr.level || 1) >= HELP_STAGE && !cr.out && !cr.trip && !cr.job && !cr.settle && ["happy", "ok"].includes(moodOf(cr)) && save.creatures.some(c => c !== cr && !c.out);
+/** Why it can't move out just now, if it can't: not open, not grown or not content, or the settlement full. */
+const settleWhyNot = cr => !placeOk("snow") ? "shut" : !canSettle(cr) ? "no" : settlers().length >= settleCap() ? "full" : null;
+/** Off to the snowfields: its bed at home is free again. False if it may not go. */
+function settleOut(id) {
+  const c = save.creatures.find(x => x.id === id);
+  if (!c || settleWhyNot(c)) return false;
+  settleSave();
+  c.out = true; c.roam = true; c.outAt = Date.now(); c.sleeping = false; c.selfSlept = false;
+  c.settle = { since: Date.now(), day: dayNo(), geo: 0 };
+  delete c.wishDay;
+  if (save.active === id) save.active = save.creatures.find(x => !x.out)?.id ?? id;
+  remember(c, "Moved to the snowfields, to live near Runa");
+  return true;
+}
+/** A snow hut from Runa (free: her thanks); false once all three stand, or without the glass. */
+function buildHut(free = false) {
+  const p = hutPrice(), s = settleSave();
+  if (p === null || (!free && glassNow() < p)) return false;
+  if (!free) giveGlass(-p);
+  s.huts++;
+  return true;
+}
+/**
+ * What Runa's sled brings today (pure: the tests run it): for each settler, SLED_GLASS a day since the sled last came (or
+ * since it came, if later), only SLED_DAYS days' worth at most; and a frost geode for every GEODE_DAYS of its days there not
+ * yet brought. Returns { glass, geodes, by: [[id, geodes]] }.
+ */
+function sledDue(list, last, today) {
+  let glass = 0, geodes = 0; const by = [];
+  for (const c of list) {
+    const from = Math.max(last, c.settle.day), days = Math.min(SLED_DAYS, Math.max(0, today - from));
+    glass += days * SLED_GLASS;
+    const g = Math.max(0, Math.floor((today - c.settle.day) / GEODE_DAYS) - (c.settle.geo || 0));
+    if (g) { geodes += g; by.push([c.id, g]); }
+  }
+  return { glass, geodes, by };
+}
+/** The sled comes, once a day (the first time the game is opened that day): returns what it brought, or null. */
+function sledCome(today = dayNo()) {
+  const s = save.settle, list = settlers();
+  if (!s || s.day === today) return null;
+  const due = sledDue(list, s.day, today);
+  s.day = today;
+  if (!due.glass && !due.geodes) return null;
+  giveGlass(due.glass);
+  for (const [id, g] of due.by) { const c = list.find(x => x.id === id); c.settle.geo = (c.settle.geo || 0) + g; }
+  if (due.geodes) giveFrostGeode(due.geodes);
+  return due;
+}
+/** Home from the snowfields, to its own room or any with a bed free: false, with a word, when none is. */
+function settlerHome(id) {
+  const c = save.creatures.find(x => x.id === id);
+  if (!c || !c.settle) return false;
+  const r = [roomOf(c), ...save.rooms.map((_, i) => i)].find(i => !isPlace(i) && residents(i).length < homeCap(i));
+  if (r === undefined) return false;
+  delete c.settle; delete c.jobT;
+  c.out = false; c.roam = false; c.room = r; c.homeAt = c.last = Date.now();
+  remember(c, "Came home from the snowfields");
+  return true;
+}
+
 if (typeof module === "object" && module.exports) module.exports = {};
 
 // ---------- the words and the little pictures ----------
@@ -117,7 +201,7 @@ Object.assign(PX_ICON_MAPS, {
 
 // ---------- in the snowfields: what there is to do (the bar under the place; see HEROES.snow) ----------
 
-/** Runa's buttons: fish, carve, the spring, and a frost geode to crack when there is one; while fishing, the rod's own. */
+/** Runa's buttons: fish, carve, the spring, the settlement, and a frost geode to crack when there is one; while fishing, the rod's own. */
 function snowActs() {
   const f = iceNow();
   if (f) {
@@ -126,7 +210,7 @@ function snowActs() {
     return [["rod", tr(out ? "Pull!" : "Cast"), out ? icePull : iceCast, f.phase === "bite" ? "bite" : ""], ["close", tr("Stop"), iceStop]];
   }
   const n = frostGeodes();
-  return [["rod", tr("Fish"), startFishing], ["chisel", tr("Carving"), openCarving], ["steam", tr("Hot spring"), () => openSpring()],
+  return [["rod", tr("Fish"), startFishing], ["chisel", tr("Carving"), openCarving], ["steam", tr("Hot spring"), () => openSpring()], ["hut", tr("Settlement"), openSettle],
     ...(n ? [["frostgeode", tr("Crack a frost geode ({0})", n), () => { iceStop(); startFrost(); }]] : [])];
 }
 /** On the plaque under the place's name: your frostglass. */
@@ -185,10 +269,13 @@ function waterRing(x, y, r, col, al) {
 
 /** What the snowfields add to the room's back-to-front order (see drawNest): whoever's fishing, and whoever's in the spring. */
 function snowItems() {
-  if (!inSnow()) { if (game.ice) game.ice = null; if (game.springTrip) game.springTrip = null; return []; }
+  if (!inSnow()) { if (game.ice) game.ice = null; if (game.springTrip) game.springTrip = null; settleWalks.clear(); return []; }
   const items = [], S = snowSpots(), box = ([x, y]) => { const [u, v] = isoFrom(x, y); return { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G }; };
   const f = iceNow();
   if (f && S.hole) { iceTick(f, S); const at = icePos(f, S); items.push({ y: at[1] + 0.5, after: f.phase === "walk" ? null : "pond", draw: () => drawIceHole(f, S), box: box(at) }); items.push({ y: 1e6, top: true, draw: () => drawIceOver(f, S) }); }
+  // the settlement: its huts, the settlers at what they're doing, the garland once nine live here; the door melting open
+  items.push(...settleItems(S));
+  if (game.doorFx) items.push({ y: 1e6, top: true, draw: () => drawDoorFx(S) });
   const sp = game.springTrip;
   if (sp && S.spring) {
     springTick(sp, S);
@@ -499,3 +586,325 @@ function openCarving() {
   paint();
   show("snowSheet", true);
 }
+
+// ---------- the settlement: moving out, the huts, Runa's sled ----------
+
+PX_ICON_MAPS.hut = ["............", "............", ".......SS...", "....WWWSSs..", "...WWwwwwT..", "..WWwswwssT.", "..WwwwwwwwT.", ".WwswwkkwsTT", ".WwwwkkGkwTT", ".WWwwkGGkwTT", "..sssssssss.", "............"];
+/** From its card at home: off it goes to live in the snowfields (a word, a chirp), its bed free again. */
+function moveToSnow(cr) {
+  if (!settleOut(cr.id)) { sfx.tick(); return; }
+  show("glowCard", false);
+  sfx.chirp(specOf(cr).voice * 1.15);
+  toast(tr("{0} set off for the snowfields: Runa will look after it ✦", cr.name));
+  persist(); syncActors(); if (game.scene === "nest" && !isPlace()) renderNest(true); updateTopbar(); renderPlaceBar();
+}
+/** Home again from the snowfields, if a bed is free; says so either way. */
+function snowHome(id) {
+  const c = save.creatures.find(x => x.id === id);
+  if (!settlerHome(id)) { toast(tr("No bed free at home: make some room first")); sfx.tick(); return false; }
+  sfx.chirp(specOf(c).voice); toast(tr("{0} came home from the snowfields ✦", c.name));
+  persist(); syncActors(); if (game.scene === "nest" && !isPlace()) renderNest(true); updateTopbar(); renderPlaceBar();
+  return true;
+}
+/** The first time the game is opened on a day: Runa's sled comes over the snow with the settlers' frostglass (and any frost geodes). */
+function sledToast() {
+  const got = sledCome();
+  if (!got) return;
+  persist(); updateTopbar();
+  setTimeout(() => {
+    toast(tr("Runa's sled came over the snow: frostglass ×{0} from the snowfields", got.glass) + (got.geodes ? " · " + tr("and a frost geode ×{0}", got.geodes) : "") + " ✦");
+    if (sfx.ready()) { const t = sfx.ac.currentTime; for (let k = 0; k < 4; k++) sfx.tone(t + k * 0.11, 1568 + k * 196, 0.03, 0.5, "sine", null, true); }
+  }, 2200);
+}
+/** The settlement's sheet, from Runa's bar: who lives here, the huts (and the next one to build), the basket, the door. */
+function openSettle() {
+  sfx.tick();
+  const paint = () => {
+    const list = settlers(), cap = settleCap(), price = hutPrice(), fr = doorFrost(list.length);
+    const face = c => `<img src="${creatureImage(specOf(c), { art: 20, level: c.level, shiny: c.shiny, acc: c.acc })}" alt="">`;
+    $("snowTitle").textContent = tr("The settlement");
+    $("snowSub").textContent = tr("Grown glowlings can move out here from their card at home. Each sends {0} frostglass a day on Runa's sled; her basket holds {1} days of it.", SLED_GLASS, SLED_DAYS);
+    $("snowList").innerHTML = `<h3 class="forge-h">${tr("Living here: {0} of {1}", list.length, cap)}</h3>`
+      + (list.length ? `<div class="trip-who">${list.map(c => `<button class="res" data-settler="${c.id}">${face(c)}<small>${c.name}</small></button>`).join("")}</div>`
+        : `<p class="me-hint">${tr("Nobody yet. Open a grown glowling's card at home: “Move to the snowfields”.")}</p>`)
+      + (price === null ? `<p class="me-hint">${tr("All three snow huts stand. Room for {0}.", SETTLE_MAX)}</p>`
+        : `<button class="snack carve${glassNow() < price ? " dim" : ""}" id="hutBuy" ${glassNow() < price ? "disabled" : ""}><img class="em px-thumb" src="${pxIcon("hut")}" alt=""><span><b>${tr("A snow hut")}</b><small>${tr("room for {0} more", SETTLE_HUT)}${glassNow() < price ? " · " + tr("not enough frostglass") : ""}</small></span><span class="cost">${ic("glass")}${price}</span></button>`)
+      + `<p class="me-hint">${doorOpen() ? tr("The ice door stands open.") : tr(["The ice door is thick with frost.", "The frost on the ice door has thinned a little.", "The frost on the ice door is thin now. Light shows through it.", "The ice door is almost clear. It's waiting for something warm."][fr])}</p>`
+      + (doorOpen() ? `<button class="act" id="toHall">${ic("glass")}${tr("Into the Winter hall")}</button>` : "");
+    $$("#snowList [data-settler]").forEach(b => b.addEventListener("click", () => { show("snowSheet", false); openGlowling(save.creatures.find(c => c.id === Number(b.dataset.settler))); }));
+    $("hutBuy")?.addEventListener("click", () => {
+      if (!buildHut()) { sfx.tick(); return; }
+      sfx.tinkle(); setTimeout(() => sfx.levelUp(), 200);
+      toast(tr("A new snow hut: room for {0} more ✦", SETTLE_HUT));
+      runaSays(pick(["Snow blocks, a good door, and a hole for the smoke. Best hut in the snow.", "There. Warm inside, I promise. I sat in it to check."]));
+      persist(); updateTopbar(); renderPlaceBar(); paint();
+    });
+    $("toHall")?.addEventListener("click", () => openWinterHall());
+  };
+  paint();
+  show("snowSheet", true);
+}
+
+// ---------- the settlers in the clearing ----------
+// Each settler does one thing at a time, for a while (SETTLE_SLOT), then walks over to the next: fishing by the hole, sliding
+// on the pond, warming in the spring, napping in a drift, or pottering by its hut. Who does what is shared out by their order
+// (no more than three at anything), so the clearing always has a bit of everything.
+
+const SETTLE_SLOT = 45e3, SETTLE_ACTS = ["fish", "nap", "spring", "slide", "hut"], SETTLE_K = 0.6;
+/** Settlers are drawn small, so a dozen fit the clearing (on a phone's close-up, no bigger than beside Runa there either). */
+const settleK = () => Math.min(SETTLE_K, 0.62 * N.kbase / N.base);
+/** Where the huts stand, along the clearing's free front edge (u, v across the floor), in the order they're built. */
+const HUT_SPOTS = [[0.93, 0.3], [0.62, 0.93], [0.9, 0.93]];
+/** Where each of three sits to fish (round the hole on the ice), and where each naps (in a drift). */
+const FISH_SPOTS = [[0.31, 0.64], [0.3, 0.79], [0.13, 0.58]], NAP_SPOTS = [[0.3, 0.4], [0.86, 0.52], [0.44, 0.76]];
+/** The three runs across the open snow a slider whizzes along on its belly, back and forth (from, to). */
+const SLIDE_LANES = [[[0.36, 0.46], [0.52, 0.62]], [[0.5, 0.82], [0.7, 0.86]], [[0.8, 0.64], [0.88, 0.8]]];
+const uvAt = ([u, v]) => isoAt(u, v);
+/** What settler k (of those living here, in the order they came) is doing now, and which of its kind's three spots. */
+function settleDoing(k, now = Date.now()) {
+  let act = SETTLE_ACTS[(k + Math.floor(now / SETTLE_SLOT)) % SETTLE_ACTS.length];
+  // (the spring belongs to the glowlings from home while they're in it)
+  if (act === "spring" && game.springTrip) act = "nap";
+  return { act, j: Math.floor(k / SETTLE_ACTS.length) % 3 };
+}
+/** Where a settler's doing is, on screen: its spot (a slider's lane's start, a bather's seat). */
+function settleSpot(d, S) {
+  if (d.act === "fish") return uvAt(FISH_SPOTS[d.j]);
+  if (d.act === "nap") return uvAt(NAP_SPOTS[d.j]);
+  if (d.act === "slide") return uvAt(SLIDE_LANES[d.j][0]);
+  if (d.act === "spring" && S.spring) { const [du, dv] = SPRING_SEATS[d.j]; return [S.spring[0] + du * S.springRx, S.spring[1] + dv * S.springRy]; }
+  const h = HUT_SPOTS[d.j], [x, y] = h && d.j < hutsNow() ? uvAt(h) : uvAt([0.56 + d.j * 0.06, 0.42]);
+  return [x - N.base * 0.45, y + N.base * 0.2];
+}
+/** Each settler's walk from where it was to where it's going (kept between frames, by id). */
+const settleWalks = new Map();
+/** Where a settler is now: walking over, or at its doing (a slider somewhere along its lane). */
+function settlePos(c, k, S) {
+  const d = settleDoing(k), key = d.act + d.j, to = settleSpot(d, S);
+  let w = settleWalks.get(c.id);
+  if (!w) { w = { key, from: to, t0: -1e9 }; settleWalks.set(c.id, w); }
+  if (w.key !== key) { w.from = w.at || to; w.key = key; w.t0 = game.time; }
+  const along = walkAlong([w.from, to], w.t0);
+  let at = { x: along.x, y: along.y, walking: !along.done, step: along.step, d };
+  if (along.done && d.act === "slide") {
+    // (back and forth along the lane, easing at each end, as if pushing off again)
+    const [a, b] = SLIDE_LANES[d.j].map(uvAt), ph = opts().calm ? 0.25 : (game.time / 1000 * 0.22 + c.id * 0.37) % 1, f = 0.5 - 0.5 * Math.cos(ph * TAU);
+    at = { ...at, x: lerp(a[0], b[0], f), y: lerp(a[1], b[1], f), dir: Math.sin(ph * TAU) };
+  }
+  w.at = [at.x, at.y];
+  return at;
+}
+/** A settler, at its doing: fishing (sat by the hole, a short line out to it), sliding (on its belly, a spray behind), in the
+ *  spring (sunk to its middle, as the bathers are), asleep in a drift (only its top showing, zz), or by its hut. */
+function drawSettler(c, at, S) {
+  const size = N.base * depth(at.y) * settleK(), d = at.d, now = game.time;
+  if (at.walking) { drawGuest(c, at.x, at.y, { k: settleK(), hop: Math.sin(at.step * Math.PI) * 0.6 }); return; }
+  if (d.act === "spring" && S.spring) {
+    const sunk = size * 0.34, bob = opts().calm ? 0 : Math.sin(now * 0.003 + c.id) * PX;
+    ctx.save(); ctx.beginPath(); ctx.rect(at.x - size, at.y - size * 3, size * 2, size * 3); ctx.ellipse(S.spring[0], S.spring[1], S.springRx + PX, S.springRy + PX, 0, 0, TAU); ctx.clip();
+    const v = drawGuest(c, at.x, at.y + sunk + bob, { k: settleK(), noShadow: true, mood: "happy" });
+    ctx.restore(); springWater(at.x, at.y, size, S);
+    if ((now / 1000 + c.id) % 9 < 2.2) drawEmote({ emote: { text: KAO.happy.text, t: ((now / 1000 + c.id) % 9), life: 2.2 } }, v);
+    return;
+  }
+  if (d.act === "nap") {
+    // (sunk into the drift: drawn low, the snow heaped over it up to its middle, lit white on top, blue in its shade)
+    const v = drawGuest(c, at.x, at.y + size * 0.3, { k: settleK(), mood: "sleepy", tired: true, noShadow: true });
+    snowDome(Math.round(at.x / PX) * PX, Math.round((at.y + size * 0.06) / PX) * PX, Math.round(size * 0.58 / PX), Math.round(size * 0.4 / PX));
+    const s = ((now / 1000) + c.id * 0.7) % 3;
+    drawEmote({ emote: { text: "z", t: s, life: 3 } }, v);
+    return;
+  }
+  if (d.act === "slide") {
+    // a spray of snow off the ice behind it, the way it came
+    if (!opts().calm) for (let j = 1; j <= 4; j++) { ctx.globalAlpha = 0.7 - j * 0.15; ctx.fillStyle = j % 2 ? "#ffffff" : "#d4f6ff"; ctx.fillRect(Math.round((at.x - Math.sign(at.dir || 1) * j * size * 0.16) / PX) * PX, Math.round((at.y - PX * (j % 2)) / PX) * PX, PX, PX); }
+    ctx.globalAlpha = 1;
+    drawGuest(c, at.x, at.y, { k: settleK(), mood: "happy", hop: 0.15 });
+    return;
+  }
+  const v = drawGuest(c, at.x, at.y, { k: settleK(), mood: "happy", hop: d.act === "hut" && !opts().calm && (now / 1000 + c.id) % 5 < 0.5 ? Math.sin(((now / 1000 + c.id) % 5) / 0.5 * Math.PI) : 0 });
+  if (d.act === "fish" && S.hole) {
+    // a short rod out over the hole, its line down to the water, a float bobbing slowly
+    const tip = [lerp(v.x, S.hole[0], 0.6), v.y - v.size * 0.6], fy = S.hole[1] - PX * 2 + (opts().calm ? 0 : Math.round(Math.sin(now * 0.002 + c.id)) * PX);
+    pxLineTo(v.x, v.y + v.size * 0.1, tip[0], tip[1], "#946027");
+    pxLineTo(tip[0], tip[1], lerp(tip[0], S.hole[0], 0.8), fy, "rgba(61,40,102,.85)");
+    ctx.fillStyle = "#e0634f"; ctx.fillRect(Math.round(lerp(tip[0], S.hole[0], 0.8) / PX) * PX, Math.round(fy / PX) * PX, PX * 2, PX * 2);
+  }
+}
+
+// ---------- the huts, and the clearing growing festive ----------
+
+/** A dome of snow on the room's pixel grid, its foot's middle at (cx, by), R pixels across each way and H high: inked round,
+ *  lit white on the left, lilac in the middle, blue-grey in its shade; seams(r, q) may darken a pixel (a hut's courses of blocks). */
+function snowDome(cx, by, R, H, seams) {
+  const P = PX, half = r => r > H ? -1 : Math.round(R * Math.sqrt(Math.max(0, 1 - (r / (H + 0.5)) ** 2)));
+  ctx.fillStyle = "#160c26";
+  for (let r = -1; r <= H + 1; r++) { const h = Math.max(half(Math.max(0, r)), half(r + 1)) + 1; if (h > 0) ctx.fillRect(cx - h * P, by - r * P, (h * 2 + 1) * P, P); }
+  for (let r = 0; r <= H; r++) {
+    const h = half(r);
+    for (let q = -h; q <= h; q++) {
+      const f = q / (h || 1), lit = f < -0.45 ? 0 : f < 0.35 ? 1 : 2, dark = seams && seams(r, q);
+      ctx.fillStyle = dark ? ["#efe6ff", "#e4dfe8", "#b9b3c0"][lit] : r === H || (r === H - 1 && Math.abs(q) < h) ? "#ffffff" : ["#ffffff", "#f4f0fa", "#cfc4d6"][lit];
+      ctx.fillRect(cx + q * P, by - r * P, P, P);
+    }
+  }
+  return half;
+}
+/** A snow hut at (x, y), its floor `s` wide: a dome of snow blocks (their courses and staggered joints faint on it), a low dark
+ *  door at the front with a warm light in it, a stub of a stovepipe on top (smoking, once six live here). */
+function drawSnowHut(x, y, s, smoke) {
+  const P = PX, R = Math.round(s * 0.5 / P), H = Math.round(s * 0.5 / P), cx = Math.round(x / P) * P, by = Math.round(y / P) * P;
+  ctx.fillStyle = "rgba(5,0,20,.3)"; ctx.beginPath(); ctx.ellipse(x, y, s * 0.6, s * 0.18, 0, 0, TAU); ctx.fill();
+  const half = snowDome(cx, by, R, H, (r, q) => r % 3 === 2 || (r % 3 === 1 && (q + Math.floor(r / 3) * 2 + 40) % 5 === 0));
+  // the door: a dark arch, a warm glow low inside it
+  const dw = Math.max(2, Math.round(R * 0.3)), dh = Math.max(3, Math.round(H * 0.55)), dx = cx - Math.round(R * 0.25) * P;
+  for (let r = 0; r < dh; r++) { const hw = r > dh - 2 ? dw - 1 : dw; for (let q = -hw; q <= hw; q++) { ctx.fillStyle = Math.abs(q) === hw ? "#160c26" : r < 2 && Math.abs(q) < hw - 1 ? "#eec26a" : "#3d2866"; ctx.fillRect(dx + q * P, by - r * P, P, P); } }
+  // the stovepipe, out of the dome's shoulder, and its smoke
+  const pq = Math.round(R * 0.4), top = [...Array(H + 1).keys()].reverse().find(r => half(r) >= pq) ?? 0, px = cx + pq * P, py = by - top * P;
+  ctx.fillStyle = "#160c26"; ctx.fillRect(px - P, py - 4 * P, 4 * P, 4 * P);
+  ctx.fillStyle = "#5d5666"; ctx.fillRect(px, py - 3 * P, 2 * P, 3 * P); ctx.fillStyle = "#8a8494"; ctx.fillRect(px, py - 3 * P, P, 3 * P);
+  if (smoke) for (let j = 0; j < 4; j++) {
+    const ph = opts().calm ? 0.2 + j * 0.2 : (game.time / 2400 + j / 4 + x * 0.001) % 1, r = Math.max(1, Math.round((1 + ph * 2.5) * s / 40)) * P;
+    ctx.globalAlpha = 0.75 * (1 - ph); ctx.fillStyle = j % 2 ? "#a596a8" : "#b9b3c0";
+    ctx.fillRect(Math.round((px + Math.sin(ph * 5 + j) * s * 0.08) / P) * P, Math.round((py - 5 * P - ph * s * 0.9) / P) * P, r * 2, r);
+  }
+  ctx.globalAlpha = 1;
+}
+/** Nine living here: a garland of little ice lanterns on posts along the clearing's front, lit warm; twelve, and it's a feast:
+ *  bunting in every colour between them, the lanterns brighter, and sparkles drifting up. */
+function drawGarland(festive) {
+  const pts = [[0.5, 1], [0.75, 1], [1, 1], [1, 0.62], [1, 0.22]].map(uvAt), post = N.isoW / ISO_G * 0.75, now = game.time;
+  const cols = ["#e0634f", "#eec26a", "#57ad6a", "#69b7d6", "#ad91e6", "#e88bb1"];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const [x0, y0] = pts[i], [x1, y1] = pts[i + 1], n = Math.max(6, Math.round(Math.hypot(x1 - x0, y1 - y0) / PX));
+    const at = f => [lerp(x0, x1, f), lerp(y0, y1, f) - post + Math.sin(f * Math.PI) * N.base * 0.3];
+    for (let k = 0; k <= n; k++) { const [x, y] = at(k / n); ctx.fillStyle = "#5e3a1c"; ctx.fillRect(Math.round(x / PX) * PX, Math.round(y / PX) * PX, PX, PX); }
+    for (let k = 1; k < 4; k++) {
+      const [x, y] = at(k / 4), X = Math.round(x / PX) * PX, Y = Math.round(y / PX) * PX + PX, glow = festive ? 1 : 0.7 + 0.3 * Math.sin(now * 0.003 + i * 2 + k);
+      // (a pennant either side of each lantern, in every colour, for the feast)
+      if (festive) for (const side of [-1, 1]) { const [px2, py2] = at(k / 4 + side * 0.07), PXX = Math.round(px2 / PX) * PX, PY = Math.round(py2 / PX) * PX; ctx.fillStyle = cols[(i * 3 + k + (side > 0 ? 1 : 0)) % cols.length]; for (let r = 0; r < 4; r++) ctx.fillRect(PXX - Math.max(0, 2 - r) * PX + (r > 1 ? (r - 1) * PX : 0) - PX, PY + r * PX, Math.max(1, 4 - r) * PX, PX); }
+      ctx.globalAlpha = 0.35 * glow; ctx.fillStyle = "#fff0b5"; ctx.fillRect(X - 2 * PX, Y - PX, 5 * PX, 5 * PX); ctx.globalAlpha = 1;
+      ctx.fillStyle = "#160c26"; ctx.fillRect(X - PX, Y - PX, 3 * PX, 4 * PX);
+      ctx.fillStyle = "#b8e6f5"; ctx.fillRect(X, Y, PX, 2 * PX); ctx.fillStyle = "#eec26a"; ctx.fillRect(X, Y + PX, PX, PX);
+    }
+  }
+  for (const [x, y] of pts) { ctx.fillStyle = "#160c26"; ctx.fillRect(Math.round(x / PX) * PX - PX, Math.round((y - post) / PX) * PX, 3 * PX, Math.round(post / PX) * PX); ctx.fillStyle = "#946027"; ctx.fillRect(Math.round(x / PX) * PX, Math.round((y - post) / PX) * PX + PX, PX, Math.round(post / PX) * PX - PX); ctx.fillStyle = "#ffffff"; ctx.fillRect(Math.round(x / PX) * PX - PX, Math.round((y - post) / PX) * PX - PX, 3 * PX, PX); }
+  if (festive && !opts().calm && Math.random() < 0.08) { const [x, y] = pick(pts); game.sparks.push({ x: x + rand(-N.base, N.base), y: y - post, vx: rand(-10, 10), vy: rand(-50, -25), t: 0, life: 1.2, s: 2, color: pick(cols) }); }
+}
+
+/** What the settlement adds to the clearing's back-to-front order (see snowItems): its huts, its settlers, the garland. */
+function settleItems(S) {
+  const items = [], list = settlers().sort((p, q) => p.settle.since - q.settle.since || p.id - q.id), n = list.length, tile = N.isoW / ISO_G;
+  const box = ([x, y]) => { const [u, v] = isoFrom(x, y); return { u0: u * ISO_G, u1: u * ISO_G, v0: v * ISO_G, v1: v * ISO_G }; };
+  HUT_SPOTS.slice(0, hutsNow()).forEach(h => { const [x, y] = uvAt(h); items.push({ y, draw: () => drawSnowHut(x, y, tile * 1.7, n >= 6), box: box([x, y]) }); });
+  list.forEach((c, k) => { const at = settlePos(c, k, S); items.push({ y: at.y + 0.5, after: !at.walking && at.d.act === "spring" ? "hotspring" : !at.walking && at.d.act === "fish" ? "pond" : null, draw: () => drawSettler(c, at, S), box: box([at.x, at.y]) }); });
+  if (n >= 9) { const [, y] = uvAt([1, 1]); items.push({ y: y + 1, draw: () => drawGarland(n >= SETTLE_MAX) }); }
+  return items;
+}
+/** What the door looks like (see ISO_ART.icedoor): how thin its frost, and open once Runa's third wish is brought (after the moment it melts open). */
+const doorView = () => ({ frost: doorFrost(), open: doorOpen() && !(game.doorFx && game.time - game.doorFx.t < DOOR_FX * 0.6) });
+
+// ---------- the door, the lullaby, the hall ----------
+
+const DOOR_FX = 3200;
+/** Where the ice door stands, on screen (its foot). */
+const doorSpot = () => { const p = isoLayout().placed.icedoor; return p ? isoAt((p.i + 0.5) / ISO_G, (p.j + 0.5) / ISO_G) : null; };
+/** Runa's third wish: summer in her paws, and the door melts open. A glow swells inside the ice, the frost runs off it in
+ *  sparkles, a soft crack and a chime, and it stands open; then she has her say and you go in. */
+function openIceDoor() {
+  if (!inSnow()) { if (talk("iceDoor")) afterTalk = () => openWinterHall(); return; }
+  // (her thank-you bubble steps aside, so the door can be seen: the line stays in the Book)
+  game.doorFx = { t: game.time }; game.hero = null;
+  if (sfx.ready()) { const t = sfx.ac.currentTime; sfx.wash(t, 2.2, 300, 1800, 0.6, 0.04); [392, 494, 587, 784].forEach((f, i) => sfx.tone(t + 1.2 + i * 0.16, f, 0.05, 1.6, "sine", null, true)); sfx.grain(t + 1.9, 0.3, 2600, 1, 0.08); }
+  buzz([10, 40, 10, 40, 20]);
+  setTimeout(() => { if (talk("iceDoor")) afterTalk = () => openWinterHall(); else openWinterHall(); }, DOOR_FX + 300);
+}
+/** Over the door while it opens: light swelling from inside, frost sparkling off it, a burst as it gives. */
+function drawDoorFx(S) {
+  const f = game.doorFx, at = doorSpot();
+  if (!f || !at) return;
+  const e = (game.time - f.t) / DOOR_FX;
+  if (e > 1.4) { game.doorFx = null; return; }
+  const [x, y] = at, h = N.isoW / ISO_G * 1.6, cy = y - h * 0.45, r = N.base * (0.6 + Math.min(1, e) * 1.6);
+  const g = ctx.createRadialGradient(x, cy, 0, x, cy, r);
+  g.addColorStop(0, `rgba(255,240,181,${0.75 * Math.min(1, e * 1.5) * (e > 1 ? 1.4 - e : 1)})`); g.addColorStop(1, "rgba(184,230,245,0)");
+  ctx.fillStyle = g; ctx.fillRect(x - r, cy - r, r * 2, r * 2);
+  if (!opts().calm && e < 1 && Math.random() < 0.6) game.sparks.push({ x: x + rand(-N.base * 0.4, N.base * 0.4), y: cy + rand(-h * 0.4, h * 0.4), vx: rand(-30, 30), vy: rand(-40, 10), t: 0, life: 0.8, s: 2, color: pick(["#ffffff", "#b8e6f5", "#fff0b5"]) });
+  if (e > 0.6 && !f.burst) { f.burst = true; burst(x, cy, 30, ["#ffffff", "#b8e6f5", "#fff0b5", "#eec26a"], 0.9); }
+}
+/** Six living here: through the ice comes a lullaby, and Mossa knows it (a song spark of its own, heard, not brought home). */
+function hearLullaby() {
+  if (save.sparks.got.icelull || !talk("lullaby")) return;
+  save.sparks.got.icelull = { t: Date.now(), by: "" };
+  save.sparks.pip = (save.sparks.pip || 0) + 1;
+  playSpark("icelull");
+  afterTalk = () => { game.sparkNew = [...(game.sparkNew || []), "icelull"]; showNewSparks(600); };
+  persist();
+}
+/** The ice door, tapped: open, the way into the hall; shut, Runa says how the frost is doing. */
+function tapIceDoor() {
+  if (doorOpen()) { openWinterHall(); return; }
+  sfx.tick();
+  runaSays(["That door's warm. Every winter, warm. Never opened for a hammer. I've asked nicely.", "See? The frost's let go a little. Warm paws nearby, that's what it likes.", "Thinner every week. I can nearly see the light through it.", "Almost clear. It's waiting for something. Summer, maybe. Don't ask me where we'd get that."][doorFrost()]);
+}
+Object.assign(PROP_TAP, { icedoor: () => pressProp("icedoor", tapIceDoor) });
+PROP_CUES.icedoor = { icon: "glass", on: () => doorOpen() };
+
+/**
+ * The mural on the hall's far wall, 96 by 60 old pixels: light spreading out from the grotto in the middle along four roads,
+ * to four lands in the corners (the peaks under their aurora, the snowfields with a little door, the isle's lighthouse over
+ * the sea, and a dark land), and at the end of each road something small kept, glowing. Painted long ago: flaked here and there.
+ */
+let muralUrl = null;
+function muralArt() {
+  if (muralUrl) return muralUrl;
+  const W0 = 96, H0 = 60, S = 4, c = document.createElement("canvas"); c.width = W0 * S; c.height = H0 * S;
+  const g = c.getContext("2d"), px = (x, y, col) => { g.fillStyle = col; g.fillRect(Math.round(x) * S, Math.round(y) * S, S, S); };
+  // the wall: courses of old stone
+  for (let y = 0; y < H0; y++) for (let x = 0; x < W0; x++) px(x, y, y % 8 === 0 || (x + (Math.floor(y / 8) % 2) * 6) % 12 === 0 ? "#2a2433" : pxHash(x, y) > 0.8 ? "#4a4254" : "#3a3440");
+  const cx = 48, cy = 31;
+  // the four roads of light, dotted gold, out to the corners
+  const lands = [[14, 12], [82, 12], [82, 49], [14, 49]];
+  for (const [lx, ly] of lands) for (let k = 0; k <= 40; k++) { const f = k / 40; if (k % 3 !== 2) px(lerp(cx, lx, f), lerp(cy, ly, f), f < 0.5 ? "#eec26a" : "#c98f3a"); }
+  // the grotto: a dark mouth in a ring of rock, and the light in it
+  for (let y = -9; y <= 9; y++) for (let x = -11; x <= 11; x++) { const d = Math.hypot(x / 11, y / 9); if (d <= 1) px(cx + x, cy + y, d > 0.82 ? "#5d5666" : d > 0.55 ? "#22143a" : d > 0.3 ? "#eec26a" : "#fff0b5"); }
+  // the peaks (top left): white points, green and pink ribbons over them
+  for (let k = 0; k < 9; k++) for (let x = -k; x <= k; x++) px(14 + x, 6 + k, k < 3 ? "#ffffff" : "#8a8494");
+  for (let x = 4; x < 25; x++) { px(x, 2 + Math.round(Math.sin(x * 0.6)), "#57ad6a"); px(x, 3 + Math.round(Math.sin(x * 0.6 + 1)), "#e88bb1"); }
+  // the snowfields (top right): a white drift, a round hut, a little blue door
+  for (let x = 72; x < 93; x++) for (let y = 13; y < 17; y++) px(x, y, "#efe6ff");
+  for (let y = -4; y <= 0; y++) for (let x = -5; x <= 5; x++) if (Math.hypot(x / 5, y / 4.5) <= 1) px(77 + x, 12 + y, "#ffffff");
+  for (let y = 6; y < 13; y++) { px(87, y, "#69b7d6"); px(88, y, "#b8e6f5"); }
+  // the isle (bottom right): waves, a rock, a lighthouse with its light
+  for (let x = 70; x < 94; x++) { px(x, 54 + ((x % 4) < 2 ? 0 : 1), "#3383a8"); px(x, 57, "#1d5276"); }
+  for (let y = 43; y < 54; y++) { px(88, y, y % 3 ? "#efe6ff" : "#e0634f"); px(89, y, y % 3 ? "#cfc4d6" : "#b8323b"); }
+  // the dark land (bottom left): a low shape of deep violet, and still, inside it, a light
+  for (let y = -5; y <= 5; y++) for (let x = -9; x <= 9; x++) if (Math.hypot(x / 9, y / 5) <= 1) px(11 + x, 51 + y, "#160c26");
+  // at each road's end, what that land keeps: a small bright spark with a cross of light
+  for (const [lx, ly] of lands) { px(lx, ly, "#ffffff"); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) px(lx + dx, ly + dy, "#fff0b5"); }
+  // flaked with age: here and there the paint gone back to bare stone
+  for (let y = 0; y < H0; y++) for (let x = 0; x < W0; x++) if (pxHash(x * 7, y * 3) > 0.94) px(x, y, "#3a3440");
+  return muralUrl = c.toDataURL();
+}
+/** The Winter hall, behind the open door: the mural, the scratched hinges, and Runa's word on them. */
+function openWinterHall() {
+  sfx.tick();
+  $("snowTitle").textContent = tr("The Winter hall");
+  $("snowSub").textContent = tr("Behind the ice door: a long, low hall of old stone, warm as a held breath. Nobody's here. Everything is swept.");
+  $("snowList").innerHTML = `<img class="hall-mural" src="${muralArt()}" alt="${tr("An old mural: light spreading from the grotto along four roads, to four lands")}">`
+    + `<p class="me-hint">${tr("On the far wall, an old mural: light spreading out from the grotto along four roads, to four lands. At the end of each road something small is kept, and glows.")}</p>`
+    + `<p class="me-hint">${tr("On the door's hinges, old rust-red scratches. They stop exactly where the frost begins.")}</p>`
+    + `<q class="folk-said">${tr("Something red came this far once. The cold stopped it.")}</q>`;
+  show("snowSheet", true);
+  if (!talkSeen("hallHinges")) setTimeout(() => talk("hallHinges"), 900);
+}
+
+// what's said in the snowfields, once each: Ember at the door, the door opening, the hall's hinges, the lullaby through the ice
+Object.assign(TALKS, {
+  emberDoor: () => [[EMBER, "So this is Runa's door. Stand back.", null, "focused"], [EMBER, "Not stone. Not mine.", null, "concern"],
+    [RUNA, "Told you. It wants warmth, not hammers. Tea, maybe. Company.", null, "cheery"]],
+  iceDoor: () => [[RUNA, "There. A hundred winters, and it opens for a bit of summer in a paw.", null, "glad"], [RUNA, "Come and look. Mind the step, it's older than the snow.", null, "cheery"]],
+  hallHinges: () => [[RUNA, "Look at the hinges. Scratched, rust-red, right up to where the frost starts.", null, "wistful"], [RUNA, "Something red came this far once. The cold stopped it.", null, "wistful"]],
+  lullaby: () => [[RUNA, "Shh. Hear that? Through the ice.", null, "wistful"], [MOSSA, "I know that song. I hummed it on my watch, the night the Heartlight went quiet.", null, "grief"],
+    [MOSSA, "I didn't sleep alone that night. Someone sang.", null, "warm"]],
+});

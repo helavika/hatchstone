@@ -120,7 +120,7 @@ function parts(s, a, b) {
 }
 const strings = src => [...src.matchAll(/"((?:[^"\\]|\\.)*)"/g)].map(m => JSON.parse(`"${m[1]}"`));
 /** Every talk line said by one of the cast in the game's scripts: [file, speaker, its words (string literals), its moods (literals), the words' code]. */
-const TALK_FILES = ['crack.js', 'inner.js', 'play.js', 'world.js', 'gifts.js', 'main.js', 'nest.js', 'sparks.js', 'scenes.js'];
+const TALK_FILES = ['crack.js', 'inner.js', 'play.js', 'world.js', 'gifts.js', 'main.js', 'nest.js', 'sparks.js', 'scenes.js', 'snow.js'];
 const talkLines = [];
 for (const f of TALK_FILES) {
   const src = read(f);
@@ -131,7 +131,7 @@ for (const f of TALK_FILES) {
 }
 
 test('every talk line of the cast has its Ukrainian, and every mood on one is the speaker\'s', () => {
-  assert.equal(talkLines.length, 133, "every talk line of the cast is still said (a new one changes this count on purpose)");
+  assert.equal(talkLines.length, 147, "every talk line of the cast is still said (a new one changes this count on purpose)");
   let tagged = 0;
   for (const [f, who, words, moods, raw] of talkLines) {
     for (const w of words) assert.ok(UK.get(w), `${f}: no Ukrainian for ${JSON.stringify(w)}`);

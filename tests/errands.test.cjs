@@ -55,9 +55,9 @@ const plant = (seed, at = 1) => ({ seed, at });
 /** Everything he will ever ask for, already at hand. */
 const allThree = () => ({ walks: walkSaveOf({ found: { harebell: 1 } }), pantry: { tea: 1 }, pocket: { pebble: 1 } });
 
-test('only Fennel has wishes yet: three of them, each with all it needs', () => {
+test('Fennel has wishes (and Runa, see snow-settle): three of them, each with all it needs', () => {
   const { page, yard } = nest();
-  assert.deepEqual(Object.keys(page.HEROES).filter(k => page.HEROES[k].asks), ['yard']);
+  assert.deepEqual(Object.keys(page.HEROES).filter(k => page.HEROES[k].asks), ['yard', 'snow']);
   assert.equal(yard.asks.length, 3);
   for (const a of yard.asks) {
     for (const k of ['ask', 'wish', 'btn', 'story']) assert.ok(typeof a[k] === 'string' && a[k].length > 8, k);

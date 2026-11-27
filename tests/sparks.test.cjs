@@ -6,11 +6,12 @@ const { SPARKS, SPARK, SPARK_LANDS, sparkRoll, sparkSaveOf } = require('../js/sp
 const seq = (...v) => { let i = 0; return () => v[i++ % v.length]; };
 const all = () => Object.fromEntries(SPARKS.map(s => [s.id, { t: 1, by: 'Bo' }]));
 
-test('eighteen sparks: six songs, six colours, six sights, two for each faraway land', () => {
-  assert.equal(SPARKS.length, 18);
-  for (const k of ['song', 'colour', 'sight']) assert.equal(SPARKS.filter(s => s.kind === k).length, 6);
+test('nineteen sparks: seven songs (one only heard, through the ice door), six colours, six sights, two for each faraway land', () => {
+  assert.equal(SPARKS.length, 19);
+  for (const [k, n] of [['song', 7], ['colour', 6], ['sight', 6]]) assert.equal(SPARKS.filter(s => s.kind === k).length, n, k);
+  assert.deepEqual(SPARKS.filter(s => s.heard).map(s => s.id), ['icelull']);
   for (const land of Object.keys(SPARK_LANDS)) assert.equal(SPARKS.filter(s => s.land === land).length, 2);
-  assert.equal(new Set(SPARKS.map(s => s.id)).size, 18);
+  assert.equal(new Set(SPARKS.map(s => s.id)).size, 19);
   for (const s of SPARKS) {
     assert.ok(s.name && s.line, s.id);
     if (s.kind === 'song') assert.ok(s.notes.length >= 3 && s.root > 0 && s.beat > 0, s.id);

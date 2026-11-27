@@ -384,7 +384,7 @@ const AWARDS = [
   { id: "allClear", tier: "legendary", name: "Heart of the grotto", how: "Clear all 24 levels", test: () => [unlocked(LEVELS + 1) ? 1 : 0, 1] },
   { id: "stars72", tier: "legendary", name: "Flawless", how: "Earn all 72 stars", test: () => [totalStars(), LEVELS * 3] },
   { id: "level20", tier: "legendary", name: "Brightest of all", how: "Raise a glowling to level 20", test: () => [stat.level(), MAX_LEVEL] },
-  { id: "story", tier: "legendary", name: "The whole story", how: "Hear every part of Mossa's story", test: () => [STORY.filter(p => talkSeen(p.id)).length, STORY.length] },
+  { id: "story", tier: "legendary", name: "The whole story", how: "Hear every part of Mossa's story", test: () => [STORY.filter(p => !p.land && talkSeen(p.id)).length, STORY.filter(p => !p.land).length] },
   { id: "rescueAll", tier: "legendary", name: "Seal breaker", how: "Free all four sparks from the Gloom", test: () => [cnt("rescued"), 4] },
   { id: "nights30", tier: "legendary", name: "Friend of the moon", how: "Open the moon egg on any 30 nights", test: () => [stat.nights(), 30] },
   { id: "everyone", tier: "legendary", name: "Every last one", how: "Meet every kind of glowling", test: () => [stat.species(), SPECIES.length] }

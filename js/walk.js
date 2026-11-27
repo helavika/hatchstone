@@ -1256,7 +1256,7 @@ function walkGive(kind, cr, want = null) {
     if (!save.decor.keepjar) { save.decor.keepjar = { on: false, at: Date.now() }; if (game.walk) game.walk.jar = true; }
   }
   if (kind === "spark") {
-    const pool = SPARKS.filter(s => s.kind !== "sight" && !save.sparks.got[s.id]);
+    const pool = SPARKS.filter(s => s.kind !== "sight" && !s.heard && !save.sparks.got[s.id]);
     if (pool.length) {
       const s = pick(pool);
       save.sparks.got[s.id] = { t: Date.now(), by: cr ? cr.name : "" };

@@ -1647,3 +1647,6 @@ body.compact #found .plate #foundImg { height: 78px; padding: var(--s1) var(--s3
   #lib .seg button { font-size: 13px; }
   #lib .seg button .ic { width: 24px; height: 24px; }
 }
+/* the Winter hall's mural, behind the ice door in the snowfields (see muralArt in snow.js) */
+.hall-mural { display: block; width: 100%; height: auto; image-rendering: pixelated; border: 3px solid #160c26; border-radius: 4px; margin: 4px 0 8px; }
+#snowList q.folk-said { display: block; margin: 6px 0 2px; }

@@ -1805,6 +1805,13 @@ const STORY = [
     [GLOOM, "You found the last hiding place. There is nothing left for me to keep.", null, "watching"],
     [GLOOM, "Tell me, little light. What does a keeper of hidden things do, when nothing is hidden?", null, "questioning",
       Object.entries(ENDINGS).map(([id, e]) => ({ text: e.ask, pick: () => endWith(id) }))]] },
+  // a page from a land past the valley, not a level (after the finale in the Book, so no part's number moves): Dorma's, once
+  // the ice door in the snowfields has opened (land: told at home after that, see talkMoments; ok: when; how: what to do till then)
+  { id: "winterhall", at: LEVELS + 1, land: "frost", ok: () => doorOpen(), how: "Open the ice door in the snowfields", title: "The Winter hall", who: DORMA, lines: () => [
+    [DORMA, "A page came in from the cold. It smells of snow. Under my pillow, of course.", null, "puzzled"],
+    [DORMA, "It tells of a Winter hall. Before the grotto, the stone folk carried sparks there to wait out the hardest winters.", null, "realizing"],
+    [DORMA, "Its door opened only for warmth. Never for force. A very sensible door.", null, "fond"],
+    [DORMA, "The mural runs off the page's edge. Four lands, each one keeping something. I'll look for the rest. After a nap.", null, "drowsy"]] },
 ];
 /**
  * The three endings: what you ask of the Gloom in the hollow. None of them is the right one, and none closes the game:
@@ -1842,6 +1849,8 @@ function endWith(id) {
 for (const [i, at] of [[1, 6], [2, 12], [3, 18], [4, 24]]) STORY.push({ id: "g" + i, at, title: ["The Gloom", "What stayed in the dark", "A thousand pieces", "The oldest spark"][i - 1], who: GLOOM, lines: GLOOM_TALKS["g" + i], gloom: true });
 STORY.sort((a, b) => a.at - b.at || (a.gloom ? 1 : 0) - (b.gloom ? 1 : 0));
 for (const s of STORY) TALKS[s.id] = s.lines;
+/** Is a part of the story open (in the Book, to read again): its level reached (or, for a land's page, its moment come), and told. */
+const storyOpen = p => (p.ok ? p.ok() : unlocked(p.at)) && talkSeen(p.id);
 /** Tell a part of the story again, from the book. */
 function retell(s) {
   talkQueue.push(s.lines().map(([who, words, , mood, ask]) => [who, words, null, mood, ask]));
@@ -2038,8 +2047,12 @@ function talkMoments(scene) {
     if (wickRoom() && wardFound("isle")) say("wickLight");
   }
   // one part of the story per visit, so a long-time player catches up gently
-  const part = STORY.find(s => !s.gloom && unlocked(s.at) && !talkSeen(s.id));
+  const part = STORY.find(s => !s.gloom && !s.land && unlocked(s.at) && !talkSeen(s.id));
   if (part) say(part.id);
+  // a land's page, once its moment has come (Dorma's Winter hall, after the ice door opens), told at home
+  for (const s of STORY) if (s.land && scene === "nest" && s.ok() && !isPlace()) say(s.id);
+  // Runa's sled, the first time the game is opened on a day the snowfields have settlers (see sledCome in snow.js)
+  if (scene === "nest") sledToast();
 }
 
 function nestHint() {
