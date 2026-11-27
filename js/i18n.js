@@ -2122,6 +2122,12 @@ const UK = {
   "On the far wall, an old mural: light spreading out from the grotto along four roads, to four lands. At the end of each road something small is kept, and glows.": "На дальній стіні старий розпис: світло розходиться від гроту чотирма дорогами до чотирьох земель. Наприкінці кожної дороги зберігається щось маленьке, і воно світиться.",
   "On the door's hinges, old rust-red scratches. They stop exactly where the frost begins.": "На завісах дверей старі іржаво-руді подряпини. Вони уриваються саме там, де починається іній.",
   "Something red came this far once. The cold stopped it.": "Колись сюди дійшло щось руде. Мороз його спинив.",
+  // the short words under the snowfields' buttons on a narrow screen (see shortWord in snow.js)
+  "short:Fish": "Риба",
+  "short:Carve": "Різьба",
+  "short:Spring": "Джерело",
+  "short:Village": "Поселення",
+  "short:Geode": "Жеода",
   "So this is Runa's door. Stand back.": "То оце двері Руни. Відійди.",
   "Not stone. Not mine.": "Не камінь. Не мій.",
   "Told you. It wants warmth, not hammers. Tea, maybe. Company.": "Я ж казала. Їм треба тепла, а не молотків. Чаю, може. Товариства.",

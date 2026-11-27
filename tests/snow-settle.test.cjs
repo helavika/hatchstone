@@ -26,7 +26,7 @@ const rules = [
   'const DECO = Object.fromEntries(DECOR.map(d => [d.id, d]));',
   cut(snow, '// ---------- the rules ----------', '\nif (typeof module', 'the rules should sit at the top of snow.js'),
   cut(nestJs, 'const TANSY = ', '/** The button in the keeper\'s bar', 'the keepers and their errands should sit together in nest.js'),
-  'Object.assign(this, { HEROES, bondOf, wishOf, giveWish, bondStory, wishSeeks, glassNow, giveGlass, SETTLE_BASE, SETTLE_HUT, HUT_GLASS, SETTLE_MAX, SLED_GLASS, SLED_DAYS, GEODE_DAYS, DOOR_STAGES, LULLABY_AT, settlers, hutsNow, settleCap, hutPrice, doorFrost, doorOpen, canSettle, settleWhyNot, settleOut, buildHut, sledDue, sledCome, settlerHome });',
+  'Object.assign(this, { SLED_GEODES, HEROES, bondOf, wishOf, giveWish, bondStory, wishSeeks, glassNow, giveGlass, SETTLE_BASE, SETTLE_HUT, HUT_GLASS, SETTLE_MAX, SLED_GLASS, SLED_DAYS, GEODE_DAYS, DOOR_STAGES, LULLABY_AT, settlers, hutsNow, settleCap, hutPrice, doorFrost, doorOpen, canSettle, settleWhyNot, settleOut, buildHut, sledDue, sledCome, settlerHome });',
 ].join('\n');
 const stageOf = level => level < 5 ? 0 : level < 10 ? 1 : level < 15 ? 2 : 3;
 const glow = (id, o = {}) => ({ id, name: 'G' + id, level: 12, energy: 70, joy: 80, tummy: 80, room: 0, ...o });
@@ -163,15 +163,19 @@ test('the sled: 2 frostglass a day per settler, once a day, its basket only thre
   assert.equal(empty.g.sledCome(), null); assert.equal(empty.g.save.settle, undefined);
 });
 
-test('each settler brings a frost geode for every ten of its days there, counted, never random', () => {
+test('each settler brings a frost geode for every ten of its days there, counted, never random, and at most one per sled', () => {
   const c = glow(1, { out: true, settle: { since: 0, day: 80, geo: 0 } });
   const { g, did } = world({ creatures: [c], settle: { huts: 0, day: 80 } });
   assert.equal(g.GEODE_DAYS, 10);
   for (let d = 81; d <= 89; d++) assert.equal(g.sledCome(d).geodes, 0, String(d));
   assert.equal(g.sledCome(90).geodes, 1); assert.equal(c.settle.geo, 1); assert.equal(did.geodes, 1);
   assert.equal(g.sledCome(91).geodes, 0);
-  // a month away: the geodes of all its days there
-  assert.equal(g.sledCome(120).geodes, 3); assert.equal(c.settle.geo, 4); assert.equal(did.geodes, 4);
+  // a month away: the basket holds one geode from each settler; the days' others are forgone, not saved for later
+  assert.equal(g.sledCome(120).geodes, 1); assert.equal(c.settle.geo, 4); assert.equal(did.geodes, 2);
+  assert.equal(g.sledCome(121).geodes, 0); assert.equal(g.sledCome(130).geodes, 1); assert.equal(did.geodes, 3);
+  // three settlers away a long while: one each
+  const s = (id, day) => glow(id, { out: true, settle: { since: 0, day, geo: 0 } });
+  assert.equal(g.sledDue([s(1, 0), s(2, 10), s(3, 95)], 50, 100).geodes, 2);
 });
 
 test('settlers need nothing and grow like helpers; the game never counts them at home or sends them back by itself', () => {
@@ -249,4 +253,18 @@ test('every new word of the snowfields\' settlement and door has its Ukrainian; 
   for (const s of ['{0} set off for the snowfields: Runa will look after it ✦', '{0} came home from the snowfields ✦', 'Moved to the snowfields, to live near Runa']) assert.doesNotMatch(UK.get(s), /\b(вирушив|вирушила|повернувся|повернулася|переселився|переселилася)\b/, s);
   assert.match(UK.get('Moved to the snowfields, to live near Runa'), /Переселилося/);
   for (const s of said) assert.doesNotMatch(UK.get(s), /\b(прийшов|прийшла|готовий|готова|зміг|змогла)\b/, s);
+});
+
+test('Runa\'s bar on a narrow screen: one short word under each icon, in both languages, the targets still a finger wide', () => {
+  const words = JSON.parse(snow.match(/^const SHORT_WORDS = (\[.*\]);$/m)[1]);
+  assert.deepEqual(words, ['Fish', 'Carve', 'Spring', 'Village', 'Geode']);
+  assert.deepEqual(words.map(k => UK.get('short:' + k)), ['Риба', 'Різьба', 'Джерело', 'Поселення', 'Жеода']);
+  assert.match(snow, /\["rod", tr\("Fish"\), startFishing, "", shortWord\("Fish"\)\]/);
+  assert.match(nestJs, /\$\{short \? `<small class="short">\$\{short\}<\/small>` : ""\}/);
+  const css = fs.readFileSync(path.join(__dirname, '../style.css'), 'utf8');
+  assert.match(css, /#placeActs\.tight \.act\.has-short:not\(\.give\) \{[^}]*min-width: var\(--tap\); min-height: var\(--tap\);/);
+  assert.match(css, /#placeActs\.tight \.act\.has-short \.short \{ display: block; font-size: 11px;/);
+  // and in a place, a banner sends the plaque out of its way
+  assert.match(css, /body\.scene-nest\.at-place\.banner #roomLabel \{ opacity: 0; \}/);
+  assert.match(nestJs, /document\.body\.classList\.toggle\("at-place", !bar\.hidden\);/);
 });

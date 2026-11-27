@@ -103,8 +103,9 @@ function carve(id) {
  * her sled came.
  */
 const SETTLE_BASE = 3, SETTLE_HUT = 3, HUT_GLASS = [20, 35, 50], SETTLE_MAX = SETTLE_BASE + SETTLE_HUT * HUT_GLASS.length;
-/** Each settler sends SLED_GLASS frostglass a day; Runa's basket holds SLED_DAYS days of it; a frost geode every GEODE_DAYS of its days there. */
-const SLED_GLASS = 2, SLED_DAYS = 3, GEODE_DAYS = 10;
+/** Each settler sends SLED_GLASS frostglass a day; Runa's basket holds SLED_DAYS days of it; a frost geode every GEODE_DAYS of its
+ *  days there, and the basket holds SLED_GEODES of those from each settler, however long you were away. */
+const SLED_GLASS = 2, SLED_DAYS = 3, GEODE_DAYS = 10, SLED_GEODES = 1;
 /** The frost on the ice door thins as the settlement grows (only to look at: the door opens on Runa's third wish). */
 const DOOR_STAGES = [3, 6, 9], LULLABY_AT = 6, DOOR_WISH = 3;
 const settleSave = () => save.settle || (save.settle = { huts: 0, day: dayNo() });
@@ -143,15 +144,16 @@ function buildHut(free = false) {
 /**
  * What Runa's sled brings today (pure: the tests run it): for each settler, SLED_GLASS a day since the sled last came (or
  * since it came, if later), only SLED_DAYS days' worth at most; and a frost geode for every GEODE_DAYS of its days there not
- * yet brought. Returns { glass, geodes, by: [[id, geodes]] }.
+ * yet brought, SLED_GEODES at most. Returns { glass, geodes, by: [[id, geodes, the geodes its days there have come to]] }.
  */
 function sledDue(list, last, today) {
   let glass = 0, geodes = 0; const by = [];
   for (const c of list) {
     const from = Math.max(last, c.settle.day), days = Math.min(SLED_DAYS, Math.max(0, today - from));
     glass += days * SLED_GLASS;
-    const g = Math.max(0, Math.floor((today - c.settle.day) / GEODE_DAYS) - (c.settle.geo || 0));
-    if (g) { geodes += g; by.push([c.id, g]); }
+    // (counted by its days there; while you're away, the basket holds only one of them: the rest are forgone, not saved up)
+    const due = Math.floor((today - c.settle.day) / GEODE_DAYS), g = Math.min(SLED_GEODES, Math.max(0, due - (c.settle.geo || 0)));
+    if (g) { geodes += g; by.push([c.id, g, due]); }
   }
   return { glass, geodes, by };
 }
@@ -163,7 +165,7 @@ function sledCome(today = dayNo()) {
   s.day = today;
   if (!due.glass && !due.geodes) return null;
   giveGlass(due.glass);
-  for (const [id, g] of due.by) { const c = list.find(x => x.id === id); c.settle.geo = (c.settle.geo || 0) + g; }
+  for (const [id, , upTo] of due.by) list.find(x => x.id === id).settle.geo = upTo;
   if (due.geodes) giveFrostGeode(due.geodes);
   return due;
 }
@@ -209,10 +211,14 @@ function snowActs() {
     const out = ["wait", "bite", "cast"].includes(f.phase);
     return [["rod", tr(out ? "Pull!" : "Cast"), out ? icePull : iceCast, f.phase === "bite" ? "bite" : ""], ["close", tr("Stop"), iceStop]];
   }
+  // (each with one short word too, shown under its icon when the row is too narrow for the full names: see placeFit)
   const n = frostGeodes();
-  return [["rod", tr("Fish"), startFishing], ["chisel", tr("Carving"), openCarving], ["steam", tr("Hot spring"), () => openSpring()], ["hut", tr("Settlement"), openSettle],
-    ...(n ? [["frostgeode", tr("Crack a frost geode ({0})", n), () => { iceStop(); startFrost(); }]] : [])];
+  return [["rod", tr("Fish"), startFishing, "", shortWord("Fish")], ["chisel", tr("Carving"), openCarving, "", shortWord("Carve")], ["steam", tr("Hot spring"), () => openSpring(), "", shortWord("Spring")], ["hut", tr("Settlement"), openSettle, "", shortWord("Village")],
+    ...(n ? [["frostgeode", tr("Crack a frost geode ({0})", n), () => { iceStop(); startFrost(); }, "", shortWord("Geode")]] : [])];
 }
+/** A button's one short word, for under its icon on a narrow screen (its own entry in the words, "short:…", where it has one). */
+const SHORT_WORDS = ["Fish", "Carve", "Spring", "Village", "Geode"];
+function shortWord(k) { const key = "short:" + k, s = tr(key); return s === key ? k : s; }
 /** On the plaque under the place's name: your frostglass. */
 const snowWho = () => `<span class="glass" title="${tr("Frostglass")}">${ic("glass")}×${glassNow()}</span>`;
 /** The keeper says something (her bubble over her head, as when you tap her). */
@@ -886,8 +892,10 @@ function muralArt() {
   for (let y = 0; y < H0; y++) for (let x = 0; x < W0; x++) if (pxHash(x * 7, y * 3) > 0.94) px(x, y, "#3a3440");
   return muralUrl = c.toDataURL();
 }
-/** The Winter hall, behind the open door: the mural, the scratched hinges, and Runa's word on them. */
+/** The Winter hall, behind the open door: the mural, the scratched hinges, and Runa's word on them. The first time, she points
+ *  out the hinges at the door before the sheet opens, so her talk never sits over the words in it. */
 function openWinterHall() {
+  if (!talkSeen("hallHinges") && talk("hallHinges")) { afterTalk = () => openWinterHall(); return; }
   sfx.tick();
   $("snowTitle").textContent = tr("The Winter hall");
   $("snowSub").textContent = tr("Behind the ice door: a long, low hall of old stone, warm as a held breath. Nobody's here. Everything is swept.");
@@ -896,7 +904,6 @@ function openWinterHall() {
     + `<p class="me-hint">${tr("On the door's hinges, old rust-red scratches. They stop exactly where the frost begins.")}</p>`
     + `<q class="folk-said">${tr("Something red came this far once. The cold stopped it.")}</q>`;
   show("snowSheet", true);
-  if (!talkSeen("hallHinges")) setTimeout(() => talk("hallHinges"), 900);
 }
 
 // what's said in the snowfields, once each: Ember at the door, the door opening, the hall's hinges, the lullaby through the ice

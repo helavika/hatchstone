@@ -1977,6 +1977,8 @@ function tapHero(auto = false) {
 function renderPlaceBar() {
   const h = isPlace() && heroHere(), bar = $("placeBar");
   bar.hidden = !h || game.scene !== "nest";
+  // (in a place, the plaque steps aside while a banner is up, as it does while someone speaks: see style.css)
+  document.body.classList.toggle("at-place", !bar.hidden);
   $("placeWays").hidden = bar.hidden; $("placeWho").hidden = !h;
   if (!h) return;
   $("placeFace").src = h.none ? pxIcon(h.icon) : keeperFace(h.icon); $("placeFace").classList.toggle("small", !!h.none);
@@ -1995,7 +1997,8 @@ function renderPlaceBar() {
   const ht = game.helpTap && game.helpTap.room === save.room && save.creatures.find(c => c.id === game.helpTap.id && c.job);
   const give = ht ? `<button class="act give" id="placeHelperHome">${ic("nest")}<span>${tr("Bring {0} home", ht.name)}</span></button>`
     : a && a.have() ? `<button class="act buy give" id="placeGive">${ic(h.mark || "sparkle")}<span>${tr(a.btn)}</span></button>` : "";
-  $("placeActs").innerHTML = give + h.act.map(([icon, name, , cls], k) => `<button class="act buy${cls ? " " + cls : ""}" data-act="${k}" aria-label="${tr(name)}" title="${tr(name)}">${ic(icon)}<span>${tr(name)}</span></button>`).join("");
+  // (a button with a short word of its own shows it under its icon when the row is too narrow for the names: see placeFit)
+  $("placeActs").innerHTML = give + h.act.map(([icon, name, , cls, short], k) => `<button class="act buy${cls ? " " + cls : ""}${short ? " has-short" : ""}" data-act="${k}" aria-label="${tr(name)}" title="${tr(name)}">${ic(icon)}<span>${tr(name)}</span>${short ? `<small class="short">${short}</small>` : ""}</button>`).join("");
   $$("#placeActs [data-act]").forEach(b => b.addEventListener("click", () => { sfx.tick(); h.act[Number(b.dataset.act)][2](); }));
   $("placeHelperHome")?.addEventListener("click", () => { if (helperHome(ht.id)) renderPlaceBar(); });
   $("placeGive")?.addEventListener("click", bringWish);

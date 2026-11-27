@@ -181,7 +181,7 @@ test('the hot spring: three at most, awake and from home; rest +15, fun +10, +5 
 
 test('in the snowfields: Runa\'s buttons as you go, the expedition\'s frostglass, and every new word in Ukrainian', () => {
   // her bar: fish, carve, the spring, the settlement, and a frost geode to crack when there is one; while fishing, the rod's own buttons
-  const page = { fishing: null, geodes: 0, tr: s => s.replace('{0}', '·'), frostGeodes: () => page.geodes, iceNow: () => page.fishing, startFishing() {}, openCarving() {}, openSpring() {}, openSettle() {}, iceStop() {}, startFrost() {}, iceCast() {}, icePull() {} };
+  const page = { fishing: null, geodes: 0, tr: s => s.replace('{0}', '·'), frostGeodes: () => page.geodes, iceNow: () => page.fishing, startFishing() {}, openCarving() {}, openSpring() {}, openSettle() {}, shortWord: s => s, iceStop() {}, startFrost() {}, iceCast() {}, icePull() {} };
   vm.runInNewContext(cut(snow, 'function snowActs() {', '\n}\n', 'snowActs') + '\n}\nthis.snowActs = snowActs;', page);
   const names = () => plain(page.snowActs().map(a => a[1]));
   assert.deepEqual(names(), ['Fish', 'Carving', 'Hot spring', 'Settlement']);
