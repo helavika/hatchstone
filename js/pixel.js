@@ -59,6 +59,8 @@ const PX_ICON_MAPS = {
   barFirefly: ["............", "............", "...BBBBBB...", "..BbbbbbbB..", "..BbGbbbbB..", "..BbbbbbbB..", "..BbbbbbbB..", "..BbbbbGbB..", "..BbbbbbbB..", "...BBBBBB...", "............", "............"],
   barNut: ["............", "............", "............", "rr........rr", ".rRRRRRRRRr.", ".RoobobobbR.", ".RbobbobobR.", ".rRRRRRRRRr.", "rr........rr", "............", "............", "............"],
   barStar: ["............", "............", "............", "tt........tt", ".tTTTTgTTTt.", ".TTTTgGgTTT.", ".TTTTTgTTTT.", ".tTTTTTTTTt.", "tt........tt", "............", "............", "............"],
+  // a snow igloo: a dome of packed snow blocks, lit on its top left, and a warm glow in its round door
+  igloo: ["............", "....wWWw....", "..wWWsWWws..", ".wWWWsWWwsS.", ".wsssssssSS.", "wWWsWggWsSsS", "wWWsgGGgwsSS", "sssSgGGgSSSS", "wWsWgGGgwSsS", "wWsWgGWgwSsS", "SSSSgggoSSSS", "............"],
   hammer: ["............", ".zSSSSSSSSz.", ".SswssssssS.", ".SsssssssSS.", ".zSSSSSSSSz.", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....ob.....", ".....bB.....", "............"],
   eye: ["............", "............", "....ssss....", "..ssssssss..", ".sssTTTTsss.", "ssssTkkTssss", "ssssTkWTssss", ".sssTTTTsss.", "..ssssssss..", "....ssss....", "............", "............"],
   bell: [".....bb.....", ".....gg.....", "....gGgg....", "...gGgggo...", "...gGgggo...", "...gGgggo...", "..gGggggoo..", "..gGggggoo..", ".ggggggggoo.", ".oooooooooo.", ".....bb.....", "............"],
