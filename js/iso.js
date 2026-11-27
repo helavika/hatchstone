@@ -426,13 +426,10 @@ function meetFriend(a, f, cr) {
   } else {
     a.state = f.state = "nap"; a.t = f.t = rand(5, 8); emote(a, "zz", 2.5); emote(f, "zz", 2.5);
   }
-  // friends remember each other, and a good meeting cheers both up
-  for (const [c, o] of [[cr, fc], [fc, cr]]) {
-    c.joy = clamp(c.joy + 3, 0, 100); c.pals = { ...c.pals, [o.id]: ((c.pals || {})[o.id] || 0) + 1 };
-    if (c.pals[o.id] === 5) remember(c, "Became friends with {0} ♥", o.name);
-  }
+  // friends remember each other (twice over in the snow cave, huddled up: see palMet), and a good meeting cheers both up
+  const made = [[cr, fc], [fc, cr]].map(([c, o]) => { c.joy = clamp(c.joy + 3, 0, 100); return palMet(c, o); });
   // (just become friends: both pleased about it)
-  if (cr.pals[fc.id] === 5) { emote(a, kaoFor(cr, "friend"), 2); emote(f, kaoFor(fc, "friend"), 2); }
+  if (made[0]) { emote(a, kaoFor(cr, "friend"), 2); emote(f, kaoFor(fc, "friend"), 2); }
 }
 
 // ---------- care moments: a grown one looking after a little one, in a way you can see (#319; the rules: careFor in nest.js) ----------
@@ -1264,8 +1261,8 @@ const WALL_ITEMS = { shelf: { wall: "R", s: 0.82 }, painting: { wall: "L", s: 0.
  *  down the back of the left wall onto a mat, its climbing wall stands at the back of the right one over another: the back
  *  corner's two tiles are theirs, and the one in front of the slide's end (where you shoot off, before the slate under the
  *  window); what's put out by itself keeps off the row in front of them too (front); the shelf and the painting hang over the
- *  bed, clear of both. */
-const ROOM_KEEPS = { play: { tiles: ["0,0", "0,1", "0,2"], front: ["1,0", "1,1", "1,2"], walls: { L: 2, R: 1 }, hang: { shelf: { wall: "R", s: 1.4 }, painting: { wall: "R", s: 3.45 } } } };
+ *  bed, clear of both. The snow cave's fur rug lies over the back corner's four tiles. */
+const ROOM_KEEPS = { snowcave: { tiles: ["0,0", "1,0", "0,1", "1,1"] }, play: { tiles: ["0,0", "0,1", "0,2"], front: ["1,0", "1,1", "1,2"], walls: { L: 2, R: 1 }, hang: { shelf: { wall: "R", s: 1.4 }, painting: { wall: "R", s: 3.45 } } } };
 const roomKeeps = (room = save.room) => ROOM_KEEPS[save.rooms?.[room]?.kind] || {};
 /** Is this wall slot one the room's own fixtures take? */
 const wallKept = (wall, s, room = save.room) => s < ((roomKeeps(room).walls || {})[wall] || 0);
@@ -5094,6 +5091,8 @@ function paintMood({ mood, put, d, w, h, at, cx, top, hw, hh, wall, S, seed, lig
 /** Where a room's own fixtures keep clear of along each wall (a share of its length from the back corner): the tunnels' mouths
  *  low down near the front end (DOOR_AT), whichever wall they're cut in. */
 const FIXTURE_CLEAR = [DOOR_AT - DOOR_W - 0.05, DOOR_AT + DOOR_W + 0.05];
+/** The snow cave's snow, ice and fur rug, each from its deepest shade to its lit top. */
+const SNOW_CAVE = { snow: ["#56668c", "#8397be", "#b3c7e4", "#dce8f6", "#f7fbff"], ice: ["#1f3d60", "#3b78a6", "#6cb2da", "#b2e2f6", "#ffffff"], fur: ["#3a261e", "#664532", "#94694a", "#c09670", "#e6cda4"] };
 /** The playroom's bright paints: each a lit, a mid and a shaded tone. */
 const PLAY_PAINT = [["#ffc4dc", "#ff7eb6", "#c24d86"], ["#fff2a8", "#ffd84a", "#c99a1e"], ["#c4f4fb", "#5fd3e8", "#2d8fb0"], ["#cdf5b4", "#7ee07a", "#3c9a4a"], ["#e2d2ff", "#b48cff", "#6f4fc0"], ["#ffd6b0", "#ff9f4a", "#c4602a"]].map(r => r.map(pxHex));
 /**
@@ -5104,7 +5103,10 @@ const PLAY_PAINT = [["#ffc4dc", "#ff7eb6", "#c24d86"], ["#fff2a8", "#ffd84a", "#
  * that glows; the playroom has a slide standing by the back of the left wall, a ladder up to its deck, onto a landing mat, a climbing board with a
  * bell over a crash mat at the back of the right one (the back corner's floor is theirs: ROOM_KEEPS), a chalk slate and a low
  * shelf of toys under the window, and bunting along the top; in the moss garden moss creeps up the walls in any look (its beds, its
- * spring and its shaft of light are the garden's own already: paintMossGarden, roomShaft). The nest keeps its bed corner.
+ * spring and its shaft of light are the garden's own already: paintMossGarden, roomShaft); the snow cave banks snow along the foot of
+ * its walls, stands columns of ice against them, lets a cold glow in through a frosted window, hangs icicles from the top of the
+ * rock and lays a fur rug in front of the back corner (its floor: ROOM_KEEPS), all short of the tunnels and the corners a phone cuts off.
+ * The nest keeps its bed corner.
  * Lights go onto lights before paintRoomIso shines them; what shines itself is drawn in the function it returns.
  */
 function paintFixtures(room, { put, d, w, h, at, cx, top, hw, hh, wall, S, seed, lights, art, crys, mossC, mossy, tops }) {
@@ -5205,6 +5207,95 @@ function paintFixtures(room, { put, d, w, h, at, cx, top, hw, hh, wall, S, seed,
       glow(...P("L", 0.012, 22 * K, 0.012), 34 * K, gl, 0.9);
       for (const [x, y] of tips) if (pxHash(Math.round(x), Math.round(y)) > 0.55) glow(x, y, 6 * K + 2, gl, 0.7);
       for (const [x, y] of tips) if (pxHash(Math.round(y), Math.round(x)) > 0.8) { const W = pxHex("#ffffff"); put(x, y, W); put(x - 1, y, cr[4]); put(x + 1, y, cr[4]); put(x, y - 1, cr[4]); put(x, y + 1, cr[4]); }
+    };
+  }
+
+  if (room === "snowcave") {
+    // Frost Hollow brought indoors, whatever its look: the light falls from the top left, so snow and ice are lit on their top
+    // left and in a cold blue shade down and to the right; the ice lets the rock show through it a little
+    const [snow, ice, fur] = ["snow", "ice", "fur"].map(k => SNOW_CAVE[k].map(pxHex)), cold = pxHex("#bfe6ff"), W = ice[4], K = Math.max(0.85, S), ds = 0.35 / hw;
+    const mix = (x, y, c, k) => { const c0 = get(x, y); put(x, y, c0 ? c.map((v, i) => Math.round(c0[i] + (v - c0[i]) * k)) : c); };
+    const dim = (x, y, k) => { const c = get(x, y); if (c && bay(x, y) < k * 1.6) put(x, y, c.map(v => Math.round(v * (1 - Math.min(0.55, k))))); };
+    const far = s => s > 0.8 || !clear(s);
+    // ---- the fur rug: a shaggy pelt thrown down in front of the back corner, four paws spread, tufted and lit along its top left,
+    // paler down its middle, its edge ragged, a soft shadow just in front of it (it keeps to the back corner's four tiles)
+    for (let y = Math.floor(top); y <= Math.ceil(top + hh * 0.7); y++) for (let x = Math.floor(cx - hw * 0.36); x <= Math.ceil(cx + hw * 0.36); x++) {
+      const a = (x - cx) / hw, b = (y - top) / hh, u = (a + b) / 2, v = (b - a) / 2, A = (u + v) / 2, B = (u - v) / 2;
+      if (u < 0.015 || v < 0.015 || u > 0.33 || v > 0.33) continue;
+      const rag = 0.12 * (pxNoise(Math.atan2(A - 0.19, B) * 4 + seed, 2) - 0.5) + (pxHash(x, y + seed) > 0.8 ? 0.06 : 0);
+      const paw = Math.min(...[[-1, -1], [-1, 1], [1, -1], [1, 1]].map(([i, j]) => Math.hypot(B - j * 0.09, A - 0.19 - i * 0.042) / 0.024));
+      const e = Math.min(Math.hypot(B / 0.105, (A - 0.19) / 0.06), paw) + rag;
+      if (e > 1.12) continue;
+      if (e > 1) { if (A > 0.19) dim(x, y, 0.4); continue; }
+      const strand = pxFbm(x * 0.35 + y * 0.7, y * 0.18 + seed), lit = 0.5 - (B + A - 0.19) * 2.6, belly = Math.abs(B) < 0.03 && paw > 1 ? 0.18 : 0;
+      put(x, y, e > 0.86 ? fur[strand > 0.5 ? 2 : 1] : isoTone(fur, lit + belly + 0.6 * (strand - 0.5), x, y, 0.5));
+    }
+    // ---- snow drifted along the foot of both walls: banked up against the rock and rounded off toward the room, highest in
+    // the back corner and tapering off before the tunnels and the corners a phone cuts off; the crest lit, the face in shade
+    for (const side of ["L", "R"]) {
+      const off = side === "L" ? 0 : 20, H = s => { const dd = clear(s) ? Math.min(Math.abs(s - FIXTURE_CLEAR[0]), Math.abs(s - FIXTURE_CLEAR[1])) : 0; return wall * (0.03 + 0.09 * pxFbm(s * 5 + off, seed) + 0.06 * Math.max(0, 1 - s / 0.2)) * clamp(Math.min((0.8 - s) / 0.08, dd / 0.06), 0, 1); };
+      for (let s = 0.012; s <= 0.8; s += ds) {
+        const hgt = H(s); if (hgt < 1) continue;
+        // (which way it slopes along the wall: the side of a mound turned toward the back corner catches the light)
+        const tilt = clamp((H(s - 0.01) - H(s + 0.01)) / (wall * 0.02), -1, 1) * (side === "L" ? -0.18 : 0.18), o1 = 0.025 + hgt / hw * 0.5;
+        for (let o = 0; o <= o1; o += ds) {
+          const q = o / o1, zz = hgt * (1 - q * q), ripple = Math.abs(pxNoise(s * 70 + off, q * 3 + seed) - 0.5) < 0.04 ? -0.16 : 0;
+          for (let z = 0; z <= zz; z++) {
+            const [x, y] = P(side, s, z, o), face = (zz - z) / (hgt + 1);
+            put(x, y, q > 0.9 && z < 1 ? snow[1] : isoTone(snow, 0.84 - 0.3 * q - 0.45 * q * q - 0.35 * face + tilt + ripple - (side === "L" ? 0.06 : 0), x, y, 0.5));
+          }
+          if (q > 0.86) { const [x, y] = P(side, s, 0, o + ds * 2); dim(x, y, 0.3); }
+        }
+        // a glint in the snow now and then
+        if (pxHash(Math.round(s * 400), side === "L" ? 1 : 2) > 0.93) { const [x, y] = P(side, s, hgt * 0.8, o1 * 0.3); put(x, y, W); }
+      }
+    }
+    // ---- the frosted window: a round hole through the left wall (in place of the opening a crystal cave has there), glazed with a pane of frostglass, ferns of frost grown over
+    // it, a ring of snow blocks round it and a little drift on its sill; a cold, pale light comes through
+    const win = { s: 0.43, z: wall * 0.52 }, R = Math.max(7, Math.round(hw * 0.085)), f = onWall("L", win.s, win.z), panes = [];
+    for (let b = -R * 1.35; b <= R * 1.35; b += 0.5) for (let a = -R * 1.15; a <= R * 1.15; a += 0.5) {
+      const e = Math.hypot(a / R, b / (R * 1.2)), [x, y] = f(a, b);
+      if (e > 1.1) continue;
+      if (e > 0.72) { const an = Math.atan2(b, a), seam = Math.abs(((an / TAU * 10 + 10) % 1) - 0.5) > 0.42 || Math.abs(e - 0.92) < 0.03; put(x, y, e > 1.06 || e < 0.75 ? snow[0] : seam ? snow[1] : isoTone(snow, 0.62 + (b - a) / (R * 3), x, y, 0.3)); continue; }
+      const fern = Math.abs(pxNoise(a * 0.35 + seed, b * 0.35) - 0.5) < 0.06 || Math.abs(pxNoise(b * 0.4, a * 0.4 + seed + 7) - 0.5) < 0.04;
+      put(x, y, fern ? W : isoTone(ice, 0.62 + (b - a) / (R * 3.2) + 0.15 * (1 - e), x, y, 0.4)); panes.push([x, y]);
+    }
+    for (let a = -R * 0.9; a <= R * 0.9; a += 0.5) for (let k = 0; k <= Math.round(2 * K) * (1 - Math.abs(a) / R); k++) { const [x, y] = f(a, -R * 1.18 + k); put(x, y, isoTone(snow, 0.9 - k * 0.15, x, y, 0.3)); }
+    lightAt("L", win.s, win.z, hw * 0.5, "#bfe6ff", 0.9);
+    // ---- columns of ice from the floor to the top of the rock: one in the back corner, one along each wall (between the shelf and the frost window's places on the right, by the tunnel on the left), each rounded,
+    // lit down its left side with a bright streak, flared out at the foot where it froze onto the snow, ringed where it grew
+    const columns = [["L", 0.012, 1.6], ["R", 0.42, 1], ["L", 0.6, 1.1]].filter(([, s]) => clear(s)), tipsAt = [];
+    for (const [side, s, wide] of columns) {
+      const [fx, fy] = P(side, s, 0, 0.012), r0 = Math.max(2.5, hw * 0.024 * wide), yt = tops[Math.round(fx)];
+      if (Number.isNaN(yt)) continue;
+      for (let y = Math.floor(yt); y <= fy + r0; y++) {
+        const z = fy - y, rr = r0 * (1 + 0.15 * (pxNoise(z * 0.09, s * 40 + seed) - 0.5) * 2 + 0.7 * Math.max(0, 1 - z / (r0 * 3)) + 0.5 * Math.max(0, 1 - (y - yt) / (r0 * 2.5)));
+        for (let dx = -Math.ceil(rr); dx <= Math.ceil(rr); dx++) {
+          const e = dx / rr, x = fx + dx;
+          if (Math.abs(e) > 1 || y > fy + Math.sqrt(1 - e * e) * rr * 0.45) continue;
+          const ring = Math.abs(((z / (6 * K + 3)) % 1) - 0.5) < 0.07 && pxHash(dx, Math.round(z)) > 0.3;
+          const c = Math.abs(e) > 0.86 ? ice[0] : e < -0.5 ? ice[3] : e < -0.3 ? (pxHash(Math.round(z), Math.round(s * 99)) > 0.25 ? ice[4] : ice[3]) : e < 0.35 ? (ring ? ice[3] : ice[2]) : ice[1];
+          mix(x, y, c, Math.abs(e) > 0.86 ? 0.9 : 0.8);
+        }
+      }
+      { const [x, y] = P(side, s, 0, 0.03); for (let k = -Math.round(r0 * 1.6); k <= Math.round(r0 * 1.6); k++) dim(x + k + 2, y + 1, 0.35); }
+      lightAt(side, s, wall * 0.3, hw * 0.25, "#9fd8f4", 0.6); tipsAt.push([fx, fy - wall * 0.3]);
+    }
+    // ---- snow along the top of the rock, and icicles hanging from it: more toward the back, none over the cut-off corners
+    for (let x = Math.floor(cx - hw * 0.8); x < cx + hw * 0.8; x++) {
+      const yt = tops[x], tt = Math.abs(x - cx) / hw;
+      if (Number.isNaN(yt)) continue;
+      const cap = Math.round((1 + 1.6 * pxFbm(x * 0.08, seed + 5)) * K);
+      for (let k = 0; k <= cap; k++) put(x, yt + k, isoTone(snow, 0.95 - k / (cap + 1) * 0.45, x, yt + k, 0.3));
+      if (pxHash(x, seed + 61) > 0.3 - 0.12 * tt) continue;
+      const len = Math.round((3 + 10 * pxHash(x + 3, seed) ** 2 * (1 - tt * 0.6)) * K) + 2;
+      for (let k = 0; k < len; k++) { const y = yt + cap + k, thick = k < len * 0.45 && len > 5; put(x, y, k === len - 1 ? W : ice[k < 2 ? 3 : 2]); if (thick) put(x + 1, y, ice[1]); }
+    }
+    return () => {
+      const [wx, wy] = f(0, 0);
+      glow(wx, wy, R * 2.4, cold, 0.55);
+      for (const [x, y] of panes) if (pxHash(Math.round(x), Math.round(y)) > 0.985) put(x, y, W);
+      for (const [x, y] of tipsAt) glow(x, y, hw * 0.06 + 4, cold, 0.55);
     };
   }
 
@@ -6166,8 +6257,8 @@ function paintRoomIso(id) {
     // (the grotto's hall is deep under the rock: no window there, and no moonlight on its floor; the shop's front is open)
     if (roomKindNow === "grotto" || shop) {}
     // (the moss garden has no window: its light comes down a shaft from a crack in the vault, see paintMossGarden; nor has any
-    // cave at home that isn't a crystal cave: each has its own light, see paintMood)
-    else if (garden || (mood && mood !== "crystal")) {}
+    // cave at home that isn't a crystal cave: each has its own light, see paintMood; the snow cave's is its own, frosted over: paintFixtures)
+    else if (garden || (mood && mood !== "crystal") || roomKindNow === "snowcave") {}
     else if (kind === "hall") {
       // the abbey's window is Gothic: a pointed arch cut deep through the wall and splayed, so both its sides show, with a
       // broad stone seat; four tall lancets with trefoil heads under a net of lozenges (three, two, one), all on the wall's

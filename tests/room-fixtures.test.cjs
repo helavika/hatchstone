@@ -25,7 +25,7 @@ const src = [
   line(nest, /^const isOutside = .*$/m, 'isOutside should be one line in nest.js'),
   line(nest, /^const isPlace = .*$/m, 'isPlace should be one line in nest.js'),
   cut(save, 'function currentTheme(', '\n// ----------', 'the backdrop rules should sit together in save.js'),
-  'Object.assign(this, { THEMES, HOME_ART, paintRoomIso, roomMaterials, roomKey, roomShaft, currentTheme, themeThumb, PLAY_PAINT, ISO_G });',
+  'Object.assign(this, { THEMES, HOME_ART, paintRoomIso, roomMaterials, roomKey, roomShaft, currentTheme, themeThumb, PLAY_PAINT, SNOW_CAVE, ISO_G });',
 ].join('\n');
 
 /** A canvas that keeps the pixels put on it. */
@@ -46,7 +46,7 @@ function page(room, theme, Wd = 390, Hd = 844) {
   const p = {
     document: { createElement: () => canvas() }, LEVELS: 24, IC, game: { scene: 'nest' }, W: Wd, H: Hd, PX: 1,
     N: { cx: Wd / 2, isoTop: 330, isoW, isoH: isoW / 2, isoWall: 150, base: 60 },
-    save: { room, theme, rooms: ['nest', 'yard', 'play', 'garden', 'study', 'forge'].map(kind => ({ kind, on: [] })), moon: 1, seen: Object.fromEntries(Array.from({ length: 12 }, (_, i) => ['s' + i, 1])), creatures: [{ level: 15 }] },
+    save: { room, theme, rooms: ['nest', 'yard', 'play', 'garden', 'study', 'forge', 'snowcave'].map(kind => ({ kind, on: [] })), moon: 1, seen: Object.fromEntries(Array.from({ length: 12 }, (_, i) => ['s' + i, 1])), creatures: [{ level: 15 }] },
     unlocked: () => true, totalStars: () => 99, placeOk: () => true,
     hasDecor: () => false, wallSlot: () => ({ wall: 'L', s: 0 }), isoWallTop: x => 0, roomSpot: () => [0, 0], opts: () => ({}),
   };
@@ -66,7 +66,7 @@ const opaque = (c, x, y) => c.img.data[(Math.round(y) * c.width + Math.round(x))
 
 // the rooms in page(): 0 the nest, 2 the playroom, 3 the moss garden, 4 the crystal study
 const LOOKS = ['amethyst', 'celestite', 'glowcap', 'smithy', 'abbey', 'churchyard', 'summit'];
-const ROOMS = { nest: 0, play: 2, garden: 3, study: 4 };
+const ROOMS = { nest: 0, play: 2, garden: 3, study: 4, snowcave: 6 };
 const paint = (kind, id) => { const p = page(ROOMS[kind], id); return { p, c: p.paintRoomIso(p.currentTheme()) }; };
 /** How many pixels two paintings of a room differ in, all told and where the floor's tiles are (inset from its edges and the walls'
  *  foot, where furniture stands, leaving out the tiles the room keeps for its own fixtures: `kept`, "i,j" as in ROOM_KEEPS),
@@ -131,6 +131,34 @@ test('what a room is built with keeps off the floor where furniture stands, and 
 
 test('each room is painted and kept by its kind', () => {
   const key = (kind, id) => page(ROOMS[kind], id).roomKey();
-  for (const id of LOOKS) assert.equal(new Set(Object.keys(ROOMS).map(k => key(k, id))).size, 4, id);
+  for (const id of LOOKS) assert.equal(new Set(Object.keys(ROOMS).map(k => key(k, id))).size, Object.keys(ROOMS).length, id);
   assert.match(read('iso.js'), /const fixed = atHome\(\) && paintFixtures\(roomKindNow,/);
+});
+
+test('the snow cave: snow, ice and a fur rug in any look, off the furniture\'s floor, the cut-off corners and the tunnels', () => {
+  for (const id of ['frost', 'amethyst', 'glowcap', 'smithy', 'abbey']) {
+    const nest = paint('nest', id), cave = paint('snowcave', id), pal = k => cave.p.SNOW_CAVE[k];
+    const cols = colours(cave.c), count = list => list.reduce((n, k) => n + (cols.get(k) || 0), 0), was = list => list.reduce((n, k) => n + (colours(nest.c).get(k) || 0), 0);
+    assert.ok(count(pal('snow')) > was(pal('snow')) + 800, `${id}: snow drifts (${count(pal('snow'))})`);
+    assert.ok(count(pal('ice')) > was(pal('ice')) + 300, `${id}: icicles, the window and the columns' outline (${count(pal('ice'))})`);
+    // the fur rug: warm brown in the back corner, where the nest has bare floor (lit by the ice beside it, so by its warmth)
+    { const { cx, isoTop: top, isoW: hw } = cave.p.N, hh = hw / 2, d0 = nest.c.img.data, d1 = cave.c.img.data, w = cave.c.width; let warm = 0;
+      for (let i = 0; i < d1.length; i += 4) {
+        const x = (i / 4) % w, y = Math.floor(i / 4 / w), u = ((x - cx) / hw + (y - top) / hh) / 2, v = ((y - top) / hh - (x - cx) / hw) / 2;
+        if (u > 0 && v > 0 && u < 0.34 && v < 0.34 && d1[i] - d1[i + 2] > 25 && d1[i] !== d0[i]) warm++;
+      }
+      assert.ok(warm > 300, `${id}: the fur rug (${warm})`); }
+    // nothing of it on the tiles where furniture stands (the rug keeps to the back corner's own four: ROOM_KEEPS)
+    const solid = [...pal('snow'), ...pal('ice'), ...pal('fur')], dd = diff(nest.c, cave.c, cave.p, solid, KEEPS.snowcave.tiles);
+    assert.ok(dd.floor < 60, `${id}: ${dd.floor} pixels on the furniture's tiles`);
+    // nor in the side corners a phone held upright cuts off (the outer seventh of the room each side), nor over the tunnels' mouths
+    const { cx, isoW: hw } = cave.p.N, d0 = nest.c.img.data, d1 = cave.c.img.data, w = cave.c.width;
+    let edge = 0;
+    for (let i = 0; i < d1.length; i += 4) {
+      const x = (i / 4) % w; if (Math.abs(x - cx) < hw * 0.86) continue;
+      if ((d0[i] !== d1[i] || d0[i + 1] !== d1[i + 1] || d0[i + 2] !== d1[i + 2]) && solid.includes(hex([d1[i], d1[i + 1], d1[i + 2]]))) edge++;
+    }
+    assert.ok(edge < 20, `${id}: ${edge} pixels of it in the cut-off corners`);
+  }
+  assert.deepEqual(KEEPS.snowcave.tiles, ['0,0', '1,0', '0,1', '1,1']);
 });

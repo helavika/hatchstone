@@ -28,7 +28,7 @@ function load(d) {
   vm.runInNewContext(cut(saveJs, 'const SAVE_VERSION', 'const save = loadSave();', 'the save\'s way in should sit at the top of save.js') + '\nthis.loaded = loadSave(); this.migrate = migrate; this.bedsFor = bedsFor; this.BED_PLACES = BED_PLACES; this.BED_SPOTS = BED_SPOTS; this.HOME_KINDS = HOME_KINDS; this.freshSave = freshSave;', page);
   return { save: plain(page.loaded), page };
 }
-const sleeps = beds => beds.reduce((n, t) => n + { cot: 1, bunk: 2, tree: 4 }[t], 0);
+const sleeps = beds => beds.reduce((n, t) => n + { cot: 1, bunk: 2, tree: 4, igloo: 6 }[t], 0);
 const old = (o = {}) => ({ v: 1, stars: { 1: 3, 2: 3 }, seen: {}, shards: 100, ...o });
 const g = (id, room, o = {}) => ({ id, name: 'G' + id, sp: 'mothlet', habit: 'calm', room, ...o });
 
@@ -74,6 +74,7 @@ test('the beds an older room gets: never fewer places than sleepers, three spots
     assert.ok(beds.length >= 1 && beds.length <= page.BED_SPOTS, `${n}: ${beds}`);
     assert.ok(sleeps(beds) >= n, `${n} sleep in ${beds}`);
     assert.ok(sleeps(beds) - n <= 1 || (n === 0 && sleeps(beds) === 1), `${n}: no more than one spare place in ${beds}`);
+    assert.ok(!beds.includes('igloo'), `${n}: an igloo is only ever grown, in the snowfields' snow`);
   }
   assert.deepEqual(plain(page.bedsFor(11)), ['tree', 'tree', 'tree'], 'the most an old room held (8 + three steps of room for one more) still fits');
   assert.deepEqual(plain(page.bedsFor(5)), ['tree', 'cot']);
@@ -106,8 +107,9 @@ const bedsSrc = [
 ].join('\n');
 const CRYSTALS = [{ id: 'amethyst', rarity: 'common' }, { id: 'quartz', rarity: 'common' }, { id: 'opal', rarity: 'rare' }];
 
-/** A pretend nest with rooms (the nest, the garden outside, a playroom), what's in its pockets, and what was said. */
-function shop(o = {}) {
+/** A pretend nest with rooms (the nest, the garden outside, a playroom), what's in its pockets, and what was said; the snowfields
+ *  open or not (snow). */
+function shop(o = {}, { snow = false } = {}) {
   const did = { toasts: [], settled: 0 };
   const page = {
     save: { shards: 30, bars: { firefly: 2, nut: 1 }, geodes: {}, pantry: {}, creatures: [], rooms: [{ kind: 'nest', beds: ['cot'] }, { kind: 'yard' }, { kind: 'play', beds: ['cot'] }], room: 0, ...o },
@@ -116,6 +118,7 @@ function shop(o = {}) {
     residents: r => page.save.creatures.filter(c => !c.out && (c.room || 0) === r), bedThumb: () => 'x.png', bedStyle: () => 'nest',
     sfx: { tick() {}, levelUp() {} }, buzz() {}, toast: t => did.toasts.push(t), settleHome: () => { did.settled++; return []; },
     persist() {}, syncActors() {}, renderNest() {}, updateTopbar() {}, $: () => ({ classList: { contains: () => true } }),
+    placeOk: id => id === 'snow' ? snow : true, giveGlass: n => { page.save.frostglass = (page.save.frostglass || 0) + n; if (!page.save.frostglass) delete page.save.frostglass; },
   };
   vm.createContext(page);
   vm.runInContext(bedsSrc, page);
@@ -125,7 +128,9 @@ function shop(o = {}) {
 test('how many fit in a room is its beds\' places: a cot one, a bunk two, a nest-tree four; the map\'s places none', () => {
   const { page: p } = shop({ rooms: [{ kind: 'nest', beds: ['cot', 'bunk', 'tree'] }, { kind: 'yard', beds: ['tree'] }, { kind: 'play', beds: ['cot'] }, { kind: 'study' }] });
   assert.deepEqual([0, 1, 2, 3].map(i => p.homeCap(i)), [7, 0, 1, 0]);
-  assert.deepEqual(plain(p.BED_TIERS.map(t => t.id)), ['cot', 'bunk', 'tree']);
+  // (and a snow igloo six, the fourth bed, once the snowfields are open)
+  assert.deepEqual(plain(p.BED_TIERS.map(t => t.id)), ['cot', 'bunk', 'tree', 'igloo']);
+  assert.equal(shop({ rooms: [{ kind: 'nest', beds: ['igloo', 'tree'] }] }).page.homeCap(0), 10);
 });
 
 test('the first cot: a free spot, 40 shards and a snack bar (the smallest goes), and the nest sleeps two', () => {
@@ -179,6 +184,46 @@ test('three cots: the next is a bunk grown from one, for shards, a spare geode a
   assert.equal(s.page.nextBed(0), null);
   assert.equal(s.page.buildBed(0), false);
   assert.match(s.page.marketBeds(), /as roomy as it gets/);
+  assert.doesNotMatch(s.page.marketBeds(), /igloo/i, 'no igloo while the snowfields are shut');
+});
+
+test('once the snowfields are open, a nest-tree grows into a snow igloo for 6: shards, frostglass, spare geodes, produce and a bar', () => {
+  const rich = () => ({ shards: 1000, frostglass: 40, bars: { firefly: 1, star: 1 }, geodes: { quartz: { count: 5 } }, pantry: { tea: 6 } });
+  const s = shop({ ...rich(), rooms: [{ kind: 'nest', beds: ['tree', 'bunk', 'tree'] }, { kind: 'yard' }] }, { snow: true });
+  // the smallest grows first still: the bunk into a nest-tree, and only then a nest-tree into an igloo
+  assert.equal(s.page.nextBed(0).tier.id, 'tree');
+  assert.equal(s.page.buildBed(0), true);
+  const nb = s.page.nextBed(0);
+  assert.deepEqual([nb.spot, nb.tier.id, nb.up, nb.from.id], [0, 'igloo', true, 'tree']);
+  assert.deepEqual(plain(nb.tier.cost), { shards: 400, glass: 30, geode: 2, crop: 4, bar: 1 });
+  Object.assign(s.save, rich());
+  assert.equal(s.page.buildBed(0), true);
+  assert.deepEqual(plain(s.save.rooms[0].beds), ['igloo', 'tree', 'tree']);
+  assert.equal(s.page.homeCap(0), 14);
+  assert.deepEqual([s.save.shards, s.save.frostglass, s.save.geodes.quartz.count, s.save.pantry.tea, s.save.bars.firefly], [600, 10, 3, 2, 0]);
+  assert.equal(s.did.toasts.at(-1), 'The bed in the nest grew into a snow igloo ✦ room for 14 there now');
+  // all three: 18, and then it is as roomy as it gets
+  for (let k = 0; k < 2; k++) { Object.assign(s.save, rich()); assert.equal(s.page.buildBed(0), true); }
+  assert.deepEqual(plain(s.save.rooms[0].beds), ['igloo', 'igloo', 'igloo']);
+  assert.equal(s.page.homeCap(0), 18);
+  assert.equal(s.page.nextBed(0), null);
+  assert.match(s.page.marketBeds(), /as roomy as it gets/);
+});
+
+test('short of frostglass (or anything), no igloo: nothing is taken and the shop says what is missing; shut snowfields offer none', () => {
+  const s = shop({ shards: 500, frostglass: 12, bars: { nut: 1 }, geodes: { quartz: { count: 3 } }, pantry: { tea: 4 }, rooms: [{ kind: 'nest', beds: ['tree', 'tree', 'tree'] }, { kind: 'yard' }] }, { snow: true });
+  assert.deepEqual(plain(s.page.bedShort(s.page.nextBed(0).tier.cost)), [['glass', 18]]);
+  assert.equal(s.page.buildBed(0), false);
+  assert.deepEqual([s.save.shards, s.save.frostglass, plain(s.save.rooms[0].beds), s.did.toasts.length], [500, 12, ['tree', 'tree', 'tree'], 0]);
+  const html = s.page.marketBeds();
+  assert.match(html, /<span>\[igloo\]Next: nest-tree into a snow igloo:<\/span>/);
+  assert.match(html, /\[glass\]12\/30/);
+  assert.match(html, /Still needed: frostglass ×18 \(from Runa's ice hole in the snowfields\)/);
+  assert.match(html, /data-bedbuild="0" disabled/);
+  // an igloo already built (the snowfields were open then) stays, and sleeps its 6; but nothing grows past a nest-tree while they're shut
+  const shut = shop({ shards: 1000, frostglass: 99, rooms: [{ kind: 'nest', beds: ['igloo', 'tree', 'tree'] }, { kind: 'yard' }] });
+  assert.equal(shut.page.homeCap(0), 14);
+  assert.equal(shut.page.nextBed(0), null);
 });
 
 test('the first cot fits the first session: a new nest\'s shards and one plain crack of level 1 pay for it', () => {

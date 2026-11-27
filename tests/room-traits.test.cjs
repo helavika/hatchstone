@@ -37,7 +37,7 @@ test('the playroom keeps boredom off, the moss garden deepens sleep, the study t
 
 test('each bought room says its trait in one line, in both languages', () => {
   const kinds = [...cut(nest, 'const ROOM_KINDS = [', '];').matchAll(/id: "(\w+)".*?trait: "([^"]+)"/g)];
-  assert.deepEqual(kinds.map(m => m[1]), ['play', 'garden', 'study']);
+  assert.deepEqual(kinds.map(m => m[1]), ['play', 'garden', 'study', 'snowcave']);
   for (const [, , t] of kinds) assert.ok(i18n.includes(JSON.stringify(t) + ':'), t);
   assert.match(nest, /k\.trait \? `<small class="reno-trait">✦ \$\{tr\(k\.trait\)\}<\/small>`/);
 });
@@ -49,4 +49,25 @@ test('a glowling out helping grows an xp every half hour; one just out exploring
   assert.equal(helper.tummy, 80, 'needing nothing while away');
   const v = world('nest'); v.ctx.applyTime(glowling({ out: true }), 1 + 75 * 60000);
   assert.deepEqual(v.xp, []);
+});
+
+// the snow cave (snow step 5): who lives there huddles up for warmth, and every meeting counts twice toward being friends
+test('in the snow cave a meeting counts twice: friends in three meetings, not five; anywhere else as before', () => {
+  const src = [cut(save, 'const ROOM_TRAITS', '\nconst STUDY_MIN'), cut(save, 'const roomTrait', '\n'), cut(nest, 'function palMet(', '\n}\n') + '\n}', 'this.palMet = palMet; this.ROOM_TRAITS = ROOM_TRAITS;'].join('\n');
+  const meet = kind => {
+    const said = [], ctx = { save: { rooms: [{ kind: 'nest' }, { kind }] }, roomOf: c => c.room, remember: (c, k, n) => said.push([c.id, k, n]) };
+    vm.createContext(ctx); vm.runInContext(src, ctx);
+    const a = { id: 1, name: 'A', room: 1 }, b = { id: 2, name: 'B', room: 1 }, made = [];
+    for (let k = 0; k < 5; k++) made.push(ctx.palMet(a, b));
+    return { a, made, said };
+  };
+  const cave = meet('snowcave'), nestOnly = meet('nest');
+  assert.deepEqual(cave.made, [false, false, true, false, false], 'friends at the third meeting');
+  assert.equal(cave.a.pals[2], 10);
+  assert.deepEqual(cave.said, [[1, 'Became friends with {0} ♥', 'B']], 'and remembered once');
+  assert.deepEqual(nestOnly.made, [false, false, false, false, true]);
+  assert.equal(nestOnly.a.pals[2], 5);
+  // the room's meetings go through it (the old count of one each is gone)
+  const iso = read('iso.js');
+  assert.match(iso, /\[\[cr, fc\], \[fc, cr\]\]\.map\(\(\[c, o\]\) => \{ c\.joy = clamp\(c\.joy \+ 3, 0, 100\); return palMet\(c, o\); \}\)/);
 });

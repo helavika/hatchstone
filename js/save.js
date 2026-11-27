@@ -99,12 +99,13 @@ function helpersSaveOf(creatures) {
  * before beds gets, once, just enough to sleep everyone who lives there now, in whole beds (big ones first, the last spot
  * the smallest that still fits, so it rounds up only there), and a cot at least; whoever was already out exploring stays out, as before.
  */
-const BED_PLACES = { cot: 1, bunk: 2, tree: 4 }, BED_SPOTS = 3, HOME_KINDS = ["nest", "play", "garden", "study"];
+const BED_PLACES = { cot: 1, bunk: 2, tree: 4, igloo: 6 }, BED_SPOTS = 3, HOME_KINDS = ["nest", "play", "garden", "study", "snowcave"];
 /** What each step of the old "room for one more" cost (NEST_UP_COST before beds): given back to a save that bought them. */
 const NEST_UP_PAID = [150, 300, 500];
-/** Beds that sleep n in BED_SPOTS spots (12 at most): nest-trees while four or more are left, then a bunk, a cot; the last spot the smallest that fits. */
+/** Beds that sleep n in BED_SPOTS spots (12 at most): nest-trees while four or more are left, then a bunk, a cot; the last spot the smallest that fits.
+ *  (never an igloo: those grow from a nest-tree in the snowfields' snow, and no older room had one) */
 function bedsFor(n) {
-  const beds = [], tiers = Object.keys(BED_PLACES);
+  const beds = [], tiers = ["cot", "bunk", "tree"];
   for (let left = n; left > 0 && beds.length < BED_SPOTS;) {
     const t = beds.length === BED_SPOTS - 1 ? tiers.find(k => BED_PLACES[k] >= left) || "tree" : left >= BED_PLACES.tree ? "tree" : left >= BED_PLACES.bunk ? "bunk" : "cot";
     beds.push(t); left -= BED_PLACES[t];
@@ -302,10 +303,11 @@ const homeQuiet = () => save.creatures.some(cr => keptQuiet(cr));
 /** Real time passes in the nest too, gently: needs drift down, sleep refills energy. */
 /**
  * What a room at home gives whoever lives in it, gently (#254): the playroom keeps boredom off a little, the moss garden's
- * beds make sleep deeper, the crystal study teaches a little while awake (an xp every STUDY_MIN minutes). Room space keeps
+ * beds make sleep deeper, the crystal study teaches a little while awake (an xp every STUDY_MIN minutes), and in the snow cave
+ * they huddle up for warmth: every meeting there counts twice toward being friends (huddle; see palMet in nest.js). Room space keeps
  * anyone from piling everyone into one.
  */
-const ROOM_TRAITS = { play: { joy: 0.65 }, garden: { rest: 1.35 }, study: { learn: true } };
+const ROOM_TRAITS = { play: { joy: 0.65 }, garden: { rest: 1.35 }, study: { learn: true }, snowcave: { huddle: 2 } };
 const STUDY_MIN = 30, HELP_GROW_MIN = 30;
 const roomTrait = cr => ROOM_TRAITS[save.rooms[roomOf(cr)]?.kind] || {};
 /**

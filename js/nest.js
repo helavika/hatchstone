@@ -895,6 +895,14 @@ const onTrip = () => save.creatures.filter(c => c.trip);
 const kindOf = c => specOf(c).beh || BEHAVIOR[c.sp] || "dance";
 /** Friends: two who have met five times or more (either of them remembers). */
 const areFriends = (a, b) => Math.max((a.pals || {})[b.id] || 0, (b.pals || {})[a.id] || 0) >= 5;
+/** One more meeting with o, in c's memory: two in the snow cave, where who lives there huddles up for warmth (huddle in ROOM_TRAITS).
+ *  True when it has just made them friends. */
+function palMet(c, o) {
+  const was = (c.pals || {})[o.id] || 0, n = was + (roomTrait(c).huddle || 1);
+  c.pals = { ...c.pals, [o.id]: n };
+  if (was < 5 && n >= 5) { remember(c, "Became friends with {0} ♥", o.name); return true; }
+  return false;
+}
 const tripSuits = (pl, c) => pl.suits.includes(kindOf(c));
 /** Who went along, if they're still out there together (someone called home early leaves the other to finish alone). */
 const tripMate = c => c.trip.with == null ? undefined : save.creatures.find(x => x !== c && x.id === c.trip.with && x.trip && x.trip.with === c.id);
@@ -1513,6 +1521,8 @@ const ROOM_KINDS = [
   { id: "play", name: "Playroom", cost: 250, note: "a bright room for toys and games", trait: "who lives here gets bored more slowly" },
   { id: "garden", name: "Moss garden", cost: 500, theme: "glowcap", note: "glowcap beds, a spring and light through a crack in the vault", trait: "who lives here sleeps deeper on the moss" },
   { id: "study", name: "Crystal study", cost: 900, theme: "celestite", note: "quiet, blue and full of crystals", trait: "who lives here learns a little while awake" },
+  // (snow: only once the snowfields are open, and it takes frostglass from there as well as shards)
+  { id: "snowcave", name: "Snow cave", cost: 1200, glass: 50, snow: true, theme: "frost", note: "snowdrifts, ice columns and a fur rug, and frost on the window", trait: "who lives here makes friends twice as fast, huddling for warmth" },
   { id: "lab", name: "Laboratory", place: true, theme: "abbey" },
   { id: "shop", name: "Shop", place: true, theme: "smithy" },
   { id: "forge", name: "The Forge", place: true, theme: "smithy" },
@@ -1527,7 +1537,10 @@ const roomKind = i => ROOM_KINDS.find(k => k.id === save.rooms[i].kind) || ROOM_
 /** Are we outside, in the garden under the sky? */
 const isOutside = (i = save.room) => save.rooms[i]?.kind === "yard";
 /** The next room you can add (Outside comes free). */
-const nextRoomKind = () => ROOM_KINDS.find(k => k.cost && !save.rooms.some(r => r.kind === k.id));
+const nextRoomKind = () => ROOM_KINDS.find(k => k.cost && roomOffered(k) && !save.rooms.some(r => r.kind === k.id));
+/** Is this room one Tansy's cousin can carve yet (the snow cave, once the snowfields are open)? And what it still lacks: shards, frostglass. */
+const roomOffered = k => !k.snow || placeOk("snow");
+const roomShort = k => save.shards < k.cost || (save.frostglass || 0) < (k.glass || 0);
 const roomName = i => tr(roomKind(i).name);
 /** The incubator lives in the lab; every room has its own bed. */
 const incHere = () => save.rooms[save.room]?.kind === "lab";
@@ -2208,21 +2221,24 @@ function marketReno() {
   const next = nextRoomKind();
   return marketBeds()
     + `<h3 class="forge-h">${tr("New rooms")}</h3><p class="me-hint">${tr("Tansy's cousin carves new rooms into the rock: each opens off the last one at home, through a new tunnel.")}</p>`
-    + ROOM_KINDS.filter(k => k.cost).map(k => {
+    + ROOM_KINDS.filter(k => k.cost && roomOffered(k)).map(k => {
       const built = save.rooms.some(r => r.kind === k.id), soon = !built && next && next.id !== k.id;
-      return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.theme || "amethyst", true)}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small>${k.trait ? `<small class="reno-trait">✦ ${tr(k.trait)}</small>` : ""}</span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${save.shards < k.cost ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;
+      // (the snow cave takes frostglass as well: how much you have of it, and plainly what's missing, as a bed's things are)
+      const glass = k.glass && !built ? `<small class="bed-next">${tr("Also: {0}", `<span class="bed-need${(save.frostglass || 0) < k.glass ? " short" : ""}">${ic("glass")}${Math.min(k.glass, save.frostglass || 0)}/${k.glass}</span>`)}</small>`
+        + ((save.frostglass || 0) < k.glass ? `<small class="bed-miss">${tr("Still needed: {0}", `${tr("frostglass")} ×${k.glass - (save.frostglass || 0)} (${tr("from Runa's ice hole in the snowfields")})`)}</small>` : "") : "";
+      return `<div class="snack seed reno${built ? " built" : ""}"><img class="em reno-img" src="${themeThumb(k.theme || "amethyst", true)}" alt=""><span><b>${tr(k.name)}</b><small>${tr(k.note)}</small>${k.trait ? `<small class="reno-trait">✦ ${tr(k.trait)}</small>` : ""}${glass}</span><span class="seed-btns">${built ? `<small class="only">${tr("built ✓")}</small>` : soon ? `<small class="only">${ic("lock")}${tr("next after {0}", tr(next.name).toLowerCase())}</small>` : `<button class="act buy" data-build="${k.id}" ${roomShort(k) ? "disabled" : ""}>✦ ${k.cost}</button>`}</span></div>`;
     }).join("");
 }
 /** The shop's beds: each room at home, who lives there and how many its beds sleep, and the one next bed for it, with what it
- *  takes and, plainly, what's still missing. A room has BED_SPOTS spots: once they're all nest-trees, it's as full as it gets. */
+ *  takes and, plainly, what's still missing. A room has BED_SPOTS spots: once they're all nest-trees (snow igloos, once the snowfields are open), it's as full as it gets. */
 function marketBeds() {
   const need = (k, n) => `<span class="bed-need${BED_STUFF[k].have() < n ? " short" : ""}">${ic(BED_STUFF[k].icon)}${k === "shards" ? n : `${Math.min(n, BED_STUFF[k].have())}/${n}`}</span>`;
   const row = i => {
     const beds = bedsOf(i), nb = nextBed(i), short = nb ? bedShort(nb.tier.cost) : [];
-    const has = beds.map(t => tr(bedTier(t).name)).join(" · ") + (beds.length < BED_SPOTS ? ` · ${tr("spots free: {0}", BED_SPOTS - beds.length)}` : "");
+    const has = beds.map(t => (bedTier(t).icon ? ic(bedTier(t).icon) : "") + tr(bedTier(t).name)).join(" · ") + (beds.length < BED_SPOTS ? ` · ${tr("spots free: {0}", BED_SPOTS - beds.length)}` : "");
     const what = nb && (nb.up ? tr("Next: {0} into a {1}", tr(nb.from.name).toLowerCase(), tr(nb.tier.name).toLowerCase()) : tr("Next: a {0}", tr(nb.tier.name).toLowerCase()));
     return `<div class="snack seed reno bedrow"><img class="em" src="${bedThumb(bedStyle(i))}" alt=""><span><b>${roomName(i)} <em>${residents(i).length}/${homeCap(i)}</em></b><small>${has}</small>`
-      + (nb ? `<small class="bed-next">${what}: ${Object.entries(nb.tier.cost).map(([k, n]) => need(k, n)).join("")}</small>`
+      + (nb ? `<small class="bed-next"><span>${nb.tier.icon ? ic(nb.tier.icon) : ""}${what}:</span> ${Object.entries(nb.tier.cost).map(([k, n]) => need(k, n)).join("")}</small>`
         + (short.length ? `<small class="bed-miss">${tr("Still needed: {0}", short.map(([k, n]) => k === "shards" ? "✦ " + n : `${tr(BED_STUFF[k].name)} ×${n} (${tr(BED_STUFF[k].where)})`).join(", "))}</small>` : "") : "")
       + `</span><span class="seed-btns">${nb ? `<button class="act buy" data-bedbuild="${i}" ${short.length ? "disabled" : ""}>${ic("hammer")}${tr(nb.up ? "Grow" : "Build")}</button>` : `<small class="only">${tr("as roomy as it gets ✦")}</small>`}</span></div>`;
   };
@@ -2232,8 +2248,9 @@ function marketBeds() {
 /** A new room comes with a moss cot in it: one more place at home, and BED_SPOTS more for beds. */
 function buildRoom(id, quiet = false) {
   const kind = nextRoomKind();
-  if (!kind || kind.id !== id || save.shards < kind.cost) return;
+  if (!kind || kind.id !== id || roomShort(kind)) return;
   save.shards -= kind.cost;
+  if (kind.glass) giveGlass(-kind.glass);
   save.rooms.push({ kind: kind.id, on: [], theme: kind.theme || null, beds: ["cot"] });
   // (the first time you walk in, the one you look after is surprised by it: see goRoom)
   game.nest.freshRoom = save.rooms.length - 1;
@@ -2331,7 +2348,11 @@ const BED_TIERS = [
   { id: "cot", name: "Moss cot", note: "a moss mattress for one", cost: { shards: 40, bar: 1 } },
   { id: "bunk", name: "Bunk", note: "two cots, one over the other: sleeps 2", cost: { shards: 100, geode: 1, crop: 2 } },
   { id: "tree", name: "Nest-tree", note: "a hollow root with snug nooks: sleeps 4", cost: { shards: 250, geode: 2, crop: 3, bar: 1 } },
+  // (snow: only once the snowfields are open, packed out of their snow round a nest-tree, with frostglass for its glowing door)
+  { id: "igloo", name: "Snow igloo", note: "snow blocks round a glowing door: sleeps 6", icon: "igloo", snow: true, cost: { shards: 400, glass: 30, geode: 2, crop: 4, bar: 1 } },
 ];
+/** The beds the shop builds now: the snow igloo only once the snowfields are open. */
+const bedTiers = () => BED_TIERS.filter(t => !t.snow || placeOk("snow"));
 const bedTier = id => BED_TIERS.find(t => t.id === id);
 /** What a bed takes, how much of it you have, and taking it: snack bars of any kind (the smallest first), spare common
  *  geodes (the first of a kind always stays in the book), and what the garden grows (any of it, the most plentiful first). */
@@ -2342,13 +2363,15 @@ const BED_STUFF = {
   geode: { icon: "egg", name: "spare geode", where: "crack a kind you already have", have: () => spares("common"), take: n => { for (let k = 0; k < n; k++) save.geodes[spareOf("common").id].count--; } },
   crop: { icon: "sprout", name: "garden produce", where: "grow it in the garden", have: () => cropsHave().reduce((n, [, v]) => n + Math.max(0, v), 0),
     take: n => { for (let k = 0; k < n; k++) { const [id, v] = cropsHave().sort((p, q) => q[1] - p[1])[0]; save.pantry = { ...save.pantry, [id]: v - 1 }; } } },
+  glass: { icon: "glass", name: "frostglass", where: "from Runa's ice hole in the snowfields", have: () => save.frostglass || 0, take: n => giveGlass(-n) },
 };
-/** The next bed for a home room: a cot in a free spot, else its smallest bed one size up; null when it's all nest-trees. */
+/** The next bed for a home room: a cot in a free spot, else its smallest bed one size up; null when it's all of the biggest
+ *  the shop builds now (nest-trees, or once the snowfields are open, snow igloos). */
 function nextBed(i = save.room) {
   if (isPlace(i)) return null;
-  const beds = bedsOf(i);
+  const beds = bedsOf(i), top = bedTiers().length - 1;
   if (beds.length < BED_SPOTS) return { spot: beds.length, tier: BED_TIERS[0], up: false };
-  const k = beds.map((t, j) => j).filter(j => beds[j] !== BED_TIERS.at(-1).id).sort((p, q) => BED_PLACES[beds[p]] - BED_PLACES[beds[q]])[0];
+  const k = beds.map((t, j) => j).filter(j => BED_TIERS.findIndex(t => t.id === beds[j]) < top).sort((p, q) => BED_PLACES[beds[p]] - BED_PLACES[beds[q]])[0];
   return k === undefined ? null : { spot: k, tier: BED_TIERS[BED_TIERS.findIndex(t => t.id === beds[k]) + 1], up: true, from: bedTier(beds[k]) };
 }
 /** What a cost still lacks: [what, how many more], none when you have it all. */
@@ -2448,7 +2471,7 @@ function offerSpace(sent) {
   const next = nextRoomKind();
   $("spaceSub").textContent = tr("{0} went out exploring the grotto: every bed at home is taken.", sent.map(c => c.name).join(", "));
   $("spaceActs").innerHTML = (placeOk("shop") ? `<button class="act buy" data-space="bed">${ic("nest")}${tr("Beds at the shop")}</button>` : "")
-    + (next ? `<button class="act" data-space="room" ${save.shards < next.cost ? "disabled" : ""}>${ic("hammer")}${tr("Carve a new room: {0}", tr(next.name).toLowerCase())} · ✦ ${next.cost}</button>` : "")
+    + (next ? `<button class="act" data-space="room" ${roomShort(next) ? "disabled" : ""}>${ic("hammer")}${tr("Carve a new room: {0}", tr(next.name).toLowerCase())} · ✦ ${next.cost}${next.glass ? ` ${ic("glass")}${next.glass}` : ""}</button>` : "")
     + (placeOk("trail") ? `<button class="act" data-space="trip">${ic("compass")}${tr("Send someone on an expedition")}</button>` : "")
     + `<button class="act" data-space="home">${ic("heart")}${tr("Who lives where")}</button>`;
   $$("#spaceActs [data-space]").forEach(b => b.addEventListener("click", () => {

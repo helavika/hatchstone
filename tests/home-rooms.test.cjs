@@ -285,3 +285,60 @@ test('the help, the hints and the toasts speak of tunnels and cave moods, in bot
   }
   assert.match(read('crack.js'), /decor: \{ text: "Decorate the nest or change its cave mood"/);
 });
+
+// ---------- the snow cave (snow step 5) ----------
+
+const caveSrc = [
+  cut(nest, 'const ROOM_KINDS = [', '\n];', 'ROOM_KINDS') + '\n];',
+  line(nest, /^const nextRoomKind = .*$/m, 'nextRoomKind'), line(nest, /^const roomOffered = .*$/m, 'roomOffered'), line(nest, /^const roomShort = .*$/m, 'roomShort'),
+  cut(nest, 'function marketReno()', '\n/** The shop\'s beds', 'marketReno'),
+  cut(nest, 'function buildRoom(', '\n}\n', 'buildRoom') + '\n}',
+  'Object.assign(this, { ROOM_KINDS, nextRoomKind, marketReno, buildRoom });',
+].join('\n');
+/** A home with every room up to the crystal study, these shards and frostglass, the snowfields open or not. */
+function caves({ snow = false, shards = 2000, frostglass = 60, kinds = ['nest', 'yard', 'play', 'garden', 'study'] } = {}) {
+  const toasts = [];
+  const page = {
+    save: { shards, frostglass, rooms: kinds.map(kind => ({ kind, on: [] })) }, game: { nest: {} }, placeOk: id => id === 'snow' ? snow : true,
+    tr: (s, ...a) => s.replace(/\{(\d)\}/g, (_, i) => a[i]), ic: n => `[${n}]`, themeThumb: t => `thumb:${t}`, marketBeds: () => '', toast: t => toasts.push(t),
+    giveGlass: n => { page.save.frostglass += n; }, sfx: { levelUp() {} }, buzz() {}, persist() {}, updateTopbar() {}, openShop() {},
+  };
+  vm.runInNewContext(caveSrc, page);
+  return { page, save: page.save, toasts };
+}
+
+test('the snow cave: after the study, once the snowfields are open, for ✦ 1200 and 50 frostglass, on Frost Hollow, with its trait', () => {
+  const shut = caves();
+  assert.equal(shut.page.nextRoomKind(), undefined, 'not offered while the snowfields are shut');
+  assert.doesNotMatch(shut.page.marketReno(), /Snow cave|data-build="snowcave"/);
+  shut.page.buildRoom('snowcave');
+  assert.equal(shut.save.rooms.length, 5);
+  const k = caves({ snow: true }).page.ROOM_KINDS.find(r => r.id === 'snowcave');
+  assert.deepEqual([k.cost, k.glass, k.theme, k.trait], [1200, 50, 'frost', 'who lives here makes friends twice as fast, huddling for warmth']);
+  // open, and not before the study: next after it
+  const early = caves({ snow: true, kinds: ['nest', 'yard', 'play'] });
+  assert.match(early.page.marketReno(), /Snow cave.*next after moss garden/);
+  const c = caves({ snow: true }), html = c.page.marketReno();
+  assert.match(html, /thumb:frost.*Snow cave.*✦ who lives here makes friends twice as fast.*Also: <span class="bed-need">\[glass\]50\/50<\/span>.*data-build="snowcave" >✦ 1200</);
+  assert.doesNotMatch(html, /Still needed/);
+  c.page.buildRoom('snowcave');
+  assert.deepEqual(plain(c.save.rooms.at(-1)), { kind: 'snowcave', on: [], theme: 'frost', beds: ['cot'] });
+  assert.deepEqual([c.save.shards, c.save.frostglass], [800, 10]);
+  assert.deepEqual(plain(c.toasts), ['A new room: Snow cave ✦ it opens off the last room at home']);
+  assert.equal(c.page.nextRoomKind(), undefined, 'and it is the last room to carve');
+});
+
+test('short of shards or of frostglass, the snow cave is not carved, and its button is off', () => {
+  for (const [shards, frostglass] of [[1199, 60], [2000, 49]]) {
+    const c = caves({ snow: true, shards, frostglass });
+    assert.match(c.page.marketReno(), /data-build="snowcave" disabled/);
+    if (frostglass < 50) assert.match(c.page.marketReno(), /bed-need short">\[glass\]49\/50.*Still needed: frostglass ×1 \(from Runa's ice hole in the snowfields\)/);
+    c.page.buildRoom('snowcave');
+    assert.deepEqual([c.save.rooms.length, c.save.shards, c.save.frostglass], [5, shards, frostglass]);
+  }
+  // the home-full sheet offers it at its full price too
+  assert.match(nest, /data-space="room" \$\{roomShort\(next\) \? "disabled" : ""\}.*next\.glass \? ` \$\{ic\("glass"\)\}\$\{next\.glass\}`/);
+  // and every word of it is in Ukrainian
+  const i18n = read('i18n.js'), k = caves().page.ROOM_KINDS.find(r => r.id === 'snowcave');
+  for (const s of [k.name, k.note, k.trait]) assert.ok(i18n.includes(`  ${JSON.stringify(s)}: "`), s);
+});
